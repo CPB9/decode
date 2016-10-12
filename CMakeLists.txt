@@ -7,14 +7,14 @@ add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 add_library(decode
     src/decode/Config.h
     src/decode/Rc.h
+    src/decode/parser/Ast.cpp
+    src/decode/parser/Ast.h
     src/decode/parser/Decl.h
     src/decode/parser/Location.h
     src/decode/parser/Parser.cpp
     src/decode/parser/Parser.h
     src/decode/parser/Lexer.cpp
     src/decode/parser/Lexer.h
-    src/decode/parser/ParseTree.cpp
-    src/decode/parser/ParseTree.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
 )

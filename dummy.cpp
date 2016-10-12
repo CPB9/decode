@@ -1,4 +1,5 @@
-#include "decode/parser/Lexer.h"
+#include "decode/parser/Parser.h"
+#include "decode/parser/Ast.h"
 
 #include <bmcl/FileUtils.h>
 #include <bmcl/Result.h>
@@ -8,6 +9,11 @@
 
 int main()
 {
-    auto rv = bmcl::readFileIntoString("../example.decode");
-    decode::parser::Lexer lexer(bmcl::StringView(rv.unwrap()));
+    decode::parser::Parser p;
+    auto rv = p.parseFile("../example.decode");
+    if (rv.isOk()) {
+        BMCL_DEBUG() << "ok";
+    } else {
+        BMCL_DEBUG() << "nok";
+    }
 }

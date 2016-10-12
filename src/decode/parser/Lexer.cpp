@@ -19,19 +19,19 @@ struct Identifier
 struct Eof
         : pegtl::eof {};
 
+struct Eol
+        : pegtl::eol {};
+
 // space
 
-struct Space
-        : pegtl::one<' ', '\r', '\n', '\t'> {};
-
-struct Whitespace
-        : pegtl::plus<Space> {};
+struct Blank
+        : pegtl::plus<pegtl::one<' ', '\t'>> {};
 
 // keywords
 
 #define KEYWORD_RULE(name, str) \
 struct name \
-        : pegtl::seq<pegtl_string_t(str), pegtl::at<pegtl::sor<Space, pegtl::eof>>> {};
+        : pegtl::seq<pegtl_string_t(str), pegtl::at<pegtl::sor<Blank, Eol, Eof>>> {};
 
 KEYWORD_RULE(Module,     "module");
 KEYWORD_RULE(Import,     "import");
@@ -137,7 +137,8 @@ struct Helper
 struct Grammar
         : Helper<DocComment,
                  RawComment,
-                 Whitespace,
+                 Blank,
+                 Eol,
                  Comma,
                  DoubleColon,
                  Colon,
@@ -170,20 +171,14 @@ struct Grammar
                  Statuses,
                  Command,
                  Identifier,
-                 Number
+                 Number,
+                 Eof
                  > {};
 }
 
 template <typename Rule>
 struct Action
         : pegtl::nothing<Rule> {};
-
-template <>
-struct Action<grammar::Identifier> {
-    static void apply(const pegtl::input& in, std::vector<Token>* tokens)
-    {
-    }
-};
 
 #define RULE_TO_TOKEN(name) \
 template <> \
@@ -200,13 +195,14 @@ RULE_TO_TOKEN(Comma);
 RULE_TO_TOKEN(DoubleColon);
 RULE_TO_TOKEN(Colon);
 RULE_TO_TOKEN(SemiColon);
-RULE_TO_TOKEN(Whitespace);
+RULE_TO_TOKEN(Blank);
 RULE_TO_TOKEN(LBracket);
 RULE_TO_TOKEN(RBracket);
 RULE_TO_TOKEN(LBrace);
 RULE_TO_TOKEN(RBrace);
 RULE_TO_TOKEN(LParen);
 RULE_TO_TOKEN(RParen);
+RULE_TO_TOKEN(Identifier);
 RULE_TO_TOKEN(LessThen);
 RULE_TO_TOKEN(MoreThen);
 RULE_TO_TOKEN(Star);
@@ -219,6 +215,7 @@ RULE_TO_TOKEN(RightArrow);
 RULE_TO_TOKEN(Dash);
 RULE_TO_TOKEN(Dot);
 RULE_TO_TOKEN(Number);
+RULE_TO_TOKEN(Eol);
 RULE_TO_TOKEN(Eof);
 RULE_TO_TOKEN(Module);
 RULE_TO_TOKEN(Import);
@@ -230,9 +227,43 @@ RULE_TO_TOKEN(Parameters);
 RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Command);
 
+Lexer::Lexer()
+    : _nextToken(0)
+{
+    _tokens.emplace_back();
+}
+
 Lexer::Lexer(bmcl::StringView data)
 {
-    pegtl::parse<grammar::Grammar, Action>(data.toStdString(), "asd", &_tokens);
+    reset(data);
+}
+
+void Lexer::reset(bmcl::StringView data)
+{
+    _tokens.clear();
+    _data = data;
+    _nextToken = 0;
+    //TODO: catch pegtl exceptions
+    pegtl::parse<grammar::Grammar, Action>(data.toStdString(), "", &_tokens);
+}
+
+void Lexer::peekNextToken(Token* tok)
+{
+    if (_nextToken < _tokens.size()) {
+        *tok = _tokens[_nextToken];
+    } else {
+        *tok = _tokens.back();
+    }
+}
+
+void Lexer::consumeNextToken(Token* tok)
+{
+    if (_nextToken < _tokens.size()) {
+        *tok = _tokens[_nextToken];
+        _nextToken++;
+    } else {
+        *tok = _tokens.back();
+    }
 }
 }
 }

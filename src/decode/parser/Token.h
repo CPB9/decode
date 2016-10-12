@@ -15,7 +15,7 @@ enum class TokenKind {
     Invalid = 0,
     DocComment,
     RawComment,
-    Whitespace,
+    Blank,
     Comma,
     Colon,
     DoubleColon,
@@ -48,6 +48,7 @@ enum class TokenKind {
     Parameters,
     Statuses,
     Command,
+    Eol,
     Eof,
 };
 
@@ -58,6 +59,42 @@ public:
         , _value(start, end)
         , _loc(line, column)
     {
+    }
+
+    Token()
+        : _kind(TokenKind::Invalid)
+        , _loc(0, 0)
+    {
+    }
+
+    const char* begin() const
+    {
+        return _value.begin();
+    }
+
+    std::size_t line() const
+    {
+        return _loc.line;
+    }
+
+    std::size_t column() const
+    {
+        return _loc.column;
+    }
+
+    const Location& location() const
+    {
+        return _loc;
+    }
+
+    TokenKind kind() const
+    {
+        return _kind;
+    }
+
+    bmcl::StringView value() const
+    {
+        return _value;
     }
 
 private:
