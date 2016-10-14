@@ -48,6 +48,7 @@ enum class TokenKind {
     Parameters,
     Statuses,
     Command,
+    Mut,
     Eol,
     Eof,
 };

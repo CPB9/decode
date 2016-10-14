@@ -42,6 +42,7 @@ KEYWORD_RULE(Component,  "component");
 KEYWORD_RULE(Parameters, "parameters");
 KEYWORD_RULE(Statuses,   "statuses");
 KEYWORD_RULE(Command,    "command");
+KEYWORD_RULE(Mut,    "mut");
 
 // chars
 
@@ -170,6 +171,7 @@ struct Grammar
                  Parameters,
                  Statuses,
                  Command,
+                 Mut,
                  Identifier,
                  Number,
                  Eof
@@ -226,6 +228,7 @@ RULE_TO_TOKEN(Component);
 RULE_TO_TOKEN(Parameters);
 RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Command);
+RULE_TO_TOKEN(Mut);
 
 Lexer::Lexer()
     : _nextToken(0)

@@ -8,9 +8,12 @@
 #include <bmcl/ResultFwd.h>
 
 #include <vector>
+#include <cstdint>
 
 namespace decode {
 namespace parser {
+
+enum class ReferenceType;
 
 class Lexer;
 class Decl;
@@ -20,6 +23,7 @@ class NamedDecl;
 class FileInfo;
 class ModuleInfo;
 class ImportedType;
+class Type;
 
 template <typename T>
 using ParseResult = bmcl::Result<T, void>;
@@ -41,12 +45,19 @@ private:
     void consume();
     bool skipCommentsAndSpace();
     void consumeAndSkipBlanks();
+    void skipBlanks();
     bool consumeAndSetNamedDeclName(NamedDecl* decl);
 
     bool parseModuleDecl();
     bool parseImports();
     bool parseTopLevelDecls();
     bool parseStruct();
+    Rc<Type> parseType();
+    Rc<Type> parseArrayType();
+    Rc<Type> parseSliceType();
+    Rc<Type> parseBuiltinOrResolveType();
+    Rc<Type> parseSliceOrBuiltinOrResolveType(ReferenceType refType);
+    bool parseArraySize(std::uintmax_t* dest);
 
     template <typename T>
     Rc<T> beginDecl();

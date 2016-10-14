@@ -7,6 +7,7 @@
 #include "decode/parser/Lexer.h"
 #include "decode/parser/FileInfo.h"
 #include "decode/parser/ModuleInfo.h"
+#include "decode/parser/StringSwitch.h"
 
 #include <bmcl/FileUtils.h>
 #include <bmcl/Logging.h>
@@ -15,7 +16,7 @@
 #define TRY(expr) \
     do { \
         if (!expr) { \
-            return false; \
+            return 0; \
         } \
     } while(0);
 
@@ -72,12 +73,17 @@ bool Parser::skipCommentsAndSpace()
     return true;
 }
 
-void Parser::consumeAndSkipBlanks()
+void Parser::skipBlanks()
 {
-    consume();
     while (_currentToken.kind() == TokenKind::Blank) {
         consume();
     }
+}
+
+void Parser::consumeAndSkipBlanks()
+{
+    consume();
+    skipBlanks();
 }
 
 bool Parser::consumeAndExpectCurrentToken(TokenKind expected)
@@ -207,6 +213,129 @@ bool Parser::parseTopLevelDecls()
         }
     }
     return true;
+}
+
+Rc<Type> Parser::parseType()
+{
+    TRY(skipCommentsAndSpace());
+
+    ReferenceType refType = ReferenceType::None;
+    bool isMutable = false;
+
+    auto applyParams = [this, &refType, &isMutable](const Rc<Type> type) {
+        if (!type) {
+            return Rc<Type>(nullptr);
+        }
+        type->_isMutable = isMutable;
+        type->_referenceType = refType;
+        return type;
+    };
+
+    switch (_currentToken.kind()) {
+    case TokenKind::Ampersand:
+        refType = ReferenceType::Reference;
+        consume();
+        break;
+    case TokenKind::Star:
+        refType = ReferenceType::Pointer;
+        consume();
+        break;
+    case TokenKind::LBracket:
+        return applyParams(parseArrayType());
+    case TokenKind::Identifier:
+        return applyParams(parseBuiltinOrResolveType());
+    default:
+        reportUnexpectedTokenError(_currentToken.kind());
+        return 0;
+    }
+
+    consumeAndSkipBlanks();
+
+    if (_currentToken.kind() == TokenKind::Mut) {
+        isMutable = true;
+        consume();
+    }
+
+    return applyParams(parseSliceOrBuiltinOrResolveType(refType));
+}
+
+Rc<Type> Parser::parseArrayType()
+{
+    TRY(expectCurrentToken(TokenKind::LBracket));
+    Rc<ArrayType> arrayType = new ArrayType;
+    consumeAndSkipBlanks();
+
+    Rc<Type> innerType = parseType();
+    if (!innerType) {
+        return nullptr;
+    }
+    arrayType->_elementType = std::move(innerType);
+
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Colon));
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Number));
+    TRY(parseArraySize(&arrayType->_elementCount));
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::RBracket));
+    consume();
+
+    return arrayType;
+}
+
+bool Parser::parseArraySize(std::uintmax_t* dest)
+{
+    TRY(expectCurrentToken(TokenKind::Number));
+
+    try {
+        unsigned long long value = std::stoull(_currentToken.value().toStdString());
+        //TODO: check for target overflow
+        *dest = value;
+    } catch (std::out_of_range&) {
+        return false;
+    } catch (std::invalid_argument&) {
+        return false;
+    }
+    return true;
+}
+
+Rc<Type> Parser::parseSliceOrBuiltinOrResolveType(ReferenceType refType)
+{
+    switch (_currentToken.kind()) {
+    case TokenKind::LBracket: {
+        if (refType == ReferenceType::Reference) {
+            return parseSliceType();
+        } else {
+            reportUnexpectedTokenError(_currentToken.kind());
+            return 0;
+        }
+    }
+        break;
+    case TokenKind::Identifier: {
+        return parseBuiltinOrResolveType();
+    }
+        break;
+    default:
+        reportUnexpectedTokenError(_currentToken.kind());
+        return 0;
+    }
+
+    return 0;
+}
+
+Rc<Type> Parser::parseBuiltinOrResolveType()
+{
+    BuiltinTypeKind kind = StringSwitch<BuiltinTypeKind>(_currentToken.value())
+        .Case("u8", BuiltinTypeKind::U8)
+        .Case("i8", BuiltinTypeKind::I8)
+        .Case("u16", BuiltinTypeKind::U16)
+        .Case("i16", BuiltinTypeKind::I16)
+        .Case("u32", BuiltinTypeKind::U32)
+        .Case("i32", BuiltinTypeKind::I32)
+        .Case("u64", BuiltinTypeKind::U64)
+        .Case("i64", BuiltinTypeKind::I64)
+        .Default(BuiltinTypeKind::Unknown);
+    return nullptr;
 }
 
 bool Parser::parseStruct()
