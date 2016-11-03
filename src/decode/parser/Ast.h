@@ -1,7 +1,8 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/Rc.h"
+#include "decode/core/Rc.h"
+#include "decode/core/Hash.h"
 
 #include <bmcl/StringView.h>
 
@@ -9,24 +10,12 @@
 #include <unordered_map>
 #include <functional>
 
-namespace std
-{
-    template<>
-    struct hash<bmcl::StringView>
-    {
-        std::size_t operator()(bmcl::StringView view) const
-        {
-            return std::size_t(view.begin());
-        }
-    };
-}
-
 namespace decode {
-namespace parser {
 
 class ModuleInfo;
-class ModuleDecl;
-class ImportDecl;
+class Module;
+class Import;
+class ImportedType;
 class Type;
 
 class Ast : public bmcl::RefCountable<unsigned int> {
@@ -34,15 +23,32 @@ public:
     Ast();
     ~Ast();
 
+    const std::vector<Rc<Import>>& imports() const
+    {
+        return _importDecls;
+    }
+
+    const Rc<ModuleInfo>& moduleInfo() const
+    {
+        return _moduleInfo;
+    }
+
+    const std::unordered_map<bmcl::StringView, Rc<Type>>& typeMap() const
+    {
+        return _typeNameToType;
+    }
+
 private:
     friend class Parser;
 
-    std::vector<Rc<ImportDecl>> _importDecls;
+    void addType(const Rc<Type>& type)
+    {
+    }
 
-    std::unordered_map<bmcl::StringView, Rc<Type>> _typeNameToTypeMap;
-    Rc<ModuleDecl> _moduleDecl;
+    std::vector<Rc<Import>> _importDecls;
+
+    std::unordered_map<bmcl::StringView, Rc<Type>> _typeNameToType;
+    Rc<Module> _moduleDecl;
     Rc<ModuleInfo> _moduleInfo;
 };
 }
-}
-

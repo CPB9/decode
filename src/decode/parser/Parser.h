@@ -1,7 +1,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/Rc.h"
+#include "decode/core/Rc.h"
 #include "decode/parser/Token.h"
 
 #include <bmcl/StringView.h>
@@ -11,36 +11,51 @@
 #include <cstdint>
 
 namespace decode {
-namespace parser {
 
-enum class ReferenceType;
+enum class ReferenceKind;
 
 class Lexer;
 class Decl;
 class Ast;
-class ModuleDecl;
+class Module;
 class NamedDecl;
 class FileInfo;
 class ModuleInfo;
+class EnumConstant;
+class Enum;
+class Component;
+class StructDecl;
+class Variant;
+class FieldList;
+class Record;
 class ImportedType;
 class Type;
+class Report;
+class Diagnostics;
+class Field;
 
 template <typename T>
 using ParseResult = bmcl::Result<T, void>;
 
 class DECODE_EXPORT Parser {
 public:
-    Parser();
+    Parser(const Rc<Diagnostics>& diag);
     ~Parser();
 
     ParseResult<Rc<Ast>> parseFile(const char* fileName);
-    bool parseOneFile(const char* fileName);
+
+    Location currentLoc() const; //FIXME: temp
 
 private:
+    bool parseOneFile(const char* fileName);
+    void cleanup();
 
     bool expectCurrentToken(TokenKind expected);
+    bool expectCurrentToken(TokenKind expected, const char* msg);
     bool consumeAndExpectCurrentToken(TokenKind expected);
     void reportUnexpectedTokenError(TokenKind expected);
+
+    void addLine();
 
     void consume();
     bool skipCommentsAndSpace();
@@ -52,12 +67,30 @@ private:
     bool parseImports();
     bool parseTopLevelDecls();
     bool parseStruct();
+    bool parseEnum();
+    bool parseVariant();
+    bool parseComponent();
+
+    template <typename T, typename F>
+    bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, const Rc<T>& decl, F&& fieldParser);
+
+    template <typename T, bool genericAllowed, typename F>
+    bool parseTag(TokenKind startToken, F&& fieldParser);
+
+    bool parseRecordField(const Rc<FieldList>& parent);
+    bool parseEnumConstant(const Rc<Enum>& parent);
+    bool parseVariantField(const Rc<Variant>& parent);
+    bool parseComponentField(const Rc<Component>& parent);
+
     Rc<Type> parseType();
-    Rc<Type> parseArrayType();
+    Rc<Type> parseReferenceOrSliceType();
+    Rc<Type> parsePointerType();
+    Rc<Type> parseNonReferenceType(bool sliceAllowed);
     Rc<Type> parseSliceType();
+    Rc<Type> parseArrayType(bool sliceAllowed);
     Rc<Type> parseBuiltinOrResolveType();
-    Rc<Type> parseSliceOrBuiltinOrResolveType(ReferenceType refType);
-    bool parseArraySize(std::uintmax_t* dest);
+    bool parseUnsignedInteger(std::uintmax_t* dest);
+    bool parseSignedInteger(std::intmax_t* dest);
 
     template <typename T>
     Rc<T> beginDecl();
@@ -65,11 +98,25 @@ private:
     template <typename T>
     void consumeAndEndDecl(const Rc<T>& decl);
 
+    template <typename T>
+    void endDecl(const Rc<T>& decl);
+
+    bool currentTokenIs(TokenKind kind);
+
+    void finishSplittingLines();
+
+    Rc<Report> reportCurrentTokenError(const char* msg);
+
+    Rc<Type> findDeclaredType(bmcl::StringView name) const;
+
+    Rc<Diagnostics> _diag;
+
     Token _currentToken;
     Rc<Lexer> _lexer;
     Rc<Ast> _ast;
     Rc<FileInfo> _fileInfo;
     Rc<ModuleInfo> _moduleInfo;
+
+    const char* _lastLineStart;
 };
-}
 }

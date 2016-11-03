@@ -1,13 +1,12 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/Rc.h"
-#include "decode/parser/FileInfo.h"
+#include "decode/core/Rc.h"
+#include "decode/core/FileInfo.h"
 
 #include <bmcl/StringView.h>
 
 namespace decode {
-namespace parser {
 
 class ModuleInfo : public RefCountable {
 public:
@@ -52,5 +51,3 @@ inline const std::string& ModuleInfo::fileName() const
     return _fileInfo->fileName();
 }
 }
-}
-

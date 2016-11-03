@@ -1,7 +1,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/parser/Location.h"
+#include "decode/core/Location.h"
 #include "decode/parser/Span.h"
 
 #include <bmcl/StringView.h>
@@ -9,7 +9,6 @@
 #include <cstddef>
 
 namespace decode {
-namespace parser {
 
 enum class TokenKind {
     Invalid = 0,
@@ -43,12 +42,13 @@ enum class TokenKind {
     Import,
     Struct,
     Enum,
-    Union,
+    Variant,
     Component,
     Parameters,
     Statuses,
     Command,
     Mut,
+    Const,
     Eol,
     Eof,
 };
@@ -71,6 +71,11 @@ public:
     const char* begin() const
     {
         return _value.begin();
+    }
+
+    const char* end() const
+    {
+        return _value.end();
     }
 
     std::size_t line() const
@@ -103,5 +108,4 @@ private:
     bmcl::StringView _value;
     Location _loc;
 };
-}
 }

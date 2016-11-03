@@ -9,15 +9,11 @@
 #include <pegtl/ascii.hh>
 
 namespace decode {
-namespace parser {
 
 namespace grammar {
 
 struct Identifier
         : pegtl::identifier {};
-
-struct Eof
-        : pegtl::eof {};
 
 struct Eol
         : pegtl::eol {};
@@ -31,18 +27,19 @@ struct Blank
 
 #define KEYWORD_RULE(name, str) \
 struct name \
-        : pegtl::seq<pegtl_string_t(str), pegtl::at<pegtl::sor<Blank, Eol, Eof>>> {};
+        : pegtl::seq<pegtl_string_t(str), pegtl::at<pegtl::sor<Blank, Eol, pegtl::eof>>> {};
 
 KEYWORD_RULE(Module,     "module");
 KEYWORD_RULE(Import,     "import");
 KEYWORD_RULE(Struct,     "struct");
 KEYWORD_RULE(Enum,       "enum");
-KEYWORD_RULE(Union,      "union");
+KEYWORD_RULE(Variant,      "variant");
 KEYWORD_RULE(Component,  "component");
 KEYWORD_RULE(Parameters, "parameters");
 KEYWORD_RULE(Statuses,   "statuses");
 KEYWORD_RULE(Command,    "command");
-KEYWORD_RULE(Mut,    "mut");
+KEYWORD_RULE(Mut,        "mut");
+KEYWORD_RULE(Const,      "const");
 
 // chars
 
@@ -116,7 +113,7 @@ struct DoubleDot
 
 template <typename... A>
 struct Comment
-        : pegtl::disable<pegtl::seq<A..., pegtl::until<pegtl::eolf>>> {};
+        : pegtl::disable<pegtl::seq<A..., pegtl::until<pegtl::at<pegtl::eolf>>>> {};
 
 struct RawComment
         : Comment<Slash, Slash> {};
@@ -133,7 +130,7 @@ struct Number
 
 template <typename... A>
 struct Helper
-        : pegtl::must<pegtl::star<pegtl::sor<A...>>, Eof> {};
+        : pegtl::must<pegtl::plus<pegtl::sor<A...>>, pegtl::eof> {};
 
 struct Grammar
         : Helper<DocComment,
@@ -166,15 +163,15 @@ struct Grammar
                  Import,
                  Struct,
                  Enum,
-                 Union,
+                 Variant,
                  Component,
                  Parameters,
                  Statuses,
                  Command,
                  Mut,
+                 Const,
                  Identifier,
-                 Number,
-                 Eof
+                 Number
                  > {};
 }
 
@@ -187,7 +184,7 @@ template <> \
 struct Action<grammar::name> {\
     static void apply(const pegtl::input& in, std::vector<Token>* tokens)\
     {\
-        tokens->emplace_back(TokenKind::name, in.begin(), in.end(), in.line(), in.column());\
+        tokens->emplace_back(TokenKind::name, in.begin(), in.end(), in.line(), in.column() + 1);\
     }\
 };
 
@@ -218,17 +215,25 @@ RULE_TO_TOKEN(Dash);
 RULE_TO_TOKEN(Dot);
 RULE_TO_TOKEN(Number);
 RULE_TO_TOKEN(Eol);
-RULE_TO_TOKEN(Eof);
 RULE_TO_TOKEN(Module);
 RULE_TO_TOKEN(Import);
 RULE_TO_TOKEN(Struct);
 RULE_TO_TOKEN(Enum);
-RULE_TO_TOKEN(Union);
+RULE_TO_TOKEN(Variant);
 RULE_TO_TOKEN(Component);
 RULE_TO_TOKEN(Parameters);
 RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Command);
 RULE_TO_TOKEN(Mut);
+RULE_TO_TOKEN(Const);
+
+template <>
+struct Action<pegtl::eof> {
+    static void apply(const pegtl::input& in, std::vector<Token>* tokens)
+    {
+        tokens->emplace_back(TokenKind::Eof, in.begin(), in.end(), in.line(), in.column() + 1);
+    }
+};
 
 Lexer::Lexer()
     : _nextToken(0)
@@ -247,7 +252,13 @@ void Lexer::reset(bmcl::StringView data)
     _data = data;
     _nextToken = 0;
     //TODO: catch pegtl exceptions
-    pegtl::parse<grammar::Grammar, Action>(data.toStdString(), "", &_tokens);
+    try {
+        pegtl::parse<grammar::Grammar, Action>(data.begin(), data.end(), "", &_tokens);
+    } catch (const pegtl::parse_error& err) {
+        for (const pegtl::position_info& info : err.positions) {
+            _tokens.emplace_back(TokenKind::Invalid, info.begin, info.begin, info.line, info.column + 1);
+        }
+    }
 }
 
 void Lexer::peekNextToken(Token* tok)
@@ -267,6 +278,5 @@ void Lexer::consumeNextToken(Token* tok)
     } else {
         *tok = _tokens.back();
     }
-}
 }
 }

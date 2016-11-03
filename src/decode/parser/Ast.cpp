@@ -4,7 +4,6 @@
 #include "decode/parser/Type.h"
 
 namespace decode {
-namespace parser {
 
 Ast::Ast()
 {
@@ -14,6 +13,3 @@ Ast::~Ast()
 {
 }
 }
-}
-
-

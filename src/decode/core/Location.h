@@ -5,7 +5,6 @@
 #include <cstddef>
 
 namespace decode {
-namespace parser {
 
 struct Location {
 public:
@@ -20,6 +19,5 @@ inline Location::Location(std::size_t line, std::size_t column)
     : line(line)
     , column(column)
 {
-}
 }
 }

@@ -2,21 +2,47 @@ project(decode)
 
 cmake_minimum_required(VERSION 2.8.11)
 
+if(NOT MSVC)
+    add_definitions(-Wall)
+endif()
+
+macro(enable_sanitizer)
+    add_definitions(
+        -fsanitize=address
+        -fsanitize=integer
+        -fsanitize=undefined
+        -ggdb
+        #-fsanitize-blacklist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer-blacklist.txt
+    )
+    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=integer -fsanitize=undefined")
+endmacro()
+
+#enable_sanitizer()
+
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 
 add_library(decode
     src/decode/Config.h
-    src/decode/Rc.h
+    src/decode/core/Diagnostics.cpp
+    src/decode/core/Diagnostics.h
+    src/decode/core/FileInfo.h
+    src/decode/core/Hash.h
+    src/decode/core/Location.h
+    src/decode/core/Rc.h
+    src/decode/core/StringSwitch.h
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
     src/decode/parser/Decl.h
-    src/decode/parser/Location.h
+    src/decode/parser/Model.cpp
+    src/decode/parser/Model.h
     src/decode/parser/Parser.cpp
     src/decode/parser/Parser.h
     src/decode/parser/Lexer.cpp
     src/decode/parser/Lexer.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
+    src/decode/generator/Generator.cpp
+    src/decode/generator/Generator.h
 )
 
 add_executable(dummy

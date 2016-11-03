@@ -1,21 +1,21 @@
 module example
 
 import module2::Type1
-import module3::{Type2, Type3}
+import module3::{Type2, Type3, Type4}
 
 // comment
 
 struct Struct1 {
-    field1: [i16, 3],
+    field1: [i16; 3],
     field2: u64,
+    field3: [*mut [Type4; 3]; 5],
 }
 
 struct Struct2 {
-    field1: *mut Type1,
-    field2: &Type2,
-    field3: &mut Type3,
+    field1: [[*mut *const *mut Type4]; 3],
+    field2: Type2,
     field4: u32,
-    field5: [i8; 2],
+    field5: [varuint; 2],
     field6: [&mut Type1; 6],
     field7: [Struct1; 4],
 }
@@ -25,34 +25,36 @@ enum Enumeration {
     Value1 = 0,
     Value2,
     Value3 = 5,
+    Value6 = -5,
+    Value9 = 123133,
 }
 
-union TaggedUnion {
-    Type1,
-    Type2(i32),
-    Type3(u64, bool),
-    Type4 { field1: String, field2: u16 }
+variant Message {
+    Short,
+    Long(i32),
+    Special(Enumeration, bool),
+    Structured { field1: Struct2, field2: i64 }
 }
 
-union Option<T> {
-    Some(T),
-    None
-}
+//variant Option<T> {
+//    Some(T),
+//    None
+//}
 
 //! component doc
-component Component {
-    parameters {
-        param1: TaggedUnion,
-        param2: Enumeration,
-        param3: Struct2,
-    }
-
-    //! command doc
-    command doSomething(param1: u32, param2: Type1) -> Option<u64>
-
-    statuses {
-        1: { param1, param2 },
-        2: { param3.field5[2], param3.field7[2..].field1[..] }
-        3: param1,
-    }
-}
+//component Component {
+//    parameters {
+//        param1: TaggedUnion,
+//        param2: Enumeration,
+//        param3: Struct2,
+//    }
+//
+//    //! command doc
+//    command doSomething(param1: u32, param2: Type1) -> u64
+//
+//    statuses {
+//        1: { param1, param2 },
+//        2: { param3.field5[2], param3.field7[2..].field1[..] }
+//        3: param1,
+//    }
+//}

@@ -1,28 +1,30 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/Rc.h"
+#include "decode/core/Rc.h"
 
 #include <string>
 
 namespace decode {
-namespace parser {
 
 class FileInfo : public RefCountable {
 public:
-    FileInfo(const std::string& name, const std::string& contents);
 
     const std::string& fileName() const;
     const std::string& contents() const;
+    const std::vector<bmcl::StringView>& lines() const;
 
 private:
+    friend class Parser;
+    FileInfo(std::string&& name, std::string&& contents);
     std::string _fileName;
     std::string _contents;
+    std::vector<bmcl::StringView> _lines;
 };
 
-inline FileInfo::FileInfo(const std::string& name, const std::string& contents)
-    : _fileName(name)
-    , _contents(contents)
+inline FileInfo::FileInfo(std::string&& name, std::string&& contents)
+    : _fileName(std::move(name))
+    , _contents(std::move(contents))
 {
 }
 
@@ -35,5 +37,9 @@ inline const std::string& FileInfo::fileName() const
 {
     return _fileName;
 }
+
+inline const std::vector<bmcl::StringView>& FileInfo::lines() const
+{
+    return _lines;
 }
 }

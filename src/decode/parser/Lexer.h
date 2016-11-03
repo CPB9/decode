@@ -1,7 +1,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/Rc.h"
+#include "decode/core/Rc.h"
 #include "decode/parser/Token.h"
 
 #include <bmcl/StringView.h>
@@ -9,7 +9,6 @@
 #include <vector>
 
 namespace decode {
-namespace parser {
 
 class Lexer : public RefCountable {
 public:
@@ -27,5 +26,4 @@ private:
     std::size_t _nextToken;
 };
 
-}
 }

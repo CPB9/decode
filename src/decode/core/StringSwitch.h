@@ -8,7 +8,6 @@
 #include <cstring>
 
 namespace decode {
-namespace parser {
 
 template<typename T, typename R = T>
 class StringSwitch {
@@ -164,5 +163,4 @@ private:
     bmcl::StringView _str;
     const T* _result;
 };
-}
 }
