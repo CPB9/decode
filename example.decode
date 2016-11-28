@@ -26,7 +26,7 @@ enum Enumeration {
     Value2,
     Value3 = 5,
     Value6 = -5,
-    Value9 = 123133,
+    Value9 = -123133,
 }
 
 variant Message {
@@ -36,25 +36,38 @@ variant Message {
     Structured { field1: Struct2, field2: i64 }
 }
 
+impl Message {
+    fn func1(&self, param1: u32) -> &Fn(i32) -> i64
+    fn func2(&mut self, param1: &Fn(i32) -> i64) -> u64
+}
+
 //variant Option<T> {
 //    Some(T),
 //    None
 //}
 
 //! component doc
-//component Component {
-//    parameters {
-//        param1: TaggedUnion,
-//        param2: Enumeration,
-//        param3: Struct2,
-//    }
-//
-//    //! command doc
-//    command doSomething(param1: u32, param2: Type1) -> u64
-//
-//    statuses {
-//        1: { param1, param2 },
-//        2: { param3.field5[2], param3.field7[2..].field1[..] }
-//        3: param1,
-//    }
-//}
+component Component {
+    parameters {
+        param1: Message,
+        param2: Enumeration,
+        param3: Struct2,
+    }
+
+    //! command doc
+    commands {
+        fn func1(param1: u32, param2: Type1) -> u64
+        fn func2() -> *const Type1
+    }
+
+    statuses {
+        1: { param1, param2 },
+        2: { param3.field5[2], param3.field7[2..].field1[..] }
+        3: param1,
+    }
+}
+
+impl Component {
+    fn func1(param1: u32, param2: Type1) -> u64
+    fn func2() -> *const Type1
+}

@@ -1,0 +1,13 @@
+module core
+
+struct Reader {
+    current: *const u8,
+    start: *const u8,
+    end: *const u8,
+}
+
+struct Writer {
+    current: *mut u8,
+    start: *mut u8,
+    end: *const u8,
+}

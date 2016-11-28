@@ -20,6 +20,8 @@ public:
     void consumeNextToken(Token* dest);
     void peekNextToken(Token* dest);
 
+    bool nextIs(TokenKind kind);
+
 private:
     std::vector<Token> _tokens;
     bmcl::StringView _data;

@@ -3,6 +3,7 @@
 #include "decode/core/FileInfo.h"
 #include "decode/core/StringSwitch.h"
 #include "decode/core/Diagnostics.h"
+#include "decode/core/Try.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Token.h"
@@ -17,13 +18,6 @@
 
 #include <string>
 #include <functional>
-
-#define TRY(expr) \
-    do { \
-        if (!expr) { \
-            return 0; \
-        } \
-    } while(0);
 
 namespace decode {
 
@@ -290,8 +284,11 @@ bool Parser::parseTopLevelDecls()
             case TokenKind::Component:
                 TRY(parseComponent());
                 break;
-            case TokenKind::Eol:
-                return true;
+            case TokenKind::Impl:
+                TRY(parseImplBlock());
+                break;
+            //case TokenKind::Eol:
+            //    return true;
             case TokenKind::Eof:
                 return true;
             default:
@@ -303,13 +300,122 @@ bool Parser::parseTopLevelDecls()
     return true;
 }
 
+Rc<Function> Parser::parseFunction(bool selfAllowed)
+{
+    TRY(expectCurrentToken(TokenKind::Fn));
+    Rc<Function> fn = beginDecl<Function>();
+    consumeAndSkipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::Identifier));
+    fn->_name = _currentToken.value();
+    consume();
+
+    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this, &selfAllowed](const Rc<Function>& func) -> bool {
+        if (selfAllowed) {
+            if (currentTokenIs(TokenKind::Ampersand)) {
+                consumeAndSkipBlanks();
+
+                bool isMut = false;
+                if (currentTokenIs(TokenKind::Mut)) {
+                    isMut = true;
+                    consumeAndSkipBlanks();
+                }
+                if (currentTokenIs(TokenKind::Self)) {
+                    if (isMut) {
+                        func->_self.emplace(SelfArgument::MutReference);
+                    } else {
+                        func->_self.emplace(SelfArgument::Reference);
+                    }
+                    consume();
+                    selfAllowed = false;
+                    return true;
+                } else {
+                    //TODO: report error
+                    return false;
+                }
+            }
+
+            if (currentTokenIs(TokenKind::Self)) {
+                func->_self.emplace(SelfArgument::Value);
+                consume();
+                selfAllowed = false;
+                return true;
+            }
+        }
+
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        Rc<Field> field = beginDecl<Field>();
+        field->_name = _currentToken.value();
+
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Colon));
+
+        consumeAndSkipBlanks();
+
+        Rc<Type> type = parseType();
+        if (!type) {
+            return false;
+        }
+
+        field->_type = type;
+
+        endDecl(field);
+
+        func->_arguments.push_back(field);
+        selfAllowed = false;
+        return true;
+    }));
+
+    skipBlanks();
+
+    if (currentTokenIs(TokenKind::RightArrow)) {
+        consumeAndSkipBlanks();
+        Rc<Type> rType = parseType();
+        if (!rType) {
+            return nullptr;
+        }
+
+        fn->_returnValue.emplace(rType);
+    }
+
+    endDecl(fn);
+
+    return fn;
+}
+
+bool Parser::parseImplBlock()
+{
+    TRY(skipCommentsAndSpace());
+    TRY(expectCurrentToken(TokenKind::Impl));
+
+    Rc<ImplBlock> block = beginDecl<ImplBlock>();
+    consumeAndSkipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::Identifier));
+
+    block->_name = _currentToken.value();
+    consumeAndSkipBlanks();
+
+    TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block, [this](const Rc<ImplBlock>& block) -> bool {
+        Rc<Function> fn = parseFunction();
+        if (!fn) {
+            return false;
+        }
+        block->_funcs.push_back(fn);
+        return true;
+    }));
+
+    return true;
+}
+
 Rc<Type> Parser::parseReferenceOrSliceType()
 {
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Ampersand));
-    consume();
 
     Rc<ReferenceType> type = beginDecl<ReferenceType>();
+    consume();
 
     if (_currentToken.kind() == TokenKind::Mut) {
         type->_isMutable = true;
@@ -400,12 +506,52 @@ Rc<Type> Parser::parseType()
     case TokenKind::Star:
         return parsePointerType();
     case TokenKind::Ampersand:
+        if (_lexer->nextIs(TokenKind::UpperFn)) {
+            return parseFunctionPointer();
+        }
         return parseReferenceOrSliceType();
     default:
         return parseNonReferenceType(true);
     }
 
     return nullptr;
+}
+
+Rc<Type> Parser::parseFunctionPointer()
+{
+    TRY(expectCurrentToken(TokenKind::Ampersand));
+
+    Rc<FnPointer> fn = beginDecl<FnPointer>();
+
+    consume();
+    TRY(expectCurrentToken(TokenKind::UpperFn));
+    consume();
+
+    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this](const Rc<FnPointer>& fn) {
+
+        Rc<Type> type = parseType();
+        if (!type) {
+            return false;
+        }
+        fn->_arguments.push_back(type);
+
+        return true;
+    }));
+
+    skipBlanks();
+
+    if(currentTokenIs(TokenKind::RightArrow)) {
+        consumeAndSkipBlanks();
+        Rc<Type> rType = parseType();
+        if (!rType) {
+            return nullptr;
+        }
+
+        fn->_returnValue.emplace(rType);
+    }
+
+    endDecl(fn);
+    return fn;
 }
 
 Rc<Type> Parser::parseArrayType(bool sliceAllowed)
@@ -537,7 +683,7 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
     return type;
 }
 
-bool Parser::parseRecordField(const Rc<FieldList>& parent)
+Rc<Field> Parser::parseField()
 {
     Rc<Field> decl = beginDecl<Field>();
     expectCurrentToken(TokenKind::Identifier);
@@ -548,11 +694,20 @@ bool Parser::parseRecordField(const Rc<FieldList>& parent)
 
     Rc<Type> type = parseType();
     if (!type) {
-        return false;
+        return nullptr;
     }
     decl->_type = type;
 
     endDecl(decl);
+    return decl;
+}
+
+bool Parser::parseRecordField(const Rc<FieldList>& parent)
+{
+    Rc<Field> decl = parseField();
+    if (!decl) {
+        return false;
+    }
     parent->_fields.push_back(decl);
     parent->_fieldNameToFieldMap.emplace(decl->name(), decl);
     return true;
@@ -635,10 +790,14 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
     TRY(expectCurrentToken(openToken));
     consume();
 
-    skipCommentsAndSpace();
     TRY(skipCommentsAndSpace());
 
     while (true) {
+        if (_currentToken.kind() == closeToken) {
+            consumeAndEndDecl(decl);
+            break;
+        }
+
         if (!fieldParser(decl)) {
             return false;
         }
@@ -648,11 +807,6 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
             consume();
         }
         skipCommentsAndSpace();
-
-        if (_currentToken.kind() == closeToken) {
-            consumeAndEndDecl(decl);
-            break;
-        }
     }
 
     return true;
@@ -701,9 +855,88 @@ bool Parser::parseStruct()
     });
 }
 
+template<typename T, typename F>
+Rc<T> Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, F&& fieldParser)
+{
+    TRY(expectCurrentToken(startToken));
+    Rc<T> decl = beginDecl<T>();
+    consumeAndSkipBlanks();
+
+    TRY(parseList(TokenKind::LBrace, sep, TokenKind::RBrace, decl, std::forward<F>(fieldParser)));
+
+    return decl;
+}
+
 bool Parser::parseComponent()
 {
-    return parseTag<Component, false>(TokenKind::Component, std::bind(&Parser::parseComponentField, this, std::placeholders::_1));
+    TRY(expectCurrentToken(TokenKind::Component));
+    Rc<Component> comp = beginDecl<Component>();
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Identifier));
+    comp->_name = _currentToken.value();
+    consumeAndSkipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::LBrace));
+    consume();
+
+    while(true) {
+        TRY(skipCommentsAndSpace());
+
+        switch(_currentToken.kind()) {
+        case TokenKind::Parameters: {
+            if(comp->_params) {
+                reportCurrentTokenError("Component can have only one parameters declaration");
+                return false;
+            }
+            Rc<Parameters> params = parseNamelessTag<Parameters>(TokenKind::Parameters, TokenKind::Comma, [this](const Rc<Parameters>& params) {
+                Rc<Field> field = parseField();
+                if (!field) {
+                    return false;
+                }
+                params->_fields.push_back(field);
+                return true;
+            });
+            if (!params) {
+                //TODO: report error
+                return false;
+            }
+            comp->_params = params;
+            break;
+        }
+        case TokenKind::Commands: {
+            if(comp->_cmds) {
+                reportCurrentTokenError("Component can have only one commands declaration");
+                return false;
+            }
+            Rc<Commands> cmds = parseNamelessTag<Commands>(TokenKind::Commands, TokenKind::Eol, [this](const Rc<Commands>& cmds) {
+                Rc<Function> fn = parseFunction(false);
+                if (!fn) {
+                    return false;
+                }
+                cmds->_functions.push_back(fn);
+                return true;
+            });
+            if (!cmds) {
+                //TODO: report error
+                return false;
+            }
+            comp->_cmds = cmds;
+            break;
+        }
+        case TokenKind::Statuses:
+            break;
+        case TokenKind::RBrace:
+            consume();
+            goto finish;
+        default:
+            //TODO: report error
+            return false;
+        }
+    }
+
+finish:
+    endDecl(comp);
+    return true;
 }
 
 Rc<Type> Parser::parseSliceType()

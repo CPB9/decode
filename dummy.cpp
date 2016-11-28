@@ -27,5 +27,9 @@ int main()
     }
 
     Rc<Generator> gen = makeRc<Generator>(diag);
-    gen->generateFromAst(rv.unwrap());
+    gen->setOutPath("./");
+    bool genOk = gen->generateFromAst(rv.unwrap());
+    if (genOk) {
+        BMCL_DEBUG() << "generating complete";
+    }
 }

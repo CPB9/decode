@@ -33,6 +33,8 @@ class Type;
 class Report;
 class Diagnostics;
 class Field;
+class Parameters;
+class Function;
 
 template <typename T>
 using ParseResult = bmcl::Result<T, void>;
@@ -70,6 +72,7 @@ private:
     bool parseEnum();
     bool parseVariant();
     bool parseComponent();
+    bool parseImplBlock();
 
     template <typename T, typename F>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, const Rc<T>& decl, F&& fieldParser);
@@ -77,12 +80,19 @@ private:
     template <typename T, bool genericAllowed, typename F>
     bool parseTag(TokenKind startToken, F&& fieldParser);
 
+    template<typename T, typename F>
+    Rc<T> parseNamelessTag(TokenKind startToken, TokenKind sep, F&& parser);
+
+    Rc<Field> parseField();
     bool parseRecordField(const Rc<FieldList>& parent);
     bool parseEnumConstant(const Rc<Enum>& parent);
     bool parseVariantField(const Rc<Variant>& parent);
     bool parseComponentField(const Rc<Component>& parent);
 
+    Rc<Function> parseFunction(bool selfAllowed = true);
+
     Rc<Type> parseType();
+    Rc<Type> parseFunctionPointer();
     Rc<Type> parseReferenceOrSliceType();
     Rc<Type> parsePointerType();
     Rc<Type> parseNonReferenceType(bool sliceAllowed);

@@ -7,6 +7,8 @@
 #include "decode/parser/Span.h"
 #include "decode/parser/ModuleInfo.h"
 
+#include <bmcl/Option.h>
+
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -25,6 +27,8 @@ enum class TypeKind {
     Component,
     Resolved,
     Imported,
+    Function,
+    FnPointer,
 };
 
 enum class BuiltinTypeKind {
@@ -259,6 +263,22 @@ private:
     Rc<Type> _resolvedType;
 };
 
+class FnPointer : public Type {
+public:
+
+protected:
+    FnPointer()
+        : Type(TypeKind::FnPointer)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    std::vector<Rc<Type>> _arguments;
+    bmcl::Option<Rc<Type>> _returnValue;
+};
+
 class Field : public NamedDecl {
 public:
 
@@ -288,6 +308,41 @@ protected:
 private:
     friend class Parser;
 
+};
+
+enum SelfArgument {
+    Reference,
+    MutReference,
+    Value,
+};
+
+class Function : public Type {
+public:
+
+protected:
+    Function()
+        : Type(TypeKind::Function)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    bmcl::Option<SelfArgument> _self;
+    std::vector<Rc<Field>> _arguments;
+    bmcl::Option<Rc<Type>> _returnValue;
+};
+
+class ImplBlock : public NamedDecl {
+public:
+
+protected:
+    ImplBlock() = default;
+
+private:
+    friend class Parser;
+
+    std::vector<Rc<Function>> _funcs;
 };
 
 class FieldList : public Decl {
@@ -481,15 +536,28 @@ private:
     std::vector<Rc<Type>> _types;
 };
 
-class ParametersDecl : public StructDecl {
+class Parameters: public Decl {
 public:
 
 protected:
-    ParametersDecl() = default;
+    Parameters() = default;
 
 private:
     friend class Parser;
 
+    std::vector<Rc<Field>> _fields;
+};
+
+class Commands: public Decl {
+public:
+
+protected:
+    Commands() = default;
+
+private:
+    friend class Parser;
+
+    std::vector<Rc<Function>> _functions;
 };
 
 class Component : public Tag {
@@ -504,6 +572,7 @@ protected:
 private:
     friend class Parser;
 
-    Rc<ParametersDecl> _params;
+    Rc<Parameters> _params;
+    Rc<Commands> _cmds;
 };
 }

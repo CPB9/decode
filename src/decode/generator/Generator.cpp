@@ -3,14 +3,23 @@
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Decl.h"
 #include "decode/core/Diagnostics.h"
+#include "decode/core/Try.h"
+
+#include <bmcl/Logging.h>
 
 #include <unordered_set>
 #include <iostream>
+#include <deque>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 namespace decode {
 
 Generator::Generator(const Rc<Diagnostics>& diag)
     : _diag(diag)
+    , _shouldWriteModPrefix(true)
 {
 }
 
@@ -93,9 +102,71 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
     }
 }
 
+bool Generator::makeDirectory(const char* path)
+{
+    int rv = mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+    if (rv == -1) {
+        int rn = errno;
+        if (rn == EEXIST) {
+            return true;
+        }
+        //TODO: report error
+        BMCL_CRITICAL() << "unable to create dir: " << path;
+        return false;
+    }
+    return true;
+}
+
+bool Generator::saveOutput(const char* path)
+{
+    int fd;
+    while (true) {
+        fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            //TODO: handle error
+            BMCL_CRITICAL() << "unable to open file: " << path;
+            return false;
+        }
+        break;
+    }
+
+    std::size_t size = _output.result().size();
+    std::size_t total = 0;
+    while(total < size) {
+        ssize_t written = write(fd, _output.result().c_str() + total, size);
+        if (written == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+            BMCL_CRITICAL() << "unable to write file: " << path;
+            //TODO: handle error
+            close(fd);
+            return false;
+        }
+        total += written;
+    }
+
+    close(fd);
+    return true;
+}
+
 bool Generator::generateFromAst(const Rc<Ast>& ast)
 {
     _ast = ast;
+    _shouldWriteModPrefix = !ast->moduleInfo()->moduleName().equals("core");
+
+    StringBuilder photonPath;
+    photonPath.append(_outPath);
+    photonPath.append("/photon");
+    TRY(makeDirectory(photonPath.result().c_str()));
+    photonPath.append('/');
+    photonPath.append(_ast->moduleInfo()->moduleName());
+    TRY(makeDirectory(photonPath.result().c_str()));
+    photonPath.append('/');
 
     for (const auto& it : ast->typeMap()) {
         const Type* type = it.second.get();
@@ -112,18 +183,20 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
             startIncludeGuard(type);
             writeIncludesAndFwdsForType(type);
             writeStruct(static_cast<const StructDecl*>(type));
+            writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
         case TypeKind::Variant:
             startIncludeGuard(type);
             writeIncludesAndFwdsForType(type);
             writeVariant(static_cast<const Variant*>(type));
+            writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
         case TypeKind::Enum:
             startIncludeGuard(type);
-            writeIncludesAndFwdsForType(type);
             writeEnum(static_cast<const Enum*>(type));
+            writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
         case TypeKind::Component:
@@ -132,14 +205,74 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
             assert(false);
         }
 
-        if (!_output.empty()) {
-            std::cout << _output;
-            std::cout << "--------------------------------------" << std::endl;
+        if (!_output.result().empty()) {
+            photonPath.append(type->name());
+            photonPath.append(".h");
+            TRY(saveOutput(photonPath.result().c_str()));
+            photonPath.removeFromBack(type->name().size() + 2);
         }
     }
 
     _ast = nullptr;
     return true;
+}
+
+bool Generator::needsSerializers(const Type* type)
+{
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+    case TypeKind::Array:
+    case TypeKind::Imported:
+    case TypeKind::Resolved:
+        return false;
+    case TypeKind::Reference: {
+        const ReferenceType* ref = static_cast<const ReferenceType*>(type);
+        if (ref->referenceKind() != ReferenceKind::Slice) {
+            return false;
+        }
+        break;
+    }
+    case TypeKind::Struct:
+    case TypeKind::Variant:
+    case TypeKind::Enum:
+    case TypeKind::Component:
+        break;
+    default:
+        assert(false);
+    }
+    return true;
+}
+
+void Generator::writeSerializerFuncDecl(const Type* type)
+{
+    if (!needsSerializers(type)) {
+        return;
+    }
+    _output.append("PhotonError ");
+    genTypeRepr(type);
+    _output.append("_Serialize(");
+    genTypeRepr(type);
+    _output.append("* src, PhotonWriter* dest)");
+}
+
+void Generator::writeDeserializerFuncDecl(const Type* type)
+{
+    if (!needsSerializers(type)) {
+        return;
+    }
+    _output.append("PhotonError ");
+    genTypeRepr(type);
+    _output.append("_Deserialize(");
+    genTypeRepr(type);
+    _output.append("* dest, PhotonReader* src)");
+}
+
+void Generator::writeSerializerFuncPrototypes(const Type* type)
+{
+    writeSerializerFuncDecl(type);
+    _output.append(";\n");
+    writeDeserializerFuncDecl(type);
+    _output.append(";\n\n");
 }
 
 static const char* builtinToC(BuiltinTypeKind kind)
@@ -285,7 +418,7 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
 {
     bool hasPrefix = false;
     std::string typeName;
-    std::string pointers;
+    std::deque<bool> pointers; // isConst
     std::string arrayIndices;
     traverseType(topLevelType, [&](const Type* visitedType) {
         switch (visitedType->typeKind()) {
@@ -305,9 +438,9 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
             case ReferenceKind::Pointer:
             case ReferenceKind::Reference:
                 if (ref->isMutable()) {
-                    pointers.insert(0, " *");
+                    pointers.push_front(false);
                 } else {
-                    pointers.insert(0, " *const");
+                    pointers.push_front(true);
                 }
                 return true;
             case ReferenceKind::Slice:
@@ -320,8 +453,6 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
         case TypeKind::Variant:
         case TypeKind::Enum:
         case TypeKind::Component:
-            //TODO: report error
-            return false;
         case TypeKind::Imported:
         case TypeKind::Resolved:
             hasPrefix = true;
@@ -331,20 +462,55 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
             assert(false);
         }
     });
-    if (hasPrefix) {
-        writeModPrefix();
+
+    auto writeTypeName = [&]() {
+        if (hasPrefix) {
+            writeModPrefix();
+        }
+        _output.append(typeName);
+    };
+
+    if (pointers.size() == 1) {
+        if (pointers[0] == true) {
+            _output.append("const ");
+        }
+        writeTypeName();
+        _output.append('*');
+    } else {
+        writeTypeName();
+
+        for (bool isConst : pointers) {
+            if (isConst) {
+                _output.append(" *const");
+            } else {
+                _output.append(" *");
+            }
+        }
     }
-    _output.append(typeName);
-    if (!pointers.empty()) {
-        _output.push_back(' ');
-        _output.append(pointers);
+    if (!fieldName.isEmpty()) {
+        _output.appendSpace();
+        _output.append(fieldName.begin(), fieldName.end());
     }
-    _output.push_back(' ');
-    _output.append(fieldName.begin(), fieldName.end());
     if (!arrayIndices.empty()) {
-        _output.push_back(' ');
+        _output.appendSpace();
         _output.append(arrayIndices);
     }
+}
+
+void Generator::writeStruct(const std::vector<Rc<Type>>& fields, bmcl::StringView name)
+{
+    writeTagHeader("struct");
+
+    std::size_t i = 1;
+    for (const Rc<Type>& type : fields) {
+        _output.append("    ");
+        genTypeRepr(type.get(), "_" + std::to_string(i));
+        _output.append(";\n");
+        i++;
+    }
+
+    writeTagFooter(name);
+    _output.appendEol();
 }
 
 void Generator::writeStruct(const FieldList* fields, bmcl::StringView name)
@@ -358,6 +524,7 @@ void Generator::writeStruct(const FieldList* fields, bmcl::StringView name)
     }
 
     writeTagFooter(name);
+    _output.appendEol();
 }
 
 void Generator::writeStruct(const StructDecl* type)
@@ -376,8 +543,8 @@ void Generator::writeTagFooter(bmcl::StringView typeName)
 {
     _output.append("} ");
     writeModPrefix();
-    write(typeName);
-    _output.append(";\n\n");
+    _output.append(typeName);
+    _output.append(";\n");
 }
 
 void Generator::writeEnum(const Enum* type)
@@ -387,8 +554,8 @@ void Generator::writeEnum(const Enum* type)
     for (const Rc<EnumConstant>& constant : type->constants()) {
         _output.append("    ");
         writeModPrefix();
-        write(type->name());
-        write("_");
+        _output.append(type->name());
+        _output.append("_");
         _output.append(constant->name().toStdString());
         if (constant->isUserSet()) {
             _output.append(" = ");
@@ -398,24 +565,15 @@ void Generator::writeEnum(const Enum* type)
     }
 
     writeTagFooter(type->name());
-}
-
-void Generator::write(bmcl::StringView value)
-{
-    _output.append(value.begin(), value.end());
-}
-
-void Generator::writeWithFirstUpper(bmcl::StringView value)
-{
-    write(value);
-    std::size_t i = _output.size() - value.size();
-    _output[i] = std::toupper(_output[i]);
+    _output.appendEol();
 }
 
 void Generator::writeModPrefix()
 {
     _output.append("Photon");
-    writeWithFirstUpper(_ast->moduleInfo()->moduleName());
+    if (_shouldWriteModPrefix) {
+        _output.appendWithFirstUpper(_ast->moduleInfo()->moduleName());
+    }
 }
 
 void Generator::writeVariant(const Variant* type)
@@ -427,23 +585,29 @@ void Generator::writeVariant(const Variant* type)
     for (const Rc<VariantField>& field : type->fields()) {
         _output.append("    ");
         writeModPrefix();
-        write(type->name());
+        _output.append(type->name());
         _output.append("Type_");
-        write(field->name());
+        _output.append(field->name());
         _output.append(",\n");
     }
 
     _output.append("} ");
     writeModPrefix();
-    write(type->name());
-    write("Type;\n");
+    _output.append(type->name());
+    _output.append("Type;\n");
+    _output.appendEol();
 
     for (const Rc<VariantField>& field : type->fields()) {
         switch (field->variantFieldKind()) {
             case VariantFieldKind::Constant:
                 break;
-            case VariantFieldKind::Tuple:
+            case VariantFieldKind::Tuple: {
+                const std::vector<Rc<Type>>& types = static_cast<const TupleVariantField*>(field.get())->types();
+                std::string name = field->name().toStdString();
+                name.append(type->name().begin(), type->name().end());
+                writeStruct(types, name);
                 break;
+            }
             case VariantFieldKind::Struct: {
                 const FieldList* fields = static_cast<const StructVariantField*>(field.get())->fields().get();
                 std::string name = field->name().toStdString();
@@ -458,26 +622,25 @@ void Generator::writeVariant(const Variant* type)
     _output.append("    union {\n");
 
     for (const Rc<VariantField>& field : type->fields()) {
-        _output.append("        Photon");
+        _output.append("        ");
         writeModPrefix();
-        write(field->name());
-        write(type->name());
-        _output.append(" ");
-        std::string a = field->name().toStdString();
-        a.front() = std::tolower(a.front());
-        _output.append(a);
-        write(type->name());
+        _output.append(field->name());
+        _output.append(type->name());
+        _output.appendSpace();
+        _output.appendWithFirstLower(field->name());
+        _output.append(type->name());
         _output.append(",\n");
     }
 
     _output.append("    } data;\n");
     _output.append("    ");
     writeModPrefix();
-    write(type->name());
-    write("Type");
+    _output.append(type->name());
+    _output.append("Type");
     _output.append(" type;\n");
 
     writeTagFooter(type->name());
+    _output.appendEol();
 }
 
 void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
@@ -513,12 +676,16 @@ void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
             assert(false);
         }
     });
-    _output.push_back('\n');
+
     for (const std::string& path : includePaths) {
         _output.append("#include \"photon/");
         _output.append(path);
         _output.append(".h\"");
-        _output.push_back('\n');
+        _output.appendEol();
+    }
+
+    if (!includePaths.empty()) {
+        _output.appendEol();
     }
 }
 
@@ -527,7 +694,7 @@ void Generator::startIncludeGuard(const Type* type)
     auto writeGuardMacro = [this, type]() {
         _output.append("__PHOTON_");
         _output.append(_ast->moduleInfo()->moduleName().toUpper());
-        _output.push_back('_');
+        _output.append('_');
         _output.append(type->name().toUpper()); //FIXME
         _output.append("__\n");
     };
@@ -535,15 +702,12 @@ void Generator::startIncludeGuard(const Type* type)
     writeGuardMacro();
     _output.append("#define ");
     writeGuardMacro();
+    _output.appendEol();
 }
 
 void Generator::endIncludeGuard(const Type* type)
 {
     _output.append("#endif\n");
-}
-
-void Generator::writeEol()
-{
-    _output.push_back('\n');
+    _output.appendEol();
 }
 }

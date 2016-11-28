@@ -27,19 +27,23 @@ struct Blank
 
 #define KEYWORD_RULE(name, str) \
 struct name \
-        : pegtl::seq<pegtl_string_t(str), pegtl::at<pegtl::sor<Blank, Eol, pegtl::eof>>> {};
+        : pegtl::seq<pegtl_string_t(str), pegtl::not_at<pegtl::alnum>> {};
 
 KEYWORD_RULE(Module,     "module");
 KEYWORD_RULE(Import,     "import");
 KEYWORD_RULE(Struct,     "struct");
 KEYWORD_RULE(Enum,       "enum");
-KEYWORD_RULE(Variant,      "variant");
+KEYWORD_RULE(Variant,    "variant");
 KEYWORD_RULE(Component,  "component");
 KEYWORD_RULE(Parameters, "parameters");
 KEYWORD_RULE(Statuses,   "statuses");
-KEYWORD_RULE(Command,    "command");
+KEYWORD_RULE(Commands,    "commands");
 KEYWORD_RULE(Mut,        "mut");
 KEYWORD_RULE(Const,      "const");
+KEYWORD_RULE(Impl,       "impl");
+KEYWORD_RULE(Fn,         "fn");
+KEYWORD_RULE(UpperFn,    "Fn");
+KEYWORD_RULE(Self,       "self");
 
 // chars
 
@@ -98,7 +102,8 @@ struct Exclamation
         : pegtl::one<'!'> {};
 
 struct Dash
-        : pegtl::one<'-'> {};
+        //: pegtl::one<'-'> {};
+        : pegtl::seq<pegtl::one<'-'>, pegtl::not_at<pegtl::one<'>'>>> {};
 
 struct RightArrow
         : pegtl::string<'-', '>'> {};
@@ -161,14 +166,18 @@ struct Grammar
                  Dot,
                  Module,
                  Import,
+                 Impl,
                  Struct,
+                 Self,
                  Enum,
                  Variant,
                  Component,
                  Parameters,
                  Statuses,
-                 Command,
+                 Commands,
                  Mut,
+                 Fn,
+                 UpperFn,
                  Const,
                  Identifier,
                  Number
@@ -217,13 +226,17 @@ RULE_TO_TOKEN(Number);
 RULE_TO_TOKEN(Eol);
 RULE_TO_TOKEN(Module);
 RULE_TO_TOKEN(Import);
+RULE_TO_TOKEN(Impl);
+RULE_TO_TOKEN(Fn);
+RULE_TO_TOKEN(UpperFn);
+RULE_TO_TOKEN(Self);
 RULE_TO_TOKEN(Struct);
 RULE_TO_TOKEN(Enum);
 RULE_TO_TOKEN(Variant);
 RULE_TO_TOKEN(Component);
 RULE_TO_TOKEN(Parameters);
 RULE_TO_TOKEN(Statuses);
-RULE_TO_TOKEN(Command);
+RULE_TO_TOKEN(Commands);
 RULE_TO_TOKEN(Mut);
 RULE_TO_TOKEN(Const);
 
@@ -266,8 +279,16 @@ void Lexer::peekNextToken(Token* tok)
     if (_nextToken < _tokens.size()) {
         *tok = _tokens[_nextToken];
     } else {
-        *tok = _tokens.back();
+        *tok = _tokens.back(); //eol
     }
+}
+
+bool Lexer::nextIs(TokenKind kind)
+{
+    if (_nextToken < _tokens.size()) {
+        return kind == _tokens[_nextToken].kind();
+    }
+    return kind == TokenKind::Eol;
 }
 
 void Lexer::consumeNextToken(Token* tok)
