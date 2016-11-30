@@ -3,7 +3,7 @@ project(decode)
 cmake_minimum_required(VERSION 2.8.11)
 
 if(NOT MSVC)
-    add_definitions(-Wall)
+    add_definitions(-Wall -Wextra -Wno-unused-parameter)
 endif()
 
 macro(enable_sanitizer)

@@ -35,6 +35,7 @@ class Diagnostics;
 class Field;
 class Parameters;
 class Function;
+class TypeDecl;
 
 template <typename T>
 using ParseResult = bmcl::Result<T, void>;
@@ -104,12 +105,18 @@ private:
 
     template <typename T>
     Rc<T> beginDecl();
-
     template <typename T>
     void consumeAndEndDecl(const Rc<T>& decl);
-
     template <typename T>
     void endDecl(const Rc<T>& decl);
+
+    template <typename T>
+    Rc<T> beginType();
+    template <typename T>
+    void consumeAndEndType(const Rc<T>& type);
+    template <typename T>
+    void endType(const Rc<T>& type);
+
 
     bool currentTokenIs(TokenKind kind);
 
@@ -126,6 +133,8 @@ private:
     Rc<Ast> _ast;
     Rc<FileInfo> _fileInfo;
     Rc<ModuleInfo> _moduleInfo;
+
+    std::vector<Rc<TypeDecl>> _typeDeclStack;
 
     const char* _lastLineStart;
 };

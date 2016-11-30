@@ -40,6 +40,26 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
     depth--;
 
     switch (type->typeKind()) {
+    case TypeKind::Function: {
+        const Function* fn = static_cast<const Function*>(type);
+        if (fn->returnValue().isSome()) {
+            traverseType(fn->returnValue().unwrap().get(), std::forward<F>(visitor), depth);
+        }
+        for (const Rc<Field>& field : fn->arguments()) {
+            traverseType(field->type().get(), std::forward<F>(visitor), depth);
+        }
+        break;
+    }
+    case TypeKind::FnPointer: {
+        const FnPointer* fn = static_cast<const FnPointer*>(type);
+        if (fn->returnValue().isSome()) {
+            traverseType(fn->returnValue().unwrap().get(), std::forward<F>(visitor), depth);
+        }
+        for (const Rc<Type>& arg : fn->arguments()) {
+            traverseType(arg.get(), std::forward<F>(visitor), depth);
+        }
+        break;
+    }
     case TypeKind::Builtin:
         break;
     case TypeKind::Array: {
@@ -49,9 +69,16 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
     }
     case TypeKind::Enum:
         break;
-    case TypeKind::Component:
-        //TODO: traverse component
+    case TypeKind::Component: {
+        const Component* comp = static_cast<const Component*>(type);
+        for (const Rc<Field>& field : comp->parameters()->fields()) {
+            traverseType(field->type().get(), std::forward<F>(visitor), depth);
+        }
+        for (const Rc<Function>& fn : comp->commands()->functions()) {
+            traverseType(fn.get(), std::forward<F>(visitor), depth);
+        }
         break;
+    }
     case TypeKind::Resolved: {
         const ResolvedType* resolvedType = static_cast<const ResolvedType*>(type);
         traverseType(resolvedType->resolvedType().get(), std::forward<F>(visitor), depth);
@@ -91,14 +118,10 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
                 }
                 break;
             }
-            default:
-                assert(false);
             }
         }
         break;
     }
-    default:
-        assert(false);
     }
 }
 
@@ -178,6 +201,8 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
         case TypeKind::Reference:
         case TypeKind::Imported:
         case TypeKind::Resolved:
+        case TypeKind::Function:
+        case TypeKind::FnPointer:
             break;
         case TypeKind::Struct:
             startIncludeGuard(type);
@@ -200,9 +225,12 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
             endIncludeGuard(type);
             break;
         case TypeKind::Component:
+            startIncludeGuard(type);
+            writeIncludesAndFwdsForType(type);
+            //writeStruct(static_cast<const Component*>(type));
+            //writeSerializerFuncPrototypes(type);
+            endIncludeGuard(type);
             break;
-        default:
-            assert(false);
         }
 
         if (!_output.result().empty()) {
@@ -224,6 +252,8 @@ bool Generator::needsSerializers(const Type* type)
     case TypeKind::Array:
     case TypeKind::Imported:
     case TypeKind::Resolved:
+    case TypeKind::Function:
+    case TypeKind::FnPointer:
         return false;
     case TypeKind::Reference: {
         const ReferenceType* ref = static_cast<const ReferenceType*>(type);
@@ -237,8 +267,6 @@ bool Generator::needsSerializers(const Type* type)
     case TypeKind::Enum:
     case TypeKind::Component:
         break;
-    default:
-        assert(false);
     }
     return true;
 }
@@ -395,11 +423,13 @@ std::string genSliceName(const Type* topLevelType)
         case TypeKind::Variant:
         case TypeKind::Enum:
         case TypeKind::Component:
+        case TypeKind::Function:
+        case TypeKind::FnPointer:
             //TODO: report error
             return false;
         case TypeKind::Imported:
         case TypeKind::Resolved: {
-            std::string modName = visitedType->moduleInfo()->moduleName().toStdString();
+            std::string modName = visitedType->moduleName().toStdString();
             if (!modName.empty()) {
                 modName.front() = std::toupper(modName.front());
                 typeName.append(modName);
@@ -407,21 +437,75 @@ std::string genSliceName(const Type* topLevelType)
             typeName.append(visitedType->name().toStdString());
             return false;
         }
-        default:
-            assert(false);
         }
     });
     return typeName;
 }
 
+void Generator::genFnPointerTypeRepr(const FnPointer* topLevelType, bmcl::StringView fieldName)
+{
+    std::vector<const FnPointer*> fnStack;
+    const FnPointer* current = topLevelType;
+    fnStack.push_back(current);
+    while (true) {
+        if (current->returnValue().isSome()) {
+            if (current->returnValue().unwrap()->typeKind() == TypeKind::FnPointer) {
+                current = static_cast<const FnPointer*>(current->returnValue()->get());
+                fnStack.push_back(current);
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    if (fnStack.back()->returnValue().isSome()) {
+        genTypeRepr(fnStack.back()->returnValue().unwrap().get());
+    } else {
+        _output.append("void");
+    }
+    _output.append(" ");
+    for (std::size_t i = 0; i < fnStack.size(); i++) {
+        _output.append("(*");
+    }
+    _output.append(fieldName);
+
+    BMCL_DEBUG() << fnStack.size();
+    _output.append(")(");
+
+    auto appendParameters = [this](const FnPointer* t) {
+        if (t->arguments().size() > 0) {
+            for (auto jt = t->arguments().cbegin(); jt < (t->arguments().cend() - 1); jt++) {
+                genTypeRepr(jt->get());
+                _output.append(", ");
+            }
+            genTypeRepr(t->arguments().back().get());
+        }
+    };
+
+    for (auto it = fnStack.begin(); it < (fnStack.end() - 1); it++) {
+        appendParameters(*it);
+        _output.append("))(");
+    }
+    appendParameters(fnStack.back());
+    _output.append(")");
+}
+
 void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName)
 {
+    if (topLevelType->typeKind() == TypeKind::FnPointer) {
+        genFnPointerTypeRepr(static_cast<const FnPointer*>(topLevelType), fieldName);
+        return;
+    }
     bool hasPrefix = false;
     std::string typeName;
     std::deque<bool> pointers; // isConst
     std::string arrayIndices;
     traverseType(topLevelType, [&](const Type* visitedType) {
         switch (visitedType->typeKind()) {
+        case TypeKind::FnPointer:
+            genFnPointerTypeRepr(static_cast<const FnPointer*>(visitedType), fieldName);
+            return false;
         case TypeKind::Builtin:
             typeName = builtinToC(visitedType);
             return false;
@@ -458,8 +542,6 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
             hasPrefix = true;
             typeName = visitedType->name().toStdString();
             return false;
-        default:
-            assert(false);
         }
     });
 
@@ -492,7 +574,6 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
         _output.append(fieldName.begin(), fieldName.end());
     }
     if (!arrayIndices.empty()) {
-        _output.appendSpace();
         _output.append(arrayIndices);
     }
 }
@@ -663,17 +744,17 @@ void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
         case TypeKind::Variant:
         case TypeKind::Enum:
         case TypeKind::Component:
+        case TypeKind::Function:
+        case TypeKind::FnPointer:
             return false;
         case TypeKind::Imported:
         case TypeKind::Resolved: {
-            std::string path = visitedType->moduleInfo()->moduleName().toStdString();
+            std::string path = visitedType->moduleName().toStdString();
             path.push_back('/');
             path.append(visitedType->name().begin(), visitedType->name().end());
             includePaths.insert(std::move(path));
             return false;
         }
-        default:
-            assert(false);
         }
     });
 

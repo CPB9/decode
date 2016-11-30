@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <functional>
 
+#include "decode/Config.h"
+#include "decode/core/Rc.h"
+
 #include <bmcl/StringView.h>
 
 namespace decode {
@@ -47,6 +50,15 @@ struct hash<bmcl::StringView>
     std::size_t operator()(bmcl::StringView view) const
     {
         return decode::fnvHash<std::size_t>(view.begin(), view.size());
+    }
+};
+
+template<typename T>
+struct hash<decode::Rc<T>>
+{
+    std::size_t operator()(const decode::Rc<T>& p) const
+    {
+        return std::hash<T*>()(p.get());
     }
 };
 }

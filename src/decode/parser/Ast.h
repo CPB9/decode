@@ -3,8 +3,10 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
+#include "decode/parser/Decl.h"
 
 #include <bmcl/StringView.h>
+#include <bmcl/Option.h>
 
 #include <string>
 #include <unordered_map>
@@ -17,6 +19,7 @@ class Module;
 class Import;
 class ImportedType;
 class Type;
+class TypeDecl;
 
 class Ast : public bmcl::RefCountable<unsigned int> {
 public:
@@ -38,16 +41,27 @@ public:
         return _typeNameToType;
     }
 
+    bmcl::Option<Rc<Type>> findTypeWithName(bmcl::StringView name) const
+    {
+        auto it = _typeNameToType.find(name);
+        if (it == _typeNameToType.end()) {
+            return bmcl::None;
+        }
+        return it->second;
+    }
+
 private:
     friend class Parser;
 
-    void addType(const Rc<Type>& type)
+    void addTopLevelType(const Rc<Type>& type)
     {
+        _typeNameToType.emplace(type->name(), type);
     }
 
     std::vector<Rc<Import>> _importDecls;
 
     std::unordered_map<bmcl::StringView, Rc<Type>> _typeNameToType;
+    std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<Module> _moduleDecl;
     Rc<ModuleInfo> _moduleInfo;
 };

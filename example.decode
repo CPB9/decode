@@ -9,6 +9,7 @@ struct Struct1 {
     field1: [i16; 3],
     field2: u64,
     field3: [*mut [Type4; 3]; 5],
+    field4: &Fn(i8, &Fn(i16) -> &Fn(i32) -> i64) -> bool,
 }
 
 struct Struct2 {
@@ -60,11 +61,11 @@ component Component {
         fn func2() -> *const Type1
     }
 
-    statuses {
-        1: { param1, param2 },
-        2: { param3.field5[2], param3.field7[2..].field1[..] }
-        3: param1,
-    }
+//    statuses {
+//        1: { param1, param2 },
+//        2: { param3.field5[2], param3.field7[2..].field1[..] }
+//        3: { param1 },
+//    }
 }
 
 impl Component {

@@ -11,6 +11,7 @@ namespace decode {
 class Ast;
 class Diagnostics;
 class Type;
+class FnPointer;
 class StructDecl;
 class FieldList;
 class Enum;
@@ -39,13 +40,13 @@ private:
     void writeSerializerFuncDecl(const Type* type);
     void writeDeserializerFuncDecl(const Type* type);
 
-
     void writeTagHeader(bmcl::StringView name);
     void writeTagFooter(bmcl::StringView typeName);
 
     void writeModPrefix();
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = "");
+    void genFnPointerTypeRepr(const FnPointer* type, bmcl::StringView fieldName = "");
 
     void endIncludeGuard(const Type* type);
 

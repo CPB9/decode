@@ -152,9 +152,7 @@ template <typename T>
 void Parser::consumeAndEndDecl(const Rc<T>& decl)
 {
     _lexer->consumeNextToken(&_currentToken);
-    decl->_endLoc = _currentToken.location();
-    decl->_end = _currentToken.begin();
-    decl->_moduleInfo = _moduleInfo;
+    endDecl(decl);
 }
 
 template <typename T>
@@ -163,6 +161,34 @@ void Parser::endDecl(const Rc<T>& decl)
     decl->_endLoc = _currentToken.location();
     decl->_end = _currentToken.begin();
     decl->_moduleInfo = _moduleInfo;
+}
+
+template <typename T>
+Rc<T> Parser::beginType()
+{
+    Rc<TypeDecl> decl = beginDecl<TypeDecl>();
+    Rc<T> type = new T;
+    type->_moduleName = _moduleInfo->moduleName();
+    decl->_type = type;
+    _ast->_typeToDecl.emplace(type, decl);
+    _typeDeclStack.push_back(decl);
+    return type;
+}
+
+template <typename T>
+void Parser::consumeAndEndType(const Rc<T>& type)
+{
+    consume();
+    endType(type);
+}
+
+template <typename T>
+void Parser::endType(const Rc<T>& type)
+{
+    assert(!_typeDeclStack.empty());
+    //assert(_typeDeclStack.back()->type() == type);
+    endDecl(_typeDeclStack.back());
+    _typeDeclStack.pop_back();
 }
 
 bool Parser::consumeAndSetNamedDeclName(NamedDecl* decl)
@@ -226,13 +252,13 @@ bool Parser::parseImports()
         consume();
 
         auto createImportedTypeFromCurrentToken = [this, importDecl]() {
-            Rc<ImportedType> type = beginDecl<ImportedType>();
+            Rc<ImportedType> type = beginType<ImportedType>();
             type->_importPath = importDecl->_importPath;
             type->_name = _currentToken.value();
             importDecl->_types.push_back(type);
             //TODO: check import conflicts
             _ast->_typeNameToType.emplace(type->_name, type);
-            consumeAndEndDecl(type);
+            consumeAndEndType(type);
         };
 
         if (_currentToken.kind() == TokenKind::Identifier) {
@@ -303,7 +329,7 @@ bool Parser::parseTopLevelDecls()
 Rc<Function> Parser::parseFunction(bool selfAllowed)
 {
     TRY(expectCurrentToken(TokenKind::Fn));
-    Rc<Function> fn = beginDecl<Function>();
+    Rc<Function> fn = beginType<Function>();
     consumeAndSkipBlanks();
 
     TRY(expectCurrentToken(TokenKind::Identifier));
@@ -379,7 +405,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
         fn->_returnValue.emplace(rType);
     }
 
-    endDecl(fn);
+    endType(fn);
 
     return fn;
 }
@@ -406,6 +432,13 @@ bool Parser::parseImplBlock()
         return true;
     }));
 
+    bmcl::Option<Rc<Type>> type = _ast->findTypeWithName(block->name());
+    if (type.isNone()) {
+        //TODO: report error
+        BMCL_CRITICAL() << "No type found for impl block";
+        return false;
+    }
+
     return true;
 }
 
@@ -414,12 +447,12 @@ Rc<Type> Parser::parseReferenceOrSliceType()
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Ampersand));
 
-    Rc<ReferenceType> type = beginDecl<ReferenceType>();
+    Rc<ReferenceType> type = beginType<ReferenceType>();
     consume();
 
     if (_currentToken.kind() == TokenKind::Mut) {
         type->_isMutable = true;
-        consumeAndEndDecl(type);
+        consumeAndEndType(type);
     } else {
         type->_isMutable = false;
     }
@@ -451,7 +484,7 @@ Rc<Type> Parser::parsePointerType()
     TRY(expectCurrentToken(TokenKind::Star));
     consume();
 
-    Rc<ReferenceType> type = beginDecl<ReferenceType>();
+    Rc<ReferenceType> type = beginType<ReferenceType>();
     type->_referenceKind = ReferenceKind::Pointer;
 
     if (_currentToken.kind() == TokenKind::Mut) {
@@ -463,7 +496,7 @@ Rc<Type> Parser::parsePointerType()
         reportUnexpectedTokenError(_currentToken.kind());
         return nullptr;
     }
-    consumeAndEndDecl(type);
+    consumeAndEndType(type);
 
     TRY(skipCommentsAndSpace());
     Rc<Type> pointee;
@@ -521,7 +554,7 @@ Rc<Type> Parser::parseFunctionPointer()
 {
     TRY(expectCurrentToken(TokenKind::Ampersand));
 
-    Rc<FnPointer> fn = beginDecl<FnPointer>();
+    Rc<FnPointer> fn = beginType<FnPointer>();
 
     consume();
     TRY(expectCurrentToken(TokenKind::UpperFn));
@@ -550,7 +583,7 @@ Rc<Type> Parser::parseFunctionPointer()
         fn->_returnValue.emplace(rType);
     }
 
-    endDecl(fn);
+    endType(fn);
     return fn;
 }
 
@@ -571,12 +604,12 @@ Rc<Type> Parser::parseArrayType(bool sliceAllowed)
 
     if (currentTokenIs(TokenKind::RBracket)) {
         if (sliceAllowed) {
-            Rc<ReferenceType> ref = new ReferenceType;
-            decl->cloneDeclTo(ref.get());
+            Rc<ReferenceType> ref = beginType<ReferenceType>();
+            decl->cloneDeclTo(_typeDeclStack.back().get());
             ref->_isMutable = false;
             ref->_pointee = innerType;
             ref->_referenceKind = ReferenceKind::Slice;
-            consumeAndEndDecl(ref);
+            consumeAndEndType(ref);
             return ref;
         } else {
             reportCurrentTokenError("Slices are not allowed in this context");
@@ -584,8 +617,8 @@ Rc<Type> Parser::parseArrayType(bool sliceAllowed)
         }
     }
 
-    Rc<ArrayType> arrayType = new ArrayType;
-    decl->cloneDeclTo(arrayType.get());
+    Rc<ArrayType> arrayType = beginType<ArrayType>();
+    decl->cloneDeclTo(_typeDeclStack.back().get());
     arrayType->_elementType = std::move(innerType);
     TRY(expectCurrentToken(TokenKind::SemiColon));
     consumeAndSkipBlanks();
@@ -593,7 +626,7 @@ Rc<Type> Parser::parseArrayType(bool sliceAllowed)
     TRY(parseUnsignedInteger(&arrayType->_elementCount));
     skipBlanks();
     TRY(expectCurrentToken(TokenKind::RBracket));
-    consumeAndEndDecl(arrayType);
+    consumeAndEndType(arrayType);
 
     return arrayType;
 }
@@ -666,20 +699,20 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         .Default(BuiltinTypeKind::Unknown);
 
     if (kind == BuiltinTypeKind::Unknown) {
-        Rc<ResolvedType> type = beginDecl<ResolvedType>();
+        Rc<ResolvedType> type = beginType<ResolvedType>();
         type->_name = _currentToken.value();
         Rc<Type> link = findDeclaredType(_currentToken.value());
         if (!link) {
             return nullptr;
         }
         type->_resolvedType = link;
-        consumeAndEndDecl(type);
+        consumeAndEndType(type);
         return type;
     }
 
-    Rc<BuiltinType> type = beginDecl<BuiltinType>();
+    Rc<BuiltinType> type = beginType<BuiltinType>();
     type->_builtinTypeKind = kind;
-    consumeAndEndDecl(type);
+    consumeAndEndType(type);
     return type;
 }
 
@@ -794,7 +827,7 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
 
     while (true) {
         if (_currentToken.kind() == closeToken) {
-            consumeAndEndDecl(decl);
+            consume();
             break;
         }
 
@@ -816,18 +849,19 @@ template <typename T, bool genericAllowed, typename F>
 bool Parser::parseTag(TokenKind startToken, F&& fieldParser)
 {
     TRY(skipCommentsAndSpace());
-    Rc<T> tagDecl = beginDecl<T>();
+    Rc<T> type = beginType<T>();
     TRY(expectCurrentToken(startToken));
 
     consume();
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Identifier));
-    tagDecl->_name = _currentToken.value();
+    type->_name = _currentToken.value();
     consumeAndSkipBlanks();
 
-    TRY(parseList<T>(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace, tagDecl, std::forward<F>(fieldParser)));
+    TRY(parseList<T>(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace, type, std::forward<F>(fieldParser)));
 
-    _ast->_typeNameToType.emplace(tagDecl->name(), tagDecl);
+    _ast->_typeNameToType.emplace(type->name(), type);
+    endType(type);
     return true;
 }
 
@@ -864,16 +898,18 @@ Rc<T> Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, F&& fieldPar
 
     TRY(parseList(TokenKind::LBrace, sep, TokenKind::RBrace, decl, std::forward<F>(fieldParser)));
 
+    endDecl(decl);
     return decl;
 }
 
 bool Parser::parseComponent()
 {
     TRY(expectCurrentToken(TokenKind::Component));
-    Rc<Component> comp = beginDecl<Component>();
+    Rc<Component> comp = beginType<Component>();
     consumeAndSkipBlanks();
     TRY(expectCurrentToken(TokenKind::Identifier));
     comp->_name = _currentToken.value();
+    _ast->addTopLevelType(comp);
     consumeAndSkipBlanks();
 
     TRY(expectCurrentToken(TokenKind::LBrace));
@@ -923,8 +959,25 @@ bool Parser::parseComponent()
             comp->_cmds = cmds;
             break;
         }
-        case TokenKind::Statuses:
+        case TokenKind::Statuses: {
+            if(comp->_statuses) {
+                reportCurrentTokenError("Component can have only one statuses declaration");
+                return false;
+            }
+            Rc<Statuses> statuses = parseNamelessTag<Statuses>(TokenKind::Statuses, TokenKind::Eol, [this](const Rc<Statuses>& cmds) -> bool {
+                uintmax_t n;
+                TRY(parseUnsignedInteger(&n));
+                skipBlanks();
+                TRY(expectCurrentToken(TokenKind::Colon));
+                return true;
+            });
+            if (!statuses) {
+                //TODO: report error
+                return false;
+            }
+            comp->_statuses = statuses;
             break;
+        }
         case TokenKind::RBrace:
             consume();
             goto finish;
@@ -935,7 +988,7 @@ bool Parser::parseComponent()
     }
 
 finish:
-    endDecl(comp);
+    endType(comp);
     return true;
 }
 

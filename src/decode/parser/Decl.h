@@ -100,13 +100,23 @@ private:
     bmcl::StringView _name;
 };
 
-class Type : public NamedDecl {
+class Type : public RefCountable {
 public:
-
     TypeKind typeKind() const
     {
         return _typeKind;
     }
+
+    bmcl::StringView name() const
+    {
+        return _name;
+    }
+
+    bmcl::StringView moduleName() const
+    {
+        return _moduleName;
+    }
+
 
 protected:
     Type(TypeKind kind)
@@ -117,7 +127,26 @@ protected:
 private:
     friend class Parser;
 
+    bmcl::StringView _name;
     TypeKind _typeKind;
+    bmcl::StringView _moduleName;
+};
+
+class TypeDecl : public Decl {
+public:
+
+    const Rc<Type>& type() const
+    {
+        return _type;
+    }
+
+protected:
+    TypeDecl() = default;
+
+private:
+    friend class Parser;
+
+    Rc<Type> _type;
 };
 
 class ReferenceType : public Type {
@@ -265,6 +294,15 @@ private:
 
 class FnPointer : public Type {
 public:
+    const bmcl::Option<Rc<Type>>& returnValue() const
+    {
+        return _returnValue;
+    }
+
+    const std::vector<Rc<Type>>& arguments() const
+    {
+        return _arguments;
+    }
 
 protected:
     FnPointer()
@@ -282,7 +320,7 @@ private:
 class Field : public NamedDecl {
 public:
 
-    const Rc<Type> type() const
+    const Rc<Type>& type() const
     {
         return _type;
     }
@@ -318,6 +356,21 @@ enum SelfArgument {
 
 class Function : public Type {
 public:
+
+    const bmcl::Option<Rc<Type>>& returnValue() const
+    {
+        return _returnValue;
+    }
+
+    const std::vector<Rc<Field>>& arguments() const
+    {
+        return _arguments;
+    }
+
+    bmcl::Option<SelfArgument> selfArgument() const
+    {
+        return _self;
+    }
 
 protected:
     Function()
@@ -397,7 +450,7 @@ private:
 class EnumConstant : public NamedDecl {
 public:
 
-    const std::int64_t value() const
+    std::int64_t value() const
     {
         return _value;
     }
@@ -539,6 +592,11 @@ private:
 class Parameters: public Decl {
 public:
 
+    const std::vector<Rc<Field>>& fields() const
+    {
+        return _fields;
+    }
+
 protected:
     Parameters() = default;
 
@@ -551,6 +609,11 @@ private:
 class Commands: public Decl {
 public:
 
+    const std::vector<Rc<Function>>& functions() const
+    {
+        return _functions;
+    }
+
 protected:
     Commands() = default;
 
@@ -560,8 +623,34 @@ private:
     std::vector<Rc<Function>> _functions;
 };
 
+class Regexp : public Decl {
+public:
+};
+
+class Statuses: public Decl {
+public:
+
+protected:
+    Statuses() = default;
+
+private:
+    friend class Parser;
+
+    std::unordered_map<std::size_t, Rc<Regexp>> _functions;
+};
+
 class Component : public Tag {
 public:
+
+    const Rc<Parameters>& parameters() const
+    {
+        return _params;
+    }
+
+    const Rc<Commands>& commands() const
+    {
+        return _cmds;
+    }
 
 protected:
     Component()
@@ -574,5 +663,6 @@ private:
 
     Rc<Parameters> _params;
     Rc<Commands> _cmds;
+    Rc<Statuses> _statuses;
 };
 }

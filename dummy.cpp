@@ -1,6 +1,7 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/parser/Parser.h"
 #include "decode/parser/Ast.h"
+#include "decode/parser/Decl.h"
 #include "decode/generator/Generator.h"
 
 #include <bmcl/FileUtils.h>
