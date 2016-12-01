@@ -10,11 +10,12 @@ namespace decode {
 
 class Ast;
 class Diagnostics;
-class Type;
-class FnPointer;
-class StructDecl;
-class FieldList;
 class Enum;
+class FieldList;
+class FnPointer;
+class Function;
+class StructDecl;
+class Type;
 class Variant;
 
 class Generator : public RefCountable {
@@ -33,6 +34,9 @@ private:
     void writeStruct(const std::vector<Rc<Type>>& fields, bmcl::StringView name);
     void writeEnum(const Enum* type);
     void writeVariant(const Variant* type);
+
+    void writeImplFunctionPrototypes(const Type* type);
+    void writeImplFunctionPrototype(const Rc<Function>& func, bmcl::StringView typeName);
 
     bool needsSerializers(const Type* type);
     void writeSerializerFuncPrototypes(const Type* type);

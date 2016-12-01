@@ -432,12 +432,14 @@ bool Parser::parseImplBlock()
         return true;
     }));
 
-    bmcl::Option<Rc<Type>> type = _ast->findTypeWithName(block->name());
+    bmcl::Option<const Rc<Type>&> type = _ast->findTypeWithName(block->name());
     if (type.isNone()) {
         //TODO: report error
         BMCL_CRITICAL() << "No type found for impl block";
         return false;
     }
+
+    _ast->addImplBlock(block);
 
     return true;
 }
@@ -696,6 +698,7 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         .Case("u64", BuiltinTypeKind::U64)
         .Case("i64", BuiltinTypeKind::I64)
         .Case("bool", BuiltinTypeKind::Bool)
+        .Case("void", BuiltinTypeKind::Void)
         .Default(BuiltinTypeKind::Unknown);
 
     if (kind == BuiltinTypeKind::Unknown) {

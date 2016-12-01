@@ -208,6 +208,7 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
             startIncludeGuard(type);
             writeIncludesAndFwdsForType(type);
             writeStruct(static_cast<const StructDecl*>(type));
+            writeImplFunctionPrototypes(type);
             writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
@@ -215,12 +216,14 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
             startIncludeGuard(type);
             writeIncludesAndFwdsForType(type);
             writeVariant(static_cast<const Variant*>(type));
+            writeImplFunctionPrototypes(type);
             writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
         case TypeKind::Enum:
             startIncludeGuard(type);
             writeEnum(static_cast<const Enum*>(type));
+            writeImplFunctionPrototypes(type);
             writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
@@ -228,6 +231,7 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
             startIncludeGuard(type);
             writeIncludesAndFwdsForType(type);
             //writeStruct(static_cast<const Component*>(type));
+            writeImplFunctionPrototypes(type);
             //writeSerializerFuncPrototypes(type);
             endIncludeGuard(type);
             break;
@@ -303,6 +307,64 @@ void Generator::writeSerializerFuncPrototypes(const Type* type)
     _output.append(";\n\n");
 }
 
+void Generator::writeImplFunctionPrototypes(const Type* type)
+{
+    bmcl::Option<const Rc<ImplBlock>&> block = _ast->findImplBlockWithName(type->name());
+    if (block.isNone()) {
+        return;
+    }
+    for (const Rc<Function>& func : block.unwrap()->functions()) {
+        writeImplFunctionPrototype(func, type->name());
+    }
+    if (!block.unwrap()->functions().empty()) {
+        _output.append('\n');
+    }
+}
+
+void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::StringView typeName)
+{
+    if (func->returnValue().isSome()) {
+        genTypeRepr(func->returnValue()->get());
+        _output.append(' ');
+    } else {
+        _output.append("void ");
+    }
+    writeModPrefix();
+    _output.append(typeName);
+    _output.append('_');
+    _output.appendWithFirstUpper(func->name());
+    _output.append('(');
+
+    if (func->selfArgument().isSome()) {
+        SelfArgument self = func->selfArgument().unwrap();
+        switch(self) {
+        case SelfArgument::Reference:
+            _output.append("const ");
+        case SelfArgument::MutReference:
+            writeModPrefix();
+            _output.append(typeName);
+            _output.append("* self");
+            break;
+        case SelfArgument::Value:
+            break;
+        }
+        if (!func->arguments().empty()) {
+            _output.append(", ");
+        }
+    }
+
+    if (func->arguments().size() > 0) {
+        for (auto it = func->arguments().begin(); it < (func->arguments().end() - 1); it++) {
+            const Field* field = it->get();
+            genTypeRepr(field->type().get(), field->name());
+            _output.append(", ");
+        }
+        genTypeRepr(func->arguments().back()->type().get(), func->arguments().back()->name());
+    }
+
+    _output.append(");\n");
+}
+
 static const char* builtinToC(BuiltinTypeKind kind)
 {
     const char* varuintType = "uint64_t";
@@ -333,6 +395,8 @@ static const char* builtinToC(BuiltinTypeKind kind)
         return "int64_t";
     case BuiltinTypeKind::Bool:
         return "bool";
+    case BuiltinTypeKind::Void:
+        return "void";
     case BuiltinTypeKind::Unknown:
         //FIXME: report error
         assert(false);
@@ -376,6 +440,8 @@ static const char* builtinToName(BuiltinTypeKind kind)
         return "I64";
     case BuiltinTypeKind::Bool:
         return "Bool";
+    case BuiltinTypeKind::Void:
+        return "Void";
     case BuiltinTypeKind::Unknown:
         //FIXME: report error
         assert(false);
@@ -768,6 +834,10 @@ void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
     if (!includePaths.empty()) {
         _output.appendEol();
     }
+
+    _output.append("#include <stdbool.h>\n");
+    _output.append("#include <stdint.h>\n");
+    _output.appendEol();
 }
 
 void Generator::startIncludeGuard(const Type* type)

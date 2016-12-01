@@ -9,15 +9,19 @@
 #include <bmcl/Logging.h>
 
 #include <iostream>
+#include <chrono>
 #include <assert.h>
 
 using namespace decode;
 
 int main()
 {
+    auto start = std::chrono::steady_clock::now();
+
+
     Rc<Diagnostics> diag = new Diagnostics;
     Parser p(diag);
-    auto rv = p.parseFile("../example.decode");
+    auto rv = p.parseFile("../onboard.decode");
     if (rv.isErr()) {
         BMCL_CRITICAL() << "errors found: " << p.currentLoc().line << ":" << p.currentLoc().column;
         diag->printReports(&std::cout);
@@ -33,4 +37,7 @@ int main()
     if (genOk) {
         BMCL_DEBUG() << "generating complete";
     }
+
+    auto end = std::chrono::steady_clock::now();
+    BMCL_DEBUG() << "time (us):" << std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
 }

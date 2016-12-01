@@ -41,10 +41,19 @@ public:
         return _typeNameToType;
     }
 
-    bmcl::Option<Rc<Type>> findTypeWithName(bmcl::StringView name) const
+    bmcl::Option<const Rc<Type>&> findTypeWithName(bmcl::StringView name) const
     {
         auto it = _typeNameToType.find(name);
         if (it == _typeNameToType.end()) {
+            return bmcl::None;
+        }
+        return it->second;
+    }
+
+    bmcl::Option<const Rc<ImplBlock>&> findImplBlockWithName(bmcl::StringView name) const
+    {
+        auto it = _typeNameToImplBlock.find(name);
+        if (it == _typeNameToImplBlock.end()) {
             return bmcl::None;
         }
         return it->second;
@@ -58,9 +67,15 @@ private:
         _typeNameToType.emplace(type->name(), type);
     }
 
+    void addImplBlock(const Rc<ImplBlock>& block)
+    {
+        _typeNameToImplBlock.emplace(block->name(), block);
+    }
+
     std::vector<Rc<Import>> _importDecls;
 
     std::unordered_map<bmcl::StringView, Rc<Type>> _typeNameToType;
+    std::unordered_map<bmcl::StringView, Rc<ImplBlock>> _typeNameToImplBlock;
     std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<Module> _moduleDecl;
     Rc<ModuleInfo> _moduleInfo;

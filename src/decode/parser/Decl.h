@@ -46,6 +46,7 @@ enum class BuiltinTypeKind {
     U64,
     I64,
     Bool,
+    Void,
 };
 
 enum class ReferenceKind {
@@ -388,6 +389,11 @@ private:
 
 class ImplBlock : public NamedDecl {
 public:
+
+    const std::vector<Rc<Function>>& functions() const
+    {
+        return _funcs;
+    }
 
 protected:
     ImplBlock() = default;

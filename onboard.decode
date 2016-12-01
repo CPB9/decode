@@ -6,8 +6,57 @@ struct Reader {
     end: *const u8,
 }
 
+impl Reader {
+    fn init(&mut self, data: *mut void, size: usize)
+    fn isAtEnd(&self) -> bool
+    fn currentPtr(&self) -> *const u8
+    fn readableSize(&self) -> usize
+    fn skip(&mut self, size: usize)
+    fn read(&mut self, dest: *mut void, size: usize)
+
+    fn peekU8(&self) -> u8
+    fn peekU16Be(&self) -> u16
+
+    fn readU8(&mut self) -> u8
+
+    fn readU16Be(&mut self) -> u16
+    fn readU32Be(&mut self) -> u32
+    fn readU64Be(&mut self) -> u64
+
+    fn readU16Le(&mut self) -> u16
+    fn readU32Le(&mut self) -> u32
+    fn readU64Le(&mut self) -> u64
+
+    fn slice(&mut self, length: usize, dest: *mut Reader)
+    fn sliceToEnd(&mut self, dest: *mut Reader)
+}
+
 struct Writer {
     current: *mut u8,
     start: *mut u8,
     end: *const u8,
+}
+
+impl Writer {
+    fn init(&mut self, dest: *mut void, size: usize)
+
+    fn writeU8(&mut self, value: u8)
+
+    fn writeU16Be(&mut self, value: u16)
+    fn writeU32Be(&mut self, value: u32)
+    fn writeU64Be(&mut self, value: u64)
+
+    fn writeU16Le(&mut self, value: u16)
+    fn writeU32Le(&mut self, value: u32)
+    fn writeU64Le(&mut self, value: u64)
+
+    fn write(&mut self, src: *const void, size: usize)
+    fn skip(&mut self, size: usize)
+
+    fn sliceFromBack(&mut self, length: usize, dest: *mut Writer)
+    fn setCurrentPtr(&mut self, ptr: *mut u8)
+
+    fn currentPtr(&self, size: usize) -> *mut u8
+    fn isAtEnd(&self) -> bool
+    fn writableSize(&self) -> usize
 }

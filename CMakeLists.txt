@@ -17,7 +17,9 @@ macro(enable_sanitizer)
     SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=integer -fsanitize=undefined")
 endmacro()
 
-#enable_sanitizer()
+if(ASAN)
+    enable_sanitizer()
+endif()
 
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 
