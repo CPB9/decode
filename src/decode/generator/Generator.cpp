@@ -177,6 +177,169 @@ bool Generator::saveOutput(const char* path)
     return true;
 }
 
+
+void Generator::genHeader(const Type* type)
+{
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+    case TypeKind::Array:
+    case TypeKind::Reference:
+    case TypeKind::Imported:
+    case TypeKind::Resolved:
+    case TypeKind::Function:
+    case TypeKind::FnPointer:
+        break;
+    case TypeKind::Struct:
+        startIncludeGuard(type);
+        writeIncludesAndFwdsForType(type);
+        writeStruct(static_cast<const StructDecl*>(type));
+        writeImplFunctionPrototypes(type);
+        writeSerializerFuncPrototypes(type);
+        endIncludeGuard(type);
+        break;
+    case TypeKind::Variant:
+        startIncludeGuard(type);
+        writeIncludesAndFwdsForType(type);
+        writeVariant(static_cast<const Variant*>(type));
+        writeImplFunctionPrototypes(type);
+        writeSerializerFuncPrototypes(type);
+        endIncludeGuard(type);
+        break;
+    case TypeKind::Enum:
+        startIncludeGuard(type);
+        writeEnum(static_cast<const Enum*>(type));
+        writeImplFunctionPrototypes(type);
+        writeSerializerFuncPrototypes(type);
+        endIncludeGuard(type);
+        break;
+    case TypeKind::Component:
+        startIncludeGuard(type);
+        writeIncludesAndFwdsForType(type);
+        //writeStruct(static_cast<const Component*>(type));
+        writeImplFunctionPrototypes(type);
+        //writeSerializerFuncPrototypes(type);
+        endIncludeGuard(type);
+        break;
+    }
+}
+
+void Generator::genSource(const Type* type)
+{
+    auto writeIncludes = [this](const Type* type) {
+        std::string path = type->moduleName().toStdString();
+        path.push_back('/');
+        path.append(type->name().toStdString());
+        writeLocalIncludePath(path);
+    };
+
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+    case TypeKind::Array:
+    case TypeKind::Reference:
+    case TypeKind::Imported:
+    case TypeKind::Resolved:
+    case TypeKind::Function:
+    case TypeKind::FnPointer:
+        break;
+    case TypeKind::Struct:
+        break;
+    case TypeKind::Variant:
+        break;
+    case TypeKind::Enum:
+        writeIncludes(type);
+        _output.appendEol();
+        writeEnumDeserizalizer(static_cast<const Enum*>(type));
+        _output.appendEol();
+        writeEnumSerializer(static_cast<const Enum*>(type));
+        break;
+    case TypeKind::Component:
+        break;
+    }
+    _output.appendEol();
+}
+
+template <typename F, typename... A>
+void Generator::writeWithTryMacro(F&& func, A&&... args)
+{
+    _output.append("PHOTON_TRY(");
+    func(std::forward<A>(args)...);
+    _output.append(");\n");
+}
+
+void Generator::writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix)
+{
+    _output.append(prefix);
+    _output.append(typeName);
+    _output.append(' ');
+    _output.appendWithFirstLower(varName);
+    _output.append(";\n");
+}
+
+void Generator::writeEnumDeserizalizer(const Enum* type)
+{
+    writeDeserializerFuncDecl(type);
+    _output.append("\n{\n");
+    _output.append("    ");
+    writeVarDecl("int64_t", "value");
+    _output.append("    ");
+    writeModPrefix();
+    writeVarDecl(type->name(), "result");
+    _output.append("    ");
+    writeWithTryMacro([this, type]() {
+        _output.append("PhotonReader_ReadVarint(src, &");
+        _output.append("value");
+        _output.append(")");
+    });
+
+    _output.append("    switch(");
+    _output.appendWithFirstLower(type->name());
+    _output.append(") {\n");
+    for (const auto& pair : type->constants()) {
+        _output.append("    case ");
+        _output.appendNumericValue(pair.first);
+        _output.append(":\n");
+        _output.append("        result = ");
+        writeModPrefix();
+        _output.append(type->name());
+        _output.append("_");
+        _output.append(pair.second->name());
+        _output.append(";\n");
+        _output.append("        break;\n");
+    }
+    _output.append("    default:\n");
+    _output.append("        return PhotonError_InvalidValue;\n");
+    _output.append("    }\n");
+
+    _output.append("    *src = result;\n");
+    _output.append("    return PhotonError_Ok;\n");
+    _output.append("}\n");
+}
+
+void Generator::writeEnumSerializer(const Enum* type)
+{
+    writeSerializerFuncDecl(type);
+    _output.append("\n{\n");
+
+    _output.append("    switch(*self) {\n");
+    for (const auto& pair : type->constants()) {
+        _output.append("    case ");
+        writeModPrefix();
+        _output.append(type->name());
+        _output.append("_");
+        _output.append(pair.second->name());
+        _output.append(":\n");
+    }
+    _output.append("        break;\n");
+    _output.append("    default:\n");
+    _output.append("        return PhotonError_InvalidValue;\n");
+    _output.append("    }\n    ");
+    writeWithTryMacro([this, type]() {
+        _output.append("PhotonReader_WriteVarint(dest, (int64_t)*self)");
+    });
+    _output.append("    return PhotonError_Ok;\n");
+    _output.append("}\n");
+}
+
 bool Generator::generateFromAst(const Rc<Ast>& ast)
 {
     _ast = ast;
@@ -191,58 +354,25 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
     TRY(makeDirectory(photonPath.result().c_str()));
     photonPath.append('/');
 
-    for (const auto& it : ast->typeMap()) {
-        const Type* type = it.second.get();
-        _output.clear();
-
-        switch (type->typeKind()) {
-        case TypeKind::Builtin:
-        case TypeKind::Array:
-        case TypeKind::Reference:
-        case TypeKind::Imported:
-        case TypeKind::Resolved:
-        case TypeKind::Function:
-        case TypeKind::FnPointer:
-            break;
-        case TypeKind::Struct:
-            startIncludeGuard(type);
-            writeIncludesAndFwdsForType(type);
-            writeStruct(static_cast<const StructDecl*>(type));
-            writeImplFunctionPrototypes(type);
-            writeSerializerFuncPrototypes(type);
-            endIncludeGuard(type);
-            break;
-        case TypeKind::Variant:
-            startIncludeGuard(type);
-            writeIncludesAndFwdsForType(type);
-            writeVariant(static_cast<const Variant*>(type));
-            writeImplFunctionPrototypes(type);
-            writeSerializerFuncPrototypes(type);
-            endIncludeGuard(type);
-            break;
-        case TypeKind::Enum:
-            startIncludeGuard(type);
-            writeEnum(static_cast<const Enum*>(type));
-            writeImplFunctionPrototypes(type);
-            writeSerializerFuncPrototypes(type);
-            endIncludeGuard(type);
-            break;
-        case TypeKind::Component:
-            startIncludeGuard(type);
-            writeIncludesAndFwdsForType(type);
-            //writeStruct(static_cast<const Component*>(type));
-            writeImplFunctionPrototypes(type);
-            //writeSerializerFuncPrototypes(type);
-            endIncludeGuard(type);
-            break;
-        }
-
+    auto dump = [this, &photonPath](const Type* type, bmcl::StringView ext) -> bool {
         if (!_output.result().empty()) {
             photonPath.append(type->name());
-            photonPath.append(".h");
+            photonPath.append(ext);
             TRY(saveOutput(photonPath.result().c_str()));
             photonPath.removeFromBack(type->name().size() + 2);
+            _output.clear();
         }
+        return true;
+    };
+
+    for (const auto& it : ast->typeMap()) {
+        const Type* type = it.second.get();
+
+        genHeader(type);
+        TRY(dump(type, ".h"));
+
+        genSource(type);
+        TRY(dump(type, ".c"));
     }
 
     _ast = nullptr;
@@ -282,9 +412,9 @@ void Generator::writeSerializerFuncDecl(const Type* type)
     }
     _output.append("PhotonError ");
     genTypeRepr(type);
-    _output.append("_Serialize(");
+    _output.append("_Serialize(const ");
     genTypeRepr(type);
-    _output.append("* src, PhotonWriter* dest)");
+    _output.append("* self, PhotonWriter* dest)");
 }
 
 void Generator::writeDeserializerFuncDecl(const Type* type)
@@ -296,7 +426,7 @@ void Generator::writeDeserializerFuncDecl(const Type* type)
     genTypeRepr(type);
     _output.append("_Deserialize(");
     genTypeRepr(type);
-    _output.append("* dest, PhotonReader* src)");
+    _output.append("* self, PhotonReader* src)");
 }
 
 void Generator::writeSerializerFuncPrototypes(const Type* type)
@@ -698,15 +828,15 @@ void Generator::writeEnum(const Enum* type)
 {
     writeTagHeader("enum");
 
-    for (const Rc<EnumConstant>& constant : type->constants()) {
+    for (const auto& pair : type->constants()) {
         _output.append("    ");
         writeModPrefix();
         _output.append(type->name());
         _output.append("_");
-        _output.append(constant->name().toStdString());
-        if (constant->isUserSet()) {
+        _output.append(pair.second->name().toStdString());
+        if (pair.second->isUserSet()) {
             _output.append(" = ");
-            _output.append(std::to_string(constant->value()));
+            _output.append(std::to_string(pair.second->value()));
         }
         _output.append(",\n");
     }
@@ -790,6 +920,14 @@ void Generator::writeVariant(const Variant* type)
     _output.appendEol();
 }
 
+void Generator::writeLocalIncludePath(bmcl::StringView path)
+{
+    _output.append("#include \"photon/");
+    _output.append(path);
+    _output.append(".h\"");
+    _output.appendEol();
+}
+
 void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
 {
     bool needIncludeBuiltinHeader = false;
@@ -825,10 +963,7 @@ void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
     });
 
     for (const std::string& path : includePaths) {
-        _output.append("#include \"photon/");
-        _output.append(path);
-        _output.append(".h\"");
-        _output.appendEol();
+        writeLocalIncludePath(path);
     }
 
     if (!includePaths.empty()) {

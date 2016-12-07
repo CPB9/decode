@@ -764,10 +764,14 @@ bool Parser::parseEnumConstant(const Rc<Enum>& parent)
         //TODO: check value
         constant->_value = value;
         constant->_isUserSet = true;
+        if (!parent->addConstant(constant)) {
+            BMCL_CRITICAL() << "enum constant redefinition";
+            return false;
+        }
     } else {
-        constant->_isUserSet = false;
+        BMCL_CRITICAL() << "enum values MUST be user set";
+        return false;
     }
-    parent->_constantDecls.push_back(constant);
 
     endDecl(constant);
     return true;

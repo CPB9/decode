@@ -26,6 +26,10 @@ public:
 
     bool generateFromAst(const Rc<Ast>& ast);
 private:
+
+    void genHeader(const Type* type);
+    void genSource(const Type* type);
+
     void startIncludeGuard(const Type* type);
     void writeIncludesAndFwdsForType(const Type* type);
 
@@ -41,11 +45,20 @@ private:
     bool needsSerializers(const Type* type);
     void writeSerializerFuncPrototypes(const Type* type);
 
+    void writeLocalIncludePath(bmcl::StringView path);
+
+    void writeEnumDeserizalizer(const Enum* type);
+    void writeEnumSerializer(const Enum* type);
+
+    template <typename F, typename... A>
+    void writeWithTryMacro(F&& func, A&&... args);
+
     void writeSerializerFuncDecl(const Type* type);
     void writeDeserializerFuncDecl(const Type* type);
 
     void writeTagHeader(bmcl::StringView name);
     void writeTagFooter(bmcl::StringView typeName);
+    void writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = "");
 
     void writeModPrefix();
 

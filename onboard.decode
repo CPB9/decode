@@ -1,5 +1,33 @@
 module core
 
+enum Error {
+    Ok = 0,
+    PacketNotFound = 1,
+    InvalidBerLength = 2,
+    UnexpectedEndOfBerStream = 3,
+    NotEnoughSpace = 4,
+    NotEnoughData = 5,
+    InvalidSize = 6,
+    InvalidDataHeader = 7,
+    InvalidPacketHeader = 8,
+    InvalidDataSize = 9,
+    InvalidAddressType = 10,
+    InvalidReservedFieldValue = 11,
+    InvalidStreamType = 12,
+    InvalidErrorControlType = 13,
+    InvalidWindowSize = 14,
+    InvalidChecksum = 15,
+    InvalidSequenceCounter = 16,
+    InvalidTimeValue = 17,
+    EventIsDenied = 18,
+    InvalidTimeType = 19,
+
+    InvalidComponentId = 20,
+    InvalidCommandId = 21,
+    InvalidMessageId = 22,
+    InvalidValue = 23,
+}
+
 struct Reader {
     current: *const u8,
     start: *const u8,
@@ -27,6 +55,8 @@ impl Reader {
     fn readU32Le(&mut self) -> u32
     fn readU64Le(&mut self) -> u64
 
+    fn readVaruint(&mut self, dest: *mut varuint) -> Error
+
     fn slice(&mut self, length: usize, dest: *mut Reader)
     fn sliceToEnd(&mut self, dest: *mut Reader)
 }
@@ -50,6 +80,8 @@ impl Writer {
     fn writeU32Le(&mut self, value: u32)
     fn writeU64Le(&mut self, value: u64)
 
+    fn writeVaruint(&mut self, value: varuint) -> Error
+
     fn write(&mut self, src: *const void, size: usize)
     fn skip(&mut self, size: usize)
 
@@ -59,4 +91,11 @@ impl Writer {
     fn currentPtr(&self, size: usize) -> *mut u8
     fn isAtEnd(&self) -> bool
     fn writableSize(&self) -> usize
+}
+
+variant Time {
+    Secs { seconds: u32 },
+    SecsMsecs { seconds: u32, milliseconds: u16 },
+    SecsUsecs { seconds: u32, microseconds: u32 },
+    SecsNsecs { seconds: u32, nanoseconds: u32 },
 }

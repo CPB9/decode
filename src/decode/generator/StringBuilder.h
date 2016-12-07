@@ -25,6 +25,9 @@ public:
     void appendSpace();
     void appendEol();
 
+    template <typename T>
+    void appendNumericValue(T value);
+
     void clear();
 
     void removeFromBack(std::size_t size);
@@ -113,5 +116,11 @@ inline void StringBuilder::removeFromBack(std::size_t size)
 {
     assert(_output.size() >= size);
     _output.erase(_output.end() - size, _output.end());
+}
+
+template <typename T>
+inline void StringBuilder::appendNumericValue(T value)
+{
+    append(std::to_string(value));
 }
 }

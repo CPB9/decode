@@ -12,6 +12,7 @@
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include <map>
 
 namespace decode {
 
@@ -479,12 +480,19 @@ private:
 class Enum : public Tag {
 public:
 
-   const std::vector<Rc<EnumConstant>>& constants() const
+   const std::map<std::int64_t, Rc<EnumConstant>>& constants() const
    {
        return _constantDecls;
    }
 
 protected:
+
+    bool addConstant(const Rc<EnumConstant>& constant)
+    {
+        auto pair = _constantDecls.emplace(constant->value(), constant);
+        return pair.second;
+    }
+
     Enum()
         : Tag(TypeKind::Enum)
     {
@@ -493,8 +501,7 @@ protected:
 private:
     friend class Parser;
 
-    std::vector<Rc<EnumConstant>> _constantDecls;
-    std::set<std::int64_t> _constants;
+    std::map<std::int64_t, Rc<EnumConstant>> _constantDecls;
 };
 
 class VariantField;

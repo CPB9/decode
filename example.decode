@@ -24,7 +24,7 @@ struct Struct2 {
 //! enum docstring
 enum Enumeration {
     Value1 = 0,
-    Value2,
+    Value2 = 2,
     Value3 = 5,
     Value6 = -5,
     Value9 = -123133,
