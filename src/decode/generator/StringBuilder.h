@@ -19,6 +19,9 @@ public:
     void append(const std::string& str);
     void append(bmcl::StringView view);
 
+    template <typename... A>
+    void appendSeveral(std::size_t n, A&&... args);
+
     void appendWithFirstUpper(bmcl::StringView view);
     void appendWithFirstLower(bmcl::StringView view);
 
@@ -122,5 +125,13 @@ template <typename T>
 inline void StringBuilder::appendNumericValue(T value)
 {
     append(std::to_string(value));
+}
+
+template <typename... A>
+void StringBuilder::appendSeveral(std::size_t n, A&&... args)
+{
+    for (std::size_t i = 0; i < n; i++) {
+        append(std::forward<A>(args)...);
+    }
 }
 }

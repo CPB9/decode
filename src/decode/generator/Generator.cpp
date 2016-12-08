@@ -20,12 +20,13 @@ namespace decode {
 Generator::Generator(const Rc<Diagnostics>& diag)
     : _diag(diag)
     , _shouldWriteModPrefix(true)
+    , _target(new Target(4)) //FIXME
 {
 }
 
 void Generator::setOutPath(bmcl::StringView path)
 {
-    _outPath = path.toStdString();
+    _savePath = path.toStdString();
 }
 
 template <typename F>
@@ -242,6 +243,11 @@ void Generator::genSource(const Type* type)
     case TypeKind::FnPointer:
         break;
     case TypeKind::Struct:
+        writeIncludes(type);
+        _output.appendEol();
+        writeStructDeserizalizer(static_cast<const StructDecl*>(type));
+        _output.appendEol();
+        writeStructSerializer(static_cast<const StructDecl*>(type));
         break;
     case TypeKind::Variant:
         break;
@@ -258,11 +264,191 @@ void Generator::genSource(const Type* type)
     _output.appendEol();
 }
 
-template <typename F, typename... A>
-void Generator::writeWithTryMacro(F&& func, A&&... args)
+void Generator::writeReadableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+{
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("if (PhotonReader_ReadableSize(src) < ");
+    _output.appendNumericValue(size);
+    _output.append(") {\n");
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("    return PhotonError_NotEnoughSize;\n");
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("}\n");
+}
+
+void Generator::writeInlineBuiltinTypeDeserializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    auto genSizedDeser = [this, ctx, &argNameGen](std::size_t size, bmcl::StringView suffix) {
+        writeReadableSizeCheck(ctx, size);
+        _output.appendSeveral(ctx.indentLevel, "    ");
+        argNameGen();
+        _output.append(" = PhotonReader_Read");
+        _output.append(suffix);
+        _output.append("(self);\n");
+    };
+    auto genVarDeser = [this, ctx, &argNameGen](bmcl::StringView suffix) {
+        _output.appendSeveral(ctx.indentLevel, "    ");
+        writeWithTryMacro([&, this]() {
+            _output.append("PhotonReader_Read");
+            _output.append(suffix);
+            _output.append("(src, &");
+            argNameGen();
+            _output.append(")");
+        });
+    };
+    switch (type->builtinTypeKind()) {
+    case BuiltinTypeKind::USize:
+        genSizedDeser(_target->pointerSize(), "USizeLe");
+        break;
+    case BuiltinTypeKind::ISize:
+        genSizedDeser(_target->pointerSize(), "ISizeLe");
+        break;
+    case BuiltinTypeKind::U8:
+        genSizedDeser(1, "U8");
+        break;
+    case BuiltinTypeKind::I8:
+        genSizedDeser(1, "U8");
+        break;
+    case BuiltinTypeKind::U16:
+        genSizedDeser(2, "U16Le");
+        break;
+    case BuiltinTypeKind::I16:
+        genSizedDeser(2, "U16Le");
+        break;
+    case BuiltinTypeKind::U32:
+        genSizedDeser(4, "U32Le");
+        break;
+    case BuiltinTypeKind::I32:
+        genSizedDeser(4, "U32Le");
+        break;
+    case BuiltinTypeKind::U64:
+        genSizedDeser(8, "U64Le");
+        break;
+    case BuiltinTypeKind::I64:
+        genSizedDeser(8, "U64Le");
+        break;
+    case BuiltinTypeKind::Bool:
+        genSizedDeser(1, "U8");
+        break;
+    case BuiltinTypeKind::Varuint:
+        genVarDeser("Varuint");
+        break;
+    case BuiltinTypeKind::Varint:
+        genVarDeser("Varint");
+        break;
+    case BuiltinTypeKind::Void:
+        //TODO: disallow
+        assert(false);
+        break;
+    case BuiltinTypeKind::Unknown:
+        assert(false);
+        break;
+    default:
+        assert(false);
+    }
+}
+
+void Generator::writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("for (size_t ");
+    assert(ctx.indentLevel < 30);
+    _output.append('a' + ctx.loopLevel);
+    _output.append(" = 0; ");
+    _output.append('a' + ctx.loopLevel);
+    _output.append(" < ");
+    _output.appendNumericValue(type->elementCount());
+    _output.append("; ");
+    _output.append('a' + ctx.loopLevel);
+    _output.append("++) {\n");
+
+    writeInlineTypeDeserializer(type->elementType().get(), ctx.indent().incLoopVar(), [&, this]() {
+        argNameGen();
+        _output.append('[');
+        _output.append('a' + ctx.loopLevel);
+        _output.append(']');
+    });
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("}\n");
+}
+
+void Generator::writeInlinePointerDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    writeReadableSizeCheck(ctx, _target->pointerSize());
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    argNameGen();
+    _output.append(" = (");
+    genTypeRepr(type);
+    _output.append(")PhotonReader_ReadVaruint(src);\n");
+}
+
+void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+        writeInlineBuiltinTypeDeserializer(static_cast<const BuiltinType*>(type), ctx, argNameGen);
+        break;
+    case TypeKind::Array:
+        writeInlineArrayTypeDeserializer(static_cast<const ArrayType*>(type), ctx, argNameGen);
+        break;
+    case TypeKind::Reference:
+        writeInlinePointerDeserializer(type, ctx, argNameGen);
+        break;
+    case TypeKind::Imported:
+        writeInlineTypeDeserializer(static_cast<const ImportedType*>(type)->importedType().get(), ctx, argNameGen);
+        break;
+    case TypeKind::Resolved:
+        writeInlineTypeDeserializer(static_cast<const ResolvedType*>(type)->resolvedType().get(), ctx, argNameGen);
+        break;
+    case TypeKind::Function:
+        assert(false && "Not implemented");
+        break;
+    case TypeKind::FnPointer:
+        writeInlinePointerDeserializer(type, ctx, argNameGen);
+        break;
+    case TypeKind::Struct:
+    case TypeKind::Variant:
+    case TypeKind::Enum:
+    case TypeKind::Component:
+        _output.appendSeveral(ctx.indentLevel, "    ");
+        writeWithTryMacro([&, this, type]() {
+            writeModPrefix();
+            _output.append(type->name());
+            _output.append("_Deserialize(&");
+            argNameGen();
+            _output.append(", src)");
+        });
+        break;
+    default:
+        assert(false);
+    }
+}
+
+void Generator::writeStructDeserizalizer(const StructDecl* type)
+{
+    InlineSerContext ctx;
+    writeDeserializerFuncDecl(type);
+    _output.append("\n{\n");
+
+    for (const Rc<Field>& field : type->fields()->fields()) {
+        writeInlineTypeDeserializer(field->type().get(), ctx, [this, field]() {
+            _output.append("self->");
+            _output.append(field->name());
+        });
+    }
+
+    _output.append("    return PhotonError_Ok;\n");
+    _output.append("}\n");
+}
+
+void Generator::writeStructSerializer(const StructDecl* type)
+{
+}
+
+void Generator::writeWithTryMacro(const Gen& func)
 {
     _output.append("PHOTON_TRY(");
-    func(std::forward<A>(args)...);
+    func();
     _output.append(");\n");
 }
 
@@ -346,7 +532,7 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
     _shouldWriteModPrefix = !ast->moduleInfo()->moduleName().equals("core");
 
     StringBuilder photonPath;
-    photonPath.append(_outPath);
+    photonPath.append(_savePath);
     photonPath.append("/photon");
     TRY(makeDirectory(photonPath.result().c_str()));
     photonPath.append('/');

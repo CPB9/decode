@@ -99,3 +99,26 @@ variant Time {
     SecsUsecs { seconds: u32, microseconds: u32 },
     SecsNsecs { seconds: u32, nanoseconds: u32 },
 }
+
+struct Test {
+    a1: bool,
+    a2: i8,
+    a3: i16,
+    a4: i32,
+    a5: i64,
+    a6: u8,
+    a7: u16,
+    a8: u32,
+    a9: u64,
+    a10: varint,
+    a11: varuint,
+    time: Time,
+    reader: Reader,
+    error: Error,
+    arrayOfInts: [i32; 4],
+    doubleArrayOfInts: [[i32; 6]; 4],
+    tripleArrayOfEnum: [[[Error; 6]; 4]; 99],
+    arrayOfTime: [Time; 5],
+    a12: *mut varuint,
+    a13: &Fn(i32) -> i64,
+}

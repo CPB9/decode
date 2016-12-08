@@ -6,6 +6,8 @@
 
 #include <bmcl/StringView.h>
 
+#include <functional>
+
 namespace decode {
 
 class Ast;
@@ -14,9 +16,58 @@ class Enum;
 class FieldList;
 class FnPointer;
 class Function;
+class ReferenceType;
+class BuiltinType;
+class ArrayType;
 class StructDecl;
 class Type;
 class Variant;
+
+struct InlineSerContext {
+    InlineSerContext(std::uint8_t indentLevel = 1, std::uint8_t loopLevel = 0, std::uint8_t ptrDepth = 0)
+        : indentLevel(indentLevel)
+        , loopLevel(loopLevel)
+        , ptrDepth(loopLevel)
+    {
+    }
+
+    InlineSerContext indent() const
+    {
+        return InlineSerContext(indentLevel + 1, loopLevel, ptrDepth);
+    }
+
+    InlineSerContext incLoopVar() const
+    {
+        return InlineSerContext(indentLevel, loopLevel + 1, ptrDepth);
+    }
+
+    InlineSerContext incPtrDepth() const
+    {
+        return InlineSerContext(indentLevel, loopLevel, ptrDepth + 1);
+    }
+
+    std::uint8_t indentLevel;
+    std::uint8_t loopLevel;
+    std::uint8_t ptrDepth;
+};
+
+class Target : public RefCountable {
+public:
+    Target(std::size_t pointerSize)
+        : _pointerSize(pointerSize)
+    {
+    }
+
+    std::size_t pointerSize() const
+    {
+        return _pointerSize;
+    }
+
+private:
+    std::size_t _pointerSize;
+};
+
+typedef std::function<void()> Gen;
 
 class Generator : public RefCountable {
 public:
@@ -50,8 +101,16 @@ private:
     void writeEnumDeserizalizer(const Enum* type);
     void writeEnumSerializer(const Enum* type);
 
-    template <typename F, typename... A>
-    void writeWithTryMacro(F&& func, A&&... args);
+    void writeStructDeserizalizer(const StructDecl* type);
+    void writeStructSerializer(const StructDecl* type);
+
+    void writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeInlineBuiltinTypeDeserializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeInlinePointerDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeInlineTypeDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeReadableSizeCheck(const InlineSerContext& ctx, std::size_t size);
+
+    void writeWithTryMacro(const Gen& func);
 
     void writeSerializerFuncDecl(const Type* type);
     void writeDeserializerFuncDecl(const Type* type);
@@ -72,10 +131,11 @@ private:
     bool saveOutput(const char* path);
 
     Rc<Diagnostics> _diag;
-    std::string _outPath;
+    std::string _savePath;
     StringBuilder _output;
     Rc<Ast> _ast;
     bool _shouldWriteModPrefix;
+    Rc<Target> _target;
 };
 
 }
