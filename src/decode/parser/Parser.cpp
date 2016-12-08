@@ -582,6 +582,8 @@ Rc<Type> Parser::parseFunctionPointer()
 
 Rc<Type> Parser::parseSliceType()
 {
+    BMCL_CRITICAL() << "slices not supported yet";
+    return nullptr;
     TRY(expectCurrentToken(TokenKind::Ampersand));
     Rc<SliceType> ref = beginType<SliceType>();
     consume();

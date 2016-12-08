@@ -14,18 +14,18 @@
 
 using namespace decode;
 
-int main()
+void process(const char* path)
 {
     auto start = std::chrono::steady_clock::now();
 
 
     Rc<Diagnostics> diag = new Diagnostics;
     Parser p(diag);
-    auto rv = p.parseFile("../onboard.decode");
+    auto rv = p.parseFile(path);
     if (rv.isErr()) {
         BMCL_CRITICAL() << "errors found: " << p.currentLoc().line << ":" << p.currentLoc().column;
         diag->printReports(&std::cout);
-        return 1;
+        return;
     } else {
         BMCL_DEBUG() << "parsing complete";
         diag->printReports(&std::cout);
@@ -40,4 +40,10 @@ int main()
 
     auto end = std::chrono::steady_clock::now();
     BMCL_DEBUG() << "time (us):" << std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
+}
+
+int main()
+{
+    process("../test.decode");
+    process("../onboard.decode");
 }

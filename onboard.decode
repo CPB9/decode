@@ -55,7 +55,13 @@ impl Reader {
     fn readU32Le(&mut self) -> u32
     fn readU64Le(&mut self) -> u64
 
+    fn readUSize(&mut self) -> usize
+    fn readISize(&mut self) -> isize
+
     fn readVaruint(&mut self, dest: *mut varuint) -> Error
+    fn readVarint(&mut self, dest: *mut varint) -> Error
+
+    fn readPtr(&mut self) -> *mut void
 
     fn slice(&mut self, length: usize, dest: *mut Reader)
     fn sliceToEnd(&mut self, dest: *mut Reader)
@@ -81,6 +87,12 @@ impl Writer {
     fn writeU64Le(&mut self, value: u64)
 
     fn writeVaruint(&mut self, value: varuint) -> Error
+    fn writeVarint(&mut self, value: varint) -> Error
+
+    fn writeUSize(&mut self, value: usize)
+    fn writeISize(&mut self, value: isize)
+
+    fn writePtr(&mut self, value: *const void)
 
     fn write(&mut self, src: *const void, size: usize)
     fn skip(&mut self, size: usize)
@@ -98,27 +110,4 @@ variant Time {
     SecsMsecs { seconds: u32, milliseconds: u16 },
     SecsUsecs { seconds: u32, microseconds: u32 },
     SecsNsecs { seconds: u32, nanoseconds: u32 },
-}
-
-struct Test {
-    a1: bool,
-    a2: i8,
-    a3: i16,
-    a4: i32,
-    a5: i64,
-    a6: u8,
-    a7: u16,
-    a8: u32,
-    a9: u64,
-    a10: varint,
-    a11: varuint,
-    time: Time,
-    reader: Reader,
-    error: Error,
-    arrayOfInts: [i32; 4],
-    doubleArrayOfInts: [[i32; 6]; 4],
-    tripleArrayOfEnum: [[[Error; 6]; 4]; 99],
-    arrayOfTime: [Time; 5],
-    a12: &[varuint],
-    a13: &Fn(i32) -> i64,
 }

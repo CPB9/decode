@@ -7,6 +7,7 @@
 #include <bmcl/StringView.h>
 
 #include <functional>
+#include <unordered_set>
 
 namespace decode {
 
@@ -82,7 +83,10 @@ private:
     void genSource(const Type* type);
 
     void startIncludeGuard(const Type* type);
+    void collectIncludesAndFwdsForType(const Type* topLevelType, std::unordered_set<std::string>* dest);
+    void writeIncludes(const std::unordered_set<std::string>& src);
     void writeIncludesAndFwdsForType(const Type* type);
+    void writeImplBlockIncludes(const Type* type);
 
     void writeStruct(const FieldList* fields, bmcl::StringView name);
     void writeStruct(const StructDecl* type);
@@ -97,6 +101,7 @@ private:
     void writeSerializerFuncPrototypes(const Type* type);
 
     void writeLocalIncludePath(bmcl::StringView path);
+    void writeCommonIncludePaths(const Type* type);
 
     void writeEnumDeserizalizer(const Enum* type);
     void writeEnumSerializer(const Enum* type);
@@ -104,11 +109,22 @@ private:
     void writeStructDeserizalizer(const StructDecl* type);
     void writeStructSerializer(const StructDecl* type);
 
+    void writeVariantDeserizalizer(const Variant* type);
+    void writeVariantSerializer(const Variant* type);
+
     void writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlineBuiltinTypeDeserializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlinePointerDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlineTypeDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeReadableSizeCheck(const InlineSerContext& ctx, std::size_t size);
+
+    void writeInlineArrayTypeSerializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeInlineBuiltinTypeSerializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeInlinePointerSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeInlineTypeSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
+    void writeWritableSizeCheck(const InlineSerContext& ctx, std::size_t size);
+
+    void writeLoopHeader(const InlineSerContext& ctx, std::size_t loopSize);
 
     void writeWithTryMacro(const Gen& func);
 

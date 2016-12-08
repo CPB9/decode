@@ -200,7 +200,9 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Struct:
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
+        writeCommonIncludePaths(type);
         writeStruct(static_cast<const StructDecl*>(type));
+        writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         writeSerializerFuncPrototypes(type);
         endIncludeGuard(type);
@@ -208,14 +210,19 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Variant:
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
+        writeCommonIncludePaths(type);
         writeVariant(static_cast<const Variant*>(type));
+        writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         writeSerializerFuncPrototypes(type);
         endIncludeGuard(type);
         break;
     case TypeKind::Enum:
         startIncludeGuard(type);
+        writeIncludesAndFwdsForType(type);
+        writeCommonIncludePaths(type);
         writeEnum(static_cast<const Enum*>(type));
+        writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         writeSerializerFuncPrototypes(type);
         endIncludeGuard(type);
@@ -223,12 +230,21 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Component:
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
+        writeCommonIncludePaths(type);
         //writeStruct(static_cast<const Component*>(type));
+        writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         //writeSerializerFuncPrototypes(type);
         endIncludeGuard(type);
         break;
     }
+}
+
+void Generator::writeCommonIncludePaths(const Type* type)
+{
+    _output.append("#include <stdbool.h>\n");
+    _output.append("#include <stddef.h>\n");
+    _output.append("#include <stdint.h>\n\n");
 }
 
 void Generator::genSource(const Type* type)
@@ -258,6 +274,11 @@ void Generator::genSource(const Type* type)
         writeStructSerializer(static_cast<const StructDecl*>(type));
         break;
     case TypeKind::Variant:
+        writeIncludes(type);
+        _output.appendEol();
+        writeVariantDeserizalizer(static_cast<const Variant*>(type));
+        _output.appendEol();
+        writeVariantSerializer(static_cast<const Variant*>(type));
         break;
     case TypeKind::Enum:
         writeIncludes(type);
@@ -279,7 +300,7 @@ void Generator::writeReadableSizeCheck(const InlineSerContext& ctx, std::size_t 
     _output.appendNumericValue(size);
     _output.append(") {\n");
     _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("    return PhotonError_NotEnoughSize;\n");
+    _output.append("    return PhotonError_NotEnoughData;\n");
     _output.appendSeveral(ctx.indentLevel, "    ");
     _output.append("}\n");
 }
@@ -292,7 +313,7 @@ void Generator::writeInlineBuiltinTypeDeserializer(const BuiltinType* type, cons
         argNameGen();
         _output.append(" = PhotonReader_Read");
         _output.append(suffix);
-        _output.append("(self);\n");
+        _output.append("(src);\n");
     };
     auto genVarDeser = [this, ctx, &argNameGen](bmcl::StringView suffix) {
         _output.appendSeveral(ctx.indentLevel, "    ");
@@ -356,7 +377,7 @@ void Generator::writeInlineBuiltinTypeDeserializer(const BuiltinType* type, cons
     }
 }
 
-void Generator::writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
+void Generator::writeLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)
 {
     _output.appendSeveral(ctx.indentLevel, "    ");
     _output.append("for (size_t ");
@@ -365,12 +386,31 @@ void Generator::writeInlineArrayTypeDeserializer(const ArrayType* type, const In
     _output.append(" = 0; ");
     _output.append('a' + ctx.loopLevel);
     _output.append(" < ");
-    _output.appendNumericValue(type->elementCount());
+    _output.appendNumericValue(loopSize);
     _output.append("; ");
     _output.append('a' + ctx.loopLevel);
     _output.append("++) {\n");
+}
+
+void Generator::writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    writeLoopHeader(ctx, type->elementCount());
 
     writeInlineTypeDeserializer(type->elementType().get(), ctx.indent().incLoopVar(), [&, this]() {
+        argNameGen();
+        _output.append('[');
+        _output.append('a' + ctx.loopLevel);
+        _output.append(']');
+    });
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("}\n");
+}
+
+void Generator::writeInlineArrayTypeSerializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    writeLoopHeader(ctx, type->elementCount());
+
+    writeInlineTypeSerializer(type->elementType().get(), ctx.indent().incLoopVar(), [&, this]() {
         argNameGen();
         _output.append('[');
         _output.append('a' + ctx.loopLevel);
@@ -387,7 +427,7 @@ void Generator::writeInlinePointerDeserializer(const Type* type, const InlineSer
     argNameGen();
     _output.append(" = (");
     genTypeRepr(type);
-    _output.append(")PhotonReader_ReadVaruint(src);\n");
+    _output.append(")PhotonReader_ReadPtr(src);\n");
 }
 
 void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
@@ -432,6 +472,142 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
     }
 }
 
+void Generator::writeInlineBuiltinTypeSerializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    auto genSizedSer = [this, ctx, &argNameGen](std::size_t size, bmcl::StringView suffix) {
+        writeWritableSizeCheck(ctx, size);
+        _output.appendSeveral(ctx.indentLevel, "    ");
+        _output.append("PhotonWriter_Write");
+        _output.append(suffix);
+        _output.append("(dest, ");
+        argNameGen();
+        _output.append(");\n");
+    };
+    auto genVarSer = [this, ctx, &argNameGen](bmcl::StringView suffix) {
+        _output.appendSeveral(ctx.indentLevel, "    ");
+        writeWithTryMacro([&, this]() {
+            _output.append("PhotonWriter_Write");
+            _output.append(suffix);
+            _output.append("(dest, ");
+            argNameGen();
+            _output.append(")");
+        });
+    };
+    switch (type->builtinTypeKind()) {
+    case BuiltinTypeKind::USize:
+        genSizedSer(_target->pointerSize(), "USizeLe");
+        break;
+    case BuiltinTypeKind::ISize:
+        genSizedSer(_target->pointerSize(), "ISizeLe");
+        break;
+    case BuiltinTypeKind::U8:
+        genSizedSer(1, "U8");
+        break;
+    case BuiltinTypeKind::I8:
+        genSizedSer(1, "U8");
+        break;
+    case BuiltinTypeKind::U16:
+        genSizedSer(2, "U16Le");
+        break;
+    case BuiltinTypeKind::I16:
+        genSizedSer(2, "U16Le");
+        break;
+    case BuiltinTypeKind::U32:
+        genSizedSer(4, "U32Le");
+        break;
+    case BuiltinTypeKind::I32:
+        genSizedSer(4, "U32Le");
+        break;
+    case BuiltinTypeKind::U64:
+        genSizedSer(8, "U64Le");
+        break;
+    case BuiltinTypeKind::I64:
+        genSizedSer(8, "U64Le");
+        break;
+    case BuiltinTypeKind::Bool:
+        genSizedSer(1, "U8");
+        break;
+    case BuiltinTypeKind::Varuint:
+        genVarSer("Varuint");
+        break;
+    case BuiltinTypeKind::Varint:
+        genVarSer("Varint");
+        break;
+    case BuiltinTypeKind::Void:
+        //TODO: disallow
+        assert(false);
+        break;
+    case BuiltinTypeKind::Unknown:
+        assert(false);
+        break;
+    default:
+        assert(false);
+    }
+}
+
+void Generator::writeWritableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+{
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("if (PhotonWriter_WritableSize(dest) < ");
+    _output.appendNumericValue(size);
+    _output.append(") {\n");
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("    return PhotonError_NotEnoughSpace;\n");
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("}\n");
+}
+
+void Generator::writeInlinePointerSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    writeWritableSizeCheck(ctx, _target->pointerSize());
+    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.append("PhotonWriter_WritePtr(dest, ");
+    argNameGen();
+    _output.append(");\n");
+}
+
+void Generator::writeInlineTypeSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
+{
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+        writeInlineBuiltinTypeSerializer(static_cast<const BuiltinType*>(type), ctx, argNameGen);
+        break;
+    case TypeKind::Array:
+        writeInlineArrayTypeSerializer(static_cast<const ArrayType*>(type), ctx, argNameGen);
+        break;
+    case TypeKind::Reference:
+        writeInlinePointerSerializer(type, ctx, argNameGen);
+        break;
+    case TypeKind::Imported:
+        writeInlineTypeSerializer(static_cast<const ImportedType*>(type)->importedType().get(), ctx, argNameGen);
+        break;
+    case TypeKind::Resolved:
+        writeInlineTypeSerializer(static_cast<const ResolvedType*>(type)->resolvedType().get(), ctx, argNameGen);
+        break;
+    case TypeKind::Function:
+        assert(false && "Not implemented");
+        break;
+    case TypeKind::FnPointer:
+        writeInlinePointerSerializer(type, ctx, argNameGen);
+        break;
+    case TypeKind::Struct:
+    case TypeKind::Variant:
+    case TypeKind::Enum:
+    case TypeKind::Component:
+    case TypeKind::Slice:
+        _output.appendSeveral(ctx.indentLevel, "    ");
+        writeWithTryMacro([&, this, type]() {
+            genTypeRepr(type);
+            _output.append("_Serialize(&");
+            argNameGen();
+            _output.append(", dest)");
+        });
+        break;
+    default:
+        assert(false);
+    }
+}
+
 void Generator::writeStructDeserizalizer(const StructDecl* type)
 {
     InlineSerContext ctx;
@@ -451,6 +627,19 @@ void Generator::writeStructDeserizalizer(const StructDecl* type)
 
 void Generator::writeStructSerializer(const StructDecl* type)
 {
+    InlineSerContext ctx;
+    writeSerializerFuncDecl(type);
+    _output.append("\n{\n");
+
+    for (const Rc<Field>& field : type->fields()->fields()) {
+        writeInlineTypeSerializer(field->type().get(), ctx, [this, field]() {
+            _output.append("self->");
+            _output.append(field->name());
+        });
+    }
+
+    _output.append("    return PhotonError_Ok;\n");
+    _output.append("}\n");
 }
 
 void Generator::writeWithTryMacro(const Gen& func)
@@ -469,6 +658,144 @@ void Generator::writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName
     _output.append(";\n");
 }
 
+void Generator::writeVariantDeserizalizer(const Variant* type)
+{
+    writeDeserializerFuncDecl(type);
+     _output.append("\n{\n");
+    _output.append("    ");
+    writeVarDecl("int64_t", "value");
+    _output.append("    ");
+    writeWithTryMacro([this, type]() {
+        _output.append("PhotonReader_ReadVarint(src, &");
+        _output.append("value");
+        _output.append(")");
+    });
+
+    _output.append("    switch(value) {\n");
+    std::size_t i = 0;
+    for (const Rc<VariantField>& field : type->fields()) {
+        _output.append("    case ");
+        _output.appendNumericValue(i);
+        i++;
+        _output.append(": {\n");
+        _output.append("        self->type = ");
+        writeModPrefix();
+        _output.append(type->name());
+        _output.append("Type");
+        _output.append("_");
+        _output.appendWithFirstUpper(field->name());
+        _output.append(";\n");
+
+        InlineSerContext ctx(2);
+        switch (field->variantFieldKind()) {
+        case VariantFieldKind::Constant:
+            break;
+        case VariantFieldKind::Tuple: {
+            const TupleVariantField* tupField = static_cast<TupleVariantField*>(field.get());
+            std::size_t j = 1;
+            for (const Rc<Type>& t : tupField->types()) {
+                writeInlineTypeDeserializer(t.get(), ctx, [&, this]() {
+                    _output.append("self->data.");
+                    _output.appendWithFirstLower(field->name());
+                    _output.append(type->name());
+                    _output.append("._");
+                    _output.appendNumericValue(j);
+                    j++;
+                });
+            }
+            break;
+        }
+        case VariantFieldKind::Struct: {
+            const StructVariantField* varField = static_cast<StructVariantField*>(field.get());
+            for (const Rc<Field>& f : varField->fields()->fields()) {
+                writeInlineTypeDeserializer(f->type().get(), ctx, [&, this]() {
+                    _output.append("self->data.");
+                    _output.appendWithFirstLower(field->name());
+                    _output.append(type->name());
+                    _output.append(".");
+                    _output.append(f->name());
+                });
+            }
+            break;
+        }
+        }
+
+        _output.append("        break;\n");
+        _output.append("    }\n");
+    }
+    _output.append("    default:\n");
+    _output.append("        return PhotonError_InvalidValue;\n");
+    _output.append("    }\n");
+
+    _output.append("    return PhotonError_Ok;\n");
+    _output.append("}\n");
+}
+
+void Generator::writeVariantSerializer(const Variant* type)
+{
+    writeSerializerFuncDecl(type);
+     _output.append("\n{\n");
+    _output.append("    ");
+    writeWithTryMacro([this, type]() {
+        _output.append("PhotonWriter_WriteVaruint(dest, (uint64_t)self->type)");
+    });
+
+    _output.append("    switch(self->type) {\n");
+    std::size_t i = 0;
+    for (const Rc<VariantField>& field : type->fields()) {
+        _output.append("    case ");
+        writeModPrefix();
+        _output.append(type->name());
+        _output.append("Type");
+        _output.append("_");
+        _output.appendWithFirstUpper(field->name());
+        _output.append(": {\n");
+
+        InlineSerContext ctx(2);
+        switch (field->variantFieldKind()) {
+        case VariantFieldKind::Constant:
+            break;
+        case VariantFieldKind::Tuple: {
+            const TupleVariantField* tupField = static_cast<TupleVariantField*>(field.get());
+            std::size_t j = 1;
+            for (const Rc<Type>& t : tupField->types()) {
+                writeInlineTypeSerializer(t.get(), ctx, [&, this]() {
+                    _output.append("self->data.");
+                    _output.appendWithFirstLower(field->name());
+                    _output.append(type->name());
+                    _output.append("._");
+                    _output.appendNumericValue(j);
+                    j++;
+                });
+            }
+            break;
+        }
+        case VariantFieldKind::Struct: {
+            const StructVariantField* varField = static_cast<StructVariantField*>(field.get());
+            for (const Rc<Field>& f : varField->fields()->fields()) {
+                writeInlineTypeSerializer(f->type().get(), ctx, [&, this]() {
+                    _output.append("self->data.");
+                    _output.appendWithFirstLower(field->name());
+                    _output.append(type->name());
+                    _output.append(".");
+                    _output.append(f->name());
+                });
+            }
+            break;
+        }
+        }
+
+        _output.append("        break;\n");
+        _output.append("    }\n");
+    }
+    _output.append("    default:\n");
+    _output.append("        return PhotonError_InvalidValue;\n");
+    _output.append("    }\n");
+
+    _output.append("    return PhotonError_Ok;\n");
+    _output.append("}\n");
+}
+
 void Generator::writeEnumDeserizalizer(const Enum* type)
 {
     writeDeserializerFuncDecl(type);
@@ -485,9 +812,7 @@ void Generator::writeEnumDeserizalizer(const Enum* type)
         _output.append(")");
     });
 
-    _output.append("    switch(");
-    _output.appendWithFirstLower(type->name());
-    _output.append(") {\n");
+    _output.append("    switch(value) {\n");
     for (const auto& pair : type->constants()) {
         _output.append("    case ");
         _output.appendNumericValue(pair.first);
@@ -504,7 +829,7 @@ void Generator::writeEnumDeserizalizer(const Enum* type)
     _output.append("        return PhotonError_InvalidValue;\n");
     _output.append("    }\n");
 
-    _output.append("    *src = result;\n");
+    _output.append("    *self = result;\n");
     _output.append("    return PhotonError_Ok;\n");
     _output.append("}\n");
 }
@@ -528,7 +853,7 @@ void Generator::writeEnumSerializer(const Enum* type)
     _output.append("        return PhotonError_InvalidValue;\n");
     _output.append("    }\n    ");
     writeWithTryMacro([this, type]() {
-        _output.append("PhotonReader_WriteVarint(dest, (int64_t)*self)");
+        _output.append("PhotonWriter_WriteVarint(dest, (int64_t)*self)");
     });
     _output.append("    return PhotonError_Ok;\n");
     _output.append("}\n");
@@ -686,16 +1011,15 @@ void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::Strin
 
 static const char* builtinToC(BuiltinTypeKind kind)
 {
-    const char* varuintType = "uint64_t";
     switch (kind) {
     case BuiltinTypeKind::USize:
         return "size_t";
     case BuiltinTypeKind::ISize:
         return "ptrdiff_t";
     case BuiltinTypeKind::Varuint:
-        return varuintType;
+        return "uint64_t";
     case BuiltinTypeKind::Varint:
-        return varuintType;
+        return "int64_t";
     case BuiltinTypeKind::U8:
         return "uint8_t";
     case BuiltinTypeKind::I8:
@@ -1090,6 +1414,9 @@ void Generator::writeVariant(const Variant* type)
     _output.append("    union {\n");
 
     for (const Rc<VariantField>& field : type->fields()) {
+        if (field->variantFieldKind() == VariantFieldKind::Constant) {
+            continue;
+        }
         _output.append("        ");
         writeModPrefix();
         _output.append(field->name());
@@ -1097,7 +1424,7 @@ void Generator::writeVariant(const Variant* type)
         _output.appendSpace();
         _output.appendWithFirstLower(field->name());
         _output.append(type->name());
-        _output.append(",\n");
+        _output.append(";\n");
     }
 
     _output.append("    } data;\n");
@@ -1119,17 +1446,29 @@ void Generator::writeLocalIncludePath(bmcl::StringView path)
     _output.appendEol();
 }
 
-void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
+void Generator::writeImplBlockIncludes(const Type* topLevelType)
 {
-    bool needIncludeBuiltinHeader = false;
-    std::unordered_set<std::string> includePaths;
+    bmcl::Option<const Rc<ImplBlock>&> impl = _ast->findImplBlockWithName(topLevelType->name());
+    std::unordered_set<std::string> dest;
+    if (impl.isSome()) {
+        for (const Rc<Function>& fn : impl.unwrap()->functions()) {
+            collectIncludesAndFwdsForType(fn.get(), &dest);
+        }
+    }
+    dest.insert("core/Reader");
+    dest.insert("core/Writer");
+    dest.insert("core/Error");
+    writeIncludes(dest);
+}
+
+void Generator::collectIncludesAndFwdsForType(const Type* topLevelType, std::unordered_set<std::string>* dest)
+{
     traverseType(topLevelType, [&](const Type* visitedType) {
         if (visitedType == topLevelType) {
             return true;
         }
         switch (visitedType->typeKind()) {
         case TypeKind::Builtin:
-            needIncludeBuiltinHeader = true;
             return false;
         case TypeKind::Array:
             return true;
@@ -1149,23 +1488,31 @@ void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
             std::string path = visitedType->moduleName().toStdString();
             path.push_back('/');
             path.append(visitedType->name().begin(), visitedType->name().end());
-            includePaths.insert(std::move(path));
+            dest->insert(std::move(path));
             return false;
         }
         }
     });
+}
 
-    for (const std::string& path : includePaths) {
+void Generator::writeIncludes(const std::unordered_set<std::string>& src)
+{
+    for (const std::string& path : src) {
         writeLocalIncludePath(path);
     }
 
-    if (!includePaths.empty()) {
+    if (!src.empty()) {
         _output.appendEol();
     }
 
-    _output.append("#include <stdbool.h>\n");
-    _output.append("#include <stdint.h>\n");
     _output.appendEol();
+}
+
+void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
+{
+    std::unordered_set<std::string> includePaths;
+    collectIncludesAndFwdsForType(topLevelType, &includePaths);
+    writeIncludes(includePaths);
 }
 
 void Generator::startIncludeGuard(const Type* type)
