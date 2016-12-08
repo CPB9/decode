@@ -96,9 +96,9 @@ private:
     Rc<Type> parseFunctionPointer();
     Rc<Type> parseReferenceOrSliceType();
     Rc<Type> parsePointerType();
-    Rc<Type> parseNonReferenceType(bool sliceAllowed);
+    Rc<Type> parseNonReferenceType();
     Rc<Type> parseSliceType();
-    Rc<Type> parseArrayType(bool sliceAllowed);
+    Rc<Type> parseArrayType();
     Rc<Type> parseBuiltinOrResolveType();
     bool parseUnsignedInteger(std::uintmax_t* dest);
     bool parseSignedInteger(std::intmax_t* dest);

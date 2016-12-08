@@ -119,6 +119,6 @@ struct Test {
     doubleArrayOfInts: [[i32; 6]; 4],
     tripleArrayOfEnum: [[[Error; 6]; 4]; 99],
     arrayOfTime: [Time; 5],
-    a12: *mut varuint,
+    a12: &[varuint],
     a13: &Fn(i32) -> i64,
 }

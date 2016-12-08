@@ -20,6 +20,7 @@ class ImportedType;
 
 enum class TypeKind {
     Reference,
+    Slice,
     Builtin,
     Array,
     Struct,
@@ -53,7 +54,6 @@ enum class BuiltinTypeKind {
 enum class ReferenceKind {
     Pointer,
     Reference,
-    Slice
 };
 
 class Decl : public RefCountable {
@@ -201,6 +201,27 @@ private:
 
     BuiltinTypeKind _builtinTypeKind;
 };
+
+class SliceType : public Type {
+public:
+
+    const Rc<Type>& elementType() const
+    {
+        return _elementType;
+    }
+
+protected:
+    SliceType()
+        : Type(TypeKind::Slice)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    Rc<Type> _elementType;
+};
+
 
 class ArrayType : public Type {
 public:

@@ -92,6 +92,11 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
         traverseType(ref->pointee().get(), std::forward<F>(visitor), depth);
         break;
     }
+    case TypeKind::Slice: {
+        const SliceType* ref = static_cast<const SliceType*>(type);
+        traverseType(ref->elementType().get(), std::forward<F>(visitor), depth);
+        break;
+    }
     case TypeKind::Struct: {
         Rc<FieldList> fieldList = static_cast<const Record*>(type)->fields();
         for (const Rc<Field>& field : fieldList->fields()) {
@@ -190,6 +195,8 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Function:
     case TypeKind::FnPointer:
         break;
+    case TypeKind::Slice:
+        break;
     case TypeKind::Struct:
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
@@ -237,6 +244,7 @@ void Generator::genSource(const Type* type)
     case TypeKind::Builtin:
     case TypeKind::Array:
     case TypeKind::Reference:
+    case TypeKind::Slice:
     case TypeKind::Imported:
     case TypeKind::Resolved:
     case TypeKind::Function:
@@ -410,10 +418,10 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
     case TypeKind::Variant:
     case TypeKind::Enum:
     case TypeKind::Component:
+    case TypeKind::Slice:
         _output.appendSeveral(ctx.indentLevel, "    ");
         writeWithTryMacro([&, this, type]() {
-            writeModPrefix();
-            _output.append(type->name());
+            genTypeRepr(type);
             _output.append("_Deserialize(&");
             argNameGen();
             _output.append(", src)");
@@ -574,14 +582,9 @@ bool Generator::needsSerializers(const Type* type)
     case TypeKind::Resolved:
     case TypeKind::Function:
     case TypeKind::FnPointer:
+    case TypeKind::Slice:
         return false;
-    case TypeKind::Reference: {
-        const ReferenceType* ref = static_cast<const ReferenceType*>(type);
-        if (ref->referenceKind() != ReferenceKind::Slice) {
-            return false;
-        }
-        break;
-    }
+    case TypeKind::Reference:
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::Enum:
@@ -795,12 +798,12 @@ std::string genSliceName(const Type* topLevelType)
             case ReferenceKind::Reference:
                 typeName.append("RefTo");
                 break;
-            case ReferenceKind::Slice:
-                typeName.append("SliceOf");
-                break;
             }
             return true;
         }
+        case TypeKind::Slice:
+            typeName.append("SliceOf");
+            return true;
         case TypeKind::Struct:
         case TypeKind::Variant:
         case TypeKind::Enum:
@@ -885,6 +888,8 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
     std::string arrayIndices;
     traverseType(topLevelType, [&](const Type* visitedType) {
         switch (visitedType->typeKind()) {
+        case TypeKind::Function:
+            return false;
         case TypeKind::FnPointer:
             genFnPointerTypeRepr(static_cast<const FnPointer*>(visitedType), fieldName);
             return false;
@@ -909,12 +914,12 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
                     pointers.push_front(true);
                 }
                 return true;
-            case ReferenceKind::Slice:
-                hasPrefix = true;
-                typeName = genSliceName(ref);
-                return false;
             }
         }
+        case TypeKind::Slice:
+            hasPrefix = true;
+            typeName = genSliceName(visitedType);
+            return false;
         case TypeKind::Struct:
         case TypeKind::Variant:
         case TypeKind::Enum:
@@ -1129,6 +1134,8 @@ void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)
         case TypeKind::Array:
             return true;
         case TypeKind::Reference:
+            return true;
+        case TypeKind::Slice:
             return true;
         case TypeKind::Struct:
         case TypeKind::Variant:

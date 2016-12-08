@@ -505,29 +505,12 @@ Rc<Type> Parser::parsePointerType()
     if (_currentToken.kind() == TokenKind::Star) {
         pointee = parsePointerType();
     } else {
-        pointee = parseNonReferenceType(false);
+        pointee = parseBuiltinOrResolveType();
     }
 
     if (pointee) {
         type->_pointee = std::move(pointee);
         return type;
-    }
-
-    return nullptr;
-}
-
-Rc<Type> Parser::parseNonReferenceType(bool sliceAllowed)
-{
-    TRY(skipCommentsAndSpace());
-
-    switch (_currentToken.kind()) {
-    case TokenKind::LBracket:
-        return parseArrayType(sliceAllowed);
-    case TokenKind::Identifier:
-        return parseBuiltinOrResolveType();
-    default:
-        reportUnexpectedTokenError(_currentToken.kind());
-        return nullptr;
     }
 
     return nullptr;
@@ -544,9 +527,17 @@ Rc<Type> Parser::parseType()
         if (_lexer->nextIs(TokenKind::UpperFn)) {
             return parseFunctionPointer();
         }
+        if (_lexer->nextIs(TokenKind::LBracket)) {
+            return parseSliceType();
+        }
         return parseReferenceOrSliceType();
+    case TokenKind::LBracket:
+        return parseArrayType();
+    case TokenKind::Identifier:
+        return parseBuiltinOrResolveType();
     default:
-        return parseNonReferenceType(true);
+        //TODO: report error
+        return nullptr;
     }
 
     return nullptr;
@@ -589,12 +580,30 @@ Rc<Type> Parser::parseFunctionPointer()
     return fn;
 }
 
-Rc<Type> Parser::parseArrayType(bool sliceAllowed)
+Rc<Type> Parser::parseSliceType()
+{
+    TRY(expectCurrentToken(TokenKind::Ampersand));
+    Rc<SliceType> ref = beginType<SliceType>();
+    consume();
+    TRY(expectCurrentToken(TokenKind::LBracket));
+    consumeAndSkipBlanks();
+
+    Rc<Type> innerType = parseType();
+    if (!innerType) {
+        return nullptr;
+    }
+
+    ref->_elementType = innerType;
+
+    consumeAndEndType(ref);
+    return ref;
+}
+
+Rc<Type> Parser::parseArrayType()
 {
     TRY(skipCommentsAndSpace());
-
     TRY(expectCurrentToken(TokenKind::LBracket));
-    Rc<Decl> decl = beginDecl<Decl>();
+    Rc<ArrayType> arrayType = beginType<ArrayType>();
     consumeAndSkipBlanks();
 
     Rc<Type> innerType = parseType();
@@ -604,23 +613,6 @@ Rc<Type> Parser::parseArrayType(bool sliceAllowed)
 
     skipBlanks();
 
-    if (currentTokenIs(TokenKind::RBracket)) {
-        if (sliceAllowed) {
-            Rc<ReferenceType> ref = beginType<ReferenceType>();
-            decl->cloneDeclTo(_typeDeclStack.back().get());
-            ref->_isMutable = false;
-            ref->_pointee = innerType;
-            ref->_referenceKind = ReferenceKind::Slice;
-            consumeAndEndType(ref);
-            return ref;
-        } else {
-            reportCurrentTokenError("Slices are not allowed in this context");
-            return nullptr;
-        }
-    }
-
-    Rc<ArrayType> arrayType = beginType<ArrayType>();
-    decl->cloneDeclTo(_typeDeclStack.back().get());
     arrayType->_elementType = std::move(innerType);
     TRY(expectCurrentToken(TokenKind::SemiColon));
     consumeAndSkipBlanks();
@@ -997,11 +989,6 @@ bool Parser::parseComponent()
 finish:
     endType(comp);
     return true;
-}
-
-Rc<Type> Parser::parseSliceType()
-{
-    return nullptr;
 }
 
 bool Parser::parseOneFile(const char* fname)
