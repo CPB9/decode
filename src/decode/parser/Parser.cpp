@@ -252,10 +252,10 @@ bool Parser::parseImports()
         consume();
 
         auto createImportedTypeFromCurrentToken = [this, importDecl]() {
-            Rc<ImportedType> type = beginType<ImportedType>();
+            Rc<UnresolvedType> type = beginType<UnresolvedType>();
             type->_importPath = importDecl->_importPath;
             type->_name = _currentToken.value();
-            importDecl->_types.push_back(type);
+            importDecl->_types.push_back(type->_name);
             //TODO: check import conflicts
             _ast->_typeNameToType.emplace(type->_name, type);
             consumeAndEndType(type);
@@ -696,13 +696,13 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         .Default(BuiltinTypeKind::Unknown);
 
     if (kind == BuiltinTypeKind::Unknown) {
-        Rc<ResolvedType> type = beginType<ResolvedType>();
+        Rc<UnresolvedType> type = beginType<UnresolvedType>();
         type->_name = _currentToken.value();
-        Rc<Type> link = findDeclaredType(_currentToken.value());
-        if (!link) {
-            return nullptr;
-        }
-        type->_resolvedType = link;
+        //Rc<Type> link = findDeclaredType(_currentToken.value());
+        //if (!link) {
+        //    return nullptr;
+        //}
+        //type->_resolvedType = link;
         consumeAndEndType(type);
         return type;
     }

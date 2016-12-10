@@ -80,12 +80,8 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
         }
         break;
     }
-    case TypeKind::Resolved: {
-        const ResolvedType* resolvedType = static_cast<const ResolvedType*>(type);
-        traverseType(resolvedType->resolvedType().get(), std::forward<F>(visitor), depth);
-        break;
-    }
-    case TypeKind::Imported:
+    case TypeKind::Unresolved:
+        //TODO: report ICE
         break;
     case TypeKind::Reference: {
         const ReferenceType* ref = static_cast<const ReferenceType*>(type);
@@ -190,8 +186,7 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Builtin:
     case TypeKind::Array:
     case TypeKind::Reference:
-    case TypeKind::Imported:
-    case TypeKind::Resolved:
+    case TypeKind::Unresolved:
     case TypeKind::Function:
     case TypeKind::FnPointer:
         break;
@@ -261,8 +256,7 @@ void Generator::genSource(const Type* type)
     case TypeKind::Array:
     case TypeKind::Reference:
     case TypeKind::Slice:
-    case TypeKind::Imported:
-    case TypeKind::Resolved:
+    case TypeKind::Unresolved:
     case TypeKind::Function:
     case TypeKind::FnPointer:
         break;
@@ -442,11 +436,8 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
     case TypeKind::Reference:
         writeInlinePointerDeserializer(type, ctx, argNameGen);
         break;
-    case TypeKind::Imported:
-        writeInlineTypeDeserializer(static_cast<const ImportedType*>(type)->importedType().get(), ctx, argNameGen);
-        break;
-    case TypeKind::Resolved:
-        writeInlineTypeDeserializer(static_cast<const ResolvedType*>(type)->resolvedType().get(), ctx, argNameGen);
+    case TypeKind::Unresolved:
+        //TODO: report ICE
         break;
     case TypeKind::Function:
         assert(false && "Not implemented");
@@ -578,11 +569,8 @@ void Generator::writeInlineTypeSerializer(const Type* type, const InlineSerConte
     case TypeKind::Reference:
         writeInlinePointerSerializer(type, ctx, argNameGen);
         break;
-    case TypeKind::Imported:
-        writeInlineTypeSerializer(static_cast<const ImportedType*>(type)->importedType().get(), ctx, argNameGen);
-        break;
-    case TypeKind::Resolved:
-        writeInlineTypeSerializer(static_cast<const ResolvedType*>(type)->resolvedType().get(), ctx, argNameGen);
+    case TypeKind::Unresolved:
+        //TODO: report ICE
         break;
     case TypeKind::Function:
         assert(false && "Not implemented");
@@ -903,8 +891,7 @@ bool Generator::needsSerializers(const Type* type)
     switch (type->typeKind()) {
     case TypeKind::Builtin:
     case TypeKind::Array:
-    case TypeKind::Imported:
-    case TypeKind::Resolved:
+    case TypeKind::Unresolved:
     case TypeKind::Function:
     case TypeKind::FnPointer:
     case TypeKind::Slice:
@@ -1136,8 +1123,7 @@ std::string genSliceName(const Type* topLevelType)
         case TypeKind::FnPointer:
             //TODO: report error
             return false;
-        case TypeKind::Imported:
-        case TypeKind::Resolved: {
+        case TypeKind::Unresolved: {
             std::string modName = visitedType->moduleName().toStdString();
             if (!modName.empty()) {
                 modName.front() = std::toupper(modName.front());
@@ -1248,8 +1234,7 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
         case TypeKind::Variant:
         case TypeKind::Enum:
         case TypeKind::Component:
-        case TypeKind::Imported:
-        case TypeKind::Resolved:
+        case TypeKind::Unresolved:
             hasPrefix = true;
             typeName = visitedType->name().toStdString();
             return false;
@@ -1483,8 +1468,7 @@ void Generator::collectIncludesAndFwdsForType(const Type* topLevelType, std::uno
         case TypeKind::Function:
         case TypeKind::FnPointer:
             return false;
-        case TypeKind::Imported:
-        case TypeKind::Resolved: {
+        case TypeKind::Unresolved: {
             std::string path = visitedType->moduleName().toStdString();
             path.push_back('/');
             path.append(visitedType->name().begin(), visitedType->name().end());

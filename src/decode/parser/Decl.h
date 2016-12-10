@@ -27,8 +27,7 @@ enum class TypeKind {
     Enum,
     Variant,
     Component,
-    Resolved,
-    Imported,
+    Unresolved,
     Function,
     FnPointer,
 };
@@ -274,45 +273,22 @@ protected:
 private:
     friend class Parser;
     bmcl::StringView _importPath;
-    std::vector<Rc<ImportedType>> _types;
+    std::vector<bmcl::StringView> _types;
 };
 
-class ImportedType : public Type {
+class UnresolvedType : public Type {
 public:
-    const Rc<Type>& importedType() const
-    {
-        return _importedType;
-    }
 
 protected:
-    ImportedType()
-        : Type(TypeKind::Imported)
+    UnresolvedType()
+        : Type(TypeKind::Unresolved)
     {
     }
 
 private:
     friend class Parser;
+
     bmcl::StringView _importPath;
-    Rc<Type> _importedType;
-};
-
-class ResolvedType : public Type {
-public:
-    const Rc<Type>& resolvedType() const
-    {
-        return _resolvedType;
-    }
-
-protected:
-    ResolvedType()
-        : Type(TypeKind::Resolved)
-    {
-    }
-
-private:
-    friend class Parser;
-
-    Rc<Type> _resolvedType;
 };
 
 class FnPointer : public Type {
