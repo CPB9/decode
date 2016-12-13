@@ -696,13 +696,13 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         .Default(BuiltinTypeKind::Unknown);
 
     if (kind == BuiltinTypeKind::Unknown) {
+        Rc<Type> link = findDeclaredType(_currentToken.value());
+        if (link) {
+            consume();
+            return link;
+        }
         Rc<UnresolvedType> type = beginType<UnresolvedType>();
         type->_name = _currentToken.value();
-        //Rc<Type> link = findDeclaredType(_currentToken.value());
-        //if (!link) {
-        //    return nullptr;
-        //}
-        //type->_resolvedType = link;
         consumeAndEndType(type);
         return type;
     }
@@ -738,8 +738,7 @@ bool Parser::parseRecordField(const Rc<FieldList>& parent)
     if (!decl) {
         return false;
     }
-    parent->_fields.push_back(decl);
-    parent->_fieldNameToFieldMap.emplace(decl->name(), decl);
+    parent->push_back(decl);
     return true;
 }
 
@@ -787,8 +786,7 @@ bool Parser::parseVariantField(const Rc<Variant>& parent)
         Rc<StructVariantField> field = beginDecl<StructVariantField>();
         field->_fields = new FieldList; //HACK
         field->_name = name;
-        TRY(parseList(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace,
-                      field->_fields, std::bind(&Parser::parseRecordField, this, std::placeholders::_1)));
+        TRY(parseBraceList(field->_fields, std::bind(&Parser::parseRecordField, this, std::placeholders::_1)));
         endDecl(field);
         parent->_fields.push_back(field);
     } else if (currentTokenIs(TokenKind::LParen)) {
@@ -819,7 +817,7 @@ bool Parser::parseComponentField(const Rc<Component>& parent)
 }
 
 template <typename T, typename F>
-bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, const Rc<T>& decl, F&& fieldParser)
+bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser)
 {
     TRY(expectCurrentToken(openToken));
     consume();
@@ -832,7 +830,7 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
             break;
         }
 
-        if (!fieldParser(decl)) {
+        if (!fieldParser(std::forward<T>(decl))) {
             return false;
         }
 
@@ -844,6 +842,12 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
     }
 
     return true;
+}
+
+template <typename T, typename F>
+bool Parser::parseBraceList(T&& parent, F&& fieldParser)
+{
+    return parseList(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace, std::forward<T>(parent), std::forward<F>(fieldParser));
 }
 
 template <typename T, bool genericAllowed, typename F>
@@ -859,7 +863,7 @@ bool Parser::parseTag(TokenKind startToken, F&& fieldParser)
     type->_name = _currentToken.value();
     consumeAndSkipBlanks();
 
-    TRY(parseList<T>(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace, type, std::forward<F>(fieldParser)));
+    TRY(parseBraceList(type, std::forward<F>(fieldParser)));
 
     _ast->_typeNameToType.emplace(type->name(), type);
     endType(type);
@@ -878,14 +882,13 @@ bool Parser::parseEnum()
 
 bool Parser::parseStruct()
 {
-    return parseTag<StructDecl, true>(TokenKind::Struct, [this](const Rc<StructDecl>& decl) {
+    return parseTag<StructType, true>(TokenKind::Struct, [this](const Rc<StructType>& decl) {
         if (!decl->_fields) {
-            decl->_fields = beginDecl<FieldList>(); //HACK
+            decl->_fields = new FieldList; //HACK
         }
         if (!parseRecordField(decl->_fields)) {
             return false;
         }
-        endDecl(decl->_fields);
         return true;
     });
 }
@@ -901,6 +904,163 @@ Rc<T> Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, F&& fieldPar
 
     endDecl(decl);
     return decl;
+}
+
+bool Parser::parseCommands(const Rc<Component>& parent)
+{
+    if(parent->_cmds) {
+        reportCurrentTokenError("Component can have only one commands declaration");
+        return false;
+    }
+    Rc<Commands> cmds = parseNamelessTag<Commands>(TokenKind::Commands, TokenKind::Eol, [this](const Rc<Commands>& cmds) {
+        Rc<Function> fn = parseFunction(false);
+        if (!fn) {
+            return false;
+        }
+        cmds->_functions.push_back(fn);
+        return true;
+    });
+    if (!cmds) {
+        //TODO: report error
+        return false;
+    }
+    parent->_cmds = cmds;
+    return true;
+}
+
+bool Parser::parseParameters(const Rc<Component>& parent)
+{
+    if(parent->_params) {
+        reportCurrentTokenError("Component can have only one parameters declaration");
+        return false;
+    }
+    Rc<Parameters> params = parseNamelessTag<Parameters>(TokenKind::Parameters, TokenKind::Comma, [this](const Rc<Parameters>& params) {
+        Rc<Field> field = parseField();
+        if (!field) {
+            return false;
+        }
+        params->_fields->push_back(field);
+        return true;
+    });
+    if (!params) {
+        //TODO: report error
+        return false;
+    }
+    parent->_params = params;
+    return true;
+}
+
+bool Parser::parseStatuses(const Rc<Component>& parent)
+{
+    if(parent->_statuses) {
+        reportCurrentTokenError("Component can have only one statuses declaration");
+        return false;
+    }
+    Rc<Statuses> statuses = parseNamelessTag<Statuses>(TokenKind::Statuses, TokenKind::Comma, [this, parent](const Rc<Statuses>& statuses) -> bool {
+        uintmax_t n;
+        TRY(parseUnsignedInteger(&n));
+        auto pair = statuses->_regexps.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple());
+        if (!pair.second) {
+            BMCL_CRITICAL() << "redefinition of status param";
+            return false;
+        }
+        skipBlanks();
+        TRY(expectCurrentToken(TokenKind::Colon));
+        consumeAndSkipBlanks();
+        auto parseOneRegexp = [this, parent](std::vector<Rc<StatusRegexp>>* regexps) -> bool {
+            if (!currentTokenIs(TokenKind::Identifier)) {
+                //TODO: report error
+                return false;
+            }
+            Rc<StatusRegexp> re = new StatusRegexp;
+            regexps->push_back(re);
+            Rc<FieldList> fields = parent->parameters()->fields();
+            Rc<Type> lastType;
+            Rc<Field> lastField;
+
+            while (true) {
+                if (currentTokenIs(TokenKind::Identifier)) {
+                    bmcl::Option<const Rc<Field>&> field  = fields->fieldWithName(_currentToken.value());
+                    if (field.isNone()) {
+                        //TODO: report error
+                        return false;
+                    }
+                    Rc<FieldAccessor> acc = new FieldAccessor;
+                    acc->_field = field.unwrap();
+                    lastField = field.unwrap();
+                    lastType = field.unwrap()->type();
+                    re->_accessors.push_back(acc);
+                    consumeAndSkipBlanks();
+                } else if (currentTokenIs(TokenKind::LBracket)) {
+                    Rc<SubscriptAccessor> acc = new SubscriptAccessor;
+                    acc->_type = lastType;
+                    consume();
+                    uintmax_t m;
+                    if (currentTokenIs(TokenKind::Number) && _lexer->nextIs(TokenKind::RBracket)) {
+                        TRY(parseUnsignedInteger(&m));
+                        acc->_subscript = bmcl::Either<Range, uintmax_t>(m);
+                    } else {
+                        acc->_subscript = bmcl::Either<Range, uintmax_t>(bmcl::InPlaceSecond);
+                        if (currentTokenIs(TokenKind::Number)) {
+                            TRY(parseUnsignedInteger(&m));
+                            acc->_subscript.unwrapFirst()._lowerBound = m;
+                            consume();
+                        }
+
+                        TRY(expectCurrentToken(TokenKind::DoubleDot));
+                        consume();
+
+                        if (currentTokenIs(TokenKind::Number)) {
+                            TRY(parseUnsignedInteger(&m));
+                            acc->_subscript.unwrapFirst()._upperBound = m;
+                            consume();
+                        }
+                    }
+
+                    TRY(expectCurrentToken(TokenKind::RBracket));
+                    consumeAndSkipBlanks();
+
+                    re->_accessors.push_back(acc);
+
+                    if (lastType->isSlice()) {
+                        SliceType* slice = lastType->asSlice();
+                        lastType = slice->elementType();
+                    } else if (lastType->isArray()) {
+                        ArrayType* array = lastType->asArray();
+                        lastType = array->elementType();
+                        //TODO: check ranges
+                    } else {
+                        //TODO: report error
+                        return false;
+                    }
+                }
+                if (currentTokenIs(TokenKind::Comma) || currentTokenIs(TokenKind::RBrace)) {
+                    return true;
+                } else if (currentTokenIs(TokenKind::Dot)) {
+                    if (!lastType->isStruct()) {
+                        //TODO: report error
+                        return false;
+                    }
+                    fields = lastType->asStruct()->fields();
+                    consume();
+                }
+            }
+            return true;
+        };
+        std::vector<Rc<StatusRegexp>>& regexps = pair.first->second;
+        if (currentTokenIs(TokenKind::LBrace)) {
+            TRY(parseBraceList(&regexps, parseOneRegexp));
+        } else if (currentTokenIs(TokenKind::Identifier)) {
+            TRY(parseOneRegexp(&regexps));
+        }
+        return true;
+    });
+    if (!statuses) {
+        //TODO: report error
+        return false;
+    }
+    parent->_statuses = statuses;
+    return true;
 }
 
 bool Parser::parseComponent()
@@ -921,62 +1081,15 @@ bool Parser::parseComponent()
 
         switch(_currentToken.kind()) {
         case TokenKind::Parameters: {
-            if(comp->_params) {
-                reportCurrentTokenError("Component can have only one parameters declaration");
-                return false;
-            }
-            Rc<Parameters> params = parseNamelessTag<Parameters>(TokenKind::Parameters, TokenKind::Comma, [this](const Rc<Parameters>& params) {
-                Rc<Field> field = parseField();
-                if (!field) {
-                    return false;
-                }
-                params->_fields.push_back(field);
-                return true;
-            });
-            if (!params) {
-                //TODO: report error
-                return false;
-            }
-            comp->_params = params;
+            TRY(parseParameters(comp));
             break;
         }
         case TokenKind::Commands: {
-            if(comp->_cmds) {
-                reportCurrentTokenError("Component can have only one commands declaration");
-                return false;
-            }
-            Rc<Commands> cmds = parseNamelessTag<Commands>(TokenKind::Commands, TokenKind::Eol, [this](const Rc<Commands>& cmds) {
-                Rc<Function> fn = parseFunction(false);
-                if (!fn) {
-                    return false;
-                }
-                cmds->_functions.push_back(fn);
-                return true;
-            });
-            if (!cmds) {
-                //TODO: report error
-                return false;
-            }
-            comp->_cmds = cmds;
+            TRY(parseCommands(comp));
             break;
         }
         case TokenKind::Statuses: {
-            if(comp->_statuses) {
-                reportCurrentTokenError("Component can have only one statuses declaration");
-                return false;
-            }
-            Rc<Statuses> statuses = parseNamelessTag<Statuses>(TokenKind::Statuses, TokenKind::Eol, [this](const Rc<Statuses>& cmds) -> bool {
-                uintmax_t n;
-                TRY(parseUnsignedInteger(&n));
-                skipBlanks();
-                TRY(expectCurrentToken(TokenKind::Colon));
-                return true;
-            });
-            if (!statuses) {
-                //TODO: report error
-                return false;
-            }
-            comp->_statuses = statuses;
+            TRY(parseStatuses(comp));
             break;
         }
         case TokenKind::RBrace:

@@ -26,13 +26,13 @@ class Enum;
 class Component;
 class StructDecl;
 class Variant;
-class FieldList;
 class Record;
 class ImportedType;
 class Type;
 class Report;
 class Diagnostics;
 class Field;
+class FieldList;
 class Parameters;
 class Function;
 class TypeDecl;
@@ -76,7 +76,10 @@ private:
     bool parseImplBlock();
 
     template <typename T, typename F>
-    bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, const Rc<T>& decl, F&& fieldParser);
+    bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);
+
+    template <typename T, typename F>
+    bool parseBraceList(T&& parent, F&& fieldParser);
 
     template <typename T, bool genericAllowed, typename F>
     bool parseTag(TokenKind startToken, F&& fieldParser);
@@ -102,6 +105,10 @@ private:
     Rc<Type> parseBuiltinOrResolveType();
     bool parseUnsignedInteger(std::uintmax_t* dest);
     bool parseSignedInteger(std::intmax_t* dest);
+
+    bool parseParameters(const Rc<Component>& parent);
+    bool parseCommands(const Rc<Component>& parent);
+    bool parseStatuses(const Rc<Component>& parent);
 
     template <typename T>
     Rc<T> beginDecl();

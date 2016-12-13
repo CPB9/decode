@@ -44,6 +44,5 @@ void process(const char* path)
 
 int main()
 {
-    process("../test.decode");
-    process("../onboard.decode");
+    process("../onboard/core.decode");
 }

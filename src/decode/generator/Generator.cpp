@@ -15,6 +15,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+//TODO: refact
+
 namespace decode {
 
 Generator::Generator(const Rc<Diagnostics>& diag)
@@ -72,7 +74,7 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
         break;
     case TypeKind::Component: {
         const Component* comp = static_cast<const Component*>(type);
-        for (const Rc<Field>& field : comp->parameters()->fields()) {
+        for (const Rc<Field>& field : *comp->parameters()->fields()) {
             traverseType(field->type().get(), std::forward<F>(visitor), depth);
         }
         for (const Rc<Function>& fn : comp->commands()->functions()) {
@@ -95,7 +97,7 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
     }
     case TypeKind::Struct: {
         Rc<FieldList> fieldList = static_cast<const Record*>(type)->fields();
-        for (const Rc<Field>& field : fieldList->fields()) {
+        for (const Rc<Field>& field : *fieldList) {
             traverseType(field->type().get(), std::forward<F>(visitor), depth);
         }
         break;
@@ -115,7 +117,7 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
             }
             case VariantFieldKind::Struct: {
                 Rc<FieldList> fieldList = static_cast<const StructVariantField*>(field.get())->fields();
-                for (const Rc<Field>& field : fieldList->fields()) {
+                for (const Rc<Field>& field : *fieldList) {
                     traverseType(field->type().get(), std::forward<F>(visitor), depth);
                 }
                 break;
@@ -196,7 +198,7 @@ void Generator::genHeader(const Type* type)
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
         writeCommonIncludePaths(type);
-        writeStruct(static_cast<const StructDecl*>(type));
+        writeStruct(static_cast<const StructType*>(type));
         writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         writeSerializerFuncPrototypes(type);
@@ -263,9 +265,9 @@ void Generator::genSource(const Type* type)
     case TypeKind::Struct:
         writeIncludes(type);
         _output.appendEol();
-        writeStructDeserizalizer(static_cast<const StructDecl*>(type));
+        writeStructDeserizalizer(static_cast<const StructType*>(type));
         _output.appendEol();
-        writeStructSerializer(static_cast<const StructDecl*>(type));
+        writeStructSerializer(static_cast<const StructType*>(type));
         break;
     case TypeKind::Variant:
         writeIncludes(type);
@@ -596,13 +598,13 @@ void Generator::writeInlineTypeSerializer(const Type* type, const InlineSerConte
     }
 }
 
-void Generator::writeStructDeserizalizer(const StructDecl* type)
+void Generator::writeStructDeserizalizer(const StructType* type)
 {
     InlineSerContext ctx;
     writeDeserializerFuncDecl(type);
     _output.append("\n{\n");
 
-    for (const Rc<Field>& field : type->fields()->fields()) {
+    for (const Rc<Field>& field : *type->fields()) {
         writeInlineTypeDeserializer(field->type().get(), ctx, [this, field]() {
             _output.append("self->");
             _output.append(field->name());
@@ -613,13 +615,13 @@ void Generator::writeStructDeserizalizer(const StructDecl* type)
     _output.append("}\n");
 }
 
-void Generator::writeStructSerializer(const StructDecl* type)
+void Generator::writeStructSerializer(const StructType* type)
 {
     InlineSerContext ctx;
     writeSerializerFuncDecl(type);
     _output.append("\n{\n");
 
-    for (const Rc<Field>& field : type->fields()->fields()) {
+    for (const Rc<Field>& field : *type->fields()) {
         writeInlineTypeSerializer(field->type().get(), ctx, [this, field]() {
             _output.append("self->");
             _output.append(field->name());
@@ -695,7 +697,7 @@ void Generator::writeVariantDeserizalizer(const Variant* type)
         }
         case VariantFieldKind::Struct: {
             const StructVariantField* varField = static_cast<StructVariantField*>(field.get());
-            for (const Rc<Field>& f : varField->fields()->fields()) {
+            for (const Rc<Field>& f : *varField->fields()) {
                 writeInlineTypeDeserializer(f->type().get(), ctx, [&, this]() {
                     _output.append("self->data.");
                     _output.appendWithFirstLower(field->name());
@@ -760,7 +762,7 @@ void Generator::writeVariantSerializer(const Variant* type)
         }
         case VariantFieldKind::Struct: {
             const StructVariantField* varField = static_cast<StructVariantField*>(field.get());
-            for (const Rc<Field>& f : varField->fields()->fields()) {
+            for (const Rc<Field>& f : *varField->fields()) {
                 writeInlineTypeSerializer(f->type().get(), ctx, [&, this]() {
                     _output.append("self->data.");
                     _output.appendWithFirstLower(field->name());
@@ -1294,7 +1296,7 @@ void Generator::writeStruct(const FieldList* fields, bmcl::StringView name)
 {
     writeTagHeader("struct");
 
-    for (const Rc<Field>& field : fields->fields()) {
+    for (const Rc<Field>& field : *fields) {
         _output.append("    ");
         genTypeRepr(field->type().get(), field->name());
         _output.append(";\n");
@@ -1304,7 +1306,7 @@ void Generator::writeStruct(const FieldList* fields, bmcl::StringView name)
     _output.appendEol();
 }
 
-void Generator::writeStruct(const StructDecl* type)
+void Generator::writeStruct(const StructType* type)
 {
     writeStruct(type->fields().get(), type->name());
 }

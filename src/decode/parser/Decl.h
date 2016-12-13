@@ -8,10 +8,12 @@
 #include "decode/parser/ModuleInfo.h"
 
 #include <bmcl/Option.h>
+#include <bmcl/Either.h>
 
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include <cassert>
 #include <map>
 
 namespace decode {
@@ -101,8 +103,32 @@ private:
     bmcl::StringView _name;
 };
 
+class ArrayType;
+class SliceType;
+class StructType;
+
 class Type : public RefCountable {
 public:
+
+    const ArrayType* asArray() const;
+    const SliceType* asSlice() const;
+    const StructType* asStruct() const;
+
+    bool isArray() const
+    {
+        return _typeKind == TypeKind::Array;
+    }
+
+    bool isSlice() const
+    {
+        return _typeKind == TypeKind::Slice;
+    }
+
+    bool isStruct() const
+    {
+        return _typeKind == TypeKind::Struct;
+    }
+
     TypeKind typeKind() const
     {
         return _typeKind;
@@ -127,6 +153,10 @@ protected:
 
 private:
     friend class Parser;
+
+    ArrayType* asArray();
+    SliceType* asSlice();
+    StructType* asStruct();
 
     bmcl::StringView _name;
     TypeKind _typeKind;
@@ -402,21 +432,21 @@ private:
     std::vector<Rc<Function>> _funcs;
 };
 
-class FieldList : public Decl {
+template<typename T>
+class RefCountableVector : public std::vector<T>, public RefCountable {
+};
+
+class FieldList : public RefCountableVector<Rc<Field>> {
 public:
-    const std::vector<Rc<Field>> fields() const
+    bmcl::Option<const Rc<Field>&> fieldWithName(bmcl::StringView name)
     {
-        return _fields;
+        for (const Rc<Field>& value : *this) {
+            if (value->name() == name) {
+                return value;
+            }
+        }
+        return bmcl::None;
     }
-
-protected:
-    FieldList() = default;
-
-private:
-    friend class Parser;
-
-    std::vector<Rc<Field>> _fields;
-    std::unordered_map<bmcl::StringView, Rc<Field>> _fieldNameToFieldMap;
 };
 
 class Record : public Tag {
@@ -438,11 +468,11 @@ private:
     Rc<FieldList> _fields;
 };
 
-class StructDecl : public Record {
+class StructType : public Record {
 public:
 
 protected:
-    StructDecl()
+    StructType()
         : Record(TypeKind::Struct)
     {
     }
@@ -602,18 +632,21 @@ private:
 class Parameters: public Decl {
 public:
 
-    const std::vector<Rc<Field>>& fields() const
+    const Rc<FieldList>& fields() const
     {
         return _fields;
     }
 
 protected:
-    Parameters() = default;
+    Parameters()
+        : _fields(new FieldList)
+    {
+    }
 
 private:
     friend class Parser;
 
-    std::vector<Rc<Field>> _fields;
+    Rc<FieldList> _fields;
 };
 
 class Commands: public Decl {
@@ -633,8 +666,75 @@ private:
     std::vector<Rc<Function>> _functions;
 };
 
-class Regexp : public Decl {
+enum class AccessorKind {
+    Field,
+    Subscript,
+};
+
+class Accessor : public RefCountable {
 public:
+
+protected:
+    Accessor(AccessorKind kind)
+        : _accessorKind(kind)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    AccessorKind _accessorKind;
+};
+
+class Range {
+private:
+    friend class Parser;
+
+    bmcl::Option<uintmax_t> _lowerBound;
+    bmcl::Option<uintmax_t> _upperBound;
+};
+
+class FieldAccessor : public Accessor {
+public:
+
+protected:
+    FieldAccessor()
+        : Accessor(AccessorKind::Field)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    Rc<Field> _field;
+};
+
+class SubscriptAccessor : public Accessor {
+public:
+
+protected:
+    SubscriptAccessor()
+        : Accessor(AccessorKind::Subscript)
+        , _subscript(bmcl::InPlaceSecond)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    Rc<Type> _type;
+    bmcl::Either<Range, uintmax_t> _subscript;
+};
+
+class StatusRegexp : public RefCountable {
+public:
+protected:
+    StatusRegexp() = default;
+
+private:
+    friend class Parser;
+
+    std::vector<Rc<Accessor>> _accessors;
 };
 
 class Statuses: public Decl {
@@ -646,7 +746,7 @@ protected:
 private:
     friend class Parser;
 
-    std::unordered_map<std::size_t, Rc<Regexp>> _functions;
+    std::unordered_map<std::size_t, std::vector<Rc<StatusRegexp>>> _regexps;
 };
 
 class Component : public Tag {
@@ -675,4 +775,41 @@ private:
     Rc<Commands> _cmds;
     Rc<Statuses> _statuses;
 };
+
+
+inline const ArrayType* Type::asArray() const
+{
+    assert(isArray());
+    return static_cast<const ArrayType*>(this);
+}
+
+inline const SliceType* Type::asSlice() const
+{
+    assert(isSlice());
+    return static_cast<const SliceType*>(this);
+}
+
+inline const StructType* Type::asStruct() const
+{
+    assert(isStruct());
+    return static_cast<const StructType*>(this);
+}
+
+inline ArrayType* Type::asArray()
+{
+    assert(isArray());
+    return static_cast<ArrayType*>(this);
+}
+
+inline SliceType* Type::asSlice()
+{
+    assert(isSlice());
+    return static_cast<SliceType*>(this);
+}
+
+inline StructType* Type::asStruct()
+{
+    assert(isStruct());
+    return static_cast<StructType*>(this);
+}
 }

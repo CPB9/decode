@@ -221,6 +221,7 @@ RULE_TO_TOKEN(Slash);
 RULE_TO_TOKEN(Exclamation);
 RULE_TO_TOKEN(RightArrow);
 RULE_TO_TOKEN(Dash);
+RULE_TO_TOKEN(DoubleDot);
 RULE_TO_TOKEN(Dot);
 RULE_TO_TOKEN(Number);
 RULE_TO_TOKEN(Eol);

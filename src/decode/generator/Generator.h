@@ -14,14 +14,15 @@ namespace decode {
 class Ast;
 class Diagnostics;
 class Enum;
-class FieldList;
 class FnPointer;
 class Function;
 class ReferenceType;
 class BuiltinType;
 class ArrayType;
-class StructDecl;
+class StructType;
 class Type;
+class Field;
+class FieldList;
 class Variant;
 
 struct InlineSerContext {
@@ -89,7 +90,7 @@ private:
     void writeImplBlockIncludes(const Type* type);
 
     void writeStruct(const FieldList* fields, bmcl::StringView name);
-    void writeStruct(const StructDecl* type);
+    void writeStruct(const StructType* type);
     void writeStruct(const std::vector<Rc<Type>>& fields, bmcl::StringView name);
     void writeEnum(const Enum* type);
     void writeVariant(const Variant* type);
@@ -106,8 +107,8 @@ private:
     void writeEnumDeserizalizer(const Enum* type);
     void writeEnumSerializer(const Enum* type);
 
-    void writeStructDeserizalizer(const StructDecl* type);
-    void writeStructSerializer(const StructDecl* type);
+    void writeStructDeserizalizer(const StructType* type);
+    void writeStructSerializer(const StructType* type);
 
     void writeVariantDeserizalizer(const Variant* type);
     void writeVariantSerializer(const Variant* type);

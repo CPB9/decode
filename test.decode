@@ -34,5 +34,5 @@ struct Struct {
 }
 
 impl Variant {
-    fn asd(e: Enum )
+    fn asd(e: Enum)
 }

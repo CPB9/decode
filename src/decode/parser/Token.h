@@ -36,6 +36,7 @@ enum class TokenKind {
     RightArrow,
     Dash,
     Dot,
+    DoubleDot,
     Identifier,
     Impl,
     Number,
