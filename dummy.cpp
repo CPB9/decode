@@ -2,6 +2,7 @@
 #include "decode/parser/Parser.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Decl.h"
+#include "decode/model/Model.h"
 #include "decode/generator/Generator.h"
 
 #include <bmcl/FileUtils.h>
@@ -13,6 +14,26 @@
 #include <assert.h>
 
 using namespace decode;
+
+void testModel()
+{
+    auto start = std::chrono::steady_clock::now();
+
+    Rc<Diagnostics> diag = new Diagnostics;
+    Rc<Model> model = Model::readFromDirectory(diag, "../onboard");
+    diag->printReports(&std::cout);
+
+//     Rc<Generator> gen = makeRc<Generator>(diag);
+//     gen->setOutPath("./");
+//     bool genOk = gen->generateFromModel(rv.unwrap());
+//     if (genOk) {
+//         BMCL_DEBUG() << "generating complete";
+//     }
+
+    auto end = std::chrono::steady_clock::now();
+    BMCL_DEBUG() << "time (us):" << std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
+}
+
 
 void process(const char* path)
 {
@@ -44,5 +65,7 @@ void process(const char* path)
 
 int main()
 {
-    process("../onboard/core.decode");
+    //process("../onboard/core.decode");
+    //process("../onboard/tm.decode");
+    testModel();
 }

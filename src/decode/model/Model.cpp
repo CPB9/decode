@@ -1,4 +1,4 @@
-#include "decode/parser/Model.h"
+#include "decode/model/Model.h"
 
 #include "decode/core/Diagnostics.h"
 #include "decode/parser/Parser.h"
@@ -6,6 +6,7 @@
 #include "decode/parser/Decl.h"
 
 #include <bmcl/Result.h>
+#include <bmcl/Logging.h>
 
 #include <string>
 #include <cstring>
@@ -78,16 +79,16 @@ Rc<Model> Model::readFromDirectory(const Rc<Diagnostics>& diag, const char* path
         return nullptr;
     }
 
-    std::unordered_map<std::string, int> a;
-
     return model;
 }
 
 bool Model::addFile(const char* path, const char* fileName, std::size_t fileNameLen)
 {
+    BMCL_DEBUG() << "reading file " << path;
     Parser p(_diag);
     ParseResult<Rc<Ast>> ast = p.parseFile(path);
     if (ast.isErr()) {
+        //TODO: report error
         return false;
     }
 
@@ -95,20 +96,40 @@ bool Model::addFile(const char* path, const char* fileName, std::size_t fileName
                          std::forward_as_tuple(fileName, fileName + fileNameLen),
                          std::forward_as_tuple(ast.take()));
 
+    BMCL_DEBUG() << "finished " << path;
     return true;
 }
 
 bool Model::resolveAll()
 {
-    for (const auto& ast : _parsedFiles) {
-        for (const Rc<Import>& import : ast.second->imports()) {
-            auto it = _parsedFiles.find(import->path().toStdString());
-            if (it == _parsedFiles.end()) {
-                //TODO: handle invalid import
+    BMCL_DEBUG() << "resolving";
+    bool isOk = true;
+    for (const auto& modifiedAst : _parsedFiles) {
+        for (const Rc<Import>& import : modifiedAst.second->imports()) {
+            auto searchedAst = _parsedFiles.find(import->path().toStdString());
+            if (searchedAst == _parsedFiles.end()) {
+                isOk = false;
+                BMCL_CRITICAL() << "invalid import mod in " << modifiedAst.first << ".decode: " << import->path().toStdString();
                 continue;
+            }
+            for (const Rc<ImportedType>& modifiedType : import->types()) {
+                bmcl::Option<const Rc<Type>&> foundType = searchedAst->second->findTypeWithName(modifiedType->name());
+                if (foundType.isNone()) {
+                        isOk = false;
+                    //TODO: report error
+                    BMCL_CRITICAL() << "invalid import type in " << modifiedAst.first << ".decode: " << modifiedType->name().toStdString();
+                } else {
+                    if (modifiedType->typeKind() == foundType.unwrap()->typeKind()) {
+                        isOk = false;
+                        //TODO: report error - circular imports
+                        BMCL_CRITICAL() << "circular imports " << modifiedAst.first << ".decode: " << modifiedType->name().toStdString();
+                        BMCL_CRITICAL() << "circular imports " << searchedAst->first << ".decode: " << foundType.unwrap()->name().toStdString();
+                    }
+                    modifiedType->_link = foundType.unwrap();
+                }
             }
         }
     }
-    return true;
+    return isOk;
 }
 }

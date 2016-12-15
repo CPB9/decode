@@ -29,7 +29,7 @@ enum class TypeKind {
     Enum,
     Struct,
     Variant,
-    Unresolved,
+    Imported,
 };
 
 enum class BuiltinTypeKind {
@@ -299,28 +299,40 @@ public:
         return _importPath;
     }
 
+    const std::vector<Rc<ImportedType>>& types() const
+    {
+        return _types;
+    }
+
 protected:
     Import() = default;
 
 private:
     friend class Parser;
+
     bmcl::StringView _importPath;
-    std::vector<bmcl::StringView> _types;
+    std::vector<Rc<ImportedType>> _types;
 };
 
-class UnresolvedType : public Type {
+class ImportedType : public Type {
 public:
+    const Rc<Type>& link() const
+    {
+        return _link;
+    }
 
 protected:
-    UnresolvedType()
-        : Type(TypeKind::Unresolved)
+    ImportedType()
+        : Type(TypeKind::Imported)
     {
     }
 
 private:
     friend class Parser;
+    friend class Model;
 
     bmcl::StringView _importPath;
+    Rc<Type> _link;
 };
 
 class Field : public NamedDecl {

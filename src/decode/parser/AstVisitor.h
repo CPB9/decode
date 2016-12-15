@@ -22,11 +22,9 @@ public:
 
     B& base();
 
-    constexpr bool shouldFollowOtherAst() const;
-    constexpr bool shouldFollowOtherAstOnlyOnce() const;
+    constexpr bool shouldFollowImportedType() const;
 
 protected:
-    void traverseType(typename P<Type>::type type, typename P<Type>::type parent);
     void ascendTypeOnce(typename P<Type>::type type);
 
     bool visitBuiltin(typename P<BuiltinType>::type builtin);
@@ -37,7 +35,7 @@ protected:
     bool visitEnum(typename P<Enum>::type enumeration);
     bool visitStruct(typename P<StructType>::type str);
     bool visitVariant(typename P<Variant>::type variant);
-    bool visitUnresolved(typename P<UnresolvedType>::type u);
+    bool visitImported(typename P<ImportedType>::type u);
 };
 
 template <typename B, template <typename> class P>
@@ -47,15 +45,9 @@ inline B& AstVisitorBase<B, P>::base()
 }
 
 template <typename B, template <typename> class P>
-constexpr bool AstVisitorBase<B, P>::shouldFollowOtherAst() const
+constexpr bool AstVisitorBase<B, P>::shouldFollowImportedType() const
 {
-    return true;
-}
-
-template <typename B, template <typename> class P>
-constexpr bool AstVisitorBase<B, P>::shouldFollowOtherAstOnlyOnce() const
-{
-    return true;
+    return false;
 }
 
 template <typename B, template <typename> class P>
@@ -115,7 +107,7 @@ inline bool AstVisitorBase<B, P>::visitReference(typename P<ReferenceType>::type
 }
 
 template <typename B, template <typename> class P>
-inline bool AstVisitorBase<B, P>::visitUnresolved(typename P<UnresolvedType>::type u)
+inline bool AstVisitorBase<B, P>::visitImported(typename P<ImportedType>::type u)
 {
     (void)u;
     return true;
@@ -165,29 +157,11 @@ void AstVisitorBase<B, P>::ascendTypeOnce(typename P<Type>::type type)
         base().visitVariant(variant);
         break;
     }
-    case TypeKind::Unresolved: {
-        typename P<UnresolvedType>::type u = ptrCast<P, UnresolvedType>(type);
-        base().visitUnresolved(u);
+    case TypeKind::Imported: {
+        typename P<ImportedType>::type u = ptrCast<P, ImportedType>(type);
+        base().visitImported(u);
         break;
     }
-    }
-}
-
-template <typename B, template <typename> class P>
-void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type, typename P<Type>::type parent)
-{
-    if (base().shouldFollowOtherAst() && !base().shouldFollowOtherAstOnlyOnce()) {
-        traverseType(type);
-        return;
-    }
-
-    if (type->moduleInfo() == parent->moduleInfo()) {
-        traverseType(type);
-        return;
-    }
-
-    if (base().shouldFollowOtherAst() && base().shouldFollowOtherAstOnlyOnce()) {
-        ascendTypeOnce(type);
     }
 }
 
@@ -207,7 +181,7 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         if (!base().visitReference(ref)) {
             return;
         }
-        traverseType(ref->pointee().get(), type);
+        traverseType(ref->pointee().get());
         break;
     }
     case TypeKind::Array: {
@@ -215,7 +189,7 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         if (!base().visitArray(array)) {
             return;
         }
-        traverseType(array->elementType().get(), type);
+        traverseType(array->elementType().get());
         break;
     }
     case TypeKind::Slice: {
@@ -223,7 +197,7 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         if (!base().visitSlice(ref)) {
             return;
         }
-        traverseType(ref->elementType().get(), type);
+        traverseType(ref->elementType().get());
         break;
     }
     case TypeKind::Function: {
@@ -232,10 +206,10 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
             return;
         }
         if (fn->returnValue().isSome()) {
-            traverseType(fn->returnValue().unwrap().get(), type);
+            traverseType(fn->returnValue().unwrap().get());
         }
         for (const Rc<Field>& field : fn->arguments()) {
-            traverseType(field->type().get(), type);
+            traverseType(field->type().get());
         }
         break;
     }
@@ -253,7 +227,7 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         }
         Rc<FieldList> fieldList = str->fields();
         for (const Rc<Field>& field : *fieldList) {
-            traverseType(field->type().get(), type);
+            traverseType(field->type().get());
         }
         break;
     }
@@ -269,14 +243,14 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
             case VariantFieldKind::Tuple: {
                 const TupleVariantField* tupleField = static_cast<const TupleVariantField*>(field.get());
                 for (const Rc<Type>& t : tupleField->types()) {
-                    traverseType(t.get(), type);
+                    traverseType(t.get());
                 }
                 break;
             }
             case VariantFieldKind::Struct: {
                 Rc<FieldList> fieldList = static_cast<const StructVariantField*>(field.get())->fields();
                 for (const Rc<Field>& field : *fieldList) {
-                    traverseType(field->type().get(), type);
+                    traverseType(field->type().get());
                 }
                 break;
             }
@@ -284,10 +258,13 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         }
         break;
     }
-    case TypeKind::Unresolved: {
-        typename P<UnresolvedType>::type u = ptrCast<P, UnresolvedType>(type);
-        if (!base().visitUnresolved(u)) {
+    case TypeKind::Imported: {
+        typename P<ImportedType>::type u = ptrCast<P, ImportedType>(type);
+        if (!base().visitImported(u)) {
             return;
+        }
+        if (base().shouldFollowImportedType()) {
+            traverseType(u->link().get());
         }
         break;
     }

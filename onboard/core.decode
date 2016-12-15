@@ -221,31 +221,3 @@ struct MessageDesc {
     priority: u32,
     isAllowed: bool,
 }
-
-struct T1 {
-    f1: u32,
-    f2: [u32; 5],
-}
-
-struct T2 {
-    f1: [T1; 6],
-}
-
-component Tm {
-    parameters {
-        currentMessage: u32,
-        allowedMessagesCount: u32,
-        test: T2,
-    }
-
-    statuses {
-        0: currentMessage,
-        1: { currentMessage, allowedMessagesCount },
-        3: { test.f1[2].f2[4] },
-    }
-
-    commands {
-        fn collectStatusMessages(dest: *mut Writer) -> Error
-        fn collectEventMessages(dest: *mut Writer) -> Error
-    }
-}

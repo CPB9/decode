@@ -63,7 +63,7 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
     }
     case TypeKind::Enum:
         break;
-    case TypeKind::Unresolved:
+    case TypeKind::Imported:
         //TODO: report ICE
         break;
     case TypeKind::Reference: {
@@ -169,7 +169,7 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Builtin:
     case TypeKind::Array:
     case TypeKind::Reference:
-    case TypeKind::Unresolved:
+    case TypeKind::Imported:
     case TypeKind::Function:
         break;
     case TypeKind::Slice:
@@ -229,7 +229,7 @@ void Generator::genSource(const Type* type)
     case TypeKind::Array:
     case TypeKind::Reference:
     case TypeKind::Slice:
-    case TypeKind::Unresolved:
+    case TypeKind::Imported:
     case TypeKind::Function:
         break;
     case TypeKind::Struct:
@@ -406,7 +406,7 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
     case TypeKind::Reference:
         writeInlinePointerDeserializer(type, ctx, argNameGen);
         break;
-    case TypeKind::Unresolved:
+    case TypeKind::Imported:
         //TODO: report ICE
         break;
     case TypeKind::Function:
@@ -535,7 +535,7 @@ void Generator::writeInlineTypeSerializer(const Type* type, const InlineSerConte
     case TypeKind::Reference:
         writeInlinePointerSerializer(type, ctx, argNameGen);
         break;
-    case TypeKind::Unresolved:
+    case TypeKind::Imported:
         //TODO: report ICE
         break;
     case TypeKind::Function:
@@ -857,7 +857,7 @@ bool Generator::needsSerializers(const Type* type)
     switch (type->typeKind()) {
     case TypeKind::Builtin:
     case TypeKind::Array:
-    case TypeKind::Unresolved:
+    case TypeKind::Imported:
     case TypeKind::Function:
     case TypeKind::Slice:
         return false;
@@ -1150,7 +1150,7 @@ void Generator::collectIncludesAndFwdsForType(const Type* topLevelType, std::uno
         case TypeKind::Enum:
         case TypeKind::Function:
             return false;
-        case TypeKind::Unresolved: {
+        case TypeKind::Imported: {
             std::string path = visitedType->moduleName().toStdString();
             path.push_back('/');
             path.append(visitedType->name().begin(), visitedType->name().end());

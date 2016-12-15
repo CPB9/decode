@@ -17,7 +17,7 @@ public:
     bool visitEnum(const Enum* type);
     bool visitStruct(const StructType* type);
     bool visitVariant(const Variant* type);
-    bool visitUnresolved(const UnresolvedType* type);
+    bool visitImported(const ImportedType* type);
 
 protected:
 
@@ -63,7 +63,7 @@ inline bool NameVisitor<B>::visitVariant(const Variant* type)
 }
 
 template <typename B>
-inline bool NameVisitor<B>::visitUnresolved(const UnresolvedType* type)
+inline bool NameVisitor<B>::visitImported(const ImportedType* type)
 {
     return base().appendTypeName(type);
 }
