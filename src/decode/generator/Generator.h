@@ -2,7 +2,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/generator/StringBuilder.h"
+#include "decode/generator/SrcBuilder.h"
 
 #include <bmcl/StringView.h>
 
@@ -136,10 +136,7 @@ private:
     void writeTagFooter(bmcl::StringView typeName);
     void writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = "");
 
-    void writeModPrefix();
-
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = "");
-    void genFnPointerTypeRepr(const Function* type, bmcl::StringView fieldName = "");
 
     void endIncludeGuard(const Type* type);
 
@@ -149,9 +146,8 @@ private:
 
     Rc<Diagnostics> _diag;
     std::string _savePath;
-    StringBuilder _output;
+    SrcBuilder _output;
     Rc<Ast> _ast;
-    bool _shouldWriteModPrefix;
     Rc<Target> _target;
 };
 

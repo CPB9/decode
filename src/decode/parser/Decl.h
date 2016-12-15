@@ -139,9 +139,13 @@ public:
 
     bmcl::StringView moduleName() const
     {
-        return _moduleName;
+        return _moduleInfo->moduleName();
     }
 
+    const Rc<ModuleInfo>& moduleInfo() const
+    {
+        return _moduleInfo;
+    }
 
 protected:
     Type(TypeKind kind)
@@ -158,7 +162,7 @@ private:
 
     bmcl::StringView _name;
     TypeKind _typeKind;
-    bmcl::StringView _moduleName;
+    Rc<ModuleInfo> _moduleInfo;
 };
 
 class TypeDecl : public Decl {

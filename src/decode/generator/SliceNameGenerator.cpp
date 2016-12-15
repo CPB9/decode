@@ -5,16 +5,12 @@
 
 namespace decode {
 
-SliceNameGenerator::SliceNameGenerator(StringBuilder* dest)
-    : _output(dest)
+SliceNameGenerator::SliceNameGenerator(SrcBuilder* dest)
+    : NameVisitor<SliceNameGenerator>(dest)
 {
 }
 
-SliceNameGenerator::~SliceNameGenerator()
-{
-}
-
-bmcl::StringView SliceNameGenerator::builtinToName(const BuiltinType* type) const
+static bmcl::StringView builtinToName(const BuiltinType* type)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
@@ -95,33 +91,9 @@ inline bool SliceNameGenerator::appendTypeName(const Type* type)
     return false;
 }
 
-inline bool SliceNameGenerator::visitFunction(const Function* type)
-{
-    return appendTypeName(type);
-}
-
-inline bool SliceNameGenerator::visitEnum(const Enum* type)
-{
-    return appendTypeName(type);
-}
-
-inline bool SliceNameGenerator::visitStruct(const StructType* type)
-{
-    return appendTypeName(type);
-}
-
-inline bool SliceNameGenerator::visitVariant(const Variant* type)
-{
-    return appendTypeName(type);
-}
-
-inline bool SliceNameGenerator::visitUnresolved(const UnresolvedType* type)
-{
-    return appendTypeName(type);
-}
-
 void SliceNameGenerator::genSliceName(const SliceType* type)
 {
+    _output->appendModPrefix();
     traverseType(type);
 }
 }

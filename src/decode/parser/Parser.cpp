@@ -168,7 +168,7 @@ Rc<T> Parser::beginType()
 {
     Rc<TypeDecl> decl = beginDecl<TypeDecl>();
     Rc<T> type = new T;
-    type->_moduleName = _moduleInfo->moduleName();
+    type->_moduleInfo = _moduleInfo;
     decl->_type = type;
     _ast->_typeToDecl.emplace(type, decl);
     _typeDeclStack.push_back(decl);

@@ -47,6 +47,8 @@ add_library(decode
     src/decode/generator/Generator.h
     src/decode/generator/SliceNameGenerator.cpp
     src/decode/generator/SliceNameGenerator.h
+    src/decode/generator/TypeReprGenerator.cpp
+    src/decode/generator/TypeReprGenerator.h
 )
 
 add_executable(dummy

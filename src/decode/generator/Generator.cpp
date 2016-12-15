@@ -1,5 +1,6 @@
 #include "decode/generator/Generator.h"
 #include "decode/generator/SliceNameGenerator.h"
+#include "decode/generator/TypeReprGenerator.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Decl.h"
@@ -22,7 +23,6 @@ namespace decode {
 
 Generator::Generator(const Rc<Diagnostics>& diag)
     : _diag(diag)
-    , _shouldWriteModPrefix(true)
     , _target(new Target(4)) //FIXME
 {
 }
@@ -209,9 +209,10 @@ void Generator::genHeader(const Type* type)
 
 void Generator::writeCommonIncludePaths(const Type* type)
 {
-    _output.append("#include <stdbool.h>\n");
-    _output.append("#include <stddef.h>\n");
-    _output.append("#include <stdint.h>\n\n");
+    _output.appendInclude("stdbool.h");
+    _output.appendInclude("stddef.h");
+    _output.appendInclude("stdint.h");
+    _output.appendEol();
 }
 
 void Generator::genSource(const Type* type)
@@ -628,7 +629,7 @@ void Generator::writeVariantDeserizalizer(const Variant* type)
         i++;
         _output.append(": {\n");
         _output.append("        self->type = ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(type->name());
         _output.append("Type");
         _output.append("_");
@@ -693,7 +694,7 @@ void Generator::writeVariantSerializer(const Variant* type)
     std::size_t i = 0;
     for (const Rc<VariantField>& field : type->fields()) {
         _output.append("    case ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(type->name());
         _output.append("Type");
         _output.append("_");
@@ -752,7 +753,7 @@ void Generator::writeEnumDeserizalizer(const Enum* type)
     _output.append("    ");
     writeVarDecl("int64_t", "value");
     _output.append("    ");
-    writeModPrefix();
+    _output.appendModPrefix();
     writeVarDecl(type->name(), "result");
     _output.append("    ");
     writeWithTryMacro([this, type]() {
@@ -767,7 +768,7 @@ void Generator::writeEnumDeserizalizer(const Enum* type)
         _output.appendNumericValue(pair.first);
         _output.append(":\n");
         _output.append("        result = ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(type->name());
         _output.append("_");
         _output.append(pair.second->name());
@@ -791,7 +792,7 @@ void Generator::writeEnumSerializer(const Enum* type)
     _output.append("    switch(*self) {\n");
     for (const auto& pair : type->constants()) {
         _output.append("    case ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(type->name());
         _output.append("_");
         _output.append(pair.second->name());
@@ -811,7 +812,11 @@ void Generator::writeEnumSerializer(const Enum* type)
 bool Generator::generateFromAst(const Rc<Ast>& ast)
 {
     _ast = ast;
-    _shouldWriteModPrefix = !ast->moduleInfo()->moduleName().equals("core");
+    if (!ast->moduleInfo()->moduleName().equals("core")) {
+        _output.setModName(ast->moduleInfo()->moduleName());
+    } else {
+        _output.setModName(bmcl::StringView::empty());
+    }
 
     StringBuilder photonPath;
     photonPath.append(_savePath);
@@ -919,7 +924,7 @@ void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::Strin
     } else {
         _output.append("void ");
     }
-    writeModPrefix();
+    _output.appendModPrefix();
     _output.append(typeName);
     _output.append('_');
     _output.appendWithFirstUpper(func->name());
@@ -931,7 +936,7 @@ void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::Strin
         case SelfArgument::Reference:
             _output.append("const ");
         case SelfArgument::MutReference:
-            writeModPrefix();
+            _output.appendModPrefix();
             _output.append(typeName);
             _output.append("* self");
             break;
@@ -955,185 +960,10 @@ void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::Strin
     _output.append(");\n");
 }
 
-static bmcl::StringView builtinToC(BuiltinTypeKind kind)
-{
-    switch (kind) {
-    case BuiltinTypeKind::USize:
-        return "size_t";
-    case BuiltinTypeKind::ISize:
-        return "ptrdiff_t";
-    case BuiltinTypeKind::Varuint:
-        return "uint64_t";
-    case BuiltinTypeKind::Varint:
-        return "int64_t";
-    case BuiltinTypeKind::U8:
-        return "uint8_t";
-    case BuiltinTypeKind::I8:
-        return "int8_t";
-    case BuiltinTypeKind::U16:
-        return "uint16_t";
-    case BuiltinTypeKind::I16:
-        return "int16_t";
-    case BuiltinTypeKind::U32:
-        return "uint32_t";
-    case BuiltinTypeKind::I32:
-        return "int32_t";
-    case BuiltinTypeKind::U64:
-        return "uint64_t";
-    case BuiltinTypeKind::I64:
-        return "int64_t";
-    case BuiltinTypeKind::Bool:
-        return "bool";
-    case BuiltinTypeKind::Void:
-        return "void";
-    case BuiltinTypeKind::Unknown:
-        //FIXME: report error
-        assert(false);
-        return nullptr;
-    }
-
-    return nullptr;
-}
-
-static bmcl::StringView builtinToC(const Type* type)
-{
-    return builtinToC(static_cast<const BuiltinType*>(type)->builtinTypeKind());
-}
-
-void Generator::genFnPointerTypeRepr(const Function* topLevelType, bmcl::StringView fieldName)
-{
-    std::vector<const Function*> fnStack;
-    const Function* current = topLevelType;
-    fnStack.push_back(current);
-    while (true) {
-        if (current->returnValue().isSome()) {
-            if (current->returnValue().unwrap()->typeKind() == TypeKind::Function) {
-                current = static_cast<const Function*>(current->returnValue()->get());
-                fnStack.push_back(current);
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-    if (fnStack.back()->returnValue().isSome()) {
-        genTypeRepr(fnStack.back()->returnValue().unwrap().get());
-    } else {
-        _output.append("void");
-    }
-    _output.append(" ");
-    for (std::size_t i = 0; i < fnStack.size(); i++) {
-        _output.append("(*");
-    }
-    _output.append(fieldName);
-
-    BMCL_DEBUG() << fnStack.size();
-    _output.append(")(");
-
-    auto appendParameters = [this](const Function* t) {
-        if (t->arguments().size() > 0) {
-            for (auto jt = t->arguments().cbegin(); jt < (t->arguments().cend() - 1); jt++) {
-                genTypeRepr((*jt)->type().get());
-                _output.append(", ");
-            }
-            genTypeRepr(t->arguments().back()->type().get());
-        }
-    };
-
-    for (auto it = fnStack.begin(); it < (fnStack.end() - 1); it++) {
-        appendParameters(*it);
-        _output.append("))(");
-    }
-    appendParameters(fnStack.back());
-    _output.append(")");
-}
-
 void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName)
 {
-    if (topLevelType->typeKind() == TypeKind::Function) {
-        genFnPointerTypeRepr(static_cast<const Function*>(topLevelType), fieldName);
-        return;
-    }
-    bool hasPrefix = false;
-    StringBuilder typeName;
-    std::deque<bool> pointers; // isConst
-    std::string arrayIndices;
-    traverseType(topLevelType, [&](const Type* visitedType) {
-        switch (visitedType->typeKind()) {
-        case TypeKind::Function:
-            genFnPointerTypeRepr(static_cast<const Function*>(visitedType), fieldName);
-            return false;
-        case TypeKind::Builtin:
-            typeName.append(builtinToC(visitedType));
-            return false;
-        case TypeKind::Array: {
-            const ArrayType* arr = static_cast<const ArrayType*>(visitedType);
-            arrayIndices.push_back('[');
-            arrayIndices.append(std::to_string(arr->elementCount()));
-            arrayIndices.push_back(']');
-            return true;
-        }
-        case TypeKind::Reference: {
-            const ReferenceType* ref = static_cast<const ReferenceType*>(visitedType);
-            switch (ref->referenceKind()) {
-            case ReferenceKind::Pointer:
-            case ReferenceKind::Reference:
-                if (ref->isMutable()) {
-                    pointers.push_front(false);
-                } else {
-                    pointers.push_front(true);
-                }
-                return true;
-            }
-        }
-        case TypeKind::Slice: {
-            hasPrefix = true;
-            SliceNameGenerator sng(&typeName);
-            sng.genSliceName(static_cast<const SliceType*>(visitedType));
-            return false;
-        }
-        case TypeKind::Struct:
-        case TypeKind::Variant:
-        case TypeKind::Enum:
-        case TypeKind::Unresolved:
-            hasPrefix = true;
-            typeName.append(visitedType->name());
-            return false;
-        }
-    });
-
-    auto writeTypeName = [&]() {
-        if (hasPrefix) {
-            writeModPrefix();
-        }
-        _output.append(typeName.result());
-    };
-
-    if (pointers.size() == 1) {
-        if (pointers[0] == true) {
-            _output.append("const ");
-        }
-        writeTypeName();
-        _output.append('*');
-    } else {
-        writeTypeName();
-
-        for (bool isConst : pointers) {
-            if (isConst) {
-                _output.append(" *const");
-            } else {
-                _output.append(" *");
-            }
-        }
-    }
-    if (!fieldName.isEmpty()) {
-        _output.appendSpace();
-        _output.append(fieldName.begin(), fieldName.end());
-    }
-    if (!arrayIndices.empty()) {
-        _output.append(arrayIndices);
-    }
+    TypeReprGenerator trg(&_output);
+    trg.genTypeRepr(topLevelType, fieldName);
 }
 
 void Generator::writeStruct(const std::vector<Rc<Type>>& fields, bmcl::StringView name)
@@ -1181,7 +1011,7 @@ void Generator::writeTagHeader(bmcl::StringView name)
 void Generator::writeTagFooter(bmcl::StringView typeName)
 {
     _output.append("} ");
-    writeModPrefix();
+    _output.appendModPrefix();
     _output.append(typeName);
     _output.append(";\n");
 }
@@ -1192,7 +1022,7 @@ void Generator::writeEnum(const Enum* type)
 
     for (const auto& pair : type->constants()) {
         _output.append("    ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(type->name());
         _output.append("_");
         _output.append(pair.second->name().toStdString());
@@ -1207,14 +1037,6 @@ void Generator::writeEnum(const Enum* type)
     _output.appendEol();
 }
 
-void Generator::writeModPrefix()
-{
-    _output.append("Photon");
-    if (_shouldWriteModPrefix) {
-        _output.appendWithFirstUpper(_ast->moduleInfo()->moduleName());
-    }
-}
-
 void Generator::writeVariant(const Variant* type)
 {
     std::vector<bmcl::StringView> fieldNames;
@@ -1223,7 +1045,7 @@ void Generator::writeVariant(const Variant* type)
 
     for (const Rc<VariantField>& field : type->fields()) {
         _output.append("    ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(type->name());
         _output.append("Type_");
         _output.append(field->name());
@@ -1231,7 +1053,7 @@ void Generator::writeVariant(const Variant* type)
     }
 
     _output.append("} ");
-    writeModPrefix();
+    _output.appendModPrefix();
     _output.append(type->name());
     _output.append("Type;\n");
     _output.appendEol();
@@ -1265,7 +1087,7 @@ void Generator::writeVariant(const Variant* type)
             continue;
         }
         _output.append("        ");
-        writeModPrefix();
+        _output.appendModPrefix();
         _output.append(field->name());
         _output.append(type->name());
         _output.appendSpace();
@@ -1276,7 +1098,7 @@ void Generator::writeVariant(const Variant* type)
 
     _output.append("    } data;\n");
     _output.append("    ");
-    writeModPrefix();
+    _output.appendModPrefix();
     _output.append(type->name());
     _output.append("Type");
     _output.append(" type;\n");
