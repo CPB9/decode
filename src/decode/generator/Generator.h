@@ -139,7 +139,7 @@ private:
     void writeModPrefix();
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = "");
-    void genFnPointerTypeRepr(const FnPointer* type, bmcl::StringView fieldName = "");
+    void genFnPointerTypeRepr(const Function* type, bmcl::StringView fieldName = "");
 
     void endIncludeGuard(const Type* type);
 

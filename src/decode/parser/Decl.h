@@ -21,17 +21,15 @@ namespace decode {
 class ImportedType;
 
 enum class TypeKind {
-    Reference,
-    Slice,
     Builtin,
+    Reference,
     Array,
-    Struct,
-    Enum,
-    Variant,
-    Component,
-    Unresolved,
+    Slice,
     Function,
-    FnPointer,
+    Enum,
+    Struct,
+    Variant,
+    Unresolved,
 };
 
 enum class BuiltinTypeKind {
@@ -319,31 +317,6 @@ private:
     friend class Parser;
 
     bmcl::StringView _importPath;
-};
-
-class FnPointer : public Type {
-public:
-    const bmcl::Option<Rc<Type>>& returnValue() const
-    {
-        return _returnValue;
-    }
-
-    const std::vector<Rc<Type>>& arguments() const
-    {
-        return _arguments;
-    }
-
-protected:
-    FnPointer()
-        : Type(TypeKind::FnPointer)
-    {
-    }
-
-private:
-    friend class Parser;
-
-    std::vector<Rc<Type>> _arguments;
-    bmcl::Option<Rc<Type>> _returnValue;
 };
 
 class Field : public NamedDecl {
@@ -749,7 +722,7 @@ private:
     std::unordered_map<std::size_t, std::vector<Rc<StatusRegexp>>> _regexps;
 };
 
-class Component : public Tag {
+class Component : public RefCountable {
 public:
 
     const Rc<Parameters>& parameters() const
@@ -763,10 +736,7 @@ public:
     }
 
 protected:
-    Component()
-        : Tag(TypeKind::Component)
-    {
-    }
+    Component() = default;
 
 private:
     friend class Parser;
@@ -774,6 +744,7 @@ private:
     Rc<Parameters> _params;
     Rc<Commands> _cmds;
     Rc<Statuses> _statuses;
+    bmcl::StringView _moduleName;
 };
 
 

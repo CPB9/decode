@@ -35,16 +35,18 @@ add_library(decode
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
     src/decode/parser/Decl.h
-    src/decode/parser/Model.cpp
-    src/decode/parser/Model.h
     src/decode/parser/Parser.cpp
     src/decode/parser/Parser.h
     src/decode/parser/Lexer.cpp
     src/decode/parser/Lexer.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
+    src/decode/model/Model.cpp
+    src/decode/model/Model.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
+    src/decode/generator/SliceNameGenerator.cpp
+    src/decode/generator/SliceNameGenerator.h
 )
 
 add_executable(dummy

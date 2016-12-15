@@ -80,4 +80,5 @@ private:
     Rc<Module> _moduleDecl;
     Rc<ModuleInfo> _moduleInfo;
 };
+
 }

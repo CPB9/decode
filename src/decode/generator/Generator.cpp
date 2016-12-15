@@ -1,4 +1,5 @@
 #include "decode/generator/Generator.h"
+#include "decode/generator/SliceNameGenerator.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Decl.h"
@@ -53,16 +54,6 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
         }
         break;
     }
-    case TypeKind::FnPointer: {
-        const FnPointer* fn = static_cast<const FnPointer*>(type);
-        if (fn->returnValue().isSome()) {
-            traverseType(fn->returnValue().unwrap().get(), std::forward<F>(visitor), depth);
-        }
-        for (const Rc<Type>& arg : fn->arguments()) {
-            traverseType(arg.get(), std::forward<F>(visitor), depth);
-        }
-        break;
-    }
     case TypeKind::Builtin:
         break;
     case TypeKind::Array: {
@@ -72,16 +63,6 @@ void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
     }
     case TypeKind::Enum:
         break;
-    case TypeKind::Component: {
-        const Component* comp = static_cast<const Component*>(type);
-        for (const Rc<Field>& field : *comp->parameters()->fields()) {
-            traverseType(field->type().get(), std::forward<F>(visitor), depth);
-        }
-        for (const Rc<Function>& fn : comp->commands()->functions()) {
-            traverseType(fn.get(), std::forward<F>(visitor), depth);
-        }
-        break;
-    }
     case TypeKind::Unresolved:
         //TODO: report ICE
         break;
@@ -190,7 +171,6 @@ void Generator::genHeader(const Type* type)
     case TypeKind::Reference:
     case TypeKind::Unresolved:
     case TypeKind::Function:
-    case TypeKind::FnPointer:
         break;
     case TypeKind::Slice:
         break;
@@ -224,16 +204,6 @@ void Generator::genHeader(const Type* type)
         writeSerializerFuncPrototypes(type);
         endIncludeGuard(type);
         break;
-    case TypeKind::Component:
-        startIncludeGuard(type);
-        writeIncludesAndFwdsForType(type);
-        writeCommonIncludePaths(type);
-        //writeStruct(static_cast<const Component*>(type));
-        writeImplBlockIncludes(type);
-        writeImplFunctionPrototypes(type);
-        //writeSerializerFuncPrototypes(type);
-        endIncludeGuard(type);
-        break;
     }
 }
 
@@ -260,7 +230,6 @@ void Generator::genSource(const Type* type)
     case TypeKind::Slice:
     case TypeKind::Unresolved:
     case TypeKind::Function:
-    case TypeKind::FnPointer:
         break;
     case TypeKind::Struct:
         writeIncludes(type);
@@ -282,8 +251,6 @@ void Generator::genSource(const Type* type)
         writeEnumDeserizalizer(static_cast<const Enum*>(type));
         _output.appendEol();
         writeEnumSerializer(static_cast<const Enum*>(type));
-        break;
-    case TypeKind::Component:
         break;
     }
     _output.appendEol();
@@ -442,15 +409,11 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
         //TODO: report ICE
         break;
     case TypeKind::Function:
-        assert(false && "Not implemented");
-        break;
-    case TypeKind::FnPointer:
         writeInlinePointerDeserializer(type, ctx, argNameGen);
         break;
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::Enum:
-    case TypeKind::Component:
     case TypeKind::Slice:
         _output.appendSeveral(ctx.indentLevel, "    ");
         writeWithTryMacro([&, this, type]() {
@@ -575,15 +538,11 @@ void Generator::writeInlineTypeSerializer(const Type* type, const InlineSerConte
         //TODO: report ICE
         break;
     case TypeKind::Function:
-        assert(false && "Not implemented");
-        break;
-    case TypeKind::FnPointer:
         writeInlinePointerSerializer(type, ctx, argNameGen);
         break;
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::Enum:
-    case TypeKind::Component:
     case TypeKind::Slice:
         _output.appendSeveral(ctx.indentLevel, "    ");
         writeWithTryMacro([&, this, type]() {
@@ -895,14 +854,12 @@ bool Generator::needsSerializers(const Type* type)
     case TypeKind::Array:
     case TypeKind::Unresolved:
     case TypeKind::Function:
-    case TypeKind::FnPointer:
     case TypeKind::Slice:
         return false;
     case TypeKind::Reference:
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::Enum:
-    case TypeKind::Component:
         break;
     }
     return true;
@@ -998,7 +955,7 @@ void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::Strin
     _output.append(");\n");
 }
 
-static const char* builtinToC(BuiltinTypeKind kind)
+static bmcl::StringView builtinToC(BuiltinTypeKind kind)
 {
     switch (kind) {
     case BuiltinTypeKind::USize:
@@ -1038,116 +995,20 @@ static const char* builtinToC(BuiltinTypeKind kind)
     return nullptr;
 }
 
-static const char* builtinToC(const Type* type)
+static bmcl::StringView builtinToC(const Type* type)
 {
     return builtinToC(static_cast<const BuiltinType*>(type)->builtinTypeKind());
 }
 
-static const char* builtinToName(BuiltinTypeKind kind)
+void Generator::genFnPointerTypeRepr(const Function* topLevelType, bmcl::StringView fieldName)
 {
-    switch (kind) {
-    case BuiltinTypeKind::USize:
-        return "USize";
-    case BuiltinTypeKind::ISize:
-        return "ISize";
-    case BuiltinTypeKind::Varuint:
-        return "Varuint";
-    case BuiltinTypeKind::Varint:
-        return "Varint";
-    case BuiltinTypeKind::U8:
-        return "U8";
-    case BuiltinTypeKind::I8:
-        return "I8";
-    case BuiltinTypeKind::U16:
-        return "U16";
-    case BuiltinTypeKind::I16:
-        return "I16";
-    case BuiltinTypeKind::U32:
-        return "U32";
-    case BuiltinTypeKind::I32:
-        return "I32";
-    case BuiltinTypeKind::U64:
-        return "U64";
-    case BuiltinTypeKind::I64:
-        return "I64";
-    case BuiltinTypeKind::Bool:
-        return "Bool";
-    case BuiltinTypeKind::Void:
-        return "Void";
-    case BuiltinTypeKind::Unknown:
-        //FIXME: report error
-        assert(false);
-        return nullptr;
-    }
-
-    return nullptr;
-}
-
-static const char* builtinToName(const Type* type)
-{
-    return builtinToName(static_cast<const BuiltinType*>(type)->builtinTypeKind());
-}
-
-std::string genSliceName(const Type* topLevelType)
-{
-    std::string typeName;
-    traverseType(topLevelType, [&typeName, topLevelType](const Type* visitedType) {
-        switch (visitedType->typeKind()) {
-        case TypeKind::Builtin:
-            typeName.append(builtinToName(visitedType));
-            return false;
-        case TypeKind::Array:
-            typeName.append("ArrOf");
-            return true;
-        case TypeKind::Reference: {
-            const ReferenceType* ref = static_cast<const ReferenceType*>(visitedType);
-            if (ref->isMutable()) {
-                typeName.append("Mut");
-            }
-            switch (ref->referenceKind()) {
-            case ReferenceKind::Pointer:
-                typeName.append("PtrTo");
-                break;
-            case ReferenceKind::Reference:
-                typeName.append("RefTo");
-                break;
-            }
-            return true;
-        }
-        case TypeKind::Slice:
-            typeName.append("SliceOf");
-            return true;
-        case TypeKind::Struct:
-        case TypeKind::Variant:
-        case TypeKind::Enum:
-        case TypeKind::Component:
-        case TypeKind::Function:
-        case TypeKind::FnPointer:
-            //TODO: report error
-            return false;
-        case TypeKind::Unresolved: {
-            std::string modName = visitedType->moduleName().toStdString();
-            if (!modName.empty()) {
-                modName.front() = std::toupper(modName.front());
-                typeName.append(modName);
-            }
-            typeName.append(visitedType->name().toStdString());
-            return false;
-        }
-        }
-    });
-    return typeName;
-}
-
-void Generator::genFnPointerTypeRepr(const FnPointer* topLevelType, bmcl::StringView fieldName)
-{
-    std::vector<const FnPointer*> fnStack;
-    const FnPointer* current = topLevelType;
+    std::vector<const Function*> fnStack;
+    const Function* current = topLevelType;
     fnStack.push_back(current);
     while (true) {
         if (current->returnValue().isSome()) {
-            if (current->returnValue().unwrap()->typeKind() == TypeKind::FnPointer) {
-                current = static_cast<const FnPointer*>(current->returnValue()->get());
+            if (current->returnValue().unwrap()->typeKind() == TypeKind::Function) {
+                current = static_cast<const Function*>(current->returnValue()->get());
                 fnStack.push_back(current);
             } else {
                 break;
@@ -1170,13 +1031,13 @@ void Generator::genFnPointerTypeRepr(const FnPointer* topLevelType, bmcl::String
     BMCL_DEBUG() << fnStack.size();
     _output.append(")(");
 
-    auto appendParameters = [this](const FnPointer* t) {
+    auto appendParameters = [this](const Function* t) {
         if (t->arguments().size() > 0) {
             for (auto jt = t->arguments().cbegin(); jt < (t->arguments().cend() - 1); jt++) {
-                genTypeRepr(jt->get());
+                genTypeRepr((*jt)->type().get());
                 _output.append(", ");
             }
-            genTypeRepr(t->arguments().back().get());
+            genTypeRepr(t->arguments().back()->type().get());
         }
     };
 
@@ -1190,23 +1051,21 @@ void Generator::genFnPointerTypeRepr(const FnPointer* topLevelType, bmcl::String
 
 void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName)
 {
-    if (topLevelType->typeKind() == TypeKind::FnPointer) {
-        genFnPointerTypeRepr(static_cast<const FnPointer*>(topLevelType), fieldName);
+    if (topLevelType->typeKind() == TypeKind::Function) {
+        genFnPointerTypeRepr(static_cast<const Function*>(topLevelType), fieldName);
         return;
     }
     bool hasPrefix = false;
-    std::string typeName;
+    StringBuilder typeName;
     std::deque<bool> pointers; // isConst
     std::string arrayIndices;
     traverseType(topLevelType, [&](const Type* visitedType) {
         switch (visitedType->typeKind()) {
         case TypeKind::Function:
-            return false;
-        case TypeKind::FnPointer:
-            genFnPointerTypeRepr(static_cast<const FnPointer*>(visitedType), fieldName);
+            genFnPointerTypeRepr(static_cast<const Function*>(visitedType), fieldName);
             return false;
         case TypeKind::Builtin:
-            typeName = builtinToC(visitedType);
+            typeName.append(builtinToC(visitedType));
             return false;
         case TypeKind::Array: {
             const ArrayType* arr = static_cast<const ArrayType*>(visitedType);
@@ -1228,17 +1087,18 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
                 return true;
             }
         }
-        case TypeKind::Slice:
+        case TypeKind::Slice: {
             hasPrefix = true;
-            typeName = genSliceName(visitedType);
+            SliceNameGenerator sng(&typeName);
+            sng.genSliceName(static_cast<const SliceType*>(visitedType));
             return false;
+        }
         case TypeKind::Struct:
         case TypeKind::Variant:
         case TypeKind::Enum:
-        case TypeKind::Component:
         case TypeKind::Unresolved:
             hasPrefix = true;
-            typeName = visitedType->name().toStdString();
+            typeName.append(visitedType->name());
             return false;
         }
     });
@@ -1247,7 +1107,7 @@ void Generator::genTypeRepr(const Type* topLevelType, bmcl::StringView fieldName
         if (hasPrefix) {
             writeModPrefix();
         }
-        _output.append(typeName);
+        _output.append(typeName.result());
     };
 
     if (pointers.size() == 1) {
@@ -1466,9 +1326,7 @@ void Generator::collectIncludesAndFwdsForType(const Type* topLevelType, std::uno
         case TypeKind::Struct:
         case TypeKind::Variant:
         case TypeKind::Enum:
-        case TypeKind::Component:
         case TypeKind::Function:
-        case TypeKind::FnPointer:
             return false;
         case TypeKind::Unresolved: {
             std::string path = visitedType->moduleName().toStdString();

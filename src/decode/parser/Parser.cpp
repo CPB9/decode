@@ -547,19 +547,22 @@ Rc<Type> Parser::parseFunctionPointer()
 {
     TRY(expectCurrentToken(TokenKind::Ampersand));
 
-    Rc<FnPointer> fn = beginType<FnPointer>();
+    Rc<Function> fn = beginType<Function>();
 
     consume();
     TRY(expectCurrentToken(TokenKind::UpperFn));
     consume();
 
-    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this](const Rc<FnPointer>& fn) {
+    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this](const Rc<Function>& fn) {
 
         Rc<Type> type = parseType();
         if (!type) {
             return false;
         }
-        fn->_arguments.push_back(type);
+        Rc<Field> field = new Field;
+        field->_moduleInfo = _moduleInfo;
+        field->_type = type;
+        fn->_arguments.push_back(field);
 
         return true;
     }));
@@ -974,26 +977,26 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
             }
             Rc<StatusRegexp> re = new StatusRegexp;
             regexps->push_back(re);
-            Rc<FieldList> fields = parent->parameters()->fields();
-            Rc<Type> lastType;
-            Rc<Field> lastField;
+//             Rc<FieldList> fields = parent->parameters()->fields();
+//             Rc<Type> lastType;
+//             Rc<Field> lastField;
 
             while (true) {
                 if (currentTokenIs(TokenKind::Identifier)) {
-                    bmcl::Option<const Rc<Field>&> field  = fields->fieldWithName(_currentToken.value());
-                    if (field.isNone()) {
-                        //TODO: report error
-                        return false;
-                    }
+//                     bmcl::Option<const Rc<Field>&> field  = fields->fieldWithName(_currentToken.value());
+//                     if (field.isNone()) {
+//                         //TODO: report error
+//                         return false;
+//                     }
                     Rc<FieldAccessor> acc = new FieldAccessor;
-                    acc->_field = field.unwrap();
-                    lastField = field.unwrap();
-                    lastType = field.unwrap()->type();
+//                     acc->_field = field.unwrap();
+//                     lastField = field.unwrap();
+//                     lastType = field.unwrap()->type();
                     re->_accessors.push_back(acc);
                     consumeAndSkipBlanks();
                 } else if (currentTokenIs(TokenKind::LBracket)) {
                     Rc<SubscriptAccessor> acc = new SubscriptAccessor;
-                    acc->_type = lastType;
+//                     acc->_type = lastType;
                     consume();
                     uintmax_t m;
                     if (currentTokenIs(TokenKind::Number) && _lexer->nextIs(TokenKind::RBracket)) {
@@ -1022,26 +1025,26 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
 
                     re->_accessors.push_back(acc);
 
-                    if (lastType->isSlice()) {
-                        SliceType* slice = lastType->asSlice();
-                        lastType = slice->elementType();
-                    } else if (lastType->isArray()) {
-                        ArrayType* array = lastType->asArray();
-                        lastType = array->elementType();
-                        //TODO: check ranges
-                    } else {
-                        //TODO: report error
-                        return false;
-                    }
+//                     if (lastType->isSlice()) {
+//                         SliceType* slice = lastType->asSlice();
+//                         lastType = slice->elementType();
+//                     } else if (lastType->isArray()) {
+//                         ArrayType* array = lastType->asArray();
+//                         lastType = array->elementType();
+//                         //TODO: check ranges
+//                     } else {
+//                         //TODO: report error
+//                         return false;
+//                     }
                 }
                 if (currentTokenIs(TokenKind::Comma) || currentTokenIs(TokenKind::RBrace)) {
                     return true;
                 } else if (currentTokenIs(TokenKind::Dot)) {
-                    if (!lastType->isStruct()) {
-                        //TODO: report error
-                        return false;
-                    }
-                    fields = lastType->asStruct()->fields();
+//                     if (!lastType->isStruct()) {
+//                         //TODO: report error
+//                         return false;
+//                     }
+//                     fields = lastType->asStruct()->fields();
                     consume();
                 }
             }
@@ -1066,11 +1069,11 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
 bool Parser::parseComponent()
 {
     TRY(expectCurrentToken(TokenKind::Component));
-    Rc<Component> comp = beginType<Component>();
+    Rc<Component> comp = new Component;
+    comp->_moduleName = _moduleInfo->moduleName();
     consumeAndSkipBlanks();
     TRY(expectCurrentToken(TokenKind::Identifier));
-    comp->_name = _currentToken.value();
-    _ast->addTopLevelType(comp);
+    //_ast->addTopLevelType(comp);
     consumeAndSkipBlanks();
 
     TRY(expectCurrentToken(TokenKind::LBrace));
@@ -1102,7 +1105,6 @@ bool Parser::parseComponent()
     }
 
 finish:
-    endType(comp);
     return true;
 }
 
