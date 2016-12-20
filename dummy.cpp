@@ -33,6 +33,12 @@ void testModel()
     b = package2.unwrap()->encode();
     BMCL_DEBUG() << "size:" << b.size();
 
+    PackageResult package3 = Package::decodeFromMemory(diag, b.start(), b.size());
+    BMCL_DEBUG() << "decode status:" << package3.isOk();
+
+    b = package3.unwrap()->encode();
+    BMCL_DEBUG() << "size:" << b.size();
+
 //     Rc<Generator> gen = makeRc<Generator>(diag);
 //     gen->setOutPath("./");
 //     bool genOk = gen->generateFromModel(rv.unwrap());
@@ -44,11 +50,9 @@ void testModel()
     BMCL_DEBUG() << "time (us):" << std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
 }
 
-
 void process(const char* path)
 {
     auto start = std::chrono::steady_clock::now();
-
 
     Rc<Diagnostics> diag = new Diagnostics;
     Parser p(diag);

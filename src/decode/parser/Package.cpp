@@ -16,16 +16,27 @@
 #include <array>
 #include <cstring>
 #include <limits>
+#include <exception>
 
 #include <dirent.h>
 #include <sys/stat.h>
 
+void libzpaq::error(const char* msg)
+{
+    throw std::runtime_error(msg);
+}
+
 namespace decode {
 
-class BufferReader : public libzpaq::Reader {
+class ZpaqReader : public libzpaq::Reader {
 public:
-    BufferReader(const bmcl::Buffer& buf)
+    ZpaqReader(const bmcl::Buffer& buf)
         : _reader(buf.start(), buf.size())
+    {
+    }
+
+    ZpaqReader(const void* src, std::size_t size)
+        : _reader(src, size)
     {
     }
 
@@ -37,14 +48,21 @@ public:
         return _reader.readUint8();
     }
 
+    int read(char* buf, int n) override
+    {
+        std::size_t size = std::min<std::size_t>(n, _reader.readableSize());
+        _reader.read(buf, size);
+        return size;
+    }
+
 private:
     bmcl::MemReader _reader;
 };
 
 
-class BufferWriter : public libzpaq::Writer {
+class ZpaqWriter : public libzpaq::Writer {
 public:
-    BufferWriter(bmcl::Buffer* buf)
+    ZpaqWriter(bmcl::Buffer* buf)
         : _buf(buf)
     {
     }
@@ -54,10 +72,14 @@ public:
         _buf->writeUint8(c);
     }
 
+    void write(const char* buf, int n) override
+    {
+        _buf->write(buf, n);
+    }
+
 private:
     bmcl::Buffer* _buf;
 };
-
 
 #define DECODE_SUFFIX ".decode"
 
@@ -133,13 +155,24 @@ const MagicType magic = {{ 0x7a, 0x70, 0x61, 0x71 }};
 
 PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void* src, std::size_t size)
 {
-    if (size < magic.size()) {
-        //TODO: report error
+    bmcl::Buffer buf;
+    ZpaqReader in(src, size);
+    ZpaqWriter out(&buf);
+
+    try {
+        libzpaq::decompress(&in, &out);
+    } catch(const std::exception& err) {
+        BMCL_CRITICAL() << "error decompressing zpaq archive: " << err.what();
         return PackageResult();
     }
 
     Rc<Package> package = new Package(diag);
-    bmcl::MemReader reader(src, size);
+    bmcl::MemReader reader(buf.start(), buf.size());
+
+    if (reader.readableSize() < magic.size()) {
+        //TODO: report error
+        return PackageResult();
+    }
 
     MagicType m;
     reader.read(m.data(), m.size());
@@ -218,12 +251,18 @@ bmcl::Buffer Package::encode() const
         buf.write((const void*)contents.data(), contents.size());
     }
 
-    //BufferReader in(buf);
-    //BufferWriter out(&buf);
+    bmcl::Buffer result;
+    ZpaqReader in(buf);
+    ZpaqWriter out(&result);
 
-    //libzpaq::compress(&in, &out, "5");
+    try {
+        libzpaq::compress(&in, &out, "5");
+    } catch(const std::exception& err) {
+        BMCL_CRITICAL() << "error compressing zpaq archive: " << err.what();
+        std::terminate();
+    }
 
-    return buf;
+    return result;
 }
 
 void Package::addAst(const Rc<Ast>& ast)
