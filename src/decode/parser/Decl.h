@@ -155,6 +155,7 @@ protected:
 
 private:
     friend class Parser;
+    friend class Package;
 
     ArrayType* asArray();
     SliceType* asSlice();
@@ -329,7 +330,7 @@ protected:
 
 private:
     friend class Parser;
-    friend class Model;
+    friend class Package;
 
     bmcl::StringView _importPath;
     Rc<Type> _link;
@@ -663,6 +664,11 @@ enum class AccessorKind {
 class Accessor : public RefCountable {
 public:
 
+    AccessorKind accessorKind() const
+    {
+        return _accessorKind;
+    }
+
 protected:
     Accessor(AccessorKind kind)
         : _accessorKind(kind)
@@ -686,6 +692,11 @@ private:
 class FieldAccessor : public Accessor {
 public:
 
+    bmcl::StringView value() const
+    {
+        return _value;
+    }
+
 protected:
     FieldAccessor()
         : Accessor(AccessorKind::Field)
@@ -694,7 +705,9 @@ protected:
 
 private:
     friend class Parser;
+    friend class Package;
 
+    bmcl::StringView _value;
     Rc<Field> _field;
 };
 
@@ -710,6 +723,7 @@ protected:
 
 private:
     friend class Parser;
+    friend class Package;
 
     Rc<Type> _type;
     bmcl::Either<Range, uintmax_t> _subscript;
@@ -722,9 +736,12 @@ protected:
 
 private:
     friend class Parser;
+    friend class Package;
 
     std::vector<Rc<Accessor>> _accessors;
 };
+
+typedef std::unordered_map<std::size_t, std::vector<Rc<StatusRegexp>>> StatusMap;
 
 class Statuses: public Decl {
 public:
@@ -732,23 +749,34 @@ public:
 protected:
     Statuses() = default;
 
+    const StatusMap& statusMap() const
+    {
+        return _regexps;
+    }
+
 private:
     friend class Parser;
+    friend class Package;
 
-    std::unordered_map<std::size_t, std::vector<Rc<StatusRegexp>>> _regexps;
+    StatusMap _regexps;
 };
 
 class Component : public RefCountable {
 public:
 
-    const Rc<Parameters>& parameters() const
+    const bmcl::Option<Rc<Parameters>>& parameters() const
     {
         return _params;
     }
 
-    const Rc<Commands>& commands() const
+    const bmcl::Option<Rc<Commands>>& commands() const
     {
         return _cmds;
+    }
+
+    const bmcl::Option<Rc<Statuses>>& statuses() const
+    {
+        return _statuses;
     }
 
 protected:
@@ -757,9 +785,9 @@ protected:
 private:
     friend class Parser;
 
-    Rc<Parameters> _params;
-    Rc<Commands> _cmds;
-    Rc<Statuses> _statuses;
+    bmcl::Option<Rc<Parameters>> _params;
+    bmcl::Option<Rc<Commands>> _cmds;
+    bmcl::Option<Rc<Statuses>> _statuses;
     bmcl::StringView _moduleName;
 };
 

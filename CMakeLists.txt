@@ -3,7 +3,7 @@ project(decode)
 cmake_minimum_required(VERSION 2.8.11)
 
 if(NOT MSVC)
-    add_definitions(-Wall -Wextra -Wno-unused-parameter)
+    add_definitions()
 endif()
 
 macro(enable_sanitizer)
@@ -23,6 +23,12 @@ endif()
 
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 
+include_directories(thirdparty/zpaq)
+
+add_library(zpaq
+    thirdparty/zpaq/libzpaq.cpp
+)
+
 add_library(decode
     src/decode/Config.h
     src/decode/core/Diagnostics.cpp
@@ -41,8 +47,8 @@ add_library(decode
     src/decode/parser/Lexer.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
-    src/decode/model/Model.cpp
-    src/decode/model/Model.h
+    src/decode/parser/Package.cpp
+    src/decode/parser/Package.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
     src/decode/generator/SliceNameGenerator.cpp
@@ -50,6 +56,8 @@ add_library(decode
     src/decode/generator/TypeReprGenerator.cpp
     src/decode/generator/TypeReprGenerator.h
 )
+
+target_link_libraries(decode zpaq)
 
 add_executable(dummy
     dummy.cpp
@@ -68,6 +76,8 @@ target_compile_definitions(decode PRIVATE -DBUILDING_DECODE)
 
 if(NOT MSVC)
     target_compile_options(decode PUBLIC -std=c++11)
+    target_compile_options(decode PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    target_compile_options(zpaq PRIVATE -w)
 endif()
 
 target_include_directories(decode

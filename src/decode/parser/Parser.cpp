@@ -53,15 +53,28 @@ void Parser::reportUnexpectedTokenError(TokenKind expected)
     reportCurrentTokenError("Unexpected token");
 }
 
-ParseResult<Rc<Ast>> Parser::parseFile(const char* fname)
+ParseResult Parser::parseFile(const char* fname)
+{
+    bmcl::Result<std::string, int> rv = bmcl::readFileIntoString(fname);
+    if (rv.isErr()) {
+        //TODO: report error
+        return ParseResult();
+    }
+
+    Rc<FileInfo> finfo = new FileInfo(std::string(fname), rv.take());
+    return parseFile(finfo);
+
+}
+
+ParseResult Parser::parseFile(const Rc<FileInfo>& finfo)
 {
     cleanup();
-    if (parseOneFile(fname)) {
+    if (parseOneFile(finfo)) {
         finishSplittingLines();
         return _ast;
     }
     finishSplittingLines();
-    return ParseResult<Rc<Ast>>();
+    return ParseResult();
 }
 
 void Parser::consume()
@@ -909,7 +922,7 @@ Rc<T> Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, F&& fieldPar
 
 bool Parser::parseCommands(const Rc<Component>& parent)
 {
-    if(parent->_cmds) {
+    if(parent->_cmds.isSome()) {
         reportCurrentTokenError("Component can have only one commands declaration");
         return false;
     }
@@ -931,7 +944,7 @@ bool Parser::parseCommands(const Rc<Component>& parent)
 
 bool Parser::parseParameters(const Rc<Component>& parent)
 {
-    if(parent->_params) {
+    if(parent->_params.isSome()) {
         reportCurrentTokenError("Component can have only one parameters declaration");
         return false;
     }
@@ -953,7 +966,7 @@ bool Parser::parseParameters(const Rc<Component>& parent)
 
 bool Parser::parseStatuses(const Rc<Component>& parent)
 {
-    if(parent->_statuses) {
+    if(parent->_statuses.isSome()) {
         reportCurrentTokenError("Component can have only one statuses declaration");
         return false;
     }
@@ -974,27 +987,15 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
                 return false;
             }
             Rc<StatusRegexp> re = new StatusRegexp;
-            regexps->push_back(re);
-//             Rc<FieldList> fields = parent->parameters()->fields();
-//             Rc<Type> lastType;
-//             Rc<Field> lastField;
 
             while (true) {
                 if (currentTokenIs(TokenKind::Identifier)) {
-//                     bmcl::Option<const Rc<Field>&> field  = fields->fieldWithName(_currentToken.value());
-//                     if (field.isNone()) {
-//                         //TODO: report error
-//                         return false;
-//                     }
                     Rc<FieldAccessor> acc = new FieldAccessor;
-//                     acc->_field = field.unwrap();
-//                     lastField = field.unwrap();
-//                     lastType = field.unwrap()->type();
+                    acc->_value = _currentToken.value();
                     re->_accessors.push_back(acc);
                     consumeAndSkipBlanks();
                 } else if (currentTokenIs(TokenKind::LBracket)) {
                     Rc<SubscriptAccessor> acc = new SubscriptAccessor;
-//                     acc->_type = lastType;
                     consume();
                     uintmax_t m;
                     if (currentTokenIs(TokenKind::Number) && _lexer->nextIs(TokenKind::RBracket)) {
@@ -1023,28 +1024,17 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
 
                     re->_accessors.push_back(acc);
 
-//                     if (lastType->isSlice()) {
-//                         SliceType* slice = lastType->asSlice();
-//                         lastType = slice->elementType();
-//                     } else if (lastType->isArray()) {
-//                         ArrayType* array = lastType->asArray();
-//                         lastType = array->elementType();
-//                         //TODO: check ranges
-//                     } else {
-//                         //TODO: report error
-//                         return false;
-//                     }
+
                 }
                 if (currentTokenIs(TokenKind::Comma) || currentTokenIs(TokenKind::RBrace)) {
-                    return true;
+                    break;
                 } else if (currentTokenIs(TokenKind::Dot)) {
-//                     if (!lastType->isStruct()) {
-//                         //TODO: report error
-//                         return false;
-//                     }
-//                     fields = lastType->asStruct()->fields();
+
                     consume();
                 }
+            }
+            if (!re->_accessors.empty()) {
+                regexps->push_back(re);
             }
             return true;
         };
@@ -1060,7 +1050,9 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
         //TODO: report error
         return false;
     }
-    parent->_statuses = statuses;
+    if (!statuses->statusMap().empty()) {
+        parent->_statuses = statuses;
+    }
     return true;
 }
 
@@ -1070,9 +1062,9 @@ bool Parser::parseComponent()
     Rc<Component> comp = new Component;
     comp->_moduleName = _moduleInfo->moduleName();
     consumeAndSkipBlanks();
-    TRY(expectCurrentToken(TokenKind::Identifier));
+    //TRY(expectCurrentToken(TokenKind::Identifier));
     //_ast->addTopLevelType(comp);
-    consumeAndSkipBlanks();
+    //consumeAndSkipBlanks();
 
     TRY(expectCurrentToken(TokenKind::LBrace));
     consume();
@@ -1103,17 +1095,15 @@ bool Parser::parseComponent()
     }
 
 finish:
+    //TODO: only one component allowed, add check
+    _ast->_component = comp;
     return true;
 }
 
-bool Parser::parseOneFile(const char* fname)
+bool Parser::parseOneFile(const Rc<FileInfo>& finfo)
 {
-    bmcl::Result<std::string, int> rv = bmcl::readFileIntoString(fname);
-    if (rv.isErr()) {
-        return false;
-    }
+    _fileInfo = finfo;
 
-    _fileInfo = new FileInfo(std::string(fname), rv.take());
     _lastLineStart = _fileInfo->contents().c_str();
     _lexer = new Lexer(bmcl::StringView(_fileInfo->contents()));
     _ast = new Ast;

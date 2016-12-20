@@ -36,21 +36,22 @@ class FieldList;
 class Parameters;
 class Function;
 class TypeDecl;
+class Ast;
 
-template <typename T>
-using ParseResult = bmcl::Result<T, void>;
+typedef bmcl::Result<Rc<Ast>, void> ParseResult;
 
 class DECODE_EXPORT Parser {
 public:
     Parser(const Rc<Diagnostics>& diag);
     ~Parser();
 
-    ParseResult<Rc<Ast>> parseFile(const char* fileName);
+    ParseResult parseFile(const char* fileName);
+    ParseResult parseFile(const Rc<FileInfo>& finfo);
 
     Location currentLoc() const; //FIXME: temp
 
 private:
-    bool parseOneFile(const char* fileName);
+    bool parseOneFile(const Rc<FileInfo>& finfo);
     void cleanup();
 
     bool expectCurrentToken(TokenKind expected);

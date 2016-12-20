@@ -16,6 +16,7 @@ public:
 
 private:
     friend class Parser;
+    friend class Package;
     FileInfo(std::string&& name, std::string&& contents);
     std::string _fileName;
     std::string _contents;

@@ -59,8 +59,14 @@ public:
         return it->second;
     }
 
+    const bmcl::Option<Rc<Component>>& component() const
+    {
+        return _component;
+    }
+
 private:
     friend class Parser;
+    friend class Package;
 
     void addTopLevelType(const Rc<Type>& type)
     {
@@ -73,6 +79,8 @@ private:
     }
 
     std::vector<Rc<Import>> _importDecls;
+
+    bmcl::Option<Rc<Component>> _component;
 
     std::unordered_map<bmcl::StringView, Rc<Type>> _typeNameToType;
     std::unordered_map<bmcl::StringView, Rc<ImplBlock>> _typeNameToImplBlock;

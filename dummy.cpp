@@ -2,12 +2,13 @@
 #include "decode/parser/Parser.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Decl.h"
-#include "decode/model/Model.h"
+#include "decode/parser/Package.h"
 #include "decode/generator/Generator.h"
 
 #include <bmcl/FileUtils.h>
 #include <bmcl/Result.h>
 #include <bmcl/Logging.h>
+#include <bmcl/Buffer.h>
 
 #include <iostream>
 #include <chrono>
@@ -20,8 +21,17 @@ void testModel()
     auto start = std::chrono::steady_clock::now();
 
     Rc<Diagnostics> diag = new Diagnostics;
-    Rc<Model> model = Model::readFromDirectory(diag, "../onboard");
+    PackageResult package = Package::readFromDirectory(diag, "../onboard");
     diag->printReports(&std::cout);
+
+    bmcl::Buffer b = package.unwrap()->encode();
+    BMCL_DEBUG() << "size:" << b.size();
+
+    PackageResult package2 = Package::decodeFromMemory(diag, b.start(), b.size());
+    BMCL_DEBUG() << "decode status:" << package2.isOk();
+
+    b = package2.unwrap()->encode();
+    BMCL_DEBUG() << "size:" << b.size();
 
 //     Rc<Generator> gen = makeRc<Generator>(diag);
 //     gen->setOutPath("./");
