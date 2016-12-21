@@ -22,6 +22,7 @@ class ArrayType;
 class StructType;
 class Type;
 class Field;
+class Package;
 class FieldList;
 class Variant;
 
@@ -77,8 +78,9 @@ public:
 
     void setOutPath(bmcl::StringView path);
 
-    bool generateFromAst(const Rc<Ast>& ast);
+    bool generateFromPackage(const Rc<Package>& ast);
 private:
+    bool generateFromAst(const Rc<Ast>& ast);
 
     void genHeader(const Type* type);
     void genSource(const Type* type);
@@ -147,7 +149,7 @@ private:
     Rc<Diagnostics> _diag;
     std::string _savePath;
     SrcBuilder _output;
-    Rc<Ast> _ast;
+    Rc<Ast> _currentAst;
     Rc<Target> _target;
 };
 

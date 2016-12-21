@@ -257,7 +257,7 @@ bmcl::Buffer Package::encode() const
 
     try {
         libzpaq::compress(&in, &out, "5");
-    } catch(const std::exception& err) {
+    } catch (const std::exception& err) {
         BMCL_CRITICAL() << "error compressing zpaq archive: " << err.what();
         std::terminate();
     }

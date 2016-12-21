@@ -2,6 +2,7 @@
 #include "decode/generator/SliceNameGenerator.h"
 #include "decode/generator/TypeReprGenerator.h"
 #include "decode/parser/Ast.h"
+#include "decode/parser/Package.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Decl.h"
 #include "decode/core/Diagnostics.h"
@@ -809,9 +810,20 @@ void Generator::writeEnumSerializer(const Enum* type)
     _output.append("}\n");
 }
 
+bool Generator::generateFromPackage(const Rc<Package>& package)
+{
+    for (auto it : package->modules()) {
+        if (!generateFromAst(it.second)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool Generator::generateFromAst(const Rc<Ast>& ast)
 {
-    _ast = ast;
+    _currentAst = ast;
     if (!ast->moduleInfo()->moduleName().equals("core")) {
         _output.setModName(ast->moduleInfo()->moduleName());
     } else {
@@ -823,7 +835,7 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
     photonPath.append("/photon");
     TRY(makeDirectory(photonPath.result().c_str()));
     photonPath.append('/');
-    photonPath.append(_ast->moduleInfo()->moduleName());
+    photonPath.append(_currentAst->moduleInfo()->moduleName());
     TRY(makeDirectory(photonPath.result().c_str()));
     photonPath.append('/');
 
@@ -840,6 +852,9 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
 
     for (const auto& it : ast->typeMap()) {
         const Type* type = it.second.get();
+        if (type->typeKind() == TypeKind::Imported) {
+            return true;
+        }
 
         genHeader(type);
         TRY(dump(type, ".h"));
@@ -848,7 +863,7 @@ bool Generator::generateFromAst(const Rc<Ast>& ast)
         TRY(dump(type, ".c"));
     }
 
-    _ast = nullptr;
+    _currentAst = nullptr;
     return true;
 }
 
@@ -904,7 +919,7 @@ void Generator::writeSerializerFuncPrototypes(const Type* type)
 
 void Generator::writeImplFunctionPrototypes(const Type* type)
 {
-    bmcl::Option<const Rc<ImplBlock>&> block = _ast->findImplBlockWithName(type->name());
+    bmcl::Option<const Rc<ImplBlock>&> block = _currentAst->findImplBlockWithName(type->name());
     if (block.isNone()) {
         return;
     }
@@ -1117,7 +1132,7 @@ void Generator::writeLocalIncludePath(bmcl::StringView path)
 
 void Generator::writeImplBlockIncludes(const Type* topLevelType)
 {
-    bmcl::Option<const Rc<ImplBlock>&> impl = _ast->findImplBlockWithName(topLevelType->name());
+    bmcl::Option<const Rc<ImplBlock>&> impl = _currentAst->findImplBlockWithName(topLevelType->name());
     std::unordered_set<std::string> dest;
     if (impl.isSome()) {
         for (const Rc<Function>& fn : impl.unwrap()->functions()) {
@@ -1185,7 +1200,7 @@ void Generator::startIncludeGuard(const Type* type)
 {
     auto writeGuardMacro = [this, type]() {
         _output.append("__PHOTON_");
-        _output.append(_ast->moduleInfo()->moduleName().toUpper());
+        _output.append(_currentAst->moduleInfo()->moduleName().toUpper());
         _output.append('_');
         _output.append(type->name().toUpper()); //FIXME
         _output.append("__\n");

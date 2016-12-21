@@ -23,7 +23,10 @@ endif()
 
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 
-include_directories(thirdparty/zpaq)
+include_directories(
+    thirdparty/zpaq
+    thirdparty/tclap/include
+)
 
 add_library(zpaq
     thirdparty/zpaq/libzpaq.cpp
@@ -59,11 +62,11 @@ add_library(decode
 
 target_link_libraries(decode zpaq)
 
-add_executable(dummy
-    dummy.cpp
+add_executable(decode_gen
+    src/decode/Main.cpp
 )
 
-target_link_libraries(dummy decode)
+target_link_libraries(decode_gen decode)
 
 set_target_properties(decode
     PROPERTIES

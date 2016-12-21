@@ -55,13 +55,14 @@ impl Reader {
     fn readU32Le(&mut self) -> u32
     fn readU64Le(&mut self) -> u64
 
-    fn readUSize(&mut self) -> usize
-    fn readISize(&mut self) -> isize
+    fn readUSizeLe(&mut self) -> usize
+    fn readUSizeBe(&mut self) -> usize
+
+    fn readPtrLe(&mut self) -> *mut void
+    fn readPtrBe(&mut self) -> *mut void
 
     fn readVaruint(&mut self, dest: *mut varuint) -> Error
     fn readVarint(&mut self, dest: *mut varint) -> Error
-
-    fn readPtr(&mut self) -> *mut void
 
     fn slice(&mut self, length: usize, dest: *mut Reader)
     fn sliceToEnd(&mut self, dest: *mut Reader)
@@ -89,10 +90,11 @@ impl Writer {
     fn writeVaruint(&mut self, value: varuint) -> Error
     fn writeVarint(&mut self, value: varint) -> Error
 
-    fn writeUSize(&mut self, value: usize)
-    fn writeISize(&mut self, value: isize)
+    fn writeUSizeLe(&mut self, value: usize)
+    fn writeUSizeBe(&mut self, value: usize)
 
-    fn writePtr(&mut self, value: *const void)
+    fn writePtrLe(&mut self, value: *const void)
+    fn writePtrBe(&mut self, value: *const void)
 
     fn write(&mut self, src: *const void, size: usize)
     fn skip(&mut self, size: usize)

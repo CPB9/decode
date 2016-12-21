@@ -28,6 +28,9 @@ public:
 
     bmcl::Buffer encode() const;
 
+    const std::unordered_map<bmcl::StringView, Rc<Ast>>& modules() const;
+    const Rc<Diagnostics>& diagnostics() const;
+
 private:
     Package(const Rc<Diagnostics>& diag);
     bool addFile(const char* path);
@@ -39,4 +42,14 @@ private:
     Rc<Diagnostics> _diag;
     std::unordered_map<bmcl::StringView, Rc<Ast>> _modNameToAstMap;
 };
+
+inline const std::unordered_map<bmcl::StringView, Rc<Ast>>& Package::modules() const
+{
+    return _modNameToAstMap;
+}
+
+inline const Rc<Diagnostics>& Package::diagnostics() const
+{
+    return _diag;
+}
 }
