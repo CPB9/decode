@@ -103,22 +103,33 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
     Rc<Package> package = new Package(diag);
 
 #if defined(__linux__)
+#define NEXT_FILE() continue
     spath.push_back('/');
+
     DIR* dir = opendir(path);
     if (dir == NULL) {
         //TODO: handle error;
         return PackageResult();
     }
+
     struct dirent* ent;
 #elif defined(_MSC_VER)
+#define NEXT_FILE() goto nextFile
     spath.push_back('\\');
-    WIN32_FIND_DATA currentFile;
+
     std::string regexp = path;
+    if (regexp.size().empty()) {
+        //TODO: report error
+        return PackageResult();
+    }
     if (regexp.back() != '\\') {
         regexp.push_back('\\');
     }
     regexp.push_back('*');
+
+    WIN32_FIND_DATA currentFile;
     HANDLE handle = FindFirstFile(regexp.c_str(), &currentFile);
+
     //TODO: check ERROR_FILE_NOT_FOUND
     if (handle == INVALID_HANDLE_VALUE) {
         BMCL_CRITICAL() << "error opening directory";
@@ -139,18 +150,16 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
                 goto error;
             }
         }
-        const char* name = &end->d_name[0];
+        const char* name = &ent->d_name[0];
 #elif defined(_MSC_VER)
         const char* name = currentFile.cFileName;
 #endif
-        BMCL_DEBUG() << name;
-
         if (name[0] == '.') {
             if (name[1] == '\0') {
-                goto nextFile;
+                NEXT_FILE();
             } else if (name[1] == '.') {
                 if (name[2] == '\0') {
-                    goto nextFile;
+                    NEXT_FILE();
                 }
             }
         }
@@ -159,7 +168,7 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
          // length of .decode suffix
         if (nameSize >= suffixSize) {
             if (std::memcmp(name + nameSize - suffixSize, DECODE_SUFFIX, suffixSize) != 0) {
-                goto nextFile;
+                NEXT_FILE();
             }
         }
         spath.append(name, nameSize);
@@ -168,8 +177,8 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
         }
         spath.resize(pathSize);
 
-nextFile:
 #if defined(_MSC_VER)
+nextFile:
         bool isOk = FindNextFile(handle, &currentFile);
         if (!isOk) {
             DWORD err = GetLastError();
