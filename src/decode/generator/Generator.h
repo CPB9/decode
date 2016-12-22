@@ -27,6 +27,8 @@ class FieldList;
 class VariantType;
 struct InlineSerContext;
 
+typedef std::function<void()> Gen;
+
 class Target : public RefCountable {
 public:
     Target(std::size_t pointerSize)
@@ -42,8 +44,6 @@ public:
 private:
     std::size_t _pointerSize;
 };
-
-typedef std::function<void()> Gen;
 
 class Generator : public RefCountable {
 public:
@@ -92,24 +92,17 @@ private:
     void writeInlineBuiltinTypeDeserializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlinePointerDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlineTypeDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
-    void writeReadableSizeCheck(const InlineSerContext& ctx, std::size_t size);
 
     void writeInlineArrayTypeSerializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlineBuiltinTypeSerializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlinePointerSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlineTypeSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen);
-    void writeWritableSizeCheck(const InlineSerContext& ctx, std::size_t size);
-
-    void writeLoopHeader(const InlineSerContext& ctx, std::size_t loopSize);
-
-    void writeWithTryMacro(const Gen& func);
 
     void writeSerializerFuncDecl(const Type* type);
     void writeDeserializerFuncDecl(const Type* type);
 
     void writeTagHeader(bmcl::StringView name);
     void writeTagFooter(bmcl::StringView typeName);
-    void writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = "");
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = "");
 

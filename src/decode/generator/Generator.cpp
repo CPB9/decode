@@ -213,36 +213,24 @@ void Generator::genSource(const Type* type)
     _output.appendEol();
 }
 
-void Generator::writeReadableSizeCheck(const InlineSerContext& ctx, std::size_t size)
-{
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("if (PhotonReader_ReadableSize(src) < ");
-    _output.appendNumericValue(size);
-    _output.append(") {\n");
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("    return PhotonError_NotEnoughData;\n");
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("}\n");
-}
-
 void Generator::writeInlineBuiltinTypeDeserializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen)
 {
     auto genSizedDeser = [this, ctx, &argNameGen](std::size_t size, bmcl::StringView suffix) {
-        writeReadableSizeCheck(ctx, size);
-        _output.appendSeveral(ctx.indentLevel, "    ");
+        _output.appendReadableSizeCheck(ctx, size);
+        _output.appendIndent(ctx);
         argNameGen();
         _output.append(" = PhotonReader_Read");
         _output.append(suffix);
         _output.append("(src);\n");
     };
     auto genVarDeser = [this, ctx, &argNameGen](bmcl::StringView suffix) {
-        _output.appendSeveral(ctx.indentLevel, "    ");
-        writeWithTryMacro([&, this]() {
-            _output.append("PhotonReader_Read");
-            _output.append(suffix);
-            _output.append("(src, &");
+        _output.appendIndent(ctx);
+        _output.appendWithTryMacro([&](SrcBuilder* output) {
+            output->append("PhotonReader_Read");
+            output->append(suffix);
+            output->append("(src, &");
             argNameGen();
-            _output.append(")");
+            output->append(")");
         });
     };
     switch (type->builtinTypeKind()) {
@@ -250,7 +238,7 @@ void Generator::writeInlineBuiltinTypeDeserializer(const BuiltinType* type, cons
         genSizedDeser(_target->pointerSize(), "USizeLe");
         break;
     case BuiltinTypeKind::ISize:
-        genSizedDeser(_target->pointerSize(), "ISizeLe");
+        genSizedDeser(_target->pointerSize(), "USizeLe");
         break;
     case BuiltinTypeKind::U8:
         genSizedDeser(1, "U8");
@@ -297,53 +285,24 @@ void Generator::writeInlineBuiltinTypeDeserializer(const BuiltinType* type, cons
     }
 }
 
-void Generator::writeLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)
-{
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("for (size_t ");
-    assert(ctx.indentLevel < 30);
-    _output.append('a' + ctx.loopLevel);
-    _output.append(" = 0; ");
-    _output.append('a' + ctx.loopLevel);
-    _output.append(" < ");
-    _output.appendNumericValue(loopSize);
-    _output.append("; ");
-    _output.append('a' + ctx.loopLevel);
-    _output.append("++) {\n");
-}
-
 void Generator::writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
 {
-    writeLoopHeader(ctx, type->elementCount());
+    _output.appendLoopHeader(ctx, type->elementCount());
 
     writeInlineTypeDeserializer(type->elementType().get(), ctx.indent().incLoopVar(), [&, this]() {
         argNameGen();
         _output.append('[');
-        _output.append('a' + ctx.loopLevel);
+        _output.append(ctx.currentLoopVar());
         _output.append(']');
     });
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("}\n");
-}
-
-void Generator::writeInlineArrayTypeSerializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
-{
-    writeLoopHeader(ctx, type->elementCount());
-
-    writeInlineTypeSerializer(type->elementType().get(), ctx.indent().incLoopVar(), [&, this]() {
-        argNameGen();
-        _output.append('[');
-        _output.append('a' + ctx.loopLevel);
-        _output.append(']');
-    });
-    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.appendIndent(ctx);
     _output.append("}\n");
 }
 
 void Generator::writeInlinePointerDeserializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
 {
-    writeReadableSizeCheck(ctx, _target->pointerSize());
-    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.appendReadableSizeCheck(ctx, _target->pointerSize());
+    _output.appendIndent(ctx);
     argNameGen();
     _output.append(" = (");
     genTypeRepr(type);
@@ -372,12 +331,12 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
     case TypeKind::Variant:
     case TypeKind::Enum:
     case TypeKind::Slice:
-        _output.appendSeveral(ctx.indentLevel, "    ");
-        writeWithTryMacro([&, this, type]() {
+        _output.appendIndent(ctx);
+        _output.appendWithTryMacro([&, this, type](SrcBuilder* output) {
             genTypeRepr(type);
-            _output.append("_Deserialize(&");
+            output->append("_Deserialize(&");
             argNameGen();
-            _output.append(", src)");
+            output->append(", src)");
         });
         break;
     default:
@@ -388,8 +347,8 @@ void Generator::writeInlineTypeDeserializer(const Type* type, const InlineSerCon
 void Generator::writeInlineBuiltinTypeSerializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen)
 {
     auto genSizedSer = [this, ctx, &argNameGen](std::size_t size, bmcl::StringView suffix) {
-        writeWritableSizeCheck(ctx, size);
-        _output.appendSeveral(ctx.indentLevel, "    ");
+        _output.appendWritableSizeCheck(ctx, size);
+        _output.appendIndent(ctx);
         _output.append("PhotonWriter_Write");
         _output.append(suffix);
         _output.append("(dest, ");
@@ -397,13 +356,13 @@ void Generator::writeInlineBuiltinTypeSerializer(const BuiltinType* type, const 
         _output.append(");\n");
     };
     auto genVarSer = [this, ctx, &argNameGen](bmcl::StringView suffix) {
-        _output.appendSeveral(ctx.indentLevel, "    ");
-        writeWithTryMacro([&, this]() {
-            _output.append("PhotonWriter_Write");
-            _output.append(suffix);
-            _output.append("(dest, ");
+        _output.appendIndent(ctx);
+        _output.appendWithTryMacro([&](SrcBuilder* output) {
+            output->append("PhotonWriter_Write");
+            output->append(suffix);
+            output->append("(dest, ");
             argNameGen();
-            _output.append(")");
+            output->append(")");
         });
     };
     switch (type->builtinTypeKind()) {
@@ -411,7 +370,7 @@ void Generator::writeInlineBuiltinTypeSerializer(const BuiltinType* type, const 
         genSizedSer(_target->pointerSize(), "USizeLe");
         break;
     case BuiltinTypeKind::ISize:
-        genSizedSer(_target->pointerSize(), "ISizeLe");
+        genSizedSer(_target->pointerSize(), "USizeLe");
         break;
     case BuiltinTypeKind::U8:
         genSizedSer(1, "U8");
@@ -458,22 +417,24 @@ void Generator::writeInlineBuiltinTypeSerializer(const BuiltinType* type, const 
     }
 }
 
-void Generator::writeWritableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+void Generator::writeInlineArrayTypeSerializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen)
 {
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("if (PhotonWriter_WritableSize(dest) < ");
-    _output.appendNumericValue(size);
-    _output.append(") {\n");
-    _output.appendSeveral(ctx.indentLevel, "    ");
-    _output.append("    return PhotonError_NotEnoughSpace;\n");
-    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.appendLoopHeader(ctx, type->elementCount());
+
+    writeInlineTypeSerializer(type->elementType().get(), ctx.indent().incLoopVar(), [&, this]() {
+        argNameGen();
+        _output.append('[');
+        _output.append(ctx.currentLoopVar());
+        _output.append(']');
+    });
+    _output.appendIndent(ctx);
     _output.append("}\n");
 }
 
 void Generator::writeInlinePointerSerializer(const Type* type, const InlineSerContext& ctx, const Gen& argNameGen)
 {
-    writeWritableSizeCheck(ctx, _target->pointerSize());
-    _output.appendSeveral(ctx.indentLevel, "    ");
+    _output.appendWritableSizeCheck(ctx, _target->pointerSize());
+    _output.appendIndent(ctx);
     _output.append("PhotonWriter_WritePtr(dest, ");
     argNameGen();
     _output.append(");\n");
@@ -501,12 +462,12 @@ void Generator::writeInlineTypeSerializer(const Type* type, const InlineSerConte
     case TypeKind::Variant:
     case TypeKind::Enum:
     case TypeKind::Slice:
-        _output.appendSeveral(ctx.indentLevel, "    ");
-        writeWithTryMacro([&, this, type]() {
+        _output.appendIndent(ctx);
+        _output.appendWithTryMacro([&, this, type](SrcBuilder* output) {
             genTypeRepr(type);
-            _output.append("_Serialize(&");
+            output->append("_Serialize(&");
             argNameGen();
-            _output.append(", dest)");
+            output->append(", dest)");
         });
         break;
     default:
@@ -548,33 +509,17 @@ void Generator::writeStructSerializer(const StructType* type)
     _output.append("}\n");
 }
 
-void Generator::writeWithTryMacro(const Gen& func)
-{
-    _output.append("PHOTON_TRY(");
-    func();
-    _output.append(");\n");
-}
-
-void Generator::writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix)
-{
-    _output.append(prefix);
-    _output.append(typeName);
-    _output.append(' ');
-    _output.appendWithFirstLower(varName);
-    _output.append(";\n");
-}
-
 void Generator::writeVariantDeserizalizer(const VariantType* type)
 {
     writeDeserializerFuncDecl(type);
      _output.append("\n{\n");
-    _output.append("    ");
-    writeVarDecl("int64_t", "value");
-    _output.append("    ");
-    writeWithTryMacro([this, type]() {
-        _output.append("PhotonReader_ReadVarint(src, &");
-        _output.append("value");
-        _output.append(")");
+    _output.appendIndent(1);
+    _output.appendVarDecl("int64_t", "value");
+    _output.appendIndent(1);
+    _output.appendWithTryMacro([](SrcBuilder* output) {
+        output->append("PhotonReader_ReadVarint(src, &");
+        output->append("value");
+        output->append(")");
     });
 
     _output.append("    switch(value) {\n");
@@ -641,13 +586,12 @@ void Generator::writeVariantSerializer(const VariantType* type)
 {
     writeSerializerFuncDecl(type);
      _output.append("\n{\n");
-    _output.append("    ");
-    writeWithTryMacro([this, type]() {
-        _output.append("PhotonWriter_WriteVaruint(dest, (uint64_t)self->type)");
+    _output.appendIndent(1);
+    _output.appendWithTryMacro([](SrcBuilder* output) {
+        output->append("PhotonWriter_WriteVaruint(dest, (uint64_t)self->type)");
     });
 
     _output.append("    switch(self->type) {\n");
-    std::size_t i = 0;
     for (const Rc<VariantField>& field : type->fields()) {
         _output.append("    case ");
         _output.appendModPrefix();
@@ -706,16 +650,16 @@ void Generator::writeEnumDeserizalizer(const EnumType* type)
 {
     writeDeserializerFuncDecl(type);
     _output.append("\n{\n");
-    _output.append("    ");
-    writeVarDecl("int64_t", "value");
-    _output.append("    ");
+    _output.appendIndent(1);
+    _output.appendVarDecl("int64_t", "value");
+    _output.appendIndent(1);
     _output.appendModPrefix();
-    writeVarDecl(type->name(), "result");
-    _output.append("    ");
-    writeWithTryMacro([this, type]() {
-        _output.append("PhotonReader_ReadVarint(src, &");
-        _output.append("value");
-        _output.append(")");
+    _output.appendVarDecl(type->name(), "result");
+    _output.appendIndent(1);
+    _output.appendWithTryMacro([](SrcBuilder* output) {
+        output->append("PhotonReader_ReadVarint(src, &");
+        output->append("value");
+        output->append(")");
     });
 
     _output.append("    switch(value) {\n");
@@ -758,8 +702,8 @@ void Generator::writeEnumSerializer(const EnumType* type)
     _output.append("    default:\n");
     _output.append("        return PhotonError_InvalidValue;\n");
     _output.append("    }\n    ");
-    writeWithTryMacro([this, type]() {
-        _output.append("PhotonWriter_WriteVarint(dest, (int64_t)*self)");
+    _output.appendWithTryMacro([](SrcBuilder* output) {
+        output->append("PhotonWriter_WriteVarint(dest, (int64_t)*self)");
     });
     _output.append("    return PhotonError_Ok;\n");
     _output.append("}\n");
@@ -942,7 +886,7 @@ void Generator::writeStruct(const std::vector<Rc<Type>>& fields, bmcl::StringVie
 
     std::size_t i = 1;
     for (const Rc<Type>& type : fields) {
-        _output.append("    ");
+        _output.appendIndent(1);
         genTypeRepr(type.get(), "_" + std::to_string(i));
         _output.append(";\n");
         i++;
@@ -957,7 +901,7 @@ void Generator::writeStruct(const FieldList* fields, bmcl::StringView name)
     writeTagHeader("struct");
 
     for (const Rc<Field>& field : *fields) {
-        _output.append("    ");
+        _output.appendIndent(1);
         genTypeRepr(field->type().get(), field->name());
         _output.append(";\n");
     }
@@ -991,7 +935,7 @@ void Generator::writeEnum(const EnumType* type)
     writeTagHeader("enum");
 
     for (const auto& pair : type->constants()) {
-        _output.append("    ");
+        _output.appendIndent(1);
         _output.appendModPrefix();
         _output.append(type->name());
         _output.append("_");
@@ -1014,7 +958,7 @@ void Generator::writeVariant(const VariantType* type)
     writeTagHeader("enum");
 
     for (const Rc<VariantField>& field : type->fields()) {
-        _output.append("    ");
+        _output.appendIndent(1);
         _output.appendModPrefix();
         _output.append(type->name());
         _output.append("Type_");
@@ -1067,7 +1011,7 @@ void Generator::writeVariant(const VariantType* type)
     }
 
     _output.append("    } data;\n");
-    _output.append("    ");
+    _output.appendIndent(1);
     _output.appendModPrefix();
     _output.append(type->name());
     _output.append("Type");

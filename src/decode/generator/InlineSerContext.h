@@ -29,6 +29,16 @@ struct InlineSerContext {
         return InlineSerContext(indentLevel, loopLevel, ptrDepth + 1);
     }
 
+    void appendIndent(StringBuilder* output) const
+    {
+        output->appendSeveral(indentLevel, "    ");
+    }
+
+    char currentLoopVar() const
+    {
+        return 'a' + loopLevel;
+    }
+
     std::uint8_t indentLevel;
     std::uint8_t loopLevel;
     std::uint8_t ptrDepth;
