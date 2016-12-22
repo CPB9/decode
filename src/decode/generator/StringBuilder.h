@@ -5,6 +5,7 @@
 #include <bmcl/StringView.h>
 
 #include <string>
+#include <cctype>
 
 namespace decode {
 
@@ -106,12 +107,12 @@ void StringBuilder::appendWithFirstModified(bmcl::StringView view, F&& func)
 
 inline void StringBuilder::appendWithFirstUpper(bmcl::StringView view)
 {
-    appendWithFirstModified<int (*)(int)>(view, std::toupper);
+    appendWithFirstModified<int (*)(int)>(view, &std::toupper);
 }
 
 inline void StringBuilder::appendWithFirstLower(bmcl::StringView view)
 {
-    appendWithFirstModified<int (*)(int)>(view, std::tolower);
+    appendWithFirstModified<int (*)(int)>(view, &std::tolower);
 }
 
 

@@ -16,9 +16,13 @@
 #include <iostream>
 #include <deque>
 
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
+#if defined(__linux__)
+# include <sys/stat.h>
+# include <fcntl.h>
+# include <unistd.h>
+#elif defined(_MSC_VER)
+# include <windows.h>
+#endif
 
 //TODO: refact
 
@@ -37,6 +41,7 @@ void Generator::setOutPath(bmcl::StringView path)
 
 bool Generator::makeDirectory(const char* path)
 {
+#if defined(__linux__)
     int rv = mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
     if (rv == -1) {
         int rn = errno;
@@ -47,11 +52,21 @@ bool Generator::makeDirectory(const char* path)
         BMCL_CRITICAL() << "unable to create dir: " << path;
         return false;
     }
+#elif defined(_MSC_VER)
+    bool isOk = CreateDirectory(path, NULL);
+    if (!isOk) {
+        if (GetLastError() != ERROR_ALREADY_EXISTS) {
+            BMCL_CRITICAL() << "error creating dir";
+            return false;
+        }
+    }
+#endif
     return true;
 }
 
 bool Generator::saveOutput(const char* path)
 {
+#if defined(__linux__)
     int fd;
     while (true) {
         fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -84,6 +99,22 @@ bool Generator::saveOutput(const char* path)
     }
 
     close(fd);
+#elif defined(_MSC_VER)
+    HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (handle == INVALID_HANDLE_VALUE) {
+        BMCL_CRITICAL() << "error creating file";
+        //TODO: report error
+        return false;
+    }
+    DWORD bytesWritten;
+    bool isOk = WriteFile(handle, _output.result().c_str(), _output.result().size(), &bytesWritten, NULL);
+    if (!isOk) {
+        BMCL_CRITICAL() << "error writing file";
+        //TODO: report error
+        return false;
+    }
+    assert(_output.result().size() == bytesWritten);
+#endif
     return true;
 }
 

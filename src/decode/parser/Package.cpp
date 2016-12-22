@@ -5,6 +5,7 @@
 #include "decode/parser/Ast.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Component.h"
+#include "decode/parser/Lexer.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/Logging.h>
@@ -19,8 +20,12 @@
 #include <limits>
 #include <exception>
 
-#include <dirent.h>
-#include <sys/stat.h>
+#if defined(__linux__)
+# include <dirent.h>
+# include <sys/stat.h>
+#elif defined(_MSC_VER)
+# include <windows.h>
+#endif
 
 void libzpaq::error(const char* msg)
 {
@@ -92,62 +97,105 @@ Package::Package(const Rc<Diagnostics>& diag)
 
 PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char* path)
 {
+
+    std::string spath = path;
+
+    Rc<Package> package = new Package(diag);
+
+#if defined(__linux__)
+    spath.push_back('/');
     DIR* dir = opendir(path);
     if (dir == NULL) {
         //TODO: handle error;
         return PackageResult();
     }
-
-    std::string spath = path;
-    spath.push_back('/');
+    struct dirent* ent;
+#elif defined(_MSC_VER)
+    spath.push_back('\\');
+    WIN32_FIND_DATA currentFile;
+    std::string regexp = path;
+    if (regexp.back() != '\\') {
+        regexp.push_back('\\');
+    }
+    regexp.push_back('*');
+    HANDLE handle = FindFirstFile(regexp.c_str(), &currentFile);
+    //TODO: check ERROR_FILE_NOT_FOUND
+    if (handle == INVALID_HANDLE_VALUE) {
+        BMCL_CRITICAL() << "error opening directory";
+        goto error;
+    }
+#endif
     std::size_t pathSize = spath.size();
 
-    Rc<Package> package = new Package(diag);
-
-    struct dirent* ent;
     while (true) {
+#if defined(__linux__)
         errno = 0;
         ent = readdir(dir);
         if (ent == NULL) {
-            closedir(dir);
             if (errno == 0) {
+                closedir(dir);
                 break;
             } else {
-                //TODO: handle error
-                return PackageResult();
+                goto error;
             }
         }
+        const char* name = &end->d_name[0];
+#elif defined(_MSC_VER)
+        const char* name = currentFile.cFileName;
+#endif
+        BMCL_DEBUG() << name;
 
-        if (ent->d_name[0] == '.') {
-            if (ent->d_name[1] == '\0') {
-                continue;
-            } else if (ent->d_name[1] == '.') {
-                if (ent->d_name[2] == '\0') {
-                    continue;
+        if (name[0] == '.') {
+            if (name[1] == '\0') {
+                goto nextFile;
+            } else if (name[1] == '.') {
+                if (name[2] == '\0') {
+                    goto nextFile;
                 }
             }
         }
 
-        std::size_t nameSize = std::strlen(ent->d_name);
+        std::size_t nameSize = std::strlen(name);
          // length of .decode suffix
         if (nameSize >= suffixSize) {
-            if (std::memcmp(ent->d_name + nameSize - suffixSize, DECODE_SUFFIX, suffixSize) != 0) {
-                continue;
+            if (std::memcmp(name + nameSize - suffixSize, DECODE_SUFFIX, suffixSize) != 0) {
+                goto nextFile;
             }
         }
-        spath.append(ent->d_name, nameSize);
+        spath.append(name, nameSize);
         if (!package->addFile(spath.c_str())) {
-            closedir(dir);
-            return PackageResult();
+            goto error;
         }
         spath.resize(pathSize);
+
+nextFile:
+#if defined(_MSC_VER)
+        bool isOk = FindNextFile(handle, &currentFile);
+        if (!isOk) {
+            DWORD err = GetLastError();
+            if (err == ERROR_NO_MORE_FILES) {
+                FindClose(handle);
+                break;
+            } else {
+                goto error;
+            }
+        }
+#endif
     }
 
     if (!package->resolveAll()) {
-        return PackageResult();
+        goto error;
     }
 
     return std::move(package);
+
+error:
+#if defined(__linux__)
+    closedir(dir);
+#elif defined(_MSC_VER)
+    FindClose(handle);
+#endif
+    return PackageResult();
 }
 
 typedef std::array<std::uint8_t, 4> MagicType;
