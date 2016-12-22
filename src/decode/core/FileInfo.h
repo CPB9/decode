@@ -3,7 +3,10 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
+#include <bmcl/StringView.h>
+
 #include <string>
+#include <vector>
 
 namespace decode {
 
@@ -17,7 +20,9 @@ public:
 private:
     friend class Parser;
     friend class Package;
+
     FileInfo(std::string&& name, std::string&& contents);
+
     std::string _fileName;
     std::string _contents;
     std::vector<bmcl::StringView> _lines;

@@ -16,15 +16,15 @@ public:
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
-    bool visitBuiltin(const BuiltinType* type);
-    bool visitArray(const ArrayType* type);
-    bool visitReference(const ReferenceType* type);
-    bool visitSlice(const SliceType* type);
-    bool visitFunction(const Function* type);
+    bool visitBuiltinType(const BuiltinType* type);
+    bool visitArrayType(const ArrayType* type);
+    bool visitReferenceType(const ReferenceType* type);
+    bool visitSliceType(const SliceType* type);
+    bool visitFunctionType(const FunctionType* type);
 
     bool appendTypeName(const Type* type);
 private:
-    void genFnPointerTypeRepr(const Function* type);
+    void genFnPointerTypeRepr(const FunctionType* type);
 
     bool hasPrefix;
     SrcBuilder typeName;

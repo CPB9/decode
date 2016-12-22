@@ -11,6 +11,8 @@
 #include "decode/parser/Type.h"
 #include "decode/parser/Lexer.h"
 #include "decode/parser/ModuleInfo.h"
+#include "decode/parser/Type.h"
+#include "decode/parser/Component.h"
 
 #include <bmcl/FileUtils.h>
 #include <bmcl/Logging.h>
@@ -339,17 +341,17 @@ bool Parser::parseTopLevelDecls()
     return true;
 }
 
-Rc<Function> Parser::parseFunction(bool selfAllowed)
+Rc<FunctionType> Parser::parseFunction(bool selfAllowed)
 {
     TRY(expectCurrentToken(TokenKind::Fn));
-    Rc<Function> fn = beginType<Function>();
+    Rc<FunctionType> fn = beginType<FunctionType>();
     consumeAndSkipBlanks();
 
     TRY(expectCurrentToken(TokenKind::Identifier));
     fn->_name = _currentToken.value();
     consume();
 
-    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this, &selfAllowed](const Rc<Function>& func) -> bool {
+    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this, &selfAllowed](const Rc<FunctionType>& func) -> bool {
         if (selfAllowed) {
             if (currentTokenIs(TokenKind::Ampersand)) {
                 consumeAndSkipBlanks();
@@ -383,7 +385,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
         }
 
         TRY(expectCurrentToken(TokenKind::Identifier));
-        Rc<Field> field = beginDecl<Field>();
+        Rc<Field> field = new Field;
         field->_name = _currentToken.value();
 
         consumeAndSkipBlanks();
@@ -398,8 +400,6 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
         }
 
         field->_type = type;
-
-        endDecl(field);
 
         func->_arguments.push_back(field);
         selfAllowed = false;
@@ -437,7 +437,7 @@ bool Parser::parseImplBlock()
     consumeAndSkipBlanks();
 
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block, [this](const Rc<ImplBlock>& block) -> bool {
-        Rc<Function> fn = parseFunction();
+        Rc<FunctionType> fn = parseFunction();
         if (!fn) {
             return false;
         }
@@ -560,20 +560,19 @@ Rc<Type> Parser::parseFunctionPointer()
 {
     TRY(expectCurrentToken(TokenKind::Ampersand));
 
-    Rc<Function> fn = beginType<Function>();
+    Rc<FunctionType> fn = beginType<FunctionType>();
 
     consume();
     TRY(expectCurrentToken(TokenKind::UpperFn));
     consume();
 
-    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this](const Rc<Function>& fn) {
+    TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this](const Rc<FunctionType>& fn) {
 
         Rc<Type> type = parseType();
         if (!type) {
             return false;
         }
         Rc<Field> field = new Field;
-        field->_moduleInfo = _moduleInfo;
         field->_type = type;
         fn->_arguments.push_back(field);
 
@@ -729,9 +728,9 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
 
 Rc<Field> Parser::parseField()
 {
-    Rc<Field> decl = beginDecl<Field>();
+    Rc<Field> field = new Field;
     expectCurrentToken(TokenKind::Identifier);
-    decl->_name = _currentToken.value();
+    field->_name = _currentToken.value();
     consumeAndSkipBlanks();
     expectCurrentToken(TokenKind::Colon);
     consumeAndSkipBlanks();
@@ -740,10 +739,9 @@ Rc<Field> Parser::parseField()
     if (!type) {
         return nullptr;
     }
-    decl->_type = type;
+    field->_type = type;
 
-    endDecl(decl);
-    return decl;
+    return field;
 }
 
 bool Parser::parseRecordField(const Rc<FieldList>& parent)
@@ -756,10 +754,10 @@ bool Parser::parseRecordField(const Rc<FieldList>& parent)
     return true;
 }
 
-bool Parser::parseEnumConstant(const Rc<Enum>& parent)
+bool Parser::parseEnumConstant(const Rc<EnumType>& parent)
 {
     TRY(skipCommentsAndSpace());
-    Rc<EnumConstant> constant = beginDecl<EnumConstant>();
+    Rc<EnumConstant> constant = new EnumConstant;
     TRY(expectCurrentToken(TokenKind::Identifier));
     constant->_name = _currentToken.value();
     consumeAndSkipBlanks();
@@ -780,11 +778,10 @@ bool Parser::parseEnumConstant(const Rc<Enum>& parent)
         return false;
     }
 
-    endDecl(constant);
     return true;
 }
 
-bool Parser::parseVariantField(const Rc<Variant>& parent)
+bool Parser::parseVariantField(const Rc<VariantType>& parent)
 {
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
@@ -792,19 +789,17 @@ bool Parser::parseVariantField(const Rc<Variant>& parent)
      //TODO: peek next token
 
     if (currentTokenIs(TokenKind::Comma)) {
-        Rc<ConstantVariantField> field = beginDecl<ConstantVariantField>();
+        Rc<ConstantVariantField> field = new ConstantVariantField;
         field->_name = name;
-        endDecl(field);
         parent->_fields.push_back(field);
     } else if (currentTokenIs(TokenKind::LBrace)) {
-        Rc<StructVariantField> field = beginDecl<StructVariantField>();
+        Rc<StructVariantField> field = new StructVariantField;
         field->_fields = new FieldList; //HACK
         field->_name = name;
         TRY(parseBraceList(field->_fields, std::bind(&Parser::parseRecordField, this, std::placeholders::_1)));
-        endDecl(field);
         parent->_fields.push_back(field);
     } else if (currentTokenIs(TokenKind::LParen)) {
-        Rc<TupleVariantField> field = beginDecl<TupleVariantField>();
+        Rc<TupleVariantField> field = new TupleVariantField;
         field->_name = name;
         TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, field, [this](const Rc<TupleVariantField>& field) {
             skipBlanks();
@@ -815,7 +810,6 @@ bool Parser::parseVariantField(const Rc<Variant>& parent)
             field->_types.push_back(type);
             return true;
         }));
-        endDecl(field);
         parent->_fields.push_back(field);
     } else {
         reportUnexpectedTokenError(_currentToken.kind());
@@ -886,12 +880,12 @@ bool Parser::parseTag(TokenKind startToken, F&& fieldParser)
 
 bool Parser::parseVariant()
 {
-    return parseTag<Variant, true>(TokenKind::Variant, std::bind(&Parser::parseVariantField, this, std::placeholders::_1));
+    return parseTag<VariantType, true>(TokenKind::Variant, std::bind(&Parser::parseVariantField, this, std::placeholders::_1));
 }
 
 bool Parser::parseEnum()
 {
-    return parseTag<Enum, false>(TokenKind::Enum, std::bind(&Parser::parseEnumConstant, this, std::placeholders::_1));
+    return parseTag<EnumType, false>(TokenKind::Enum, std::bind(&Parser::parseEnumConstant, this, std::placeholders::_1));
 }
 
 bool Parser::parseStruct()
@@ -911,12 +905,11 @@ template<typename T, typename F>
 Rc<T> Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, F&& fieldParser)
 {
     TRY(expectCurrentToken(startToken));
-    Rc<T> decl = beginDecl<T>();
+    Rc<T> decl = new T;
     consumeAndSkipBlanks();
 
     TRY(parseList(TokenKind::LBrace, sep, TokenKind::RBrace, decl, std::forward<F>(fieldParser)));
 
-    endDecl(decl);
     return decl;
 }
 
@@ -927,7 +920,7 @@ bool Parser::parseCommands(const Rc<Component>& parent)
         return false;
     }
     Rc<Commands> cmds = parseNamelessTag<Commands>(TokenKind::Commands, TokenKind::Eol, [this](const Rc<Commands>& cmds) {
-        Rc<Function> fn = parseFunction(false);
+        Rc<FunctionType> fn = parseFunction(false);
         if (!fn) {
             return false;
         }

@@ -51,13 +51,13 @@ static bmcl::StringView builtinToC(const BuiltinType* type)
     return nullptr;
 }
 
-inline bool TypeReprGenerator::visitBuiltin(const BuiltinType* type)
+inline bool TypeReprGenerator::visitBuiltinType(const BuiltinType* type)
 {
     typeName.append(builtinToC(type));
     return false;
 }
 
-bool TypeReprGenerator::visitArray(const ArrayType* type)
+bool TypeReprGenerator::visitArrayType(const ArrayType* type)
 {
     arrayIndices.push_back('[');
     arrayIndices.append(std::to_string(type->elementCount()));
@@ -65,7 +65,7 @@ bool TypeReprGenerator::visitArray(const ArrayType* type)
     return true;
 }
 
-bool TypeReprGenerator::visitReference(const ReferenceType* type)
+bool TypeReprGenerator::visitReferenceType(const ReferenceType* type)
 {
     if (type->isMutable()) {
         pointers.push_front(false);
@@ -75,7 +75,7 @@ bool TypeReprGenerator::visitReference(const ReferenceType* type)
     return true;
 }
 
-bool TypeReprGenerator::visitSlice(const SliceType* type)
+bool TypeReprGenerator::visitSliceType(const SliceType* type)
 {
     hasPrefix = false;
     typeName.setModName(type->moduleName());
@@ -84,7 +84,7 @@ bool TypeReprGenerator::visitSlice(const SliceType* type)
     return false;
 }
 
-inline bool TypeReprGenerator::visitFunction(const Function* type)
+inline bool TypeReprGenerator::visitFunctionType(const FunctionType* type)
 {
     genFnPointerTypeRepr(type);
     return false;
@@ -140,15 +140,15 @@ void TypeReprGenerator::genTypeRepr(const Type* type, bmcl::StringView fieldName
     }
 }
 
-void TypeReprGenerator::genFnPointerTypeRepr(const Function* type)
+void TypeReprGenerator::genFnPointerTypeRepr(const FunctionType* type)
 {
-    std::vector<const Function*> fnStack;
-    const Function* current = type;
+    std::vector<const FunctionType*> fnStack;
+    const FunctionType* current = type;
     fnStack.push_back(current);
     while (true) {
         if (current->returnValue().isSome()) {
             if (current->returnValue().unwrap()->typeKind() == TypeKind::Function) {
-                current = static_cast<const Function*>(current->returnValue()->get());
+                current = static_cast<const FunctionType*>(current->returnValue()->get());
                 fnStack.push_back(current);
             } else {
                 break;
@@ -170,7 +170,7 @@ void TypeReprGenerator::genFnPointerTypeRepr(const Function* type)
 
     _output->append(")(");
 
-    auto appendParameters = [this](const Function* t) {
+    auto appendParameters = [this](const FunctionType* t) {
         if (t->arguments().size() > 0) {
             for (auto jt = t->arguments().cbegin(); jt < (t->arguments().cend() - 1); jt++) {
                 genTypeRepr((*jt)->type().get());

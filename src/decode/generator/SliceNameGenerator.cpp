@@ -50,19 +50,19 @@ static bmcl::StringView builtinToName(const BuiltinType* type)
     return nullptr;
 }
 
-inline bool SliceNameGenerator::visitBuiltin(const BuiltinType* type)
+inline bool SliceNameGenerator::visitBuiltinType(const BuiltinType* type)
 {
     _output->append(builtinToName(type));
     return false;
 }
 
-inline bool SliceNameGenerator::visitArray(const ArrayType* type)
+inline bool SliceNameGenerator::visitArrayType(const ArrayType* type)
 {
     _output->append("ArrOf");
     return true;
 }
 
-bool SliceNameGenerator::visitReference(const ReferenceType* type)
+bool SliceNameGenerator::visitReferenceType(const ReferenceType* type)
 {
     if (type->isMutable()) {
         _output->append("Mut");
@@ -78,7 +78,7 @@ bool SliceNameGenerator::visitReference(const ReferenceType* type)
     return true;
 }
 
-inline bool SliceNameGenerator::visitSlice(const SliceType* type)
+inline bool SliceNameGenerator::visitSliceType(const SliceType* type)
 {
     _output->append("SliceOf");
     return true;

@@ -1,6 +1,8 @@
 #include "decode/generator/Generator.h"
 #include "decode/generator/SliceNameGenerator.h"
 #include "decode/generator/TypeReprGenerator.h"
+#include "decode/generator/InlineSerContext.h"
+#include "decode/generator/IncludeCollector.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/ModuleInfo.h"
@@ -31,84 +33,6 @@ Generator::Generator(const Rc<Diagnostics>& diag)
 void Generator::setOutPath(bmcl::StringView path)
 {
     _savePath = path.toStdString();
-}
-
-template <typename F>
-void traverseType(const Type* type, F&& visitor, std::size_t depth = SIZE_MAX)
-{
-    if (depth == 0) {
-        return;
-    }
-    if (!visitor(type)) {
-        return;
-    }
-    depth--;
-
-    switch (type->typeKind()) {
-    case TypeKind::Function: {
-        const Function* fn = static_cast<const Function*>(type);
-        if (fn->returnValue().isSome()) {
-            traverseType(fn->returnValue().unwrap().get(), std::forward<F>(visitor), depth);
-        }
-        for (const Rc<Field>& field : fn->arguments()) {
-            traverseType(field->type().get(), std::forward<F>(visitor), depth);
-        }
-        break;
-    }
-    case TypeKind::Builtin:
-        break;
-    case TypeKind::Array: {
-        const ArrayType* array = static_cast<const ArrayType*>(type);
-        traverseType(array->elementType().get(), std::forward<F>(visitor), depth);
-        break;
-    }
-    case TypeKind::Enum:
-        break;
-    case TypeKind::Imported:
-        //TODO: report ICE
-        break;
-    case TypeKind::Reference: {
-        const ReferenceType* ref = static_cast<const ReferenceType*>(type);
-        traverseType(ref->pointee().get(), std::forward<F>(visitor), depth);
-        break;
-    }
-    case TypeKind::Slice: {
-        const SliceType* ref = static_cast<const SliceType*>(type);
-        traverseType(ref->elementType().get(), std::forward<F>(visitor), depth);
-        break;
-    }
-    case TypeKind::Struct: {
-        Rc<FieldList> fieldList = static_cast<const Record*>(type)->fields();
-        for (const Rc<Field>& field : *fieldList) {
-            traverseType(field->type().get(), std::forward<F>(visitor), depth);
-        }
-        break;
-    }
-    case TypeKind::Variant: {
-        const Variant* variant = static_cast<const Variant*>(type);
-        for (const Rc<VariantField>& field : variant->fields()) {
-            switch (field->variantFieldKind()) {
-            case VariantFieldKind::Constant:
-                break;
-            case VariantFieldKind::Tuple: {
-                const TupleVariantField* tupleField = static_cast<const TupleVariantField*>(field.get());
-                for (const Rc<Type>& type : tupleField->types()) {
-                    traverseType(type.get(), std::forward<F>(visitor), depth);
-                }
-                break;
-            }
-            case VariantFieldKind::Struct: {
-                Rc<FieldList> fieldList = static_cast<const StructVariantField*>(field.get())->fields();
-                for (const Rc<Field>& field : *fieldList) {
-                    traverseType(field->type().get(), std::forward<F>(visitor), depth);
-                }
-                break;
-            }
-            }
-        }
-        break;
-    }
-    }
 }
 
 bool Generator::makeDirectory(const char* path)
@@ -189,7 +113,7 @@ void Generator::genHeader(const Type* type)
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
         writeCommonIncludePaths(type);
-        writeVariant(static_cast<const Variant*>(type));
+        writeVariant(static_cast<const VariantType*>(type));
         writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         writeSerializerFuncPrototypes(type);
@@ -199,7 +123,7 @@ void Generator::genHeader(const Type* type)
         startIncludeGuard(type);
         writeIncludesAndFwdsForType(type);
         writeCommonIncludePaths(type);
-        writeEnum(static_cast<const Enum*>(type));
+        writeEnum(static_cast<const EnumType*>(type));
         writeImplBlockIncludes(type);
         writeImplFunctionPrototypes(type);
         writeSerializerFuncPrototypes(type);
@@ -243,16 +167,16 @@ void Generator::genSource(const Type* type)
     case TypeKind::Variant:
         writeIncludes(type);
         _output.appendEol();
-        writeVariantDeserizalizer(static_cast<const Variant*>(type));
+        writeVariantDeserizalizer(static_cast<const VariantType*>(type));
         _output.appendEol();
-        writeVariantSerializer(static_cast<const Variant*>(type));
+        writeVariantSerializer(static_cast<const VariantType*>(type));
         break;
     case TypeKind::Enum:
         writeIncludes(type);
         _output.appendEol();
-        writeEnumDeserizalizer(static_cast<const Enum*>(type));
+        writeEnumDeserizalizer(static_cast<const EnumType*>(type));
         _output.appendEol();
-        writeEnumSerializer(static_cast<const Enum*>(type));
+        writeEnumSerializer(static_cast<const EnumType*>(type));
         break;
     }
     _output.appendEol();
@@ -609,7 +533,7 @@ void Generator::writeVarDecl(bmcl::StringView typeName, bmcl::StringView varName
     _output.append(";\n");
 }
 
-void Generator::writeVariantDeserizalizer(const Variant* type)
+void Generator::writeVariantDeserizalizer(const VariantType* type)
 {
     writeDeserializerFuncDecl(type);
      _output.append("\n{\n");
@@ -682,7 +606,7 @@ void Generator::writeVariantDeserizalizer(const Variant* type)
     _output.append("}\n");
 }
 
-void Generator::writeVariantSerializer(const Variant* type)
+void Generator::writeVariantSerializer(const VariantType* type)
 {
     writeSerializerFuncDecl(type);
      _output.append("\n{\n");
@@ -747,7 +671,7 @@ void Generator::writeVariantSerializer(const Variant* type)
     _output.append("}\n");
 }
 
-void Generator::writeEnumDeserizalizer(const Enum* type)
+void Generator::writeEnumDeserizalizer(const EnumType* type)
 {
     writeDeserializerFuncDecl(type);
     _output.append("\n{\n");
@@ -785,7 +709,7 @@ void Generator::writeEnumDeserizalizer(const Enum* type)
     _output.append("}\n");
 }
 
-void Generator::writeEnumSerializer(const Enum* type)
+void Generator::writeEnumSerializer(const EnumType* type)
 {
     writeSerializerFuncDecl(type);
     _output.append("\n{\n");
@@ -923,7 +847,7 @@ void Generator::writeImplFunctionPrototypes(const Type* type)
     if (block.isNone()) {
         return;
     }
-    for (const Rc<Function>& func : block.unwrap()->functions()) {
+    for (const Rc<FunctionType>& func : block.unwrap()->functions()) {
         writeImplFunctionPrototype(func, type->name());
     }
     if (!block.unwrap()->functions().empty()) {
@@ -931,7 +855,7 @@ void Generator::writeImplFunctionPrototypes(const Type* type)
     }
 }
 
-void Generator::writeImplFunctionPrototype(const Rc<Function>& func, bmcl::StringView typeName)
+void Generator::writeImplFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName)
 {
     if (func->returnValue().isSome()) {
         genTypeRepr(func->returnValue()->get());
@@ -1031,7 +955,7 @@ void Generator::writeTagFooter(bmcl::StringView typeName)
     _output.append(";\n");
 }
 
-void Generator::writeEnum(const Enum* type)
+void Generator::writeEnum(const EnumType* type)
 {
     writeTagHeader("enum");
 
@@ -1052,7 +976,7 @@ void Generator::writeEnum(const Enum* type)
     _output.appendEol();
 }
 
-void Generator::writeVariant(const Variant* type)
+void Generator::writeVariant(const VariantType* type)
 {
     std::vector<bmcl::StringView> fieldNames;
 
@@ -1135,7 +1059,7 @@ void Generator::writeImplBlockIncludes(const Type* topLevelType)
     bmcl::Option<const Rc<ImplBlock>&> impl = _currentAst->findImplBlockWithName(topLevelType->name());
     std::unordered_set<std::string> dest;
     if (impl.isSome()) {
-        for (const Rc<Function>& fn : impl.unwrap()->functions()) {
+        for (const Rc<FunctionType>& fn : impl.unwrap()->functions()) {
             collectIncludesAndFwdsForType(fn.get(), &dest);
         }
     }
@@ -1147,33 +1071,8 @@ void Generator::writeImplBlockIncludes(const Type* topLevelType)
 
 void Generator::collectIncludesAndFwdsForType(const Type* topLevelType, std::unordered_set<std::string>* dest)
 {
-    traverseType(topLevelType, [&](const Type* visitedType) {
-        if (visitedType == topLevelType) {
-            return true;
-        }
-        switch (visitedType->typeKind()) {
-        case TypeKind::Builtin:
-            return false;
-        case TypeKind::Array:
-            return true;
-        case TypeKind::Reference:
-            return true;
-        case TypeKind::Slice:
-            return true;
-        case TypeKind::Struct:
-        case TypeKind::Variant:
-        case TypeKind::Enum:
-        case TypeKind::Function:
-            return false;
-        case TypeKind::Imported: {
-            std::string path = visitedType->moduleName().toStdString();
-            path.push_back('/');
-            path.append(visitedType->name().begin(), visitedType->name().end());
-            dest->insert(std::move(path));
-            return false;
-        }
-        }
-    });
+    IncludeCollector c;
+    c.collectIncludesAndFwdsForType(topLevelType, dest);
 }
 
 void Generator::writeIncludes(const std::unordered_set<std::string>& src)
@@ -1185,8 +1084,6 @@ void Generator::writeIncludes(const std::unordered_set<std::string>& src)
     if (!src.empty()) {
         _output.appendEol();
     }
-
-    _output.appendEol();
 }
 
 void Generator::writeIncludesAndFwdsForType(const Type* topLevelType)

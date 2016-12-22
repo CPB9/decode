@@ -22,11 +22,10 @@ class NamedDecl;
 class FileInfo;
 class ModuleInfo;
 class EnumConstant;
-class Enum;
+class EnumType;
 class Component;
 class StructDecl;
-class Variant;
-class Record;
+class VariantType;
 class ImportedType;
 class Type;
 class Report;
@@ -34,7 +33,7 @@ class Diagnostics;
 class Field;
 class FieldList;
 class Parameters;
-class Function;
+class FunctionType;
 class TypeDecl;
 class Ast;
 
@@ -90,11 +89,11 @@ private:
 
     Rc<Field> parseField();
     bool parseRecordField(const Rc<FieldList>& parent);
-    bool parseEnumConstant(const Rc<Enum>& parent);
-    bool parseVariantField(const Rc<Variant>& parent);
+    bool parseEnumConstant(const Rc<EnumType>& parent);
+    bool parseVariantField(const Rc<VariantType>& parent);
     bool parseComponentField(const Rc<Component>& parent);
 
-    Rc<Function> parseFunction(bool selfAllowed = true);
+    Rc<FunctionType> parseFunction(bool selfAllowed = true);
 
     Rc<Type> parseType();
     Rc<Type> parseFunctionPointer();

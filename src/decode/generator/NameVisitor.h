@@ -13,11 +13,11 @@ public:
 
     B& base();
 
-    bool visitFunction(const Function* type);
-    bool visitEnum(const Enum* type);
-    bool visitStruct(const StructType* type);
-    bool visitVariant(const Variant* type);
-    bool visitImported(const ImportedType* type);
+    bool visitFunctionType(const FunctionType* type);
+    bool visitEnumType(const EnumType* type);
+    bool visitStructType(const StructType* type);
+    bool visitVariantType(const VariantType* type);
+    bool visitImportedType(const ImportedType* type);
 
 protected:
 
@@ -39,31 +39,31 @@ inline B& NameVisitor<B>::base()
 }
 
 template <typename B>
-inline bool NameVisitor<B>::visitFunction(const Function* type)
+inline bool NameVisitor<B>::visitFunctionType(const FunctionType* type)
 {
     return base().appendTypeName(type);
 }
 
 template <typename B>
-inline bool NameVisitor<B>::visitEnum(const Enum* type)
+inline bool NameVisitor<B>::visitEnumType(const EnumType* type)
 {
     return base().appendTypeName(type);
 }
 
 template <typename B>
-inline bool NameVisitor<B>::visitStruct(const StructType* type)
+inline bool NameVisitor<B>::visitStructType(const StructType* type)
 {
     return base().appendTypeName(type);
 }
 
 template <typename B>
-inline bool NameVisitor<B>::visitVariant(const Variant* type)
+inline bool NameVisitor<B>::visitVariantType(const VariantType* type)
 {
     return base().appendTypeName(type);
 }
 
 template <typename B>
-inline bool NameVisitor<B>::visitImported(const ImportedType* type)
+inline bool NameVisitor<B>::visitImportedType(const ImportedType* type)
 {
     return base().appendTypeName(type);
 }

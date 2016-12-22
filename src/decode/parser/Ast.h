@@ -4,6 +4,7 @@
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
 #include "decode/parser/Decl.h"
+#include "decode/parser/Type.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/Option.h>
@@ -20,6 +21,7 @@ class Import;
 class ImportedType;
 class Type;
 class TypeDecl;
+class Component;
 
 class Ast : public bmcl::RefCountable<unsigned int> {
 public:

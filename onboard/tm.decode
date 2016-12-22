@@ -5,6 +5,8 @@ import core::{Writer, Error}
 struct T1 {
     f1: u32,
     f2: [u32; 5],
+    e: Error,
+    w: Writer,
 }
 
 struct T2 {

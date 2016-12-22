@@ -28,7 +28,7 @@ include_directories(
     thirdparty/tclap/include
 )
 
-add_library(zpaq
+add_library(zpaq STATIC
     thirdparty/zpaq/libzpaq.cpp
 )
 
@@ -58,6 +58,8 @@ add_library(decode
     src/decode/generator/SliceNameGenerator.h
     src/decode/generator/TypeReprGenerator.cpp
     src/decode/generator/TypeReprGenerator.h
+    src/decode/generator/IncludeCollector.cpp
+    src/decode/generator/IncludeCollector.h
 )
 
 target_link_libraries(decode zpaq)

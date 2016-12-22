@@ -4,6 +4,7 @@
 #include "decode/parser/Parser.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Decl.h"
+#include "decode/parser/Component.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/Logging.h>
@@ -58,7 +59,6 @@ public:
 private:
     bmcl::MemReader _reader;
 };
-
 
 class ZpaqWriter : public libzpaq::Writer {
 public:

@@ -13,9 +13,9 @@ namespace decode {
 
 class Ast;
 class Diagnostics;
-class Enum;
+class EnumType;
 class FnPointer;
-class Function;
+class FunctionType;
 class ReferenceType;
 class BuiltinType;
 class ArrayType;
@@ -24,35 +24,8 @@ class Type;
 class Field;
 class Package;
 class FieldList;
-class Variant;
-
-struct InlineSerContext {
-    InlineSerContext(std::uint8_t indentLevel = 1, std::uint8_t loopLevel = 0, std::uint8_t ptrDepth = 0)
-        : indentLevel(indentLevel)
-        , loopLevel(loopLevel)
-        , ptrDepth(loopLevel)
-    {
-    }
-
-    InlineSerContext indent() const
-    {
-        return InlineSerContext(indentLevel + 1, loopLevel, ptrDepth);
-    }
-
-    InlineSerContext incLoopVar() const
-    {
-        return InlineSerContext(indentLevel, loopLevel + 1, ptrDepth);
-    }
-
-    InlineSerContext incPtrDepth() const
-    {
-        return InlineSerContext(indentLevel, loopLevel, ptrDepth + 1);
-    }
-
-    std::uint8_t indentLevel;
-    std::uint8_t loopLevel;
-    std::uint8_t ptrDepth;
-};
+class VariantType;
+struct InlineSerContext;
 
 class Target : public RefCountable {
 public:
@@ -94,11 +67,11 @@ private:
     void writeStruct(const FieldList* fields, bmcl::StringView name);
     void writeStruct(const StructType* type);
     void writeStruct(const std::vector<Rc<Type>>& fields, bmcl::StringView name);
-    void writeEnum(const Enum* type);
-    void writeVariant(const Variant* type);
+    void writeEnum(const EnumType* type);
+    void writeVariant(const VariantType* type);
 
     void writeImplFunctionPrototypes(const Type* type);
-    void writeImplFunctionPrototype(const Rc<Function>& func, bmcl::StringView typeName);
+    void writeImplFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName);
 
     bool needsSerializers(const Type* type);
     void writeSerializerFuncPrototypes(const Type* type);
@@ -106,14 +79,14 @@ private:
     void writeLocalIncludePath(bmcl::StringView path);
     void writeCommonIncludePaths(const Type* type);
 
-    void writeEnumDeserizalizer(const Enum* type);
-    void writeEnumSerializer(const Enum* type);
+    void writeEnumDeserizalizer(const EnumType* type);
+    void writeEnumSerializer(const EnumType* type);
 
     void writeStructDeserizalizer(const StructType* type);
     void writeStructSerializer(const StructType* type);
 
-    void writeVariantDeserizalizer(const Variant* type);
-    void writeVariantSerializer(const Variant* type);
+    void writeVariantDeserizalizer(const VariantType* type);
+    void writeVariantSerializer(const VariantType* type);
 
     void writeInlineArrayTypeDeserializer(const ArrayType* type, const InlineSerContext& ctx, const Gen& argNameGen);
     void writeInlineBuiltinTypeDeserializer(const BuiltinType* type, const InlineSerContext& ctx, const Gen& argNameGen);
