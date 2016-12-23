@@ -54,12 +54,23 @@ add_library(decode
     src/decode/parser/Package.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
-    src/decode/generator/SliceNameGenerator.cpp
-    src/decode/generator/SliceNameGenerator.h
-    src/decode/generator/TypeReprGenerator.cpp
-    src/decode/generator/TypeReprGenerator.h
     src/decode/generator/IncludeCollector.cpp
     src/decode/generator/IncludeCollector.h
+    src/decode/generator/InlineSerContext.h
+    src/decode/generator/InlineTypeDeserializerGen.cpp
+    src/decode/generator/InlineTypeDeserializerGen.h
+    src/decode/generator/InlineTypeSerializerGen.cpp
+    src/decode/generator/InlineTypeSerializerGen.h
+    src/decode/generator/NameVisitor.h
+    src/decode/generator/SliceNameGen.cpp
+    src/decode/generator/SliceNameGen.h
+    src/decode/generator/SrcBuilder.cpp
+    src/decode/generator/SrcBuilder.h
+    src/decode/generator/StringBuilder.h
+    src/decode/generator/TypeHeaderGen.cpp
+    src/decode/generator/TypeHeaderGen.h
+    src/decode/generator/TypeReprGen.cpp
+    src/decode/generator/TypeReprGen.h
 )
 
 target_link_libraries(decode zpaq)

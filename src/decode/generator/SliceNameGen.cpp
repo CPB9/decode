@@ -1,12 +1,12 @@
-#include "decode/generator/SliceNameGenerator.h"
+#include "decode/generator/SliceNameGen.h"
 #include "decode/parser/Decl.h"
 
 #include <bmcl/StringView.h>
 
 namespace decode {
 
-SliceNameGenerator::SliceNameGenerator(SrcBuilder* dest)
-    : NameVisitor<SliceNameGenerator>(dest)
+SliceNameGen::SliceNameGen(SrcBuilder* dest)
+    : NameVisitor<SliceNameGen>(dest)
 {
 }
 
@@ -50,19 +50,19 @@ static bmcl::StringView builtinToName(const BuiltinType* type)
     return nullptr;
 }
 
-inline bool SliceNameGenerator::visitBuiltinType(const BuiltinType* type)
+inline bool SliceNameGen::visitBuiltinType(const BuiltinType* type)
 {
     _output->append(builtinToName(type));
     return false;
 }
 
-inline bool SliceNameGenerator::visitArrayType(const ArrayType* type)
+inline bool SliceNameGen::visitArrayType(const ArrayType* type)
 {
     _output->append("ArrOf");
     return true;
 }
 
-bool SliceNameGenerator::visitReferenceType(const ReferenceType* type)
+bool SliceNameGen::visitReferenceType(const ReferenceType* type)
 {
     if (type->isMutable()) {
         _output->append("Mut");
@@ -78,20 +78,20 @@ bool SliceNameGenerator::visitReferenceType(const ReferenceType* type)
     return true;
 }
 
-inline bool SliceNameGenerator::visitSliceType(const SliceType* type)
+inline bool SliceNameGen::visitSliceType(const SliceType* type)
 {
     _output->append("SliceOf");
     return true;
 }
 
-inline bool SliceNameGenerator::appendTypeName(const Type* type)
+inline bool SliceNameGen::appendTypeName(const Type* type)
 {
     _output->appendWithFirstUpper(type->moduleName());
     _output->append(type->name());
     return false;
 }
 
-void SliceNameGenerator::genSliceName(const SliceType* type)
+void SliceNameGen::genSliceName(const SliceType* type)
 {
     _output->appendModPrefix();
     traverseType(type);

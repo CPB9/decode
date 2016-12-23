@@ -9,10 +9,10 @@
 
 namespace decode {
 
-class TypeReprGenerator : public NameVisitor<TypeReprGenerator> {
+class TypeReprGen : public NameVisitor<TypeReprGen> {
 public:
-    TypeReprGenerator(SrcBuilder* dest);
-    ~TypeReprGenerator();
+    TypeReprGen(SrcBuilder* dest);
+    ~TypeReprGen();
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 

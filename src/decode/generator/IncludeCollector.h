@@ -23,6 +23,7 @@ private:
 
     void addInclude(const NamedType* type);
 
+    const Type* _currentType;
     std::unordered_set<std::string>* _dest;
 };
 

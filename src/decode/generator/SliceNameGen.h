@@ -8,9 +8,9 @@
 
 namespace decode {
 
-class SliceNameGenerator : public NameVisitor<SliceNameGenerator> {
+class SliceNameGen : public NameVisitor<SliceNameGen> {
 public:
-    SliceNameGenerator(SrcBuilder* dest);
+    SliceNameGen(SrcBuilder* dest);
 
     void genSliceName(const SliceType* type);
 

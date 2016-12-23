@@ -30,6 +30,9 @@ inline bool IncludeCollector::visitImportedType(const ImportedType* u)
 
 void IncludeCollector::addInclude(const NamedType* type)
 {
+    if (_currentType == type) {
+        return;
+    }
     std::string path = type->moduleName().toStdString();
     path.push_back('/');
     path.append(type->name().begin(), type->name().end());
@@ -39,6 +42,7 @@ void IncludeCollector::addInclude(const NamedType* type)
 void IncludeCollector::collectIncludesAndFwdsForType(const Type* type, std::unordered_set<std::string>* dest)
 {
     _dest = dest;
+    _currentType = type;
     traverseType(type);
 }
 }

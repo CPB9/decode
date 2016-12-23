@@ -11,6 +11,9 @@ namespace decode {
 
 class StringBuilder {
 public:
+    template <typename... A>
+    StringBuilder(A&&... args);
+
     template <std::size_t N>
     void append(const char(&data)[N]);
 
@@ -19,6 +22,10 @@ public:
     void append(const char* begin, std::size_t size);
     void append(const std::string& str);
     void append(bmcl::StringView view);
+
+    void resize(std::size_t size);
+
+    bmcl::StringView view() const;
 
     template <typename... A>
     void appendSeveral(std::size_t n, A&&... args);
@@ -43,6 +50,12 @@ private:
     void appendWithFirstModified(bmcl::StringView view, F&& func);
     std::string _output;
 };
+
+template <typename... A>
+inline StringBuilder::StringBuilder(A&&... args)
+    : _output(std::forward<A>(args)...)
+{
+}
 
 inline void StringBuilder::append(char c)
 {
@@ -75,6 +88,16 @@ inline void StringBuilder::append(const char* begin, std::size_t size)
 inline void StringBuilder::append(const std::string& str)
 {
     _output.append(str);
+}
+
+inline void StringBuilder::resize(std::size_t size)
+{
+    _output.resize(size);
+}
+
+inline bmcl::StringView StringBuilder::view() const
+{
+    return bmcl::StringView(_output);
 }
 
 inline const std::string& decode::StringBuilder::result() const

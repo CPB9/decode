@@ -1,14 +1,14 @@
-#include "decode/generator/TypeReprGenerator.h"
-#include "decode/generator/SliceNameGenerator.h"
+#include "decode/generator/TypeReprGen.h"
+#include "decode/generator/SliceNameGen.h"
 
 namespace decode {
 
-TypeReprGenerator::TypeReprGenerator(SrcBuilder* dest)
-    : NameVisitor<TypeReprGenerator>(dest)
+TypeReprGen::TypeReprGen(SrcBuilder* dest)
+    : NameVisitor<TypeReprGen>(dest)
 {
 }
 
-TypeReprGenerator::~TypeReprGenerator()
+TypeReprGen::~TypeReprGen()
 {
 }
 
@@ -51,13 +51,13 @@ static bmcl::StringView builtinToC(const BuiltinType* type)
     return nullptr;
 }
 
-inline bool TypeReprGenerator::visitBuiltinType(const BuiltinType* type)
+inline bool TypeReprGen::visitBuiltinType(const BuiltinType* type)
 {
     typeName.append(builtinToC(type));
     return false;
 }
 
-bool TypeReprGenerator::visitArrayType(const ArrayType* type)
+bool TypeReprGen::visitArrayType(const ArrayType* type)
 {
     arrayIndices.push_back('[');
     arrayIndices.append(std::to_string(type->elementCount()));
@@ -65,7 +65,7 @@ bool TypeReprGenerator::visitArrayType(const ArrayType* type)
     return true;
 }
 
-bool TypeReprGenerator::visitReferenceType(const ReferenceType* type)
+bool TypeReprGen::visitReferenceType(const ReferenceType* type)
 {
     if (type->isMutable()) {
         pointers.push_front(false);
@@ -75,22 +75,22 @@ bool TypeReprGenerator::visitReferenceType(const ReferenceType* type)
     return true;
 }
 
-bool TypeReprGenerator::visitSliceType(const SliceType* type)
+bool TypeReprGen::visitSliceType(const SliceType* type)
 {
     hasPrefix = false;
     typeName.setModName(type->moduleName());
-    SliceNameGenerator sng(&typeName);
+    SliceNameGen sng(&typeName);
     sng.genSliceName(type);
     return false;
 }
 
-inline bool TypeReprGenerator::visitFunctionType(const FunctionType* type)
+inline bool TypeReprGen::visitFunctionType(const FunctionType* type)
 {
     genFnPointerTypeRepr(type);
     return false;
 }
 
-inline bool TypeReprGenerator::appendTypeName(const Type* type)
+inline bool TypeReprGen::appendTypeName(const Type* type)
 {
     hasPrefix = true;
     typeName.setModName(type->moduleName());
@@ -98,7 +98,7 @@ inline bool TypeReprGenerator::appendTypeName(const Type* type)
     return false;
 }
 
-void TypeReprGenerator::genTypeRepr(const Type* type, bmcl::StringView fieldName)
+void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
     this->fieldName = fieldName;
     hasPrefix = false;
@@ -140,7 +140,7 @@ void TypeReprGenerator::genTypeRepr(const Type* type, bmcl::StringView fieldName
     }
 }
 
-void TypeReprGenerator::genFnPointerTypeRepr(const FunctionType* type)
+void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
 {
     std::vector<const FunctionType*> fnStack;
     const FunctionType* current = type;
