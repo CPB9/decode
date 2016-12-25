@@ -20,6 +20,8 @@ public:
     void appendIndent(const InlineSerContext& ctx);
     void appendReadableSizeCheck(const InlineSerContext& ctx, std::size_t size);
     void appendWritableSizeCheck(const InlineSerContext& ctx, std::size_t size);
+    void appendReadableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck);
+    void appendWritableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck);
     void appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize);
     void appendWithTryMacro(const SrcGen& func);
     void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = bmcl::StringView::empty());

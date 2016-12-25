@@ -8,13 +8,13 @@ namespace decode {
 
 class InlineTypeSerializerGen : public InlineTypeInspector<InlineTypeSerializerGen> {
 public:
-    InlineTypeSerializerGen(const Target* target, SrcBuilder* output);
+    InlineTypeSerializerGen(SrcBuilder* output);
     ~InlineTypeSerializerGen();
 
     void inspectPointer(const Type* type);
     void inspectNonInlineType(const Type* type);
 
-    void genSizedSer(std::size_t pointerSize, bmcl::StringView suffix);
+    void genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix);
     void genVarSer(bmcl::StringView suffix);
 };
 

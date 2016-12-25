@@ -2,8 +2,8 @@
 
 namespace decode {
 
-InlineTypeDeserializerGen::InlineTypeDeserializerGen(const Target* target, SrcBuilder* output)
-    : InlineTypeInspector<InlineTypeDeserializerGen>(target, output)
+InlineTypeDeserializerGen::InlineTypeDeserializerGen(SrcBuilder* output)
+    : InlineTypeInspector<InlineTypeDeserializerGen>(output)
 {
 }
 
@@ -13,7 +13,7 @@ InlineTypeDeserializerGen::~InlineTypeDeserializerGen()
 
 void InlineTypeDeserializerGen::inspectPointer(const Type* type)
 {
-    _output->appendReadableSizeCheck(context(), _target->pointerSize());
+    _output->appendReadableSizeCheck(context(), "sizeof(void*)");
     _output->appendIndent(context());
     appendArgumentName();
     _output->append(" = (");
@@ -32,9 +32,9 @@ void InlineTypeDeserializerGen::inspectNonInlineType(const Type* type)
     });
 }
 
-void InlineTypeDeserializerGen::genSizedSer(std::size_t pointerSize, bmcl::StringView suffix)
+void InlineTypeDeserializerGen::genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
 {
-    _output->appendReadableSizeCheck(context(), pointerSize);
+    _output->appendReadableSizeCheck(context(), sizeCheck);
     _output->appendIndent(context());
     appendArgumentName();
     _output->append(" = PhotonReader_Read");

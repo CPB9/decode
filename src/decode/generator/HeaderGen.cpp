@@ -1,24 +1,24 @@
-#include "decode/generator/TypeHeaderGen.h"
+#include "decode/generator/HeaderGen.h"
 
 namespace decode {
 
-TypeHeaderGen::TypeHeaderGen(SrcBuilder* output)
+HeaderGen::HeaderGen(SrcBuilder* output)
     : _output(output)
     , _typeReprGen(output)
 {
 }
 
-TypeHeaderGen::~TypeHeaderGen()
+HeaderGen::~HeaderGen()
 {
 }
 
-void TypeHeaderGen::genHeader(const Ast* ast, const Type* type)
+void HeaderGen::genHeader(const Ast* ast, const Type* type)
 {
     _ast = ast;
     traverseType(type);
 }
 
-void TypeHeaderGen::appendSerializerFuncPrototypes(const Type* type)
+void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
 {
     appendSerializerFuncDecl(type);
     _output->append(";\n");
@@ -26,7 +26,7 @@ void TypeHeaderGen::appendSerializerFuncPrototypes(const Type* type)
     _output->append(";\n\n");
 }
 
-void TypeHeaderGen::startIncludeGuard(const Type* type)
+void HeaderGen::startIncludeGuard(const Type* type)
 {
     auto writeGuardMacro = [this, type]() {
         _output->append("__PHOTON_");
@@ -42,13 +42,13 @@ void TypeHeaderGen::startIncludeGuard(const Type* type)
     _output->appendEol();
 }
 
-void TypeHeaderGen::endIncludeGuard(const Type* type)
+void HeaderGen::endIncludeGuard(const Type* type)
 {
     _output->append("#endif\n");
     _output->appendEol();
 }
 
-void TypeHeaderGen::appendImplBlockIncludes(const Type* topLevelType)
+void HeaderGen::appendImplBlockIncludes(const Type* topLevelType)
 {
     bmcl::Option<const Rc<ImplBlock>&> impl = _ast->findImplBlockWithName(topLevelType->name());
     std::unordered_set<std::string> dest;
@@ -63,7 +63,7 @@ void TypeHeaderGen::appendImplBlockIncludes(const Type* topLevelType)
     appendIncludes(dest);
 }
 
-void TypeHeaderGen::appendIncludes(const std::unordered_set<std::string>& src)
+void HeaderGen::appendIncludes(const std::unordered_set<std::string>& src)
 {
     for (const std::string& path : src) {
         _output->appendLocalIncludePath(path);
@@ -74,14 +74,14 @@ void TypeHeaderGen::appendIncludes(const std::unordered_set<std::string>& src)
     }
 }
 
-void TypeHeaderGen::appendIncludesAndFwdsForType(const Type* topLevelType)
+void HeaderGen::appendIncludesAndFwdsForType(const Type* topLevelType)
 {
     std::unordered_set<std::string> includePaths;
     _includeCollector.collectIncludesAndFwdsForType(topLevelType, &includePaths);
     appendIncludes(includePaths);
 }
 
-void TypeHeaderGen::appendImplFunctionPrototypes(const Type* type)
+void HeaderGen::appendImplFunctionPrototypes(const Type* type)
 {
     bmcl::Option<const Rc<ImplBlock>&> block = _ast->findImplBlockWithName(type->name());
     if (block.isNone()) {
@@ -95,7 +95,7 @@ void TypeHeaderGen::appendImplFunctionPrototypes(const Type* type)
     }
 }
 
-void TypeHeaderGen::appendImplFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName)
+void HeaderGen::appendImplFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName)
 {
     if (func->returnValue().isSome()) {
         genTypeRepr(func->returnValue()->get());
@@ -139,7 +139,7 @@ void TypeHeaderGen::appendImplFunctionPrototype(const Rc<FunctionType>& func, bm
     _output->append(");\n");
 }
 
-void TypeHeaderGen::appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::StringView name)
+void HeaderGen::appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::StringView name)
 {
     _output->appendTagHeader("struct");
 
@@ -155,7 +155,7 @@ void TypeHeaderGen::appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::St
     _output->appendEol();
 }
 
-void TypeHeaderGen::appendFieldList(const FieldList* fields, bmcl::StringView name)
+void HeaderGen::appendFieldList(const FieldList* fields, bmcl::StringView name)
 {
     _output->appendTagHeader("struct");
 
@@ -169,12 +169,12 @@ void TypeHeaderGen::appendFieldList(const FieldList* fields, bmcl::StringView na
     _output->appendEol();
 }
 
-void TypeHeaderGen::appendStruct(const StructType* type)
+void HeaderGen::appendStruct(const StructType* type)
 {
     appendFieldList(type->fields().get(), type->name());
 }
 
-void TypeHeaderGen::appendEnum(const EnumType* type)
+void HeaderGen::appendEnum(const EnumType* type)
 {
     _output->appendTagHeader("enum");
 
@@ -195,7 +195,7 @@ void TypeHeaderGen::appendEnum(const EnumType* type)
     _output->appendEol();
 }
 
-void TypeHeaderGen::appendVariant(const VariantType* type)
+void HeaderGen::appendVariant(const VariantType* type)
 {
     std::vector<bmcl::StringView> fieldNames;
 
@@ -265,7 +265,7 @@ void TypeHeaderGen::appendVariant(const VariantType* type)
     _output->appendEol();
 }
 
-void TypeHeaderGen::appendCommonIncludePaths()
+void HeaderGen::appendCommonIncludePaths()
 {
     _output->appendInclude("stdbool.h");
     _output->appendInclude("stddef.h");
@@ -273,21 +273,34 @@ void TypeHeaderGen::appendCommonIncludePaths()
     _output->appendEol();
 }
 
-bool TypeHeaderGen::visitEnumType(const EnumType* type)
+template <typename T, typename F>
+void HeaderGen::genHeaderWithTypeDecl(const T* type, F&& declGen)
 {
-    genHeaderWithTypeDecl(type, &TypeHeaderGen::appendEnum);
+    startIncludeGuard(type);
+    appendIncludesAndFwdsForType(type);
+    appendCommonIncludePaths();
+    (this->*declGen)(type);
+    appendImplBlockIncludes(type);
+    appendImplFunctionPrototypes(type);
+    appendSerializerFuncPrototypes(type);
+    endIncludeGuard(type);
+}
+
+bool HeaderGen::visitEnumType(const EnumType* type)
+{
+    genHeaderWithTypeDecl(type, &HeaderGen::appendEnum);
     return false;
 }
 
-bool TypeHeaderGen::visitStructType(const StructType* type)
+bool HeaderGen::visitStructType(const StructType* type)
 {
-    genHeaderWithTypeDecl(type, &TypeHeaderGen::appendStruct);
+    genHeaderWithTypeDecl(type, &HeaderGen::appendStruct);
     return false;
 }
 
-bool TypeHeaderGen::visitVariantType(const VariantType* type)
+bool HeaderGen::visitVariantType(const VariantType* type)
 {
-    genHeaderWithTypeDecl(type, &TypeHeaderGen::appendVariant);
+    genHeaderWithTypeDecl(type, &HeaderGen::appendVariant);
     return false;
 }
 }

@@ -2,8 +2,8 @@
 
 namespace decode {
 
-InlineTypeSerializerGen::InlineTypeSerializerGen(const Target* target, SrcBuilder* output)
-    : InlineTypeInspector<InlineTypeSerializerGen>(target, output)
+InlineTypeSerializerGen::InlineTypeSerializerGen(SrcBuilder* output)
+    : InlineTypeInspector<InlineTypeSerializerGen>(output)
 {
 }
 
@@ -13,7 +13,7 @@ InlineTypeSerializerGen::~InlineTypeSerializerGen()
 
 void InlineTypeSerializerGen::inspectPointer(const Type* type)
 {
-    _output->appendWritableSizeCheck(context(), _target->pointerSize());
+    _output->appendWritableSizeCheck(context(), "sizeof(void*)");
     _output->appendIndent(context());
     _output->append("PhotonWriter_WritePtr(dest, ");
     appendArgumentName();
@@ -31,9 +31,9 @@ void InlineTypeSerializerGen::inspectNonInlineType(const Type* type)
     });
 }
 
-void InlineTypeSerializerGen::genSizedSer(std::size_t pointerSize, bmcl::StringView suffix)
+void InlineTypeSerializerGen::genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
 {
-    _output->appendWritableSizeCheck(context(), pointerSize);
+    _output->appendWritableSizeCheck(context(), sizeCheck);
     _output->appendIndent(context());
     _output->append("PhotonWriter_Write");
     _output->append(suffix);

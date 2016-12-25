@@ -13,7 +13,7 @@ namespace decode {
 template <typename B>
 class InlineTypeInspector : public ConstAstVisitor<B> {
 public:
-    InlineTypeInspector(const Target* target, SrcBuilder* output);
+    InlineTypeInspector(SrcBuilder* output);
 
     void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName);
 
@@ -31,7 +31,7 @@ public:
     void inspectPointer(const Type* type);
     void inspectNonInlineType(const Type* type);
 
-    void genSizedSer(std::size_t pointerSize, bmcl::StringView suffix);
+    void genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix);
     void genVarSer(bmcl::StringView suffix);
 
 protected:
@@ -47,7 +47,6 @@ protected:
     void appendTypeRepr(const Type* type);
 
     std::stack<InlineSerContext> _ctxStack;
-    const Target* _target;
     SrcBuilder* _output;
     std::string _argName;
     TypeReprGen _reprGen;
@@ -84,9 +83,8 @@ inline B& InlineTypeInspector<B>::base()
 }
 
 template <typename B>
-InlineTypeInspector<B>::InlineTypeInspector(const Target* target, SrcBuilder* output)
-    : _target(target)
-    , _output(output)
+InlineTypeInspector<B>::InlineTypeInspector(SrcBuilder* output)
+    : _output(output)
     , _reprGen(output)
 {
 }
@@ -165,37 +163,37 @@ bool InlineTypeInspector<B>::visitBuiltinType(const BuiltinType* type)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
-        base().genSizedSer(_target->pointerSize(), "USizeLe");
+        base().genSizedSer("sizeof(void*)", "USizeLe");
         break;
     case BuiltinTypeKind::ISize:
-        base().genSizedSer(_target->pointerSize(), "USizeLe");
+        base().genSizedSer("sizeof(void*)", "USizeLe");
         break;
     case BuiltinTypeKind::U8:
-        base().genSizedSer(1, "U8");
+        base().genSizedSer("sizeof(uint8_t)", "U8");
         break;
     case BuiltinTypeKind::I8:
-        base().genSizedSer(1, "U8");
+        base().genSizedSer("sizeof(uint8_t)", "U8");
         break;
     case BuiltinTypeKind::U16:
-        base().genSizedSer(2, "U16Le");
+        base().genSizedSer("sizeof(uint16_t)", "U16Le");
         break;
     case BuiltinTypeKind::I16:
-        base().genSizedSer(2, "U16Le");
+        base().genSizedSer("sizeof(uint16_t)", "U16Le");
         break;
     case BuiltinTypeKind::U32:
-        base().genSizedSer(4, "U32Le");
+        base().genSizedSer("sizeof(uint32_t)", "U32Le");
         break;
     case BuiltinTypeKind::I32:
-        base().genSizedSer(4, "U32Le");
+        base().genSizedSer("sizeof(uint32_t)", "U32Le");
         break;
     case BuiltinTypeKind::U64:
-        base().genSizedSer(8, "U64Le");
+        base().genSizedSer("sizeof(uint64_t)", "U64Le");
         break;
     case BuiltinTypeKind::I64:
-        base().genSizedSer(8, "U64Le");
+        base().genSizedSer("sizeof(uint64_t)", "U64Le");
         break;
     case BuiltinTypeKind::Bool:
-        base().genSizedSer(1, "U8");
+        base().genSizedSer("sizeof(uint8_t)", "U8");
         break;
     case BuiltinTypeKind::Varuint:
         base().genVarSer("Varuint");

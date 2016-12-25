@@ -8,11 +8,11 @@ void SrcBuilder::appendModPrefix()
     appendWithFirstUpper(_modName);
 }
 
-void SrcBuilder::appendReadableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+void SrcBuilder::appendReadableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck)
 {
     appendIndent(ctx);
     append("if (PhotonReader_ReadableSize(src) < ");
-    appendNumericValue(size);
+    append(sizeCheck);
     append(") {\n");
     appendIndent(ctx);
     append("    return PhotonError_NotEnoughData;\n");
@@ -20,16 +20,26 @@ void SrcBuilder::appendReadableSizeCheck(const InlineSerContext& ctx, std::size_
     append("}\n");
 }
 
-void SrcBuilder::appendWritableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+void SrcBuilder::appendWritableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck)
 {
     appendIndent(ctx);
     append("if (PhotonWriter_WritableSize(dest) < ");
-    appendNumericValue(size);
+    append(sizeCheck);
     append(") {\n");
     appendIndent(ctx);
     append("    return PhotonError_NotEnoughSpace;\n");
     appendIndent(ctx);
     append("}\n");
+}
+
+void SrcBuilder::appendReadableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+{
+    appendReadableSizeCheck(ctx, std::to_string(size));
+}
+
+void SrcBuilder::appendWritableSizeCheck(const InlineSerContext& ctx, std::size_t size)
+{
+    appendWritableSizeCheck(ctx, std::to_string(size));
 }
 
 void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)

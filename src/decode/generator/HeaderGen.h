@@ -12,10 +12,10 @@
 
 namespace decode {
 
-class TypeHeaderGen : public ConstAstVisitor<TypeHeaderGen>, public SerializationFuncPrototypeGen<TypeHeaderGen> {
+class HeaderGen : public ConstAstVisitor<HeaderGen>, public SerializationFuncPrototypeGen<HeaderGen> {
 public:
-    TypeHeaderGen(SrcBuilder* output);
-    ~TypeHeaderGen();
+    HeaderGen(SrcBuilder* output);
+    ~HeaderGen();
 
     void genHeader(const Ast* ast, const Type* type);
 
@@ -61,62 +61,48 @@ private:
     TypeReprGen _typeReprGen;
 };
 
-
-template <typename T, typename F>
-void TypeHeaderGen::genHeaderWithTypeDecl(const T* type, F&& declGen)
-{
-    startIncludeGuard(type);
-    appendIncludesAndFwdsForType(type);
-    appendCommonIncludePaths();
-    (this->*declGen)(type);
-    appendImplBlockIncludes(type);
-    appendImplFunctionPrototypes(type);
-    appendSerializerFuncPrototypes(type);
-    endIncludeGuard(type);
-}
-
-inline SrcBuilder& TypeHeaderGen::output()
+inline SrcBuilder& HeaderGen::output()
 {
     return *_output;
 }
 
-inline void TypeHeaderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
+inline void HeaderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
     _typeReprGen.genTypeRepr(type, fieldName);
 }
 
-inline bool TypeHeaderGen::visitBuiltinType(const BuiltinType* type)
+inline bool HeaderGen::visitBuiltinType(const BuiltinType* type)
 {
     (void)type;
     return false;
 }
 
-inline bool TypeHeaderGen::visitReferenceType(const ReferenceType* type)
+inline bool HeaderGen::visitReferenceType(const ReferenceType* type)
 {
     (void)type;
     return false;
 }
 
-inline bool TypeHeaderGen::visitArrayType(const ArrayType* type)
+inline bool HeaderGen::visitArrayType(const ArrayType* type)
 {
     (void)type;
     return false;
 }
 
-inline bool TypeHeaderGen::visitSliceType(const SliceType* type)
+inline bool HeaderGen::visitSliceType(const SliceType* type)
 {
     (void)type;
     return false;
 }
 
-inline bool TypeHeaderGen::visitFunctionType(const FunctionType* type)
+inline bool HeaderGen::visitFunctionType(const FunctionType* type)
 {
     (void)type;
     return false;
 }
 
 
-inline bool TypeHeaderGen::visitImportedType(const ImportedType* type)
+inline bool HeaderGen::visitImportedType(const ImportedType* type)
 {
     (void)type;
     return false;

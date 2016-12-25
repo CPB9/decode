@@ -54,6 +54,8 @@ add_library(decode
     src/decode/parser/Package.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
+    src/decode/generator/HeaderGen.cpp
+    src/decode/generator/HeaderGen.h
     src/decode/generator/IncludeCollector.cpp
     src/decode/generator/IncludeCollector.h
     src/decode/generator/InlineSerContext.h
@@ -64,11 +66,11 @@ add_library(decode
     src/decode/generator/NameVisitor.h
     src/decode/generator/SliceNameGen.cpp
     src/decode/generator/SliceNameGen.h
+    src/decode/generator/SourceGen.cpp
+    src/decode/generator/SourceGen.h
     src/decode/generator/SrcBuilder.cpp
     src/decode/generator/SrcBuilder.h
     src/decode/generator/StringBuilder.h
-    src/decode/generator/TypeHeaderGen.cpp
-    src/decode/generator/TypeHeaderGen.h
     src/decode/generator/TypeReprGen.cpp
     src/decode/generator/TypeReprGen.h
 )
