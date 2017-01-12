@@ -1,15 +1,16 @@
 #pragma once
 
 #include "decode/Config.h"
+#include "decode/core/Rc.h"
 #include "decode/generator/NameVisitor.h"
 #include "decode/generator/SrcBuilder.h"
 
 #include <string>
-#include <deque>
+#include <vector>
 
 namespace decode {
 
-class TypeReprGen : public NameVisitor<TypeReprGen> {
+class TypeReprGen : public NameVisitor<TypeReprGen>, public RefCountable {
 public:
     TypeReprGen(SrcBuilder* dest);
     ~TypeReprGen();
@@ -22,14 +23,15 @@ public:
     bool visitSliceType(const SliceType* type);
     bool visitFunctionType(const FunctionType* type);
 
-    bool appendTypeName(const Type* type);
+    bool appendTypeName(const NamedType* type);
 private:
     void genFnPointerTypeRepr(const FunctionType* type);
 
-    bool hasPrefix;
-    SrcBuilder typeName;
-    std::deque<bool> pointers; // isConst
-    std::string arrayIndices;
-    bmcl::StringView fieldName;
+    bool _hasPrefix;
+    SrcBuilder _typeName;
+    std::vector<bool> _pointers; // isConst
+    std::string _arrayIndices;
+    bmcl::StringView _fieldName;
+    SrcBuilder* _output;
 };
 }

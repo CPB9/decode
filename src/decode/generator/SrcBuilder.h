@@ -23,6 +23,7 @@ public:
     void appendReadableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck);
     void appendWritableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck);
     void appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize);
+    void appendLoopHeader(const InlineSerContext& ctx, bmcl::StringView loopSize);
     void appendWithTryMacro(const SrcGen& func);
     void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = bmcl::StringView::empty());
     void appendLocalIncludePath(bmcl::StringView path);
@@ -32,6 +33,8 @@ public:
     template <typename... A>
     void appendInclude(A&&... args);
 
+    bmcl::StringView modName() const;
+
 private:
     bmcl::StringView _modName;
 };
@@ -39,6 +42,11 @@ private:
 inline void SrcBuilder::setModName(bmcl::StringView modName)
 {
     _modName = modName;
+}
+
+inline bmcl::StringView SrcBuilder::modName() const
+{
+    return _modName;
 }
 
 template <typename... A>

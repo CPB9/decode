@@ -2,8 +2,8 @@
 
 namespace decode {
 
-InlineTypeSerializerGen::InlineTypeSerializerGen(SrcBuilder* output)
-    : InlineTypeInspector<InlineTypeSerializerGen>(output)
+InlineTypeSerializerGen::InlineTypeSerializerGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+    : InlineTypeInspector<InlineTypeSerializerGen>(reprGen, output)
 {
 }
 
@@ -15,7 +15,7 @@ void InlineTypeSerializerGen::inspectPointer(const Type* type)
 {
     _output->appendWritableSizeCheck(context(), "sizeof(void*)");
     _output->appendIndent(context());
-    _output->append("PhotonWriter_WritePtr(dest, ");
+    _output->append("PhotonWriter_WritePtrLe(dest, ");
     appendArgumentName();
     _output->append(");\n");
 }

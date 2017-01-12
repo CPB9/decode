@@ -7,13 +7,14 @@
 #include "decode/generator/TypeReprGen.h"
 
 #include <stack>
+#include <vector>
 
 namespace decode {
 
 template <typename B>
 class InlineTypeInspector : public ConstAstVisitor<B> {
 public:
-    InlineTypeInspector(SrcBuilder* output);
+    InlineTypeInspector(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
 
     void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName);
 
@@ -46,10 +47,10 @@ protected:
 
     void appendTypeRepr(const Type* type);
 
-    std::stack<InlineSerContext> _ctxStack;
+    std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
     SrcBuilder* _output;
     std::string _argName;
-    TypeReprGen _reprGen;
+    Rc<TypeReprGen> _reprGen;
 };
 
 template <typename B>
@@ -73,7 +74,7 @@ inline const InlineSerContext& InlineTypeInspector<B>::context() const
 template <typename B>
 inline void InlineTypeInspector<B>::appendTypeRepr(const Type* type)
 {
-    _reprGen.genTypeRepr(type);
+    _reprGen->genTypeRepr(type);
 }
 
 template <typename B>
@@ -83,9 +84,9 @@ inline B& InlineTypeInspector<B>::base()
 }
 
 template <typename B>
-InlineTypeInspector<B>::InlineTypeInspector(SrcBuilder* output)
+InlineTypeInspector<B>::InlineTypeInspector(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
     : _output(output)
-    , _reprGen(output)
+    , _reprGen(reprGen)
 {
 }
 
@@ -203,9 +204,6 @@ bool InlineTypeInspector<B>::visitBuiltinType(const BuiltinType* type)
         break;
     case BuiltinTypeKind::Void:
         //TODO: disallow
-        assert(false);
-        break;
-    case BuiltinTypeKind::Unknown:
         assert(false);
         break;
     default:

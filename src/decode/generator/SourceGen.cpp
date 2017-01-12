@@ -1,12 +1,15 @@
 #include "decode/generator/SourceGen.h"
+#include "decode/generator/TypeNameGen.h"
 
 namespace decode {
 
-SourceGen::SourceGen(SrcBuilder* output)
+//TODO: refact
+
+SourceGen::SourceGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
     : _output(output)
-    , _typeReprGen(output)
-    , _inlineSer(output)
-    , _inlineDeser(output)
+    , _typeReprGen(reprGen)
+    , _inlineSer(reprGen, output)
+    , _inlineDeser(reprGen, output)
 {
 }
 
@@ -14,12 +17,13 @@ SourceGen::~SourceGen()
 {
 }
 
-void SourceGen::appendIncludes(const Type* type)
+void SourceGen::appendIncludes(const NamedType* type)
 {
     StringBuilder path = type->moduleName().toStdString();
     path.append('/');
     path.append(type->name());
     _output->appendLocalIncludePath(path.view());
+    _output->appendLocalIncludePath("core/Try");
 }
 
 void SourceGen::appendEnumSerializer(const EnumType* type)
@@ -255,6 +259,32 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
     _output->append("}\n");
 }
 
+void SourceGen::appendSliceSerializer(const SliceType* type)
+{
+    appendSerializerFuncDecl(type);
+    _output->append("\n{\n");
+    InlineSerContext ctx;
+    _output->appendLoopHeader(ctx, "self->size");
+    InlineSerContext lctx = ctx.indent();
+    _inlineSer.inspect(type->elementType().get(), lctx, "self->data[a]");
+    _output->append("    }\n");
+    _output->append("    return PhotonError_Ok;\n");
+    _output->append("}\n");
+}
+
+void SourceGen::appendSliceDeserializer(const SliceType* type)
+{
+    appendDeserializerFuncDecl(type);
+    _output->append("\n{\n");
+    InlineSerContext ctx;
+    _output->appendLoopHeader(ctx, "self->size");
+    InlineSerContext lctx = ctx.indent();
+    _inlineDeser.inspect(type->elementType().get(), lctx, "self->data[a]");
+    _output->append("    }\n");
+    _output->append("    return PhotonError_Ok;\n");
+    _output->append("}\n");
+}
+
 template <typename T, typename F>
 void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 {
@@ -263,6 +293,21 @@ void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
     (this->*serGen)(type);
     _output->appendEol();
     (this->*deserGen)(type);
+    _output->appendEol();
+}
+
+bool SourceGen::visitSliceType(const SliceType* type)
+{
+    StringBuilder path("_slices_/");
+    path.append(TypeNameGen::genTypeNameAsString(type));
+    _output->appendLocalIncludePath(path.view());
+    _output->appendLocalIncludePath("core/Try");
+    _output->appendEol();
+    appendSliceSerializer(type);
+    _output->appendEol();
+    appendSliceDeserializer(type);
+    _output->appendEol();
+    return false;
 }
 
 bool SourceGen::visitEnumType(const EnumType* type)
@@ -283,10 +328,8 @@ bool SourceGen::visitVariantType(const VariantType* type)
     return false;
 }
 
-void SourceGen::genSource(const Type* type)
+void SourceGen::genTypeSource(const Type* type)
 {
-    appendIncludes(type);
     traverseType(type);
-    _output->appendEol();
 }
 }

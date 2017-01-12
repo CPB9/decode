@@ -44,6 +44,7 @@ public:
     void removeFromBack(std::size_t size);
 
     const std::string& result() const;
+    std::string& result();
 
 private:
     template <typename F>
@@ -101,6 +102,11 @@ inline bmcl::StringView StringBuilder::view() const
 }
 
 inline const std::string& decode::StringBuilder::result() const
+{
+    return _output;
+}
+
+inline std::string& decode::StringBuilder::result()
 {
     return _output;
 }

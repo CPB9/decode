@@ -6,6 +6,7 @@
 #include "decode/parser/Decl.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Lexer.h"
+#include "decode/core/Try.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/Logging.h>
@@ -137,6 +138,7 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
     }
 #endif
     std::size_t pathSize = spath.size();
+    Parser p(diag);
 
     while (true) {
 #if defined(__linux__)
@@ -172,7 +174,7 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
             }
         }
         spath.append(name, nameSize);
-        if (!package->addFile(spath.c_str())) {
+        if (!package->addFile(spath.c_str(), &p)) {
             goto error;
         }
         spath.resize(pathSize);
@@ -328,11 +330,10 @@ void Package::addAst(const Rc<Ast>& ast)
     _modNameToAstMap.emplace(modName, ast);
 }
 
-bool Package::addFile(const char* path)
+bool Package::addFile(const char* path, Parser* p)
 {
     BMCL_DEBUG() << "reading file " << path;
-    Parser p(_diag);
-    ParseResult ast = p.parseFile(path);
+    ParseResult ast = p->parseFile(path);
     if (ast.isErr()) {
         return false;
     }
@@ -354,7 +355,7 @@ bool Package::resolveTypes(const Rc<Ast>& ast)
             continue;
         }
         for (const Rc<ImportedType>& modifiedType : import->types()) {
-            bmcl::Option<const Rc<Type>&> foundType = searchedAst->second->findTypeWithName(modifiedType->name());
+            bmcl::Option<const Rc<NamedType>&> foundType = searchedAst->second->findTypeWithName(modifiedType->name());
             if (foundType.isNone()) {
                 isOk = false;
                 //TODO: report error
@@ -457,6 +458,15 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
     return isOk;
 }
 
+bool Package::mapComponent(const Rc<Ast>& ast)
+{
+    if (ast->component().isSome()) {
+        std::size_t id = _components.size(); //TODO: make user-set
+        _components.emplace(id, ast->component().unwrap());
+    }
+    return true;
+}
+
 bool Package::resolveAll()
 {
     BMCL_DEBUG() << "resolving";
@@ -464,7 +474,7 @@ bool Package::resolveAll()
     for (const auto& modifiedAst : _modNameToAstMap) {
         isOk &= resolveTypes(modifiedAst.second);
         isOk &= resolveStatuses(modifiedAst.second);
-
+        TRY(mapComponent(modifiedAst.second));
     }
     if (!isOk) {
         BMCL_CRITICAL() << "asd";

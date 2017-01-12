@@ -1,9 +1,11 @@
 #include "decode/generator/Generator.h"
 #include "decode/generator/HeaderGen.h"
 #include "decode/generator/SourceGen.h"
+#include "decode/generator/SliceCollector.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Decl.h"
+#include "decode/parser/Component.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 
@@ -34,6 +36,7 @@ Generator::Generator(const Rc<Diagnostics>& diag)
 void Generator::setOutPath(bmcl::StringView path)
 {
     _savePath = path.toStdString();
+    _savePath.push_back('/');
 }
 
 bool Generator::makeDirectory(const char* path)
@@ -61,7 +64,7 @@ bool Generator::makeDirectory(const char* path)
     return true;
 }
 
-bool Generator::saveOutput(const char* path)
+bool Generator::saveOutput(const char* path, SrcBuilder* output)
 {
 #if defined(__linux__)
     int fd;
@@ -79,10 +82,10 @@ bool Generator::saveOutput(const char* path)
         break;
     }
 
-    std::size_t size = _output.result().size();
+    std::size_t size = output->result().size();
     std::size_t total = 0;
     while(total < size) {
-        ssize_t written = write(fd, _output.result().c_str() + total, size);
+        ssize_t written = write(fd, output->result().c_str() + total, size);
         if (written == -1) {
             if (errno == EINTR) {
                 continue;
@@ -104,43 +107,126 @@ bool Generator::saveOutput(const char* path)
         return false;
     }
     DWORD bytesWritten;
-    bool isOk = WriteFile(handle, _output.result().c_str(), _output.result().size(), &bytesWritten, NULL);
+    bool isOk = WriteFile(handle, output->result().c_str(), output->result().size(), &bytesWritten, NULL);
     if (!isOk) {
         BMCL_CRITICAL() << "error writing file";
         //TODO: report error
         return false;
     }
-    assert(_output.result().size() == bytesWritten);
+    assert(output->result().size() == bytesWritten);
 #endif
+    return true;
+}
+
+bool Generator::generateTmPrivate(const Rc<Package>& package)
+{
+    _output.clear();
+    _output.append("static PhotonTmMessageDesc messageDesc[] = {\n");
+    std::size_t statusesNum = 0;
+    for (auto it : package->components()) {
+        const bmcl::Option<Rc<Statuses>>& statuses =  it.second->statuses();
+        if (statuses.isNone()) {
+            continue;
+        }
+        for (auto jt : statuses.unwrap()->statusMap()) {
+            statusesNum++;
+            _output.appendIndent(1);
+            _output.append("{");
+            _output.append(".compNum = ");
+            _output.appendNumericValue(it.first);
+            _output.append(", .msgNum = ");
+            _output.appendNumericValue(jt.first);
+            _output.append(", .interest = ");
+            _output.appendNumericValue(0);
+            _output.append(", .priority = ");
+            _output.appendNumericValue(0);
+            _output.append(", .isAllowed = true");
+            _output.append("},\n");
+        }
+    }
+    _output.append("};\n\n");
+    _output.append("#define _PHOTON_TM_MSG_COUNT ");
+    _output.appendNumericValue(statusesNum);
+    _output.append("\n");
+
+    std::string tmDetailPath = _savePath + "/photon/TmPrivate.inc.c";
+    TRY(saveOutput(tmDetailPath.c_str(), &_output));
+
     return true;
 }
 
 bool Generator::generateFromPackage(const Rc<Package>& package)
 {
-    std::unique_ptr<HeaderGen> hgen(new HeaderGen(&_output)); //TODO: move up
-    std::unique_ptr<SourceGen> sgen(new SourceGen(&_output));
+    _photonPath.append(_savePath);
+    _photonPath.append("/photon");
+    TRY(makeDirectory(_photonPath.result().c_str()));
+    _photonPath.append('/');
+
+    Rc<TypeReprGen> reprGen = new TypeReprGen(&_output);
+    _hgen.reset(new HeaderGen(reprGen, &_output));
+    _sgen.reset(new SourceGen(reprGen, &_output));
     for (auto it : package->modules()) {
-        if (!generateFromAst(it.second, hgen.get(), sgen.get())) {
+        if (!generateTypesAndComponents(it.second)) {
             return false;
         }
     }
 
+    TRY(generateSlices());
+
+    std::string mainPath = _savePath + "/photon/Photon.c";
+    TRY(saveOutput(mainPath.c_str(), &_main));
+
+    TRY(generateTmPrivate(package));
+
+    _main.resize(0);
+    _output.resize(0);
+    _hgen.reset();
+    _sgen.reset();
+    _slices.clear();
+    _photonPath.resize(0);
     return true;
 }
 
-bool Generator::dump(const Type* type, bmcl::StringView ext, StringBuilder* currentPath)
+#define GEN_PREFIX ".gen"
+
+bool Generator::generateSlices()
+{
+    _photonPath.append("_slices_");
+    TRY(makeDirectory(_photonPath.result().c_str()));
+    _photonPath.append('/');
+
+    for (auto it : _slices) {
+        _hgen->genSliceHeader(it.second.get());
+        TRY(dump(it.first, ".h", &_photonPath));
+        _output.clear();
+
+        _sgen->genTypeSource(it.second.get());
+        TRY(dump(it.first, GEN_PREFIX ".c", &_photonPath));
+
+        if (!_output.result().empty()) {
+            _main.append("#include \"photon/_slices_/");
+            _main.appendWithFirstUpper(it.first);
+            _main.append(GEN_PREFIX ".c\"\n");
+        }
+        _output.clear();
+    }
+
+    _photonPath.removeFromBack(std::strlen("_slices_/"));
+    return true;
+}
+
+bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath)
 {
     if (!_output.result().empty()) {
-        currentPath->append(type->name());
+        currentPath->appendWithFirstUpper(name);
         currentPath->append(ext);
-        TRY(saveOutput(currentPath->result().c_str()));
-        currentPath->removeFromBack(type->name().size() + 2);
-        _output.clear();
+        TRY(saveOutput(currentPath->result().c_str(), &_output));
+        currentPath->removeFromBack(name.size() + ext.size());
     }
     return true;
 }
 
-bool Generator::generateFromAst(const Rc<Ast>& ast, HeaderGen* hgen, SourceGen* sgen)
+bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
 {
     _currentAst = ast;
     if (!ast->moduleInfo()->moduleName().equals("core")) {
@@ -149,30 +235,59 @@ bool Generator::generateFromAst(const Rc<Ast>& ast, HeaderGen* hgen, SourceGen* 
         _output.setModName(bmcl::StringView::empty());
     }
 
-    StringBuilder photonPath;
-    photonPath.append(_savePath);
-    photonPath.append("/photon");
-    TRY(makeDirectory(photonPath.result().c_str()));
-    photonPath.append('/');
-    photonPath.append(_currentAst->moduleInfo()->moduleName());
-    TRY(makeDirectory(photonPath.result().c_str()));
-    photonPath.append('/');
+    _photonPath.append(_currentAst->moduleInfo()->moduleName());
+    TRY(makeDirectory(_photonPath.result().c_str()));
+    _photonPath.append('/');
 
+    SliceCollector coll;
     for (const auto& it : ast->typeMap()) {
-        const Type* type = it.second.get();
+        coll.collectUniqueSlices(it.second.get(), &_slices);
+        const NamedType* type = it.second.get();
         if (type->typeKind() == TypeKind::Imported) {
-            return true;
+            continue;
         }
 
-        hgen->genHeader(_currentAst.get(), type);
-        TRY(dump(type, ".h", &photonPath));
+        _hgen->genTypeHeader(_currentAst.get(), type);
+        TRY(dump(type->name(), ".h", &_photonPath));
+        _output.clear();
 
-        sgen->genSource(type);
-        TRY(dump(type, ".c", &photonPath));
+        _sgen->genTypeSource(type);
+        TRY(dump(type->name(), GEN_PREFIX ".c", &_photonPath));
+
+        if (!_output.result().empty()) {
+            _main.append("#include \"photon/");
+            _main.append(type->moduleName());
+            _main.append("/");
+            _main.appendWithFirstUpper(type->name());
+            _main.append(GEN_PREFIX ".c\"\n");
+        }
+
+        _output.clear();
     }
+
+    if (ast->component().isSome()) {
+        const Rc<Component>& comp = ast->component().unwrap();
+        coll.collectUniqueSlices(comp.get(), &_slices);
+
+        _hgen->genComponentHeader(_currentAst.get(), comp.get());
+        TRY(dump(comp->moduleName(), ".Component.h", &_photonPath));
+        _output.clear();
+
+        _output.append("static Photon");
+        _output.appendWithFirstUpper(comp->moduleName());
+        _output.append(" _");
+        _output.appendWithFirstLower(comp->moduleName());
+        _output.append(';');
+        TRY(dump(comp->moduleName(), ".Component.inc.c", &_photonPath));
+        _output.clear();
+
+        //sgen->genTypeSource(type);
+        //TRY(dump(type->name(), GEN_PREFIX ".c", &photonPath));
+        _output.clear();
+    }
+    _photonPath.removeFromBack(_currentAst->moduleInfo()->moduleName().size() + 1);
 
     _currentAst = nullptr;
     return true;
 }
-
 }

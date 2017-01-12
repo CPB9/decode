@@ -9,6 +9,7 @@
 namespace decode {
 
 class Type;
+class TypeReprGen;
 
 class IncludeCollector : public ConstAstVisitor<IncludeCollector> {
 public:
@@ -18,6 +19,7 @@ public:
     bool visitStructType(const StructType* str);
     bool visitVariantType(const VariantType* variant);
     bool visitImportedType(const ImportedType* u);
+    bool visitSliceType(const SliceType* slice);
 
 private:
 

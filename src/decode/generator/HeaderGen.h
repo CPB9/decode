@@ -1,7 +1,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/parser/AstVisitor.h"
+#include "decode/generator/TypeDefGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/IncludeCollector.h"
 #include "decode/generator/TypeReprGen.h"
@@ -12,53 +12,49 @@
 
 namespace decode {
 
-class HeaderGen : public ConstAstVisitor<HeaderGen>, public SerializationFuncPrototypeGen<HeaderGen> {
+class Component;
+class FunctionType;
+
+class HeaderGen : public SerializationFuncPrototypeGen<HeaderGen> {
 public:
-    HeaderGen(SrcBuilder* output);
+    HeaderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
     ~HeaderGen();
 
-    void genHeader(const Ast* ast, const Type* type);
+    void genTypeHeader(const Ast* ast, const Type* type);
+    void genSliceHeader(const SliceType* type);
+    void genComponentHeader(const Ast* ast, const Component* type);
 
     SrcBuilder& output();
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
-    bool visitBuiltinType(const BuiltinType* type);
-    bool visitReferenceType(const ReferenceType* type);
-    bool visitArrayType(const ArrayType* type);
-    bool visitSliceType(const SliceType* type);
-    bool visitFunctionType(const FunctionType* type);
-    bool visitEnumType(const EnumType* type);
-    bool visitStructType(const StructType* type);
-    bool visitVariantType(const VariantType* type);
-    bool visitImportedType(const ImportedType* type);
-
 private:
     void appendSerializerFuncPrototypes(const Type* type);
+    void appendSerializerFuncPrototypes(const Component* comp);
 
-    template <typename T, typename F>
-    void genHeaderWithTypeDecl(const T* type, F&& declGen);
-
-    void startIncludeGuard(const Type* type);
-    void endIncludeGuard(const Type* type);
+    void startIncludeGuard(const NamedType* type);
+    void startIncludeGuard(const Component* comp);
+    void startIncludeGuard(const SliceType* type);
+    void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
+    void endIncludeGuard();
 
     void appendIncludes(const std::unordered_set<std::string>& src);
-    void appendImplBlockIncludes(const Type* topLevelType);
-    void appendIncludesAndFwdsForType(const Type* topLevelType);
+    void appendImplBlockIncludes(const NamedType* topLevelType);
+    void appendImplBlockIncludes(const Component* comp);
+    void appendIncludesAndFwds(const Type* topLevelType);
+    void appendIncludesAndFwds(const Component* comp);
     void appendCommonIncludePaths();
 
-    void appendImplFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName);
-    void appendImplFunctionPrototypes(const Type* type);
-
-    void appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::StringView name);
-    void appendFieldList(const FieldList* fields, bmcl::StringView name);
-    void appendStruct(const StructType* type);
-    void appendEnum(const EnumType* type);
-    void appendVariant(const VariantType* type);
+    void appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName);
+    void appendFunctionPrototypes(const NamedType* type);
+    void appendFunctionPrototypes(const Component* comp);
+    void appendFunctionPrototypes(const std::vector<Rc<FunctionType>>& funcs, bmcl::StringView typeName);
 
     const Ast* _ast;
     SrcBuilder* _output;
     IncludeCollector _includeCollector;
-    TypeReprGen _typeReprGen;
+    TypeDefGen _typeDefGen;
+    SrcBuilder _sliceName;
+    Rc<TypeReprGen> _typeReprGen;
 };
 
 inline SrcBuilder& HeaderGen::output()
@@ -68,44 +64,6 @@ inline SrcBuilder& HeaderGen::output()
 
 inline void HeaderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
-    _typeReprGen.genTypeRepr(type, fieldName);
+    _typeReprGen->genTypeRepr(type, fieldName);
 }
-
-inline bool HeaderGen::visitBuiltinType(const BuiltinType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool HeaderGen::visitReferenceType(const ReferenceType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool HeaderGen::visitArrayType(const ArrayType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool HeaderGen::visitSliceType(const SliceType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool HeaderGen::visitFunctionType(const FunctionType* type)
-{
-    (void)type;
-    return false;
-}
-
-
-inline bool HeaderGen::visitImportedType(const ImportedType* type)
-{
-    (void)type;
-    return false;
-}
-
 }

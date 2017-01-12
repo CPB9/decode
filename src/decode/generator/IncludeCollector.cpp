@@ -1,4 +1,6 @@
 #include "decode/generator/IncludeCollector.h"
+#include "decode/generator/SrcBuilder.h"
+#include "decode/generator/TypeNameGen.h"
 #include "decode/parser/Type.h"
 
 namespace decode {
@@ -23,8 +25,18 @@ inline bool IncludeCollector::visitVariantType(const VariantType* variant)
 
 inline bool IncludeCollector::visitImportedType(const ImportedType* u)
 {
-    //HACK: link can only be named type
-    addInclude(static_cast<const NamedType*>(u->link().get()));
+    addInclude(u->link().get());
+    return false;
+}
+
+bool IncludeCollector::visitSliceType(const SliceType* slice)
+{
+    SrcBuilder path;
+    path.append("_slices_/");
+    TypeNameGen gen(&path);
+    gen.genTypeName(slice);
+
+    _dest->insert(std::move(path.result()));
     return false;
 }
 

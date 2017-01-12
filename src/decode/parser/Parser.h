@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <unordered_map>
 
 namespace decode {
 
@@ -30,14 +31,19 @@ class ImportedType;
 class Type;
 class Report;
 class Diagnostics;
+class BuiltinType;
 class Field;
 class FieldList;
-class Parameters;
+class StructType;
 class FunctionType;
 class TypeDecl;
 class Ast;
 
+enum class BuiltinTypeKind;
+
 typedef bmcl::Result<Rc<Ast>, void> ParseResult;
+
+struct AllBuiltinTypes;
 
 class DECODE_EXPORT Parser {
 public:
@@ -97,7 +103,7 @@ private:
 
     Rc<Type> parseType();
     Rc<Type> parseFunctionPointer();
-    Rc<Type> parseReferenceOrSliceType();
+    Rc<Type> parseReferenceType();
     Rc<Type> parsePointerType();
     Rc<Type> parseNonReferenceType();
     Rc<Type> parseSliceType();
@@ -119,6 +125,8 @@ private:
 
     template <typename T>
     Rc<T> beginType();
+    template <typename T>
+    Rc<T> beginNamedType();
     template <typename T>
     void consumeAndEndType(const Rc<T>& type);
     template <typename T>
@@ -142,6 +150,7 @@ private:
     Rc<ModuleInfo> _moduleInfo;
 
     std::vector<Rc<TypeDecl>> _typeDeclStack;
+    Rc<AllBuiltinTypes> _builtinTypes;
 
     const char* _lastLineStart;
 };

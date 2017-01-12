@@ -23,9 +23,46 @@
 
 namespace decode {
 
+struct AllBuiltinTypes : public RefCountable {
+    Rc<BuiltinType> usizeType;
+    Rc<BuiltinType> isizeType;
+    Rc<BuiltinType> varuintType;
+    Rc<BuiltinType> varintType;
+    Rc<BuiltinType> u8Type;
+    Rc<BuiltinType> i8Type;
+    Rc<BuiltinType> u16Type;
+    Rc<BuiltinType> i16Type;
+    Rc<BuiltinType> u32Type;
+    Rc<BuiltinType> i32Type;
+    Rc<BuiltinType> u64Type;
+    Rc<BuiltinType> i64Type;
+    Rc<BuiltinType> boolType;
+    Rc<BuiltinType> voidType;
+    std::unordered_map<bmcl::StringView, Rc<BuiltinType>> btMap;
+};
+
+#define ADD_BUILTIN(name, type, str) \
+    _builtinTypes->name = new BuiltinType(BuiltinTypeKind::type); \
+    _builtinTypes->btMap.emplace(str, _builtinTypes->name)
+
 Parser::Parser(const Rc<Diagnostics>& diag)
     : _diag(diag)
+    , _builtinTypes(new AllBuiltinTypes)
 {
+    ADD_BUILTIN(usizeType, USize, "usize");
+    ADD_BUILTIN(isizeType, ISize, "isize");
+    ADD_BUILTIN(varuintType, Varuint, "varuint");
+    ADD_BUILTIN(varintType, Varint, "varint");
+    ADD_BUILTIN(u8Type, U8, "u8");
+    ADD_BUILTIN(i8Type, I8, "i8");
+    ADD_BUILTIN(u16Type, U16, "u16");
+    ADD_BUILTIN(i16Type, I16, "i16");
+    ADD_BUILTIN(u32Type, U32, "u32");
+    ADD_BUILTIN(i32Type, I32, "i32");
+    ADD_BUILTIN(u64Type, U64, "u64");
+    ADD_BUILTIN(i64Type, I64, "i64");
+    ADD_BUILTIN(boolType, Bool, "bool");
+    ADD_BUILTIN(voidType, Void, "void");
 }
 
 Parser::~Parser()
@@ -183,6 +220,17 @@ Rc<T> Parser::beginType()
 {
     Rc<TypeDecl> decl = beginDecl<TypeDecl>();
     Rc<T> type = new T;
+    decl->_type = type;
+    _ast->_typeToDecl.emplace(type, decl);
+    _typeDeclStack.push_back(decl);
+    return type;
+}
+
+template <typename T>
+Rc<T> Parser::beginNamedType()
+{
+    Rc<TypeDecl> decl = beginDecl<TypeDecl>();
+    Rc<T> type = new T;
     type->_moduleInfo = _moduleInfo;
     decl->_type = type;
     _ast->_typeToDecl.emplace(type, decl);
@@ -267,7 +315,7 @@ bool Parser::parseImports()
         consume();
 
         auto createImportedTypeFromCurrentToken = [this, importDecl]() {
-            Rc<ImportedType> type = beginType<ImportedType>();
+            Rc<ImportedType> type = beginNamedType<ImportedType>();
             type->_importPath = importDecl->_importPath;
             type->_name = _currentToken.value();
             importDecl->_types.push_back(type);
@@ -344,7 +392,7 @@ bool Parser::parseTopLevelDecls()
 Rc<FunctionType> Parser::parseFunction(bool selfAllowed)
 {
     TRY(expectCurrentToken(TokenKind::Fn));
-    Rc<FunctionType> fn = beginType<FunctionType>();
+    Rc<FunctionType> fn = beginNamedType<FunctionType>();
     consumeAndSkipBlanks();
 
     TRY(expectCurrentToken(TokenKind::Identifier));
@@ -445,7 +493,7 @@ bool Parser::parseImplBlock()
         return true;
     }));
 
-    bmcl::Option<const Rc<Type>&> type = _ast->findTypeWithName(block->name());
+    bmcl::Option<const Rc<NamedType>&> type = _ast->findTypeWithName(block->name());
     if (type.isNone()) {
         //TODO: report error
         BMCL_CRITICAL() << "No type found for impl block";
@@ -457,7 +505,7 @@ bool Parser::parseImplBlock()
     return true;
 }
 
-Rc<Type> Parser::parseReferenceOrSliceType()
+Rc<Type> Parser::parseReferenceType()
 {
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Ampersand));
@@ -543,7 +591,7 @@ Rc<Type> Parser::parseType()
         if (_lexer->nextIs(TokenKind::LBracket)) {
             return parseSliceType();
         }
-        return parseReferenceOrSliceType();
+        return parseReferenceType();
     case TokenKind::LBracket:
         return parseArrayType();
     case TokenKind::Identifier:
@@ -560,7 +608,7 @@ Rc<Type> Parser::parseFunctionPointer()
 {
     TRY(expectCurrentToken(TokenKind::Ampersand));
 
-    Rc<FunctionType> fn = beginType<FunctionType>();
+    Rc<FunctionType> fn = beginNamedType<FunctionType>();
 
     consume();
     TRY(expectCurrentToken(TokenKind::UpperFn));
@@ -597,10 +645,9 @@ Rc<Type> Parser::parseFunctionPointer()
 
 Rc<Type> Parser::parseSliceType()
 {
-    BMCL_CRITICAL() << "slices not supported yet";
-    return nullptr;
     TRY(expectCurrentToken(TokenKind::Ampersand));
     Rc<SliceType> ref = beginType<SliceType>();
+    ref->_moduleInfo = _moduleInfo;
     consume();
     TRY(expectCurrentToken(TokenKind::LBracket));
     consumeAndSkipBlanks();
@@ -612,6 +659,7 @@ Rc<Type> Parser::parseSliceType()
 
     ref->_elementType = innerType;
 
+    TRY(expectCurrentToken(TokenKind::RBracket));
     consumeAndEndType(ref);
     return ref;
 }
@@ -693,37 +741,19 @@ Rc<Type> Parser::findDeclaredType(bmcl::StringView name) const
 
 Rc<Type> Parser::parseBuiltinOrResolveType()
 {
-    BuiltinTypeKind kind = StringSwitch<BuiltinTypeKind>(_currentToken.value())
-        .Case("usize", BuiltinTypeKind::USize)
-        .Case("isize", BuiltinTypeKind::ISize)
-        .Case("varuint", BuiltinTypeKind::Varuint)
-        .Case("varint", BuiltinTypeKind::Varint)
-        .Case("u8", BuiltinTypeKind::U8)
-        .Case("i8", BuiltinTypeKind::I8)
-        .Case("u16", BuiltinTypeKind::U16)
-        .Case("i16", BuiltinTypeKind::I16)
-        .Case("u32", BuiltinTypeKind::U32)
-        .Case("i32", BuiltinTypeKind::I32)
-        .Case("u64", BuiltinTypeKind::U64)
-        .Case("i64", BuiltinTypeKind::I64)
-        .Case("bool", BuiltinTypeKind::Bool)
-        .Case("void", BuiltinTypeKind::Void)
-        .Default(BuiltinTypeKind::Unknown);
-
-    if (kind == BuiltinTypeKind::Unknown) {
-        Rc<Type> link = findDeclaredType(_currentToken.value());
-        if (!link) {
-            //TODO: report error
-            return nullptr;
-        }
+    auto it = _builtinTypes->btMap.find(_currentToken.value());
+    if (it != _builtinTypes->btMap.end()) {
         consume();
-        return link;
+        return it->second;
     }
-
-    Rc<BuiltinType> type = beginType<BuiltinType>();
-    type->_builtinTypeKind = kind;
-    consumeAndEndType(type);
-    return type;
+    Rc<Type> link = findDeclaredType(_currentToken.value());
+    if (!link) {
+        //TODO: report error
+        BMCL_CRITICAL() << "unknown type " << _currentToken.value().toStdString();
+        return nullptr;
+    }
+    consume();
+    return link;
 }
 
 Rc<Field> Parser::parseField()
@@ -862,7 +892,7 @@ template <typename T, bool genericAllowed, typename F>
 bool Parser::parseTag(TokenKind startToken, F&& fieldParser)
 {
     TRY(skipCommentsAndSpace());
-    Rc<T> type = beginType<T>();
+    Rc<T> type = beginNamedType<T>();
     TRY(expectCurrentToken(startToken));
 
     consume();
@@ -1048,6 +1078,8 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
     }
     return true;
 }
+
+//TODO: make component numbers explicit
 
 bool Parser::parseComponent()
 {

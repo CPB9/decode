@@ -42,7 +42,7 @@ void SrcBuilder::appendWritableSizeCheck(const InlineSerContext& ctx, std::size_
     appendWritableSizeCheck(ctx, std::to_string(size));
 }
 
-void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)
+void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, bmcl::StringView loopSize)
 {
     appendIndent(ctx);
     append("for (size_t ");
@@ -51,10 +51,15 @@ void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, std::size_t loopS
     append(" = 0; ");
     append(ctx.currentLoopVar());
     append(" < ");
-    appendNumericValue(loopSize);
+    append(loopSize);
     append("; ");
     append(ctx.currentLoopVar());
     append("++) {\n");
+}
+
+void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)
+{
+    appendLoopHeader(ctx, std::to_string(loopSize));
 }
 
 void SrcBuilder::appendWithTryMacro(const SrcGen& func)

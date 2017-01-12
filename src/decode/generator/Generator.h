@@ -6,7 +6,8 @@
 
 #include <bmcl/StringView.h>
 
-#include <unordered_set>
+#include <unordered_map>
+#include <memory>
 
 namespace decode {
 
@@ -15,7 +16,8 @@ class Diagnostics;
 class Package;
 class HeaderGen;
 class SourceGen;
-class Type;
+class NamedType;
+class SliceType;
 
 class Generator : public RefCountable {
 public:
@@ -25,17 +27,25 @@ public:
 
     bool generateFromPackage(const Rc<Package>& ast);
 private:
-    bool generateFromAst(const Rc<Ast>& ast, HeaderGen* hgen, SourceGen* sgen);
+    bool generateTypesAndComponents(const Rc<Ast>& ast);
+    bool generateSlices();
 
     bool makeDirectory(const char* path);
 
-    bool saveOutput(const char* path);
-    bool dump(const Type* type, bmcl::StringView ext, StringBuilder* currentPath);
+    bool generateTmPrivate(const Rc<Package>& package);
 
+    bool saveOutput(const char* path, SrcBuilder* output);
+    bool dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
+
+    SrcBuilder _photonPath;
     Rc<Diagnostics> _diag;
     std::string _savePath;
     SrcBuilder _output;
+    SrcBuilder _main;
     Rc<Ast> _currentAst;
+    std::unique_ptr<HeaderGen> _hgen;
+    std::unique_ptr<SourceGen> _sgen;
+    std::unordered_map<std::string, Rc<SliceType>> _slices;
 };
 
 }

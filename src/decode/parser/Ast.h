@@ -38,12 +38,12 @@ public:
         return _moduleInfo;
     }
 
-    const std::unordered_map<bmcl::StringView, Rc<Type>>& typeMap() const
+    const std::unordered_map<bmcl::StringView, Rc<NamedType>>& typeMap() const
     {
         return _typeNameToType;
     }
 
-    bmcl::Option<const Rc<Type>&> findTypeWithName(bmcl::StringView name) const
+    bmcl::Option<const Rc<NamedType>&> findTypeWithName(bmcl::StringView name) const
     {
         auto it = _typeNameToType.find(name);
         if (it == _typeNameToType.end()) {
@@ -70,7 +70,7 @@ private:
     friend class Parser;
     friend class Package;
 
-    void addTopLevelType(const Rc<Type>& type)
+    void addTopLevelType(const Rc<NamedType>& type)
     {
         _typeNameToType.emplace(type->name(), type);
     }
@@ -84,7 +84,7 @@ private:
 
     bmcl::Option<Rc<Component>> _component;
 
-    std::unordered_map<bmcl::StringView, Rc<Type>> _typeNameToType;
+    std::unordered_map<bmcl::StringView, Rc<NamedType>> _typeNameToType;
     std::unordered_map<bmcl::StringView, Rc<ImplBlock>> _typeNameToImplBlock;
     std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<Module> _moduleDecl;

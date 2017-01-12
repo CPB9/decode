@@ -1,12 +1,13 @@
-#include "decode/generator/SliceNameGen.h"
+#include "decode/generator/TypeNameGen.h"
 #include "decode/parser/Decl.h"
 
 #include <bmcl/StringView.h>
+#include <bmcl/Logging.h>
 
 namespace decode {
 
-SliceNameGen::SliceNameGen(SrcBuilder* dest)
-    : NameVisitor<SliceNameGen>(dest)
+TypeNameGen::TypeNameGen(StringBuilder* dest)
+    : _output(dest)
 {
 }
 
@@ -41,28 +42,24 @@ static bmcl::StringView builtinToName(const BuiltinType* type)
         return "Bool";
     case BuiltinTypeKind::Void:
         return "Void";
-    case BuiltinTypeKind::Unknown:
-        //FIXME: report error
-        assert(false);
-        return nullptr;
     }
 
     return nullptr;
 }
 
-inline bool SliceNameGen::visitBuiltinType(const BuiltinType* type)
+inline bool TypeNameGen::visitBuiltinType(const BuiltinType* type)
 {
     _output->append(builtinToName(type));
     return false;
 }
 
-inline bool SliceNameGen::visitArrayType(const ArrayType* type)
+inline bool TypeNameGen::visitArrayType(const ArrayType* type)
 {
     _output->append("ArrOf");
     return true;
 }
 
-bool SliceNameGen::visitReferenceType(const ReferenceType* type)
+bool TypeNameGen::visitReferenceType(const ReferenceType* type)
 {
     if (type->isMutable()) {
         _output->append("Mut");
@@ -78,22 +75,30 @@ bool SliceNameGen::visitReferenceType(const ReferenceType* type)
     return true;
 }
 
-inline bool SliceNameGen::visitSliceType(const SliceType* type)
+inline bool TypeNameGen::visitSliceType(const SliceType* type)
 {
     _output->append("SliceOf");
     return true;
 }
 
-inline bool SliceNameGen::appendTypeName(const Type* type)
+inline bool TypeNameGen::appendTypeName(const NamedType* type)
 {
     _output->appendWithFirstUpper(type->moduleName());
     _output->append(type->name());
     return false;
 }
 
-void SliceNameGen::genSliceName(const SliceType* type)
+void TypeNameGen::genTypeName(const Type* type)
 {
-    _output->appendModPrefix();
     traverseType(type);
+    BMCL_DEBUG() << _output->result();
+}
+
+std::string TypeNameGen::genTypeNameAsString(const Type* type)
+{
+    StringBuilder output;
+    TypeNameGen gen(&output);
+    gen.genTypeName(type);
+    return std::move(output.result());
 }
 }

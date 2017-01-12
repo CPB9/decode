@@ -25,7 +25,6 @@ enum class TypeKind {
 };
 
 enum class BuiltinTypeKind {
-    Unknown,
     USize,
     ISize,
     Varint,
@@ -56,13 +55,14 @@ enum class SelfArgument {
 class ArrayType;
 class SliceType;
 class StructType;
+class FunctionType;
 
 class Type : public RefCountable {
 public:
-
     const ArrayType* asArray() const;
     const SliceType* asSlice() const;
     const StructType* asStruct() const;
+    const FunctionType* asFunction() const;
 
     bool isArray() const
     {
@@ -79,24 +79,14 @@ public:
         return _typeKind == TypeKind::Struct;
     }
 
+    bool isFunction() const
+    {
+        return _typeKind == TypeKind::Function;
+    }
+
     TypeKind typeKind() const
     {
         return _typeKind;
-    }
-
-    bmcl::StringView name() const
-    {
-        return _name;
-    }
-
-    bmcl::StringView moduleName() const
-    {
-        return _moduleInfo->moduleName();
-    }
-
-    const Rc<ModuleInfo>& moduleInfo() const
-    {
-        return _moduleInfo;
     }
 
 protected:
@@ -112,18 +102,40 @@ private:
     ArrayType* asArray();
     SliceType* asSlice();
     StructType* asStruct();
+    FunctionType* asFunction();
 
-    bmcl::StringView _name;
     TypeKind _typeKind;
-    Rc<ModuleInfo> _moduleInfo;
 };
 
 class NamedType : public Type {
+public:
+    const Rc<ModuleInfo>& moduleInfo() const
+    {
+        return _moduleInfo;
+    }
+
+    bmcl::StringView moduleName() const
+    {
+        return _moduleInfo->moduleName();
+    }
+
+    bmcl::StringView name() const
+    {
+        return _name;
+    }
+
 protected:
     NamedType(TypeKind kind)
         : Type(kind)
     {
     }
+
+private:
+    friend class Parser;
+    friend class Package;
+
+    bmcl::StringView _name;
+    Rc<ModuleInfo> _moduleInfo;
 };
 
 class ReferenceType : public Type {
@@ -166,8 +178,9 @@ public:
     }
 
 protected:
-    BuiltinType()
+    BuiltinType(BuiltinTypeKind kind)
         : Type(TypeKind::Builtin)
+        , _builtinTypeKind(kind)
     {
     }
 
@@ -185,6 +198,17 @@ public:
         return _elementType;
     }
 
+    const Rc<ModuleInfo>& moduleInfo() const
+    {
+        return _moduleInfo;
+    }
+
+    bmcl::StringView moduleName() const
+    {
+        return _moduleInfo->moduleName();
+    }
+
+
 protected:
     SliceType()
         : Type(TypeKind::Slice)
@@ -194,6 +218,7 @@ protected:
 private:
     friend class Parser;
 
+    Rc<ModuleInfo> _moduleInfo;
     Rc<Type> _elementType;
 };
 
@@ -225,7 +250,7 @@ private:
 
 class ImportedType : public NamedType {
 public:
-    const Rc<Type>& link() const
+    const Rc<NamedType>& link() const
     {
         return _link;
     }
@@ -241,7 +266,7 @@ private:
     friend class Package;
 
     bmcl::StringView _importPath;
-    Rc<Type> _link;
+    Rc<NamedType> _link;
 };
 
 class FunctionType : public NamedType {
@@ -384,6 +409,12 @@ inline const StructType* Type::asStruct() const
     return static_cast<const StructType*>(this);
 }
 
+inline const FunctionType* Type::asFunction() const
+{
+    assert(isFunction());
+    return static_cast<const FunctionType*>(this);
+}
+
 inline ArrayType* Type::asArray()
 {
     assert(isArray());
@@ -400,5 +431,11 @@ inline StructType* Type::asStruct()
 {
     assert(isStruct());
     return static_cast<StructType*>(this);
+}
+
+inline FunctionType* Type::asFunction()
+{
+    assert(isFunction());
+    return static_cast<FunctionType*>(this);
 }
 }

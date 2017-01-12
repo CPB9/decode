@@ -2,8 +2,8 @@
 
 namespace decode {
 
-InlineTypeDeserializerGen::InlineTypeDeserializerGen(SrcBuilder* output)
-    : InlineTypeInspector<InlineTypeDeserializerGen>(output)
+InlineTypeDeserializerGen::InlineTypeDeserializerGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+    : InlineTypeInspector<InlineTypeDeserializerGen>(reprGen, output)
 {
 }
 
@@ -18,7 +18,7 @@ void InlineTypeDeserializerGen::inspectPointer(const Type* type)
     appendArgumentName();
     _output->append(" = (");
     appendTypeRepr(type);
-    _output->append(")PhotonReader_ReadPtr(src);\n");
+    _output->append(")PhotonReader_ReadPtrLe(src);\n");
 }
 
 void InlineTypeDeserializerGen::inspectNonInlineType(const Type* type)

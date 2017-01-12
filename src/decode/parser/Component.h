@@ -131,14 +131,15 @@ typedef std::unordered_map<std::size_t, std::vector<Rc<StatusRegexp>>> StatusMap
 
 class Statuses: public RefCountable {
 public:
-
-protected:
-    Statuses() = default;
-
     const StatusMap& statusMap() const
     {
         return _regexps;
     }
+
+
+protected:
+    Statuses() = default;
+
 
 private:
     friend class Parser;
@@ -163,6 +164,11 @@ public:
     const bmcl::Option<Rc<Statuses>>& statuses() const
     {
         return _statuses;
+    }
+
+    bmcl::StringView moduleName() const
+    {
+        return _moduleName;
     }
 
 protected:

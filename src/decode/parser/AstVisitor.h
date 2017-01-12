@@ -6,6 +6,8 @@
 
 namespace decode {
 
+//TODO: traverse impl functions
+
 template<class T> struct Ptr { typedef T* type; };
 template<class T> struct ConstPtr { typedef const T* type; };
 
@@ -15,10 +17,17 @@ typename P<T>::type ptrCast(const R* type)
     return static_cast<typename P<T>::type>(type);
 }
 
+template <template <typename> class P, typename T, typename R>
+typename P<T>::type ptrCast(R* type)
+{
+    return static_cast<typename P<T>::type>(type);
+}
+
 template <typename B, template <typename> class P>
 class AstVisitorBase {
 public:
     void traverseType(typename P<Type>::type type);
+    void traverseComponentParameters(typename P<Component>::type comp);
 
     void traverseBuiltinType(typename P<BuiltinType>::type builtin);
     void traverseArrayType(typename P<ArrayType>::type array);
@@ -410,6 +419,16 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         traverseImportedType(u);
         break;
     }
+    }
+}
+
+template <typename B, template <typename> class P>
+void AstVisitorBase<B, P>::traverseComponentParameters(typename P<Component>::type comp)
+{
+    if (comp->parameters().isSome()) {
+        for (const Rc<Field>& field : *comp->parameters().unwrap()->fields()) {
+            traverseType(field->type().get());
+        }
     }
 }
 

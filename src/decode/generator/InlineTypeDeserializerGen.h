@@ -8,7 +8,7 @@ namespace decode {
 
 class InlineTypeDeserializerGen : public InlineTypeInspector<InlineTypeDeserializerGen> {
 public:
-    InlineTypeDeserializerGen(SrcBuilder* output);
+    InlineTypeDeserializerGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
     ~InlineTypeDeserializerGen();
 
     void inspectPointer(const Type* type);

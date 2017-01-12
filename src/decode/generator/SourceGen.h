@@ -16,10 +16,10 @@ namespace decode {
 
 class SourceGen : public ConstAstVisitor<SourceGen>, public SerializationFuncPrototypeGen<SourceGen> {
 public:
-    SourceGen(SrcBuilder* output);
+    SourceGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
     ~SourceGen();
 
-    void genSource(const Type* type);
+    void genTypeSource(const Type* type);
 
     bool visitBuiltinType(const BuiltinType* type);
     bool visitReferenceType(const ReferenceType* type);
@@ -45,11 +45,13 @@ private:
     void appendStructDeserializer(const StructType* type);
     void appendVariantSerializer(const VariantType* type);
     void appendVariantDeserializer(const VariantType* type);
+    void appendSliceSerializer(const SliceType* type);
+    void appendSliceDeserializer(const SliceType* type);
 
-    void appendIncludes(const Type* type);
+    void appendIncludes(const NamedType* type);
 
     SrcBuilder* _output;
-    TypeReprGen _typeReprGen;
+    Rc<TypeReprGen> _typeReprGen;
     InlineTypeSerializerGen _inlineSer;
     InlineTypeDeserializerGen _inlineDeser;
 };
@@ -61,7 +63,7 @@ inline SrcBuilder& SourceGen::output()
 
 inline void SourceGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
-    _typeReprGen.genTypeRepr(type, fieldName);
+    _typeReprGen->genTypeRepr(type, fieldName);
 }
 
 inline bool SourceGen::visitBuiltinType(const BuiltinType* type)
@@ -77,12 +79,6 @@ inline bool SourceGen::visitReferenceType(const ReferenceType* type)
 }
 
 inline bool SourceGen::visitArrayType(const ArrayType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool SourceGen::visitSliceType(const SliceType* type)
 {
     (void)type;
     return false;

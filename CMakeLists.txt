@@ -41,17 +41,6 @@ add_library(decode
     src/decode/core/Location.h
     src/decode/core/Rc.h
     src/decode/core/StringSwitch.h
-    src/decode/parser/Ast.cpp
-    src/decode/parser/Ast.h
-    src/decode/parser/Decl.h
-    src/decode/parser/Parser.cpp
-    src/decode/parser/Parser.h
-    src/decode/parser/Lexer.cpp
-    src/decode/parser/Lexer.h
-    src/decode/parser/Span.h
-    src/decode/parser/Token.h
-    src/decode/parser/Package.cpp
-    src/decode/parser/Package.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
     src/decode/generator/HeaderGen.cpp
@@ -64,15 +53,28 @@ add_library(decode
     src/decode/generator/InlineTypeSerializerGen.cpp
     src/decode/generator/InlineTypeSerializerGen.h
     src/decode/generator/NameVisitor.h
-    src/decode/generator/SliceNameGen.cpp
-    src/decode/generator/SliceNameGen.h
     src/decode/generator/SourceGen.cpp
     src/decode/generator/SourceGen.h
     src/decode/generator/SrcBuilder.cpp
     src/decode/generator/SrcBuilder.h
     src/decode/generator/StringBuilder.h
+    src/decode/generator/TypeDefGen.cpp
+    src/decode/generator/TypeDefGen.h
+    src/decode/generator/TypeNameGen.cpp
+    src/decode/generator/TypeNameGen.h
     src/decode/generator/TypeReprGen.cpp
     src/decode/generator/TypeReprGen.h
+    src/decode/parser/Ast.cpp
+    src/decode/parser/Ast.h
+    src/decode/parser/Decl.h
+    src/decode/parser/Lexer.cpp
+    src/decode/parser/Lexer.h
+    src/decode/parser/Package.cpp
+    src/decode/parser/Package.h
+    src/decode/parser/Parser.cpp
+    src/decode/parser/Parser.h
+    src/decode/parser/Span.h
+    src/decode/parser/Token.h
 )
 
 target_link_libraries(decode zpaq)

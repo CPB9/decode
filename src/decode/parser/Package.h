@@ -7,6 +7,7 @@
 #include <bmcl/ResultFwd.h>
 
 #include <unordered_map>
+#include <map>
 
 namespace bmcl {
 class Buffer;
@@ -16,8 +17,9 @@ namespace decode {
 
 class Ast;
 class Diagnostics;
-
+class Parser;
 class Package;
+class Component;
 
 typedef bmcl::Result<Rc<Package>, void> PackageResult;
 
@@ -29,19 +31,27 @@ public:
     bmcl::Buffer encode() const;
 
     const std::unordered_map<bmcl::StringView, Rc<Ast>>& modules() const;
+    const std::map<std::size_t, Rc<Component>>& components() const;
     const Rc<Diagnostics>& diagnostics() const;
 
 private:
     Package(const Rc<Diagnostics>& diag);
-    bool addFile(const char* path);
+    bool addFile(const char* path, Parser* p);
     void addAst(const Rc<Ast>& ast);
     bool resolveAll();
     bool resolveTypes(const Rc<Ast>& ast);
     bool resolveStatuses(const Rc<Ast>& ast);
+    bool mapComponent(const Rc<Ast>& ast);
 
     Rc<Diagnostics> _diag;
     std::unordered_map<bmcl::StringView, Rc<Ast>> _modNameToAstMap;
+    std::map<std::size_t, Rc<Component>> _components;
 };
+
+inline const std::map<std::size_t, Rc<Component>>& Package::components() const
+{
+    return _components;
+}
 
 inline const std::unordered_map<bmcl::StringView, Rc<Ast>>& Package::modules() const
 {

@@ -10,7 +10,7 @@
 
 namespace decode {
 
-template <typename T>
+template <typename R>
 struct FnvHashParams;
 
 template <>
@@ -27,17 +27,16 @@ struct FnvHashParams<std::uint64_t>
     static constexpr std::uint64_t offsetBias = 14695981039346656037u;
 };
 
-template <typename T>
-T fnvHash(const void* data, std::size_t size)
+template <typename R, typename T>
+constexpr R fnvHash(const T* data, std::size_t size, R value = FnvHashParams<R>::offsetBias)
 {
-    T h = FnvHashParams<T>::offsetBias;
-    const std::uint8_t* src = (const std::uint8_t*)data;
+    return (size == 0) ? value : fnvHash<R, T>(data + 1, size - 1, (value * FnvHashParams<R>::prime) ^ R(*data));
+}
 
-    for (std::size_t i = 0; i < size; i++) {
-        h = (h * FnvHashParams<T>::prime) ^ src[i];
-    }
-
-    return h;
+template <typename R>
+constexpr R fnvHashString(const char* data, R value = FnvHashParams<R>::offsetBias)
+{
+    return (data[0] == '\0') ? value : fnvHashString<R>(data + 1, (value * FnvHashParams<R>::prime) ^ R(*data));
 }
 }
 

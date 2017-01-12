@@ -1,10 +1,12 @@
 #include "decode/generator/TypeReprGen.h"
-#include "decode/generator/SliceNameGen.h"
+#include "decode/generator/TypeNameGen.h"
+
+#include <bmcl/Logging.h>
 
 namespace decode {
 
 TypeReprGen::TypeReprGen(SrcBuilder* dest)
-    : NameVisitor<TypeReprGen>(dest)
+    : _output(dest)
 {
 }
 
@@ -43,44 +45,40 @@ static bmcl::StringView builtinToC(const BuiltinType* type)
         return "bool";
     case BuiltinTypeKind::Void:
         return "void";
-    case BuiltinTypeKind::Unknown:
-        //FIXME: report error
-        assert(false);
-        return nullptr;
     }
     return nullptr;
 }
 
 inline bool TypeReprGen::visitBuiltinType(const BuiltinType* type)
 {
-    typeName.append(builtinToC(type));
+    _typeName.append(builtinToC(type));
     return false;
 }
 
 bool TypeReprGen::visitArrayType(const ArrayType* type)
 {
-    arrayIndices.push_back('[');
-    arrayIndices.append(std::to_string(type->elementCount()));
-    arrayIndices.push_back(']');
+    _arrayIndices.push_back('[');
+    _arrayIndices.append(std::to_string(type->elementCount()));
+    _arrayIndices.push_back(']');
     return true;
 }
 
 bool TypeReprGen::visitReferenceType(const ReferenceType* type)
 {
     if (type->isMutable()) {
-        pointers.push_front(false);
+        _pointers.push_back(false);
     } else {
-        pointers.push_front(true);
+        _pointers.push_back(true);
     }
     return true;
 }
 
 bool TypeReprGen::visitSliceType(const SliceType* type)
 {
-    hasPrefix = false;
-    typeName.setModName(type->moduleName());
-    SliceNameGen sng(&typeName);
-    sng.genSliceName(type);
+    _hasPrefix = true;
+    _typeName.setModName(bmcl::StringView::empty());
+    TypeNameGen sng(&_typeName);
+    sng.genTypeName(type);
     return false;
 }
 
@@ -90,32 +88,42 @@ inline bool TypeReprGen::visitFunctionType(const FunctionType* type)
     return false;
 }
 
-inline bool TypeReprGen::appendTypeName(const Type* type)
+inline bool TypeReprGen::appendTypeName(const NamedType* type)
 {
-    hasPrefix = true;
-    typeName.setModName(type->moduleName());
-    typeName.append(type->name());
+    _hasPrefix = true;
+    if (type->moduleName() == "core") {
+        _typeName.setModName(bmcl::StringView::empty());
+    } else {
+        _typeName.setModName(type->moduleName());
+    }
+    _typeName.append(type->name());
     return false;
 }
 
 void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
-    this->fieldName = fieldName;
-    hasPrefix = false;
-    typeName.clear();
-    pointers.clear();
-    arrayIndices.clear();
+    _fieldName = fieldName;
+    if (type->isFunction()) {
+
+        genFnPointerTypeRepr(type->asFunction());
+        return;
+    }
+    _hasPrefix = false;
+    _typeName.clear();
+    _pointers.clear();
+    _arrayIndices.clear();
     traverseType(type);
 
     auto writeTypeName = [&]() {
-        if (hasPrefix) {
-            _output->appendModPrefix();
+        if (_hasPrefix) {
+            _output->append("Photon");
+            _output->appendWithFirstUpper(_typeName.modName());
         }
-        _output->append(typeName.result());
+        _output->append(_typeName.result());
     };
 
-    if (pointers.size() == 1) {
-        if (pointers[0] == true) {
+    if (_pointers.size() == 1) {
+        if (_pointers[0] == true) {
             _output->append("const ");
         }
         writeTypeName();
@@ -123,7 +131,8 @@ void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
     } else {
         writeTypeName();
 
-        for (bool isConst : pointers) {
+        for (auto it = _pointers.crbegin(); it < _pointers.crend(); it++) {
+            bool isConst  = *it;
             if (isConst) {
                 _output->append(" *const");
             } else {
@@ -135,8 +144,8 @@ void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
         _output->appendSpace();
         _output->append(fieldName.begin(), fieldName.end());
     }
-    if (!arrayIndices.empty()) {
-        _output->append(arrayIndices);
+    if (!_arrayIndices.empty()) {
+        _output->append(_arrayIndices);
     }
 }
 
@@ -157,6 +166,7 @@ void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
             break;
         }
     }
+    bmcl::StringView fieldName = _fieldName;
     if (fnStack.back()->returnValue().isSome()) {
         genTypeRepr(fnStack.back()->returnValue().unwrap().get());
     } else {
