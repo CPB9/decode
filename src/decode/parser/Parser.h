@@ -38,6 +38,7 @@ class StructType;
 class FunctionType;
 class TypeDecl;
 class Ast;
+class Constant;
 
 enum class BuiltinTypeKind;
 
@@ -81,6 +82,7 @@ private:
     bool parseComponent();
     bool parseImplBlock();
     bool parseAlias();
+    bool parseConstant();
 
     template <typename T, typename F>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);

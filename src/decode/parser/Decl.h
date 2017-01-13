@@ -96,7 +96,7 @@ private:
 
 class ImportedType;
 
-class Import : public Decl {
+class TypeImport : public Decl {
 public:
     bmcl::StringView path() const
     {
@@ -109,7 +109,7 @@ public:
     }
 
 protected:
-    Import() = default;
+    TypeImport() = default;
 
 private:
     friend class Parser;

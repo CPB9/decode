@@ -13,6 +13,7 @@
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Type.h"
 #include "decode/parser/Component.h"
+#include "decode/parser/Constant.h"
 
 #include <bmcl/FileUtils.h>
 #include <bmcl/Logging.h>
@@ -307,7 +308,7 @@ bool Parser::parseImports()
         if (_currentToken.kind() != TokenKind::Import) {
             return true;
         }
-        Rc<Import> importDecl = beginDecl<Import>();
+        Rc<TypeImport> importDecl = beginDecl<TypeImport>();
         TRY(consumeAndExpectCurrentToken(TokenKind::Blank));
         TRY(consumeAndExpectCurrentToken(TokenKind::Identifier));
         importDecl->_importPath = _currentToken.value();
@@ -379,6 +380,9 @@ bool Parser::parseTopLevelDecls()
             case TokenKind::Type:
                 TRY(parseAlias());
                 break;
+            case TokenKind::Const:
+                TRY(parseConstant());
+                break;
             //case TokenKind::Eol:
             //    return true;
             case TokenKind::Eof:
@@ -389,6 +393,45 @@ bool Parser::parseTopLevelDecls()
                 return false;
         }
     }
+    return true;
+}
+
+bool Parser::parseConstant()
+{
+    TRY(expectCurrentToken(TokenKind::Const));
+    Rc<Constant> constant = new Constant;
+    consumeAndSkipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::Identifier));
+    constant->_name = _currentToken.value();
+    consumeAndSkipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::Colon));
+    consumeAndSkipBlanks();
+
+    Rc<Type> type = parseBuiltinOrResolveType();
+    if (!type) {
+        return false;
+    }
+    if (type->typeKind() != TypeKind::Builtin) {
+        BMCL_CRITICAL() << "Constant can only be of builtin type";
+        return false;
+    }
+    constant->_type = type;
+
+    skipBlanks();
+    TRY(expectCurrentToken(TokenKind::Equality));
+    consumeAndSkipBlanks();
+
+    std::uintmax_t value;
+    TRY(parseUnsignedInteger(&value));
+    constant->_value = value;
+
+    TRY(expectCurrentToken(TokenKind::SemiColon));
+    consume();
+
+    _ast->_constants.emplace(constant->name(), constant);
+
     return true;
 }
 

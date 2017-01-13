@@ -5,7 +5,6 @@
 #include "decode/parser/Component.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeNameGen.h"
-#include <bmcl/Logging.h>
 
 #include <string>
 #include <unordered_map>
@@ -46,7 +45,6 @@ inline bool SliceCollector::visitSliceType(SliceType* slice)
     TypeNameGen gen(&_sliceName);
     gen.genTypeName(slice);
     _dest->emplace(_sliceName.result(), slice);
-    BMCL_DEBUG() << _dest->size();
     return true;
 }
 }

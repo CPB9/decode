@@ -2,7 +2,6 @@
 #include "decode/parser/Decl.h"
 
 #include <bmcl/StringView.h>
-#include <bmcl/Logging.h>
 
 namespace decode {
 
@@ -91,7 +90,6 @@ inline bool TypeNameGen::appendTypeName(const NamedType* type)
 void TypeNameGen::genTypeName(const Type* type)
 {
     traverseType(type);
-    BMCL_DEBUG() << _output->result();
 }
 
 std::string TypeNameGen::genTypeNameAsString(const Type* type)

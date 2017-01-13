@@ -5,6 +5,7 @@
 #include "decode/core/Hash.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Type.h"
+#include "decode/parser/Constant.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/Option.h>
@@ -17,18 +18,19 @@ namespace decode {
 
 class ModuleInfo;
 class Module;
-class Import;
+class TypeImport;
 class ImportedType;
 class Type;
 class TypeDecl;
 class Component;
+class Constant;
 
 class Ast : public bmcl::RefCountable<unsigned int> {
 public:
     Ast();
     ~Ast();
 
-    const std::vector<Rc<Import>>& imports() const
+    const std::vector<Rc<TypeImport>>& imports() const
     {
         return _importDecls;
     }
@@ -41,6 +43,11 @@ public:
     const std::unordered_map<bmcl::StringView, Rc<NamedType>>& typeMap() const
     {
         return _typeNameToType;
+    }
+
+    const std::unordered_map<bmcl::StringView, Rc<Constant>>& constants() const
+    {
+        return _constants;
     }
 
     bmcl::Option<const Rc<NamedType>&> findTypeWithName(bmcl::StringView name) const
@@ -81,12 +88,13 @@ private:
         _typeNameToImplBlock.emplace(block->name(), block);
     }
 
-    std::vector<Rc<Import>> _importDecls;
+    std::vector<Rc<TypeImport>> _importDecls;
 
     bmcl::Option<Rc<Component>> _component;
 
     std::unordered_map<bmcl::StringView, Rc<NamedType>> _typeNameToType;
     std::unordered_map<bmcl::StringView, Rc<ImplBlock>> _typeNameToImplBlock;
+    std::unordered_map<bmcl::StringView, Rc<Constant>> _constants;
     std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<Module> _moduleDecl;
     Rc<ModuleInfo> _moduleInfo;

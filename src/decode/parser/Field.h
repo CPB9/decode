@@ -13,7 +13,7 @@ namespace decode {
 
 class Type;
 
-enum VariantFieldKind {
+enum class VariantFieldKind {
     Constant,
     Tuple,
     Struct

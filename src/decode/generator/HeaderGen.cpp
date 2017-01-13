@@ -4,6 +4,8 @@
 
 namespace decode {
 
+//TODO: refact
+
 HeaderGen::HeaderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
     : _output(output)
     , _typeDefGen(reprGen, output)

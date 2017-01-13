@@ -6,6 +6,7 @@
 #include "decode/parser/Package.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Component.h"
+#include "decode/parser/Constant.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 
@@ -285,6 +286,22 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
         //TRY(dump(type->name(), GEN_PREFIX ".c", &photonPath));
         _output.clear();
     }
+
+    if (!ast->constants().empty()) {
+        _hgen->startIncludeGuard(ast->moduleInfo()->moduleName(), "CONSTANTS");
+        for (auto it : ast->constants()) {
+            _output.append("#define PHOTON_");
+            _output.append(it.second->name());
+            _output.append(" ");
+            _output.appendNumericValue(it.second->value());
+            _output.appendEol();
+        }
+        _output.appendEol();
+        _hgen->endIncludeGuard();
+        TRY(dump(ast->moduleInfo()->moduleName(), ".Constants.h", &_photonPath));
+        _output.clear();
+    }
+
     _photonPath.removeFromBack(_currentAst->moduleInfo()->moduleName().size() + 1);
 
     _currentAst = nullptr;

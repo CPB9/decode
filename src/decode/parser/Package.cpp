@@ -347,7 +347,7 @@ bool Package::addFile(const char* path, Parser* p)
 bool Package::resolveTypes(const Rc<Ast>& ast)
 {
     bool isOk = true;
-    for (const Rc<Import>& import : ast->imports()) {
+    for (const Rc<TypeImport>& import : ast->imports()) {
         auto searchedAst = _modNameToAstMap.find(import->path().toStdString());
         if (searchedAst == _modNameToAstMap.end()) {
             isOk = false;

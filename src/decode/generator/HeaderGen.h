@@ -27,6 +27,9 @@ public:
     SrcBuilder& output();
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
+    void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
+    void endIncludeGuard();
+
 private:
     void appendSerializerFuncPrototypes(const Type* type);
     void appendSerializerFuncPrototypes(const Component* comp);
@@ -34,8 +37,6 @@ private:
     void startIncludeGuard(const NamedType* type);
     void startIncludeGuard(const Component* comp);
     void startIncludeGuard(const SliceType* type);
-    void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
-    void endIncludeGuard();
 
     void appendIncludes(const std::unordered_set<std::string>& src);
     void appendImplBlockIncludes(const NamedType* topLevelType);
