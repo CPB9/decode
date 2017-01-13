@@ -30,6 +30,7 @@ public:
     bool visitStructType(const StructType* type);
     bool visitVariantType(const VariantType* type);
     bool visitImportedType(const ImportedType* type);
+    bool visitAliasType(const AliasType* type);
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
@@ -92,6 +93,12 @@ inline bool SourceGen::visitFunctionType(const FunctionType* type)
 
 
 inline bool SourceGen::visitImportedType(const ImportedType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool SourceGen::visitAliasType(const AliasType* type)
 {
     (void)type;
     return false;

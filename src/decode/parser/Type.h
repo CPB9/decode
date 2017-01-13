@@ -22,6 +22,7 @@ enum class TypeKind {
     Struct,
     Variant,
     Imported,
+    Alias,
 };
 
 enum class BuiltinTypeKind {
@@ -136,6 +137,25 @@ private:
 
     bmcl::StringView _name;
     Rc<ModuleInfo> _moduleInfo;
+};
+
+class AliasType : public NamedType {
+public:
+    const Rc<Type>& alias() const
+    {
+        return _alias;
+    }
+
+protected:
+    AliasType()
+        : NamedType(TypeKind::Alias)
+    {
+    }
+
+private:
+    friend class Parser;
+
+    Rc<Type> _alias;
 };
 
 class ReferenceType : public Type {

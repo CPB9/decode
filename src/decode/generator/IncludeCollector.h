@@ -20,6 +20,7 @@ public:
     bool visitVariantType(const VariantType* variant);
     bool visitImportedType(const ImportedType* u);
     bool visitSliceType(const SliceType* slice);
+    bool visitAliasType(const AliasType* alias);
 
 private:
 

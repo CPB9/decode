@@ -189,4 +189,21 @@ void TypeDefGen::appendVariant(const VariantType* type)
     _output->appendTagFooter(type->name());
     _output->appendEol();
 }
+
+bool TypeDefGen::visitAliasType(const AliasType* type)
+{
+    _output->append("typedef ");
+    const Type* link = type->alias().get();
+    if (link->isFunction()) {
+        StringBuilder typedefName = "Photon";
+        typedefName.append(type->name());
+        _typeReprGen->genTypeRepr(link, typedefName.result());
+    } else {
+        _typeReprGen->genTypeRepr(link);
+        _output->append(" Photon");
+        _output->append(type->name());
+    }
+    _output->append(";\n\n");
+    return false;
+}
 }

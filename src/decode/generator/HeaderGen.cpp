@@ -22,6 +22,7 @@ void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
     case TypeKind::Enum:
     case TypeKind::Struct:
     case TypeKind::Variant:
+    case TypeKind::Alias:
         namedType = static_cast<const NamedType*>(type);
         break;
     default:
@@ -34,9 +35,11 @@ void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
     appendIncludesAndFwds(type);
     appendCommonIncludePaths();
     _typeDefGen.genTypeDef(type);
-    appendImplBlockIncludes(namedType);
-    appendFunctionPrototypes(namedType);
-    appendSerializerFuncPrototypes(namedType);
+    if (type->typeKind() != TypeKind::Alias) {
+        appendImplBlockIncludes(namedType);
+        appendFunctionPrototypes(namedType);
+        appendSerializerFuncPrototypes(namedType);
+    }
     endIncludeGuard();
 }
 

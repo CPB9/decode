@@ -72,7 +72,8 @@ private:
 
     void addTopLevelType(const Rc<NamedType>& type)
     {
-        _typeNameToType.emplace(type->name(), type);
+        auto it = _typeNameToType.emplace(type->name(), type);
+        assert(it.second); //TODO: check for top level type name conflicts
     }
 
     void addImplBlock(const Rc<ImplBlock>& block)

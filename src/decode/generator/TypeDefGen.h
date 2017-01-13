@@ -31,6 +31,7 @@ public:
     bool visitStructType(const StructType* type);
     bool visitVariantType(const VariantType* type);
     bool visitImportedType(const ImportedType* type);
+    bool visitAliasType(const AliasType* type);
 
 private:
     void appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::StringView name);
@@ -67,10 +68,10 @@ inline bool TypeDefGen::visitFunctionType(const FunctionType* type)
     return false;
 }
 
-
 inline bool TypeDefGen::visitImportedType(const ImportedType* type)
 {
     (void)type;
     return false;
 }
+
 }

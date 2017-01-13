@@ -45,6 +45,7 @@ enum class TokenKind {
     Struct,
     Enum,
     Variant,
+    Type,
     Component,
     Parameters,
     Statuses,

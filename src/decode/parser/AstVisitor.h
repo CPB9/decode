@@ -38,6 +38,7 @@ public:
     void traverseStructType(typename P<StructType>::type str);
     void traverseVariantType(typename P<VariantType>::type variant);
     void traverseImportedType(typename P<ImportedType>::type u);
+    void traverseAliasType(typename P<AliasType>::type alias);
 
     void traverseVariantField(typename P<VariantField>::type field);
     void traverseConstantVariantField(typename P<ConstantVariantField>::type field);
@@ -60,6 +61,7 @@ protected:
     bool visitStructType(typename P<StructType>::type str);
     bool visitVariantType(typename P<VariantType>::type variant);
     bool visitImportedType(typename P<ImportedType>::type u);
+    bool visitAliasType(typename P<AliasType>::type alias);
 
     bool visitVariantField(typename P<VariantField>::type field);
     bool visitConstantVariantField(typename P<ConstantVariantField>::type field);
@@ -143,6 +145,13 @@ inline bool AstVisitorBase<B, P>::visitImportedType(typename P<ImportedType>::ty
 }
 
 template <typename B, template <typename> class P>
+inline bool AstVisitorBase<B, P>::visitAliasType(typename P<AliasType>::type alias)
+{
+    (void)alias;
+    return true;
+}
+
+template <typename B, template <typename> class P>
 inline bool AstVisitorBase<B, P>::visitVariantField(typename P<VariantField>::type field)
 {
     (void)field;
@@ -217,6 +226,11 @@ void AstVisitorBase<B, P>::ascendTypeOnce(typename P<Type>::type type)
     case TypeKind::Imported: {
         typename P<ImportedType>::type u = ptrCast<P, ImportedType>(type);
         base().visitImportedType(u);
+        break;
+    }
+    case TypeKind::Alias: {
+        typename P<AliasType>::type alias = ptrCast<P, AliasType>(type);
+        base().visitAliasType(alias);
         break;
     }
     }
@@ -371,6 +385,15 @@ void AstVisitorBase<B, P>::traverseImportedType(typename P<ImportedType>::type u
 }
 
 template <typename B, template <typename> class P>
+void AstVisitorBase<B, P>::traverseAliasType(typename P<AliasType>::type alias)
+{
+    if (!base().visitAliasType(alias)) {
+        return;
+    }
+    traverseType(alias->alias().get());
+}
+
+template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
 {
     switch (type->typeKind()) {
@@ -417,6 +440,11 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
     case TypeKind::Imported: {
         typename P<ImportedType>::type u = ptrCast<P, ImportedType>(type);
         traverseImportedType(u);
+        break;
+    }
+    case TypeKind::Alias: {
+        typename P<AliasType>::type alias = ptrCast<P, AliasType>(type);
+        traverseAliasType(alias);
         break;
     }
     }

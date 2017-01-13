@@ -16,6 +16,7 @@ public:
     bool visitStructType(const StructType* type);
     bool visitVariantType(const VariantType* type);
     bool visitImportedType(const ImportedType* type);
+    bool visitAliasType(const AliasType* type);
 
 protected:
 
@@ -56,5 +57,11 @@ template <typename B>
 inline bool NameVisitor<B>::visitImportedType(const ImportedType* type)
 {
     return base().appendTypeName(type->link().get());
+}
+
+template <typename B>
+inline bool NameVisitor<B>::visitAliasType(const AliasType* type)
+{
+    return base().appendTypeName(type);
 }
 }

@@ -80,6 +80,7 @@ private:
     bool parseVariant();
     bool parseComponent();
     bool parseImplBlock();
+    bool parseAlias();
 
     template <typename T, typename F>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);

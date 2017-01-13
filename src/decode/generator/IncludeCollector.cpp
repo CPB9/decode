@@ -29,6 +29,12 @@ inline bool IncludeCollector::visitImportedType(const ImportedType* u)
     return false;
 }
 
+inline bool IncludeCollector::visitAliasType(const AliasType* alias)
+{
+    addInclude(alias);
+    return false;
+}
+
 bool IncludeCollector::visitSliceType(const SliceType* slice)
 {
     SrcBuilder path;

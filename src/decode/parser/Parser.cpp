@@ -376,6 +376,9 @@ bool Parser::parseTopLevelDecls()
             case TokenKind::Impl:
                 TRY(parseImplBlock());
                 break;
+            case TokenKind::Type:
+                TRY(parseAlias());
+                break;
             //case TokenKind::Eol:
             //    return true;
             case TokenKind::Eof:
@@ -501,6 +504,38 @@ bool Parser::parseImplBlock()
     }
 
     _ast->addImplBlock(block);
+
+    return true;
+}
+
+bool Parser::parseAlias()
+{
+    TRY(skipCommentsAndSpace());
+    TRY(expectCurrentToken(TokenKind::Type));
+
+    Rc<AliasType> type = beginType<AliasType>();
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Identifier));
+    type->_name = _currentToken.value();
+
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Equality));
+
+    consumeAndSkipBlanks();
+
+    Rc<Type> link = parseType();
+    if (!type) {
+        return false;
+    }
+
+    type->_alias = link;
+    type->_moduleInfo = _moduleInfo;
+    skipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::SemiColon));
+    consume();
+
+    _ast->addTopLevelType(type);
 
     return true;
 }

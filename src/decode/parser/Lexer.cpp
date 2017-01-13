@@ -34,10 +34,11 @@ KEYWORD_RULE(Import,     "import");
 KEYWORD_RULE(Struct,     "struct");
 KEYWORD_RULE(Enum,       "enum");
 KEYWORD_RULE(Variant,    "variant");
+KEYWORD_RULE(Type,       "type");
 KEYWORD_RULE(Component,  "component");
 KEYWORD_RULE(Parameters, "parameters");
 KEYWORD_RULE(Statuses,   "statuses");
-KEYWORD_RULE(Commands,    "commands");
+KEYWORD_RULE(Commands,   "commands");
 KEYWORD_RULE(Mut,        "mut");
 KEYWORD_RULE(Const,      "const");
 KEYWORD_RULE(Impl,       "impl");
@@ -171,6 +172,7 @@ struct Grammar
                  Self,
                  Enum,
                  Variant,
+                 Type,
                  Component,
                  Parameters,
                  Statuses,
@@ -234,6 +236,7 @@ RULE_TO_TOKEN(Self);
 RULE_TO_TOKEN(Struct);
 RULE_TO_TOKEN(Enum);
 RULE_TO_TOKEN(Variant);
+RULE_TO_TOKEN(Type);
 RULE_TO_TOKEN(Component);
 RULE_TO_TOKEN(Parameters);
 RULE_TO_TOKEN(Statuses);

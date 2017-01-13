@@ -28,6 +28,7 @@ public:
     bool visitVariantType(const VariantType* type);
     bool visitSliceType(const SliceType* type);
     bool visitBuiltinType(const BuiltinType* type);
+    bool visitAliasType(const AliasType* type);
 
     void inspectPointer(const Type* type);
     void inspectNonInlineType(const Type* type);
@@ -156,6 +157,13 @@ template <typename B>
 inline bool InlineTypeInspector<B>::visitSliceType(const SliceType* type)
 {
     base().inspectNonInlineType(type);
+    return false;
+}
+
+template <typename B>
+inline bool InlineTypeInspector<B>::visitAliasType(const AliasType* type)
+{
+    base().traverseType(type->alias().get());
     return false;
 }
 
