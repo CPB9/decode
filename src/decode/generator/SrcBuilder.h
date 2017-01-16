@@ -29,6 +29,8 @@ public:
     void appendLocalIncludePath(bmcl::StringView path);
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
+    void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
+    void endIncludeGuard();
 
     template <typename... A>
     void appendInclude(A&&... args);

@@ -35,6 +35,18 @@ void libzpaq::error(const char* msg)
 
 namespace decode {
 
+//TODO: move to Component.c
+
+ComponentAndMsg::ComponentAndMsg(const Rc<Component>& component, const Rc<StatusMsg>& msg)
+    : component(component)
+    , msg(msg)
+{
+}
+
+ComponentAndMsg::~ComponentAndMsg()
+{
+}
+
 class ZpaqReader : public libzpaq::Reader {
 public:
     ZpaqReader(const bmcl::Buffer& buf)
@@ -93,6 +105,10 @@ const std::size_t suffixSize = sizeof(DECODE_SUFFIX) - 1;
 
 Package::Package(const Rc<Diagnostics>& diag)
     : _diag(diag)
+{
+}
+
+Package::~Package()
 {
 }
 
@@ -387,7 +403,7 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
         return true;
     }
 
-    StatusMap& map = statuses.unwrap()->_regexps;
+    StatusMap& map = statuses.unwrap()->_statusMap;
     const bmcl::Option<Rc<Parameters>>& params = comp.unwrap()->parameters();
     if (params.isNone() && !map.empty()) {
         //TODO: report error
@@ -395,7 +411,8 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
     }
 
     for (auto it : map) {
-        for (const Rc<StatusRegexp>& re : it.second) {
+        _statusMsgs.emplace_back(comp.unwrap(), it.second);
+        for (const Rc<StatusRegexp>& re : it.second->parts()) {
 
             Rc<FieldList> fields = params.unwrap()->fields();
             Rc<Type> lastType;
@@ -461,7 +478,8 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
 bool Package::mapComponent(const Rc<Ast>& ast)
 {
     if (ast->component().isSome()) {
-        std::size_t id = _components.size(); //TODO: make user-set
+        std::size_t id = _components.size(); //FIXME: make user-set
+        ast->component().unwrap()->_number = id;
         _components.emplace(id, ast->component().unwrap());
     }
     return true;

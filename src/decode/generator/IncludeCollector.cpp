@@ -2,6 +2,9 @@
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeNameGen.h"
 #include "decode/parser/Type.h"
+#include "decode/parser/Component.h"
+
+#include <bmcl/Logging.h>
 
 namespace decode {
 
@@ -48,13 +51,36 @@ bool IncludeCollector::visitSliceType(const SliceType* slice)
 
 void IncludeCollector::addInclude(const NamedType* type)
 {
-    if (_currentType == type) {
-        return;
-    }
     std::string path = type->moduleName().toStdString();
     path.push_back('/');
     path.append(type->name().begin(), type->name().end());
     _dest->insert(std::move(path));
+}
+
+void IncludeCollector::collectIncludesAndFwdsForMsg(const StatusMsg* msg, std::unordered_set<std::string>* dest)
+{
+    _dest = dest;
+    //FIXME: visit only first accessor in every part
+    for (const Rc<StatusRegexp>& part : msg->parts()) {
+        for (const Rc<Accessor>& acc : part->accessors()) {
+            switch (acc->accessorKind()) {
+            case AccessorKind::Field: {
+                auto facc = static_cast<const FieldAccessor*>(acc.get());
+                _currentType = facc->field()->type().get();
+                traverseType(_currentType);
+                break;
+            }
+            case AccessorKind::Subscript: {
+                auto sacc = static_cast<const SubscriptAccessor*>(acc.get());
+                _currentType = sacc->type().get();
+                traverseType(_currentType);
+                break;
+            }
+            default:
+                assert(false);
+            }
+        }
+    }
 }
 
 void IncludeCollector::collectIncludesAndFwdsForType(const Type* type, std::unordered_set<std::string>* dest)

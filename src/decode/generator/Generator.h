@@ -18,6 +18,7 @@ class HeaderGen;
 class SourceGen;
 class NamedType;
 class SliceType;
+class TypeReprGen;
 
 class Generator : public RefCountable {
 public:
@@ -29,10 +30,10 @@ public:
 private:
     bool generateTypesAndComponents(const Rc<Ast>& ast);
     bool generateSlices();
+    bool generateStatusMessages(const Rc<Package>& package);
+    bool generateTmPrivate(const Rc<Package>& package);
 
     bool makeDirectory(const char* path);
-
-    bool generateTmPrivate(const Rc<Package>& package);
 
     bool saveOutput(const char* path, SrcBuilder* output);
     bool dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
@@ -45,6 +46,7 @@ private:
     Rc<Ast> _currentAst;
     std::unique_ptr<HeaderGen> _hgen;
     std::unique_ptr<SourceGen> _sgen;
+    Rc<TypeReprGen> _reprGen;
     std::unordered_map<std::string, Rc<SliceType>> _slices;
 };
 

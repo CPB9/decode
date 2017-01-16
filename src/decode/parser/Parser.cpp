@@ -776,6 +776,7 @@ bool Parser::parseUnsignedInteger(std::uintmax_t* dest)
     //TODO: check for target overflow
     if (errno == ERANGE) {
          errno = 0;
+         BMCL_CRITICAL() << "invalid number";
          // TODO: report range error
          return false;
     }
@@ -1074,7 +1075,8 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
     Rc<Statuses> statuses = parseNamelessTag<Statuses>(TokenKind::Statuses, TokenKind::Comma, [this, parent](const Rc<Statuses>& statuses) -> bool {
         uintmax_t n;
         TRY(parseUnsignedInteger(&n));
-        auto pair = statuses->_regexps.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple());
+        StatusMsg* msg = new StatusMsg(n);
+        auto pair = statuses->_statusMap.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple(msg));
         if (!pair.second) {
             BMCL_CRITICAL() << "redefinition of status param";
             return false;
@@ -1101,13 +1103,12 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
                     uintmax_t m;
                     if (currentTokenIs(TokenKind::Number) && _lexer->nextIs(TokenKind::RBracket)) {
                         TRY(parseUnsignedInteger(&m));
-                        acc->_subscript = bmcl::Either<Range, uintmax_t>(m);
+                        acc->_subscript = bmcl::Either<Range, uintmax_t>(bmcl::InPlaceSecond, m);
                     } else {
-                        acc->_subscript = bmcl::Either<Range, uintmax_t>(bmcl::InPlaceSecond);
+                        acc->_subscript = bmcl::Either<Range, uintmax_t>(bmcl::InPlaceFirst);
                         if (currentTokenIs(TokenKind::Number)) {
                             TRY(parseUnsignedInteger(&m));
-                            acc->_subscript.unwrapFirst()._lowerBound = m;
-                            consume();
+                            acc->_subscript.unwrapFirst().lowerBound.emplace(m);
                         }
 
                         TRY(expectCurrentToken(TokenKind::DoubleDot));
@@ -1115,8 +1116,7 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
 
                         if (currentTokenIs(TokenKind::Number)) {
                             TRY(parseUnsignedInteger(&m));
-                            acc->_subscript.unwrapFirst()._upperBound = m;
-                            consume();
+                            acc->_subscript.unwrapFirst().upperBound.emplace(m);
                         }
                     }
 
@@ -1127,10 +1127,10 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
 
 
                 }
+                skipCommentsAndSpace();
                 if (currentTokenIs(TokenKind::Comma) || currentTokenIs(TokenKind::RBrace)) {
                     break;
                 } else if (currentTokenIs(TokenKind::Dot)) {
-
                     consume();
                 }
             }
@@ -1139,11 +1139,11 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
             }
             return true;
         };
-        std::vector<Rc<StatusRegexp>>& regexps = pair.first->second;
+        std::vector<Rc<StatusRegexp>>& parts = pair.first->second->_parts;
         if (currentTokenIs(TokenKind::LBrace)) {
-            TRY(parseBraceList(&regexps, parseOneRegexp));
+            TRY(parseBraceList(&parts, parseOneRegexp));
         } else if (currentTokenIs(TokenKind::Identifier)) {
-            TRY(parseOneRegexp(&regexps));
+            TRY(parseOneRegexp(&parts));
         }
         return true;
     });

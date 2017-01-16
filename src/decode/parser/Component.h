@@ -3,6 +3,10 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
+#include <bmcl/Either.h>
+
+#include <unordered_map>
+
 namespace decode {
 
 class Parameters: public RefCountable {
@@ -67,12 +71,9 @@ private:
     AccessorKind _accessorKind;
 };
 
-class Range {
-private:
-    friend class Parser;
-
-    bmcl::Option<uintmax_t> _lowerBound;
-    bmcl::Option<uintmax_t> _upperBound;
+struct Range {
+    bmcl::Option<uintmax_t> lowerBound;
+    bmcl::Option<uintmax_t> upperBound;
 };
 
 class FieldAccessor : public Accessor {
@@ -81,6 +82,11 @@ public:
     bmcl::StringView value() const
     {
         return _value;
+    }
+
+    const Rc<Field>& field() const
+    {
+        return _field;
     }
 
 protected:
@@ -100,6 +106,16 @@ private:
 class SubscriptAccessor : public Accessor {
 public:
 
+    const Rc<Type>& type() const
+    {
+        return _type;
+    }
+
+    const bmcl::Either<Range, uintmax_t>& subscript() const
+    {
+        return _subscript;
+    }
+
 protected:
     SubscriptAccessor()
         : Accessor(AccessorKind::Subscript)
@@ -117,6 +133,11 @@ private:
 
 class StatusRegexp : public RefCountable {
 public:
+    const std::vector<Rc<Accessor>>& accessors() const
+    {
+        return _accessors;
+    }
+
 protected:
     StatusRegexp() = default;
 
@@ -127,15 +148,40 @@ private:
     std::vector<Rc<Accessor>> _accessors;
 };
 
-typedef std::unordered_map<std::size_t, std::vector<Rc<StatusRegexp>>> StatusMap;
+class StatusMsg : public RefCountable {
+public:
+    std::size_t number() const
+    {
+        return _number;
+    }
+
+    const std::vector<Rc<StatusRegexp>>& parts() const
+    {
+        return _parts;
+    }
+
+protected:
+    StatusMsg(std::size_t num)
+        : _number(num)
+    {
+    }
+
+private:
+    friend class Parser;
+    friend class Package;
+
+    std::vector<Rc<StatusRegexp>> _parts;
+    std::size_t _number;
+};
+
+typedef std::unordered_map<std::size_t, Rc<StatusMsg>> StatusMap;
 
 class Statuses: public RefCountable {
 public:
     const StatusMap& statusMap() const
     {
-        return _regexps;
+        return _statusMap;
     }
-
 
 protected:
     Statuses() = default;
@@ -145,7 +191,7 @@ private:
     friend class Parser;
     friend class Package;
 
-    StatusMap _regexps;
+    StatusMap _statusMap;
 };
 
 class Component : public RefCountable {
@@ -171,18 +217,31 @@ public:
         return _moduleName;
     }
 
+    std::size_t number() const
+    {
+        return _number;
+    }
+
 protected:
     Component() = default;
 
 private:
     friend class Parser;
+    friend class Package;
 
     bmcl::Option<Rc<Parameters>> _params;
     bmcl::Option<Rc<Commands>> _cmds;
     bmcl::Option<Rc<Statuses>> _statuses;
     bmcl::StringView _moduleName;
+    std::size_t _number;
 };
 
+struct ComponentAndMsg {
+    ComponentAndMsg(const Rc<Component>& component, const Rc<StatusMsg>& msg);
+    ~ComponentAndMsg();
 
+    Rc<Component> component;
+    Rc<StatusMsg> msg;
+};
 }
 

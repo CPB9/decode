@@ -2,6 +2,7 @@
 #include "decode/generator/HeaderGen.h"
 #include "decode/generator/SourceGen.h"
 #include "decode/generator/SliceCollector.h"
+#include "decode/generator/StatusEncoderGen.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Decl.h"
@@ -124,34 +125,31 @@ bool Generator::generateTmPrivate(const Rc<Package>& package)
     _output.clear();
     _output.append("static PhotonTmMessageDesc messageDesc[] = {\n");
     std::size_t statusesNum = 0;
-    for (auto it : package->components()) {
-        const bmcl::Option<Rc<Statuses>>& statuses =  it.second->statuses();
-        if (statuses.isNone()) {
-            continue;
-        }
-        for (auto jt : statuses.unwrap()->statusMap()) {
-            statusesNum++;
-            _output.appendIndent(1);
-            _output.append("{");
-            _output.append(".compNum = ");
-            _output.appendNumericValue(it.first);
-            _output.append(", .msgNum = ");
-            _output.appendNumericValue(jt.first);
-            _output.append(", .interest = ");
-            _output.appendNumericValue(0);
-            _output.append(", .priority = ");
-            _output.appendNumericValue(0);
-            _output.append(", .isAllowed = true");
-            _output.append("},\n");
-        }
+    for (const ComponentAndMsg& msg : package->statusMsgs()) {
+        _output.appendIndent(1);
+        _output.append("{");
+        _output.append(".func = ");
+        _hgen->appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
+        _output.append(", .compNum = ");
+        _output.appendNumericValue(msg.component->number());
+        _output.append(", .msgNum = ");
+        _output.appendNumericValue(msg.msg->number());
+        _output.append(", .interest = ");
+        _output.appendNumericValue(0);
+        _output.append(", .priority = ");
+        _output.appendNumericValue(0);
+        _output.append(", .isAllowed = true");
+        _output.append("},\n");
+        statusesNum++;
     }
     _output.append("};\n\n");
     _output.append("#define _PHOTON_TM_MSG_COUNT ");
     _output.appendNumericValue(statusesNum);
     _output.append("\n");
 
-    std::string tmDetailPath = _savePath + "/photon/TmPrivate.inc.c";
+    std::string tmDetailPath = _savePath + "/photon/Tm.Private.inc.c";
     TRY(saveOutput(tmDetailPath.c_str(), &_output));
+    _output.clear();
 
     return true;
 }
@@ -163,9 +161,9 @@ bool Generator::generateFromPackage(const Rc<Package>& package)
     TRY(makeDirectory(_photonPath.result().c_str()));
     _photonPath.append('/');
 
-    Rc<TypeReprGen> reprGen = new TypeReprGen(&_output);
-    _hgen.reset(new HeaderGen(reprGen, &_output));
-    _sgen.reset(new SourceGen(reprGen, &_output));
+    _reprGen = new TypeReprGen(&_output);
+    _hgen.reset(new HeaderGen(_reprGen, &_output));
+    _sgen.reset(new SourceGen(_reprGen, &_output));
     for (auto it : package->modules()) {
         if (!generateTypesAndComponents(it.second)) {
             return false;
@@ -174,15 +172,18 @@ bool Generator::generateFromPackage(const Rc<Package>& package)
 
     TRY(generateSlices());
 
+    TRY(generateTmPrivate(package));
+    TRY(generateStatusMessages(package));
+
     std::string mainPath = _savePath + "/photon/Photon.c";
     TRY(saveOutput(mainPath.c_str(), &_main));
 
-    TRY(generateTmPrivate(package));
 
     _main.resize(0);
     _output.resize(0);
     _hgen.reset();
     _sgen.reset();
+    _reprGen.reset();
     _slices.clear();
     _photonPath.resize(0);
     return true;
@@ -213,6 +214,21 @@ bool Generator::generateSlices()
     }
 
     _photonPath.removeFromBack(std::strlen("_slices_/"));
+    return true;
+}
+
+bool Generator::generateStatusMessages(const Rc<Package>& package)
+{
+    StatusEncoderGen gen(_reprGen, &_output);
+    gen.generateHeader(package->statusMsgs());
+    TRY(dump("StatusEncoder.Private", ".h", &_photonPath));
+    _output.clear();
+
+    gen.generateSource(package->statusMsgs());
+    TRY(dump("StatusEncoder.Private", ".c", &_photonPath));
+    _output.clear();
+
+    _main.append("#include \"photon/StatusEncoder.Private.c\"\n");
     return true;
 }
 
@@ -274,7 +290,7 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
         TRY(dump(comp->moduleName(), ".Component.h", &_photonPath));
         _output.clear();
 
-        _output.append("static Photon");
+        _output.append("Photon");
         _output.appendWithFirstUpper(comp->moduleName());
         _output.append(" _");
         _output.appendWithFirstLower(comp->moduleName());

@@ -54,6 +54,11 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     appendIncludesAndFwds(comp);
     appendCommonIncludePaths();
     _typeDefGen.genComponentDef(comp);
+    _output->append("extern Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append(" _");
+    _output->append(comp->moduleName());
+    _output->append(";\n\n");
     appendImplBlockIncludes(comp);
     appendFunctionPrototypes(comp);
     appendSerializerFuncPrototypes(comp);
@@ -89,39 +94,27 @@ void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
 
 void HeaderGen::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName)
 {
-    auto writeGuardMacro = [this, typeName, modName]() {
-        _output->append("__PHOTON_");
-        _output->append(modName.toUpper());
-        _output->append('_');
-        _output->append(typeName.toUpper()); //FIXME
-        _output->append("_H__\n");
-    };
-    _output->append("#ifndef ");
-    writeGuardMacro();
-    _output->append("#define ");
-    writeGuardMacro();
-    _output->appendEol();
+    _output->startIncludeGuard(modName, typeName);
 }
 
 void HeaderGen::startIncludeGuard(const SliceType* slice)
 {
-    startIncludeGuard("SLICE", _sliceName.view());
+    _output->startIncludeGuard("SLICE", _sliceName.view());
 }
 
 void HeaderGen::startIncludeGuard(const Component* comp)
 {
-    startIncludeGuard("COMPONENT", comp->moduleName());
+    _output->startIncludeGuard("COMPONENT", comp->moduleName());
 }
 
 void HeaderGen::startIncludeGuard(const NamedType* type)
 {
-    startIncludeGuard(type->moduleName(), type->name());
+    _output->startIncludeGuard(type->moduleName(), type->name());
 }
 
 void HeaderGen::endIncludeGuard()
 {
-    _output->append("#endif\n");
-    _output->appendEol();
+    _output->endIncludeGuard();
 }
 
 void HeaderGen::appendImplBlockIncludes(const Component* comp)

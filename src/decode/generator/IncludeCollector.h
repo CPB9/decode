@@ -10,10 +10,12 @@ namespace decode {
 
 class Type;
 class TypeReprGen;
+class StatusRegexp;
 
 class IncludeCollector : public ConstAstVisitor<IncludeCollector> {
 public:
     void collectIncludesAndFwdsForType(const Type* type, std::unordered_set<std::string>* dest);
+    void collectIncludesAndFwdsForMsg(const StatusMsg* msg, std::unordered_set<std::string>* dest);
 
     bool visitEnumType(const EnumType* enumeration);
     bool visitStructType(const StructType* str);

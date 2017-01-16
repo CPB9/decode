@@ -3,6 +3,7 @@
 #include "decode/core/Rc.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Ast.h"
+#include "decode/parser/Component.h"
 
 namespace decode {
 

@@ -15,7 +15,7 @@ namespace decode {
 class Component;
 class FunctionType;
 
-class HeaderGen : public SerializationFuncPrototypeGen<HeaderGen> {
+class HeaderGen : public FuncPrototypeGen<HeaderGen> {
 public:
     HeaderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
     ~HeaderGen();

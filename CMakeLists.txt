@@ -9,12 +9,14 @@ endif()
 macro(enable_sanitizer)
     add_definitions(
         -fsanitize=address
-        -fsanitize=integer
         -fsanitize=undefined
+        -fsanitize-address-use-after-scope
+        -fno-common
+        -fno-omit-frame-pointer
         -ggdb
         #-fsanitize-blacklist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer-blacklist.txt
     )
-    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=integer -fsanitize=undefined")
+    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=undefined")
 endmacro()
 
 if(ASAN)
@@ -57,6 +59,8 @@ add_library(decode
     src/decode/generator/SourceGen.h
     src/decode/generator/SrcBuilder.cpp
     src/decode/generator/SrcBuilder.h
+    src/decode/generator/StatusEncoderGen.cpp
+    src/decode/generator/StatusEncoderGen.h
     src/decode/generator/StringBuilder.h
     src/decode/generator/TypeDefGen.cpp
     src/decode/generator/TypeDefGen.h

@@ -99,4 +99,26 @@ void SrcBuilder::appendTagFooter(bmcl::StringView typeName)
     append(typeName);
     append(";\n");
 }
+
+void SrcBuilder::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName)
+{
+    auto writeGuardMacro = [this, typeName, modName]() {
+        append("__PHOTON_");
+        append(modName.toUpper());
+        append('_');
+        append(typeName.toUpper()); //FIXME
+        append("_H__\n");
+    };
+    append("#ifndef ");
+    writeGuardMacro();
+    append("#define ");
+    writeGuardMacro();
+    appendEol();
+}
+
+void SrcBuilder::endIncludeGuard()
+{
+    append("#endif\n");
+    appendEol();
+}
 }
