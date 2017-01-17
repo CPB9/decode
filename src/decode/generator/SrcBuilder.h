@@ -30,7 +30,9 @@ public:
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
+    void startCppGuard();
     void endIncludeGuard();
+    void endCppGuard();
 
     template <typename... A>
     void appendInclude(A&&... args);

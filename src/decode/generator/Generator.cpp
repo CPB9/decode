@@ -123,7 +123,7 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
 bool Generator::generateTmPrivate(const Rc<Package>& package)
 {
     _output.clear();
-    _output.append("static PhotonTmMessageDesc messageDesc[] = {\n");
+    _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendIndent(1);

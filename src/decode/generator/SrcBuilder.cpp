@@ -116,6 +116,16 @@ void SrcBuilder::startIncludeGuard(bmcl::StringView modName, bmcl::StringView ty
     appendEol();
 }
 
+void SrcBuilder::startCppGuard()
+{
+    append("#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n");
+}
+
+void SrcBuilder::endCppGuard()
+{
+    append("#ifdef __cplusplus\n}\n#endif\n\n");
+}
+
 void SrcBuilder::endIncludeGuard()
 {
     append("#endif\n");

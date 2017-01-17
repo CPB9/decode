@@ -76,6 +76,7 @@ void HeaderGen::genSliceHeader(const SliceType* slice)
     appendIncludesAndFwds(slice);
     appendCommonIncludePaths();
     _typeDefGen.genTypeDef(slice);
+    appendImplBlockIncludes(slice);
     appendSerializerFuncPrototypes(slice);
     endIncludeGuard();
 }
@@ -95,26 +96,39 @@ void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
 void HeaderGen::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName)
 {
     _output->startIncludeGuard(modName, typeName);
+    _output->startCppGuard();
 }
 
 void HeaderGen::startIncludeGuard(const SliceType* slice)
 {
     _output->startIncludeGuard("SLICE", _sliceName.view());
+    _output->startCppGuard();
 }
 
 void HeaderGen::startIncludeGuard(const Component* comp)
 {
     _output->startIncludeGuard("COMPONENT", comp->moduleName());
+    _output->startCppGuard();
 }
 
 void HeaderGen::startIncludeGuard(const NamedType* type)
 {
     _output->startIncludeGuard(type->moduleName(), type->name());
+    _output->startCppGuard();
 }
 
 void HeaderGen::endIncludeGuard()
 {
+    _output->endCppGuard();
     _output->endIncludeGuard();
+}
+
+void HeaderGen::appendImplBlockIncludes(const SliceType* slice)
+{
+    _output->appendLocalIncludePath("core/Reader");
+    _output->appendLocalIncludePath("core/Writer");
+    _output->appendLocalIncludePath("core/Error");
+    _output->appendEol();
 }
 
 void HeaderGen::appendImplBlockIncludes(const Component* comp)

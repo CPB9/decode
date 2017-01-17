@@ -41,6 +41,7 @@ private:
     void appendIncludes(const std::unordered_set<std::string>& src);
     void appendImplBlockIncludes(const NamedType* topLevelType);
     void appendImplBlockIncludes(const Component* comp);
+    void appendImplBlockIncludes(const SliceType* slice);
     void appendIncludesAndFwds(const Type* topLevelType);
     void appendIncludesAndFwds(const Component* comp);
     void appendCommonIncludePaths();

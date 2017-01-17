@@ -46,6 +46,7 @@ bool IncludeCollector::visitSliceType(const SliceType* slice)
     gen.genTypeName(slice);
 
     _dest->insert(std::move(path.result()));
+    ascendTypeOnce(slice->elementType().get());
     return false;
 }
 
