@@ -28,7 +28,7 @@ void SourceGen::appendIncludes(const NamedType* type)
 
 void SourceGen::appendEnumSerializer(const EnumType* type)
 {
-    _output->append("    switch(*self) {\n");
+    _output->append("    switch(self) {\n");
     for (const auto& pair : type->constants()) {
         _output->append("    case ");
         _output->appendModPrefix();
@@ -42,7 +42,7 @@ void SourceGen::appendEnumSerializer(const EnumType* type)
     _output->append("        return PhotonError_InvalidValue;\n");
     _output->append("    }\n    ");
     _output->appendWithTryMacro([](SrcBuilder* output) {
-        output->append("PhotonWriter_WriteVarint(dest, (int64_t)*self)");
+        output->append("PhotonWriter_WriteVarint(dest, (int64_t)self)");
     });
 }
 

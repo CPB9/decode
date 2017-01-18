@@ -29,7 +29,10 @@ void FuncPrototypeGen<B>::appendSerializerFuncDecl(const Type* type)
     base().genTypeRepr(type);
     base().output().append("_Serialize(const ");
     base().genTypeRepr(type);
-    base().output().append("* self, PhotonWriter* dest)");
+    if (type->typeKind() != TypeKind::Enum) {
+        base().output().append('*');
+    }
+    base().output().append(" self, PhotonWriter* dest)");
 }
 
 template <typename B>
