@@ -39,6 +39,8 @@ public:
     template <typename T>
     void appendNumericValue(T value);
 
+    void appendHexValue(uint8_t value);
+
     void clear();
 
     void removeFromBack(std::size_t size);
@@ -155,6 +157,15 @@ template <typename T>
 inline void StringBuilder::appendNumericValue(T value)
 {
     append(std::to_string(value));
+}
+
+inline void StringBuilder::appendHexValue(uint8_t value)
+{
+    const char* chars = "0123456789abcdef";
+    char str[4] = {'0', 'x', '0', '0'};
+    str[2] = chars[(value & 0xf0) >> 4];
+    str[3] = chars[value & 0x0f];
+    append(str, str + 4);
 }
 
 template <typename... A>

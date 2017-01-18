@@ -12,6 +12,7 @@
 #include "decode/core/Try.h"
 
 #include <bmcl/Logging.h>
+#include <bmcl/Buffer.h>
 
 #include <unordered_set>
 #include <iostream>
@@ -123,7 +124,14 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
 bool Generator::generateTmPrivate(const Rc<Package>& package)
 {
     _output.clear();
-    _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
+
+    _output.append("#define _PHOTON_TM_MSG_COUNT ");
+    _output.appendNumericValue(package->statusMsgs().size());
+    _output.append("\n\n");
+
+    _output.append("static PhotonTmMessageDesc _messageDesc[");
+    _output.appendNumericValue(package->statusMsgs().size());
+    _output.append("] = {\n");
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendIndent(1);
@@ -142,13 +150,43 @@ bool Generator::generateTmPrivate(const Rc<Package>& package)
         _output.append("},\n");
         statusesNum++;
     }
-    _output.append("};\n\n");
-    _output.append("#define _PHOTON_TM_MSG_COUNT ");
-    _output.appendNumericValue(statusesNum);
-    _output.append("\n");
+    _output.append("};\n");
 
     std::string tmDetailPath = _savePath + "/photon/Tm.Private.inc.c";
     TRY(saveOutput(tmDetailPath.c_str(), &_output));
+    _output.clear();
+
+    return true;
+}
+
+bool Generator::generateSerializedPackage(const Rc<Package>& package)
+{
+    _output.clear();
+
+    bmcl::Buffer encoded = package->encode();
+
+    _output.append("#define _PHOTON_PACKAGE_SIZE ");
+    _output.appendNumericValue(encoded.size());
+    _output.append("\n\n");
+
+    _output.append("static uint8_t _package[");
+    _output.appendNumericValue(encoded.size());
+    _output.append("] = {");
+    std::size_t size;
+    const std::size_t maxBytes = 12;
+    for (size = 0; size < encoded.size(); size++) {
+        if ((size % maxBytes) == 0) {
+            _output.append("\n   ");
+        }
+        uint8_t b = encoded[size];
+        _output.append(" ");
+        _output.appendHexValue(b);
+        _output.append(",");
+    }
+    _output.append("\n};\n");
+
+    std::string packageDetailPath = _savePath + "/photon/Package.Private.inc.c";
+    TRY(saveOutput(packageDetailPath.c_str(), &_output));
     _output.clear();
 
     return true;
@@ -173,6 +211,7 @@ bool Generator::generateFromPackage(const Rc<Package>& package)
     TRY(generateSlices());
 
     TRY(generateTmPrivate(package));
+    TRY(generateSerializedPackage(package));
     TRY(generateStatusMessages(package));
 
     std::string mainPath = _savePath + "/photon/Photon.c";
@@ -290,12 +329,22 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
         TRY(dump(comp->moduleName(), ".Component.h", &_photonPath));
         _output.clear();
 
+        _output.append("#include \"photon/");
+        _output.append(comp->moduleName());
+        _output.append("/");
+        _output.appendWithFirstUpper(comp->moduleName());
+        _output.append(".Component.h\"\n\n");
         _output.append("Photon");
         _output.appendWithFirstUpper(comp->moduleName());
         _output.append(" _");
         _output.appendWithFirstLower(comp->moduleName());
         _output.append(';');
-        TRY(dump(comp->moduleName(), ".Component.inc.c", &_photonPath));
+        TRY(dump(comp->moduleName(), ".Component.c", &_photonPath));
+        _main.append("#include \"photon/");
+        _main.append(comp->moduleName());
+        _main.append("/");
+        _main.appendWithFirstUpper(comp->moduleName());
+        _main.append(".Component.c\"\n");
         _output.clear();
 
         //sgen->genTypeSource(type);

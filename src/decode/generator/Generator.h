@@ -32,6 +32,7 @@ private:
     bool generateSlices();
     bool generateStatusMessages(const Rc<Package>& package);
     bool generateTmPrivate(const Rc<Package>& package);
+    bool generateSerializedPackage(const Rc<Package>& package);
 
     bool makeDirectory(const char* path);
 
