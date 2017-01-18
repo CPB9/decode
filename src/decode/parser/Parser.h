@@ -118,6 +118,7 @@ private:
     bool parseParameters(const Rc<Component>& parent);
     bool parseCommands(const Rc<Component>& parent);
     bool parseStatuses(const Rc<Component>& parent);
+    bool parseComponentImpl(const Rc<Component>& parent);
 
     template <typename T>
     Rc<T> beginDecl();

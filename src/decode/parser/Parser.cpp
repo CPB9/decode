@@ -1044,6 +1044,28 @@ bool Parser::parseCommands(const Rc<Component>& parent)
     return true;
 }
 
+bool Parser::parseComponentImpl(const Rc<Component>& parent)
+{
+    if(parent->_implBlock.isSome()) {
+        reportCurrentTokenError("Component can have only one impl declaration");
+        return false;
+    }
+    Rc<ImplBlock> impl = parseNamelessTag<ImplBlock>(TokenKind::Impl, TokenKind::Eol, [this](const Rc<ImplBlock>& impl) {
+        Rc<FunctionType> fn = parseFunction(false);
+        if (!fn) {
+            return false;
+        }
+        impl->_funcs.push_back(fn);
+        return true;
+    });
+    if (!impl) {
+        //TODO: report error
+        return false;
+    }
+    parent->_implBlock = impl;
+    return true;
+}
+
 bool Parser::parseParameters(const Rc<Component>& parent)
 {
     if(parent->_params.isSome()) {
@@ -1186,6 +1208,10 @@ bool Parser::parseComponent()
         }
         case TokenKind::Statuses: {
             TRY(parseStatuses(comp));
+            break;
+        }
+        case TokenKind::Impl: {
+            TRY(parseComponentImpl(comp));
             break;
         }
         case TokenKind::RBrace:

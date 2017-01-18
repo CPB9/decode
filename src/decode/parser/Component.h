@@ -9,6 +9,8 @@
 
 namespace decode {
 
+class ImplBlock;
+
 class Parameters: public RefCountable {
 public:
 
@@ -212,6 +214,11 @@ public:
         return _statuses;
     }
 
+    const bmcl::Option<Rc<ImplBlock>>& implBlock() const
+    {
+        return _implBlock;
+    }
+
     bmcl::StringView moduleName() const
     {
         return _moduleName;
@@ -232,6 +239,7 @@ private:
     bmcl::Option<Rc<Parameters>> _params;
     bmcl::Option<Rc<Commands>> _cmds;
     bmcl::Option<Rc<Statuses>> _statuses;
+    bmcl::Option<Rc<ImplBlock>> _implBlock;
     bmcl::StringView _moduleName;
     std::size_t _number;
 };

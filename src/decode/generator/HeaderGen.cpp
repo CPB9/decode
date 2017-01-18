@@ -135,9 +135,14 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
 {
     std::unordered_set<std::string> dest;
     if (comp->commands().isSome()) {
-    for (const Rc<FunctionType>& fn : comp->commands().unwrap()->functions()) {
-        _includeCollector.collectIncludesAndFwdsForType(fn.get(), &dest);
+        for (const Rc<FunctionType>& fn : comp->commands().unwrap()->functions()) {
+            _includeCollector.collectIncludesAndFwdsForType(fn.get(), &dest);
+        }
     }
+    if (comp->implBlock().isSome()) {
+        for (const Rc<FunctionType>& fn : comp->implBlock().unwrap()->functions()) {
+            _includeCollector.collectIncludesAndFwdsForType(fn.get(), &dest);
+        }
     }
     dest.insert("core/Reader");
     dest.insert("core/Writer");
@@ -192,10 +197,10 @@ void HeaderGen::appendIncludesAndFwds(const Type* topLevelType)
 
 void HeaderGen::appendFunctionPrototypes(const Component* comp)
 {
-    if (comp->commands().isNone()) {
+    if (comp->implBlock().isNone()) {
         return;
     }
-    appendFunctionPrototypes(comp->commands().unwrap()->functions(), bmcl::StringView::empty());
+    appendFunctionPrototypes(comp->implBlock().unwrap()->functions(), bmcl::StringView::empty());
 }
 
 void HeaderGen::appendFunctionPrototypes(const std::vector<Rc<FunctionType>>& funcs, bmcl::StringView typeName)
