@@ -21,9 +21,10 @@
 	<list name="keywords">
 		<item> const </item>
 		<item> enum </item>
+		<item> self </item>
 		<item> variant </item>
 		<item> parameters </item>
-		<item> command </item>
+		<item> commands </item>
 		<item> component </item>
 		<item> statuses </item>
 		<item> impl </item>
@@ -35,6 +36,7 @@
 	</list>
 	<list name="types">
 		<item> bool </item>
+		<item> void </item>
 		<item> int </item>
 		<item> isize </item>
 		<item> uint </item>
@@ -49,12 +51,18 @@
 		<item> u64 </item>
 		<item> f32 </item>
 		<item> f64 </item>
+		<item> varint </item>
+		<item> varuint </item>
 		<item> float </item>
 		<item> char </item>
 		<item> str </item>
 		<item> Option </item>
 		<item> Result </item>
 		<item> String </item>
+		<item> Reader </item>
+		<item> Writer </item>
+		<item> Error </item>
+		<item> Generator </item>
 	</list>
 	<list name="ctypes">
 		<item> c_float </item>
