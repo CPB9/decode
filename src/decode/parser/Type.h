@@ -57,6 +57,12 @@ class ArrayType;
 class SliceType;
 class StructType;
 class FunctionType;
+class BuiltinType;
+class AliasType;
+class ImportedType;
+class VariantType;
+class EnumType;
+class ReferenceType;
 
 class Type : public RefCountable {
 public:
@@ -64,6 +70,12 @@ public:
     const SliceType* asSlice() const;
     const StructType* asStruct() const;
     const FunctionType* asFunction() const;
+    const BuiltinType* asBuiltin() const;
+    const AliasType* asAlias() const;
+    const ImportedType* asImported() const;
+    const VariantType* asVariant() const;
+    const EnumType* asEnum() const;
+    const ReferenceType* asReference() const;
 
     bool isArray() const
     {
@@ -85,6 +97,36 @@ public:
         return _typeKind == TypeKind::Function;
     }
 
+    bool isBuiltin() const
+    {
+        return _typeKind == TypeKind::Builtin;
+    }
+
+    bool isAlias() const
+    {
+        return _typeKind == TypeKind::Alias;
+    }
+
+    bool isImported() const
+    {
+        return _typeKind == TypeKind::Imported;
+    }
+
+    bool isVariant() const
+    {
+        return _typeKind == TypeKind::Variant;
+    }
+
+    bool isEnum() const
+    {
+        return _typeKind == TypeKind::Enum;
+    }
+
+    bool isReference() const
+    {
+        return _typeKind == TypeKind::Reference;
+    }
+
     TypeKind typeKind() const
     {
         return _typeKind;
@@ -99,11 +141,19 @@ protected:
 private:
     friend class Parser;
     friend class Package;
+    friend class Value;
+
 
     ArrayType* asArray();
     SliceType* asSlice();
     StructType* asStruct();
     FunctionType* asFunction();
+    BuiltinType* asBuiltin();
+    AliasType* asAlias();
+    ImportedType* asImported();
+    VariantType* asVariant();
+    EnumType* asEnum();
+    ReferenceType* asReference();
 
     TypeKind _typeKind;
 };
@@ -435,6 +485,42 @@ inline const FunctionType* Type::asFunction() const
     return static_cast<const FunctionType*>(this);
 }
 
+inline const BuiltinType* Type::asBuiltin() const
+{
+    assert(isBuiltin());
+    return static_cast<const BuiltinType*>(this);
+}
+
+inline const AliasType* Type::asAlias() const
+{
+    assert(isAlias());
+    return static_cast<const AliasType*>(this);
+}
+
+inline const ImportedType* Type::asImported() const
+{
+    assert(isImported());
+    return static_cast<const ImportedType*>(this);
+}
+
+inline const VariantType* Type::asVariant() const
+{
+    assert(isVariant());
+    return static_cast<const VariantType*>(this);
+}
+
+inline const EnumType* Type::asEnum() const
+{
+    assert(isEnum());
+    return static_cast<const EnumType*>(this);
+}
+
+inline const ReferenceType* Type::asReference() const
+{
+    assert(isReference());
+    return static_cast<const ReferenceType*>(this);
+}
+
 inline ArrayType* Type::asArray()
 {
     assert(isArray());
@@ -457,5 +543,41 @@ inline FunctionType* Type::asFunction()
 {
     assert(isFunction());
     return static_cast<FunctionType*>(this);
+}
+
+inline BuiltinType* Type::asBuiltin()
+{
+    assert(isBuiltin());
+    return static_cast<BuiltinType*>(this);
+}
+
+inline AliasType* Type::asAlias()
+{
+    assert(isAlias());
+    return static_cast<AliasType*>(this);
+}
+
+inline ImportedType* Type::asImported()
+{
+    assert(isImported());
+    return static_cast<ImportedType*>(this);
+}
+
+inline VariantType* Type::asVariant()
+{
+    assert(isVariant());
+    return static_cast<VariantType*>(this);
+}
+
+inline EnumType* Type::asEnum()
+{
+    assert(isEnum());
+    return static_cast<EnumType*>(this);
+}
+
+inline ReferenceType* Type::asReference()
+{
+    assert(isReference());
+    return static_cast<ReferenceType*>(this);
 }
 }
