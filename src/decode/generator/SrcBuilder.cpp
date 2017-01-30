@@ -131,4 +131,26 @@ void SrcBuilder::endIncludeGuard()
     append("#endif\n");
     appendEol();
 }
+
+void SrcBuilder::appendByteArrayDefinition(bmcl::StringView name, bmcl::Bytes data)
+{
+    append("static uint8_t ");
+    append(name);
+    append('[');
+    appendNumericValue(data.size());
+    append("] = {");
+    std::size_t size;
+    const std::size_t maxBytes = 12;
+    for (size = 0; size < data.size(); size++) {
+        if ((size % maxBytes) == 0) {
+            append("\n   ");
+        }
+        uint8_t b = data[size];
+        append(" ");
+        appendHexValue(b);
+        append(",");
+    }
+    append("\n};\n");
+
+}
 }

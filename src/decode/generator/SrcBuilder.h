@@ -29,10 +29,14 @@ public:
     void appendLocalIncludePath(bmcl::StringView path);
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
+    void appendByteArrayDefinition(bmcl::StringView name, bmcl::Bytes data);
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
     void startCppGuard();
     void endIncludeGuard();
     void endCppGuard();
+
+    template <typename T>
+    void appendNumericValueDefine(bmcl::StringView name, T value);
 
     template <typename... A>
     void appendInclude(A&&... args);
@@ -69,5 +73,15 @@ inline void SrcBuilder::appendIndent(std::size_t n)
 inline void SrcBuilder::appendIndent(const InlineSerContext& ctx)
 {
     appendSeveral(ctx.indentLevel, "    ");
+}
+
+template <typename T>
+void SrcBuilder::appendNumericValueDefine(bmcl::StringView name, T value)
+{
+    append("#define ");
+    append(name);
+    append(' ');
+    appendNumericValue(value);
+    append("\n");
 }
 }

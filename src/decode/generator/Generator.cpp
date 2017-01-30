@@ -13,6 +13,7 @@
 
 #include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
+#include <bmcl/Sha3.h>
 
 #include <unordered_set>
 #include <iostream>
@@ -165,25 +166,19 @@ bool Generator::generateSerializedPackage(const Rc<Package>& package)
 
     bmcl::Buffer encoded = package->encode();
 
-    _output.append("#define _PHOTON_PACKAGE_SIZE ");
-    _output.appendNumericValue(encoded.size());
-    _output.append("\n\n");
+    _output.appendNumericValueDefine("_PHOTON_PACKAGE_SIZE", encoded.size());
+    _output.appendEol();
+    _output.appendByteArrayDefinition("_package", encoded);
+    _output.appendEol();
 
-    _output.append("static uint8_t _package[");
-    _output.appendNumericValue(encoded.size());
-    _output.append("] = {");
-    std::size_t size;
-    const std::size_t maxBytes = 12;
-    for (size = 0; size < encoded.size(); size++) {
-        if ((size % maxBytes) == 0) {
-            _output.append("\n   ");
-        }
-        uint8_t b = encoded[size];
-        _output.append(" ");
-        _output.appendHexValue(b);
-        _output.append(",");
-    }
-    _output.append("\n};\n");
+    bmcl::Sha3<512> ctx;
+    ctx.update(encoded);
+    auto hash = ctx.finalize();
+
+    _output.appendNumericValueDefine("_PHOTON_PACKAGE_HASH_SIZE", hash.size());
+    _output.appendEol();
+    _output.appendByteArrayDefinition("_packageHash", hash);
+    _output.appendEol();
 
     std::string packageDetailPath = _savePath + "/photon/Package.Private.inc.c";
     TRY(saveOutput(packageDetailPath.c_str(), &_output));
