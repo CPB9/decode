@@ -136,12 +136,12 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
     std::unordered_set<std::string> dest;
     if (comp->commands().isSome()) {
         for (const Rc<FunctionType>& fn : comp->commands().unwrap()->functions()) {
-            _includeCollector.collectIncludesAndFwdsForType(fn.get(), &dest);
+            _includeCollector.collect(fn.get(), &dest);
         }
     }
     if (comp->implBlock().isSome()) {
         for (const Rc<FunctionType>& fn : comp->implBlock().unwrap()->functions()) {
-            _includeCollector.collectIncludesAndFwdsForType(fn.get(), &dest);
+            _includeCollector.collect(fn.get(), &dest);
         }
     }
     dest.insert("core/Reader");
@@ -156,7 +156,7 @@ void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
     std::unordered_set<std::string> dest;
     if (impl.isSome()) {
         for (const Rc<FunctionType>& fn : impl.unwrap()->functions()) {
-            _includeCollector.collectIncludesAndFwdsForType(fn.get(), &dest);
+            _includeCollector.collect(fn.get(), &dest);
         }
     }
     dest.insert("core/Reader");
@@ -178,20 +178,15 @@ void HeaderGen::appendIncludes(const std::unordered_set<std::string>& src)
 
 void HeaderGen::appendIncludesAndFwds(const Component* comp)
 {
-    if (comp->parameters().isNone()) {
-        return;
-    }
     std::unordered_set<std::string> includePaths;
-    for (const Rc<Field>& field : *comp->parameters().unwrap()->fields()) {
-        _includeCollector.collectIncludesAndFwdsForType(field->type().get(), &includePaths);
-    }
+    _includeCollector.collect(comp, &includePaths);
     appendIncludes(includePaths);
 }
 
 void HeaderGen::appendIncludesAndFwds(const Type* topLevelType)
 {
     std::unordered_set<std::string> includePaths;
-    _includeCollector.collectIncludesAndFwdsForType(topLevelType, &includePaths);
+    _includeCollector.collect(topLevelType, &includePaths);
     appendIncludes(includePaths);
 }
 

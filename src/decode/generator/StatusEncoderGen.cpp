@@ -47,7 +47,7 @@ void StatusEncoderGen::generateSource(const std::vector<ComponentAndMsg>& messag
     includes.emplace("core/Writer");
     includes.emplace("core/Error");
     for (const ComponentAndMsg& msg : messages) {
-        coll.collectIncludesAndFwdsForMsg(msg.msg.get(), &includes);
+        coll.collect(msg.msg.get(), &includes);
         //TODO: remove duplicates
         _output->append("#include \"photon/");
         _output->append(msg.component->moduleName());

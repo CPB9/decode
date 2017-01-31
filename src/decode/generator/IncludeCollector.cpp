@@ -40,6 +40,9 @@ inline bool IncludeCollector::visitAliasType(const AliasType* alias)
 
 bool IncludeCollector::visitSliceType(const SliceType* slice)
 {
+    if (slice == _currentType) {
+        return false;
+    }
     SrcBuilder path;
     path.append("_slices_/");
     TypeNameGen gen(&path);
@@ -52,14 +55,18 @@ bool IncludeCollector::visitSliceType(const SliceType* slice)
 
 void IncludeCollector::addInclude(const NamedType* type)
 {
+    if (type == _currentType) {
+        return;
+    }
     std::string path = type->moduleName().toStdString();
     path.push_back('/');
     path.append(type->name().begin(), type->name().end());
     _dest->insert(std::move(path));
 }
 
-void IncludeCollector::collectIncludesAndFwdsForMsg(const StatusMsg* msg, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const StatusMsg* msg, std::unordered_set<std::string>* dest)
 {
+    _currentType = 0;
     _dest = dest;
     //FIXME: visit only first accessor in every part
     for (const Rc<StatusRegexp>& part : msg->parts()) {
@@ -67,14 +74,14 @@ void IncludeCollector::collectIncludesAndFwdsForMsg(const StatusMsg* msg, std::u
             switch (acc->accessorKind()) {
             case AccessorKind::Field: {
                 auto facc = static_cast<const FieldAccessor*>(acc.get());
-                _currentType = facc->field()->type().get();
-                traverseType(_currentType);
+                const Type* type = facc->field()->type().get();
+                traverseType(type);
                 break;
             }
             case AccessorKind::Subscript: {
                 auto sacc = static_cast<const SubscriptAccessor*>(acc.get());
-                _currentType = sacc->type().get();
-                traverseType(_currentType);
+                const Type* type = sacc->type().get();
+                traverseType(type);
                 break;
             }
             default:
@@ -84,11 +91,23 @@ void IncludeCollector::collectIncludesAndFwdsForMsg(const StatusMsg* msg, std::u
     }
 }
 
-void IncludeCollector::collectIncludesAndFwdsForType(const Type* type, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const Type* type, std::unordered_set<std::string>* dest)
 {
     _dest = dest;
     _currentType = type;
     traverseType(type);
+}
+
+void IncludeCollector::collect(const Component* comp, std::unordered_set<std::string>* dest)
+{
+    _dest = dest;
+    _currentType = 0;
+    if (comp->parameters().isNone()) {
+        return;
+    }
+    for (const Rc<Field>& field : *comp->parameters().unwrap()->fields()) {
+        traverseType(field->type().get());
+    }
 }
 }
 
