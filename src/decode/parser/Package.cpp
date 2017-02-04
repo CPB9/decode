@@ -50,7 +50,7 @@ ComponentAndMsg::~ComponentAndMsg()
 class ZpaqReader : public libzpaq::Reader {
 public:
     ZpaqReader(const bmcl::Buffer& buf)
-        : _reader(buf.start(), buf.size())
+        : _reader(buf.data(), buf.size())
     {
     }
 
@@ -242,7 +242,7 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
     }
 
     Rc<Package> package = new Package(diag);
-    bmcl::MemReader reader(buf.start(), buf.size());
+    bmcl::MemReader reader(buf.data(), buf.size());
 
     if (reader.readableSize() < magic.size()) {
         //TODO: report error

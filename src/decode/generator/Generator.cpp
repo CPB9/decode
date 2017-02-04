@@ -280,7 +280,7 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
 bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
 {
     _currentAst = ast;
-    if (!ast->moduleInfo()->moduleName().equals("core")) {
+    if (ast->moduleInfo()->moduleName() != "core") {
         _output.setModName(ast->moduleInfo()->moduleName());
     } else {
         _output.setModName(bmcl::StringView::empty());

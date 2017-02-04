@@ -39,8 +39,10 @@ void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
     _typeDefGen.genTypeDef(type);
     if (type->typeKind() != TypeKind::Alias) {
         appendImplBlockIncludes(namedType);
+        _output->startCppGuard();
         appendFunctionPrototypes(namedType);
         appendSerializerFuncPrototypes(namedType);
+        _output->endCppGuard();
     }
     endIncludeGuard();
 }
@@ -60,8 +62,10 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     _output->append(comp->moduleName());
     _output->append(";\n\n");
     appendImplBlockIncludes(comp);
+    _output->startCppGuard();
     appendFunctionPrototypes(comp);
     appendSerializerFuncPrototypes(comp);
+    _output->endCppGuard();
     endIncludeGuard();
 }
 
@@ -77,7 +81,9 @@ void HeaderGen::genSliceHeader(const SliceType* slice)
     appendCommonIncludePaths();
     _typeDefGen.genTypeDef(slice);
     appendImplBlockIncludes(slice);
+    _output->startCppGuard();
     appendSerializerFuncPrototypes(slice);
+    _output->endCppGuard();
     endIncludeGuard();
 }
 
@@ -96,30 +102,25 @@ void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
 void HeaderGen::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName)
 {
     _output->startIncludeGuard(modName, typeName);
-    _output->startCppGuard();
 }
 
 void HeaderGen::startIncludeGuard(const SliceType* slice)
 {
     _output->startIncludeGuard("SLICE", _sliceName.view());
-    _output->startCppGuard();
 }
 
 void HeaderGen::startIncludeGuard(const Component* comp)
 {
     _output->startIncludeGuard("COMPONENT", comp->moduleName());
-    _output->startCppGuard();
 }
 
 void HeaderGen::startIncludeGuard(const NamedType* type)
 {
     _output->startIncludeGuard(type->moduleName(), type->name());
-    _output->startCppGuard();
 }
 
 void HeaderGen::endIncludeGuard()
 {
-    _output->endCppGuard();
     _output->endIncludeGuard();
 }
 
