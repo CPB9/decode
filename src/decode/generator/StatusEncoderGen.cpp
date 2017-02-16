@@ -25,8 +25,10 @@ void StatusEncoderGen::generateHeader(const std::vector<ComponentAndMsg>& messag
     _output->startIncludeGuard("PRIVATE", "STATUS_ENCODER");
     _output->appendEol();
 
-    _output->appendLocalIncludePath("core/Writer");
     _output->appendLocalIncludePath("core/Error");
+    _output->appendLocalIncludePath("core/Writer");
+    _output->appendEol();
+    _output->startCppGuard();
     _output->appendEol();
 
     std::size_t n = 0;
@@ -35,8 +37,10 @@ void StatusEncoderGen::generateHeader(const std::vector<ComponentAndMsg>& messag
         _output->append(";\n");
         n++;
     }
-    _output->appendEol();
 
+    _output->appendEol();
+    _output->endCppGuard();
+    _output->appendEol();
     _output->endIncludeGuard();
 }
 

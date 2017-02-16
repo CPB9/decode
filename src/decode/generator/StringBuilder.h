@@ -3,6 +3,7 @@
 #include "decode/Config.h"
 
 #include <bmcl/StringView.h>
+#include <bmcl/Alloca.h>
 
 #include <string>
 #include <cctype>
@@ -49,6 +50,9 @@ public:
     std::string& result();
 
 private:
+    template <typename T>
+    std::size_t appendNumericValueFormat(T value, const char* format);
+
     template <typename F>
     void appendWithFirstModified(bmcl::StringView view, F&& func);
     std::string _output;
@@ -154,9 +158,73 @@ inline void StringBuilder::removeFromBack(std::size_t size)
 }
 
 template <typename T>
-inline void StringBuilder::appendNumericValue(T value)
+std::size_t StringBuilder::appendNumericValueFormat(T value, const char* format)
 {
-    append(std::to_string(value));
+    char* buf = (char*)alloca(sizeof(T) * 4);
+    int rv = std::sprintf(buf, format, value);
+    assert(rv >= 0);
+    append(buf, rv);
+    return rv;
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(unsigned char value)
+{
+    appendNumericValueFormat(value, "%hhu");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(unsigned short value)
+{
+    appendNumericValueFormat(value, "%hu");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(unsigned int value)
+{
+    appendNumericValueFormat(value, "%u");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(unsigned long int value)
+{
+    appendNumericValueFormat(value, "%lu");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(unsigned long long int value)
+{
+    appendNumericValueFormat(value, "%llu");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(char value)
+{
+    appendNumericValueFormat(value, "%hhd");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(short value)
+{
+    appendNumericValueFormat(value, "%hd");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(int value)
+{
+    appendNumericValueFormat(value, "%d");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(long int value)
+{
+    appendNumericValueFormat(value, "%ld");
+}
+
+template <>
+inline void StringBuilder::appendNumericValue(long long int value)
+{
+    appendNumericValueFormat(value, "%lld");
 }
 
 inline void StringBuilder::appendHexValue(uint8_t value)

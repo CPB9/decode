@@ -1,4 +1,5 @@
 #include "decode/generator/HeaderGen.h"
+#include "decode/core/Foreach.h"
 #include "decode/parser/Component.h"
 #include "decode/generator/TypeNameGen.h"
 
@@ -56,14 +57,17 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     appendIncludesAndFwds(comp);
     appendCommonIncludePaths();
     _typeDefGen.genComponentDef(comp);
-    _output->append("extern Photon");
-    _output->appendWithFirstUpper(comp->moduleName());
-    _output->append(" _");
-    _output->append(comp->moduleName());
-    _output->append(";\n\n");
+    if (comp->parameters().isSome()) {
+        _output->append("extern Photon");
+        _output->appendWithFirstUpper(comp->moduleName());
+        _output->append(" _");
+        _output->append(comp->moduleName());
+        _output->append(";\n\n");
+    }
     appendImplBlockIncludes(comp);
     _output->startCppGuard();
     appendFunctionPrototypes(comp);
+    appendCommandPrototypes(comp);
     appendSerializerFuncPrototypes(comp);
     _output->endCppGuard();
     endIncludeGuard();
@@ -216,6 +220,59 @@ void HeaderGen::appendFunctionPrototypes(const NamedType* type)
         return;
     }
     appendFunctionPrototypes(block.unwrap()->functions(), type->name());
+}
+
+static Rc<Type> wrapIntoPointerIfNeeded(const Rc<Type>& type)
+{
+    const Type* t = type.get(); //HACK
+    switch (type->typeKind()) {
+    case TypeKind::Reference:
+    case TypeKind::Array:
+    case TypeKind::Function:
+    case TypeKind::Enum:
+    case TypeKind::Builtin:
+        return type;
+    case TypeKind::Slice:
+    case TypeKind::Struct:
+    case TypeKind::Variant:
+        return new ReferenceType(type, ReferenceKind::Pointer, false);
+    case TypeKind::Imported:
+        return wrapIntoPointerIfNeeded(t->asImported()->link());
+    case TypeKind::Alias:
+        return wrapIntoPointerIfNeeded(t->asAlias()->alias());
+    }
+}
+
+void HeaderGen::appendCommandPrototypes(const Component* comp)
+{
+    if (comp->commands().isNone()) {
+        return;
+    }
+    for (const Rc<FunctionType>& func : comp->commands().unwrap()->functions()) {
+        _output->append("PhotonError Photon");
+        _output->appendWithFirstUpper(comp->moduleName());
+        _output->append("_");
+        _output->appendWithFirstUpper(func->name());
+        _output->append("(");
+
+        foreachList(func->arguments(), [this](const Rc<Field>& field) {
+            Rc<Type> type = wrapIntoPointerIfNeeded(field->type());
+            _typeReprGen->genTypeRepr(type.get(), field->name());
+        }, [this](const Rc<Field>&) {
+            _output->append(", ");
+        });
+
+        if (func->returnValue().isSome()) {
+            if (!func->arguments().empty()) {
+                _output->append(", ");
+            }
+            Rc<ReferenceType> type = new ReferenceType(func->returnValue().unwrap(), ReferenceKind::Pointer, true);
+            _typeReprGen->genTypeRepr(type.get(), "rv"); //TODO: check name conflicts
+        }
+
+        _output->append(");\n");
+    }
+    _output->appendEol();
 }
 
 void HeaderGen::appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName)

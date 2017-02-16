@@ -23,7 +23,7 @@ enum Error {
     InvalidTimeType = 19,
 
     InvalidComponentId = 20,
-    InvalidCommandId = 21,
+    InvalidCmdId = 21,
     InvalidMessageId = 22,
     InvalidValue = 23,
 }

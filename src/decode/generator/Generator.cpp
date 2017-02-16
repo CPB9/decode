@@ -3,6 +3,7 @@
 #include "decode/generator/SourceGen.h"
 #include "decode/generator/SliceCollector.h"
 #include "decode/generator/StatusEncoderGen.h"
+#include "decode/generator/CmdDecoderGen.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Decl.h"
@@ -208,6 +209,7 @@ bool Generator::generateFromPackage(const Rc<Package>& package)
     TRY(generateTmPrivate(package));
     TRY(generateSerializedPackage(package));
     TRY(generateStatusMessages(package));
+    TRY(generateCommands(package));
 
     std::string mainPath = _savePath + "/photon/Photon.c";
     TRY(saveOutput(mainPath.c_str(), &_main));
@@ -263,6 +265,21 @@ bool Generator::generateStatusMessages(const Rc<Package>& package)
     _output.clear();
 
     _main.append("#include \"photon/StatusEncoder.Private.c\"\n");
+    return true;
+}
+
+bool Generator::generateCommands(const Rc<Package>& package)
+{
+    CmdDecoderGen gen(_reprGen, &_output);
+    gen.generateHeader(package->components());
+    TRY(dump("CmdDecoder.Private", ".h", &_photonPath));
+    _output.clear();
+
+    gen.generateSource(package->components());
+    TRY(dump("CmdDecoder.Private", ".c", &_photonPath));
+    _output.clear();
+
+    _main.append("#include \"photon/CmdDecoder.Private.c\"\n");
     return true;
 }
 
@@ -329,11 +346,13 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
         _output.append("/");
         _output.appendWithFirstUpper(comp->moduleName());
         _output.append(".Component.h\"\n\n");
-        _output.append("Photon");
-        _output.appendWithFirstUpper(comp->moduleName());
-        _output.append(" _");
-        _output.appendWithFirstLower(comp->moduleName());
-        _output.append(';');
+        if (comp->parameters().isSome()) {
+            _output.append("Photon");
+            _output.appendWithFirstUpper(comp->moduleName());
+            _output.append(" _");
+            _output.appendWithFirstLower(comp->moduleName());
+            _output.append(';');
+        }
         TRY(dump(comp->moduleName(), ".Component.c", &_photonPath));
         _main.append("#include \"photon/");
         _main.append(comp->moduleName());

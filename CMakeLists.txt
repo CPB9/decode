@@ -68,6 +68,9 @@ add_library(decode
     src/decode/generator/TypeNameGen.h
     src/decode/generator/TypeReprGen.cpp
     src/decode/generator/TypeReprGen.h
+    src/decode/generator/CmdDecoderGen.cpp
+    src/decode/generator/CmdDecoderGen.h
+    src/decode/generator/TypeReprGen.h
     src/decode/model/Value.cpp
     src/decode/model/Value.h
     src/decode/parser/Ast.cpp

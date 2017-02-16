@@ -210,6 +210,14 @@ private:
 
 class ReferenceType : public Type {
 public:
+    ReferenceType(const Rc<Type>& pointee, ReferenceKind kind, bool isMutable = false)
+        : Type(TypeKind::Reference)
+        , _pointee(pointee)
+        , _referenceKind(kind)
+        , _isMutable(isMutable)
+    {
+    }
+
     bool isMutable() const
     {
         return _isMutable;

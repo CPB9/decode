@@ -49,6 +49,7 @@ private:
     void appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
     void appendFunctionPrototypes(const Component* comp);
+    void appendCommandPrototypes(const Component* comp);
     void appendFunctionPrototypes(const std::vector<Rc<FunctionType>>& funcs, bmcl::StringView typeName);
 
     const Ast* _ast;

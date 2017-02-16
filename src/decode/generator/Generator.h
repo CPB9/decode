@@ -31,6 +31,7 @@ private:
     bool generateTypesAndComponents(const Rc<Ast>& ast);
     bool generateSlices();
     bool generateStatusMessages(const Rc<Package>& package);
+    bool generateCommands(const Rc<Package>& package);
     bool generateTmPrivate(const Rc<Package>& package);
     bool generateSerializedPackage(const Rc<Package>& package);
 
