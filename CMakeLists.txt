@@ -42,6 +42,10 @@ add_library(decode
     src/decode/core/Hash.h
     src/decode/core/Location.h
     src/decode/core/Rc.h
+    src/decode/core/Configuration.cpp
+    src/decode/core/Configuration.h
+    src/decode/core/CfgOption.cpp
+    src/decode/core/CfgOption.h
     src/decode/core/StringSwitch.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h

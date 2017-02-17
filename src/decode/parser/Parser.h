@@ -39,6 +39,7 @@ class FunctionType;
 class TypeDecl;
 class Ast;
 class Constant;
+class CfgOption;
 
 enum class BuiltinTypeKind;
 
@@ -83,6 +84,8 @@ private:
     bool parseImplBlock();
     bool parseAlias();
     bool parseConstant();
+    bool parseAttribute();
+    Rc<CfgOption> parseCfgOption();
 
     template <typename T, typename F>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);

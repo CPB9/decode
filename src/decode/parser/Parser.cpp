@@ -3,7 +3,7 @@
 #include "decode/core/FileInfo.h"
 #include "decode/core/StringSwitch.h"
 #include "decode/core/Diagnostics.h"
-#include "decode/core/Try.h"
+#include "decode/core/CfgOption.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Token.h"
@@ -21,6 +21,15 @@
 
 #include <string>
 #include <functional>
+
+#define TRY(expr) \
+    do { \
+        if (!expr) { \
+            BMCL_DEBUG() << "failed at:" << __FILE__ << ":" << __LINE__;  \
+            return 0; \
+        } \
+    } while(0);
+
 
 namespace decode {
 
@@ -362,6 +371,9 @@ bool Parser::parseTopLevelDecls()
         TRY(skipCommentsAndSpace());
 
         switch (_currentToken.kind()) {
+            case TokenKind::Hash:
+                TRY(parseAttribute());
+                break;
             case TokenKind::Struct:
                 TRY(parseStruct());
                 break;
@@ -433,6 +445,88 @@ bool Parser::parseConstant()
     _ast->_constants.emplace(constant->name(), constant);
 
     return true;
+}
+
+bool Parser::parseAttribute()
+{
+    TRY(skipCommentsAndSpace());
+    TRY(expectCurrentToken(TokenKind::Hash));
+    consume();
+
+    TRY(expectCurrentToken(TokenKind::LBracket));
+    consumeAndSkipBlanks();
+
+    TRY(expectCurrentToken(TokenKind::Identifier));
+
+    if (_currentToken.value() == "cfg") {
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::LParen));
+        consumeAndSkipBlanks();
+
+        Rc<CfgOption> opt = parseCfgOption();
+        if (!opt) {
+            return false;
+        }
+
+        TRY(expectCurrentToken(TokenKind::RParen));
+        consumeAndSkipBlanks();
+    } else {
+        BMCL_CRITICAL() << "Only cfg attributes supported";
+        return false;
+    }
+
+    TRY(expectCurrentToken(TokenKind::RBracket));
+    consume();
+    return true;
+}
+
+Rc<CfgOption> Parser::parseCfgOption()
+{
+    skipBlanks();
+    TRY(expectCurrentToken(TokenKind::Identifier));
+
+    auto cfgListParser = [this](const Rc<AnyCfgOption>& opt) -> bool {
+        consumeAndSkipBlanks();
+
+        TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, opt, [this](const Rc<AnyCfgOption>& opt) -> bool {
+            Rc<CfgOption> nopt = parseCfgOption();
+            if (!nopt) {
+                return false;
+            }
+            opt->addOption(nopt);
+            return true;
+        }));
+        return true;
+    };
+
+    Rc<CfgOption> opt;
+    if (_currentToken.value() == "not") {
+        consumeAndSkipBlanks();
+        TRY(expectCurrentToken(TokenKind::LParen));
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        opt = new NotCfgOption(_currentToken.value());
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::RParen));
+        consumeAndSkipBlanks();
+    } else if (_currentToken.value() == "any") {
+        Rc<AnyCfgOption> nopt = new AnyCfgOption;
+        TRY(cfgListParser(nopt));
+        opt = nopt;
+    } else if (_currentToken.value() == "all") {
+        Rc<AllCfgOption> nopt = new AllCfgOption;
+        TRY(cfgListParser(nopt));
+        opt = nopt;
+    } else {
+        opt = new SingleCfgOption(_currentToken.value());
+        consumeAndSkipBlanks();
+    }
+    skipBlanks();
+
+    return opt;
 }
 
 Rc<FunctionType> Parser::parseFunction(bool selfAllowed)
