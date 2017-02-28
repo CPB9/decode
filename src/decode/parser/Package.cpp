@@ -24,7 +24,7 @@
 #if defined(__linux__)
 # include <dirent.h>
 # include <sys/stat.h>
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
 # include <windows.h>
 #endif
 
@@ -118,6 +118,8 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
     std::string spath = path;
 
     Rc<Package> package = new Package(diag);
+    std::size_t pathSize;
+    Parser p(diag);
 
 #if defined(__linux__)
 #define NEXT_FILE() continue
@@ -130,12 +132,12 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
     }
 
     struct dirent* ent;
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
 #define NEXT_FILE() goto nextFile
     spath.push_back('\\');
 
     std::string regexp = path;
-    if (regexp.size().empty()) {
+    if (regexp.empty()) {
         //TODO: report error
         return PackageResult();
     }
@@ -153,8 +155,7 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
         goto error;
     }
 #endif
-    std::size_t pathSize = spath.size();
-    Parser p(diag);
+    pathSize = spath.size();
 
     while (true) {
 #if defined(__linux__)
@@ -169,9 +170,10 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
             }
         }
         const char* name = &ent->d_name[0];
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
         const char* name = currentFile.cFileName;
 #endif
+        std::size_t nameSize;
         if (name[0] == '.') {
             if (name[1] == '\0') {
                 NEXT_FILE();
@@ -182,7 +184,7 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
             }
         }
 
-        std::size_t nameSize = std::strlen(name);
+        nameSize = std::strlen(name);
          // length of .decode suffix
         if (nameSize >= suffixSize) {
             if (std::memcmp(name + nameSize - suffixSize, DECODE_SUFFIX, suffixSize) != 0) {
@@ -195,7 +197,7 @@ PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char
         }
         spath.resize(pathSize);
 
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
 nextFile:
         bool isOk = FindNextFile(handle, &currentFile);
         if (!isOk) {
@@ -219,7 +221,7 @@ nextFile:
 error:
 #if defined(__linux__)
     closedir(dir);
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
     FindClose(handle);
 #endif
     return PackageResult();

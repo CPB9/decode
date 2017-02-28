@@ -25,7 +25,7 @@
 # include <sys/stat.h>
 # include <fcntl.h>
 # include <unistd.h>
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
 # include <windows.h>
 #endif
 
@@ -57,7 +57,7 @@ bool Generator::makeDirectory(const char* path)
         BMCL_CRITICAL() << "unable to create dir: " << path;
         return false;
     }
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
     bool isOk = CreateDirectory(path, NULL);
     if (!isOk) {
         if (GetLastError() != ERROR_ALREADY_EXISTS) {
@@ -104,7 +104,7 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
     }
 
     close(fd);
-#elif defined(_MSC_VER)
+#elif defined(_MSC_VER) || defined(__MINGW32__)
     HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (handle == INVALID_HANDLE_VALUE) {
         BMCL_CRITICAL() << "error creating file";
