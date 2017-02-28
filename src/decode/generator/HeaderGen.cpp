@@ -241,6 +241,8 @@ static Rc<Type> wrapIntoPointerIfNeeded(const Rc<Type>& type)
     case TypeKind::Alias:
         return wrapIntoPointerIfNeeded(t->asAlias()->alias());
     }
+    assert(false);
+    return nullptr;
 }
 
 void HeaderGen::appendCommandPrototypes(const Component* comp)

@@ -34,6 +34,10 @@ inline bool IncludeCollector::visitImportedType(const ImportedType* u)
 
 inline bool IncludeCollector::visitAliasType(const AliasType* alias)
 {
+    if (alias == _currentType) {
+        traverseType(alias->alias().get()); //HACK
+        return false;
+    }
     addInclude(alias);
     return false;
 }
@@ -41,6 +45,7 @@ inline bool IncludeCollector::visitAliasType(const AliasType* alias)
 bool IncludeCollector::visitSliceType(const SliceType* slice)
 {
     if (slice == _currentType) {
+        traverseType(slice->elementType().get());
         return false;
     }
     SrcBuilder path;
