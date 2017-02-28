@@ -25,6 +25,11 @@ endif()
 
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 
+if(WIN32)
+    get_target_property(_TARGET_LOCATION bmcl LOCATION)
+    file(COPY ${_TARGET_LOCATION} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
+
 include_directories(
     thirdparty/zpaq
     thirdparty/tclap/include

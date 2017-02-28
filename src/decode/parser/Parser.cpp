@@ -33,24 +33,6 @@
 
 namespace decode {
 
-struct AllBuiltinTypes : public RefCountable {
-    Rc<BuiltinType> usizeType;
-    Rc<BuiltinType> isizeType;
-    Rc<BuiltinType> varuintType;
-    Rc<BuiltinType> varintType;
-    Rc<BuiltinType> u8Type;
-    Rc<BuiltinType> i8Type;
-    Rc<BuiltinType> u16Type;
-    Rc<BuiltinType> i16Type;
-    Rc<BuiltinType> u32Type;
-    Rc<BuiltinType> i32Type;
-    Rc<BuiltinType> u64Type;
-    Rc<BuiltinType> i64Type;
-    Rc<BuiltinType> boolType;
-    Rc<BuiltinType> voidType;
-    std::unordered_map<bmcl::StringView, Rc<BuiltinType>> btMap;
-};
-
 #define ADD_BUILTIN(name, type, str) \
     _builtinTypes->name = new BuiltinType(BuiltinTypeKind::type); \
     _builtinTypes->btMap.emplace(str, _builtinTypes->name)
