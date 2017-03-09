@@ -25,7 +25,7 @@ class TypeDecl;
 class Component;
 class Constant;
 
-class Ast : public bmcl::RefCountable<unsigned int> {
+class Ast : public RefCountable {
 public:
     Ast();
     ~Ast();

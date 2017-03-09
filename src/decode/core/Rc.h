@@ -3,7 +3,7 @@
 #include "decode/Config.h"
 
 #include <bmcl/Rc.h>
-#include <bmcl/RefCountable.h>
+#include <bmcl/ThreadSafeRefCountable.h>
 
 #include <utility>
 
@@ -12,7 +12,7 @@ namespace decode {
 template <typename T>
 using Rc = bmcl::Rc<T>;
 
-typedef bmcl::RefCountable<unsigned int> RefCountable;
+using RefCountable = bmcl::ThreadSafeRefCountable<std::size_t>;
 
 template <typename T, typename... A>
 Rc<T> makeRc(A&&... args)
