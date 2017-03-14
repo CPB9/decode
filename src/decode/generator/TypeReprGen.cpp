@@ -183,10 +183,10 @@ void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
     auto appendParameters = [this](const FunctionType* t) {
         if (t->arguments().size() > 0) {
             for (auto jt = t->arguments().cbegin(); jt < (t->arguments().cend() - 1); jt++) {
-                genTypeRepr((*jt)->type().get());
+                genTypeRepr((*jt)->type());
                 _output->append(", ");
             }
-            genTypeRepr(t->arguments().back()->type().get());
+            genTypeRepr(t->arguments().back()->type());
         }
     };
 

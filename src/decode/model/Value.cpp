@@ -1,10 +1,142 @@
 #include "decode/model/Value.h"
 #include "decode/core/Try.h"
+#include "decode/core/Foreach.h"
+#include "decode/generator/StringBuilder.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
 
 namespace decode {
+
+static void buildNamedTypeName(const NamedType* type, StringBuilder* dest)
+{
+    dest->append(type->moduleName());
+    dest->append("::");
+    dest->append(type->name());
+}
+
+static void buildTypeName(const Type* type, StringBuilder* dest)
+{
+    switch (type->typeKind()) {
+    case TypeKind::Builtin: {
+        const BuiltinType* builtin = type->asBuiltin();
+        switch (builtin->builtinTypeKind()) {
+        case BuiltinTypeKind::USize:
+            dest->append("usize");
+            return;
+        case BuiltinTypeKind::ISize:
+            dest->append("isize");
+            return;
+        case BuiltinTypeKind::Varuint:
+            dest->append("varuint");
+            return;
+        case BuiltinTypeKind::Varint:
+            dest->append( "varint");
+            return;
+        case BuiltinTypeKind::U8:
+            dest->append( "u8");
+            return;
+        case BuiltinTypeKind::I8:
+            dest->append( "i8");
+            return;
+        case BuiltinTypeKind::U16:
+            dest->append( "u16");
+            return;
+        case BuiltinTypeKind::I16:
+            dest->append( "i16");
+            return;
+        case BuiltinTypeKind::U32:
+            dest->append( "u32");
+            return;
+        case BuiltinTypeKind::I32:
+            dest->append( "i32");
+            return;
+        case BuiltinTypeKind::U64:
+            dest->append( "u64");
+            return;
+        case BuiltinTypeKind::I64:
+            dest->append( "i64");
+            return;
+        case BuiltinTypeKind::Bool:
+            dest->append( "bool");
+            return;
+        case BuiltinTypeKind::Void:
+            dest->append("void");
+            return;
+        }
+        assert(false);
+        break;
+    }
+    case TypeKind::Reference: {
+        const ReferenceType* ref = type->asReference();
+        if (ref->referenceKind() == ReferenceKind::Pointer) {
+            if (ref->isMutable()) {
+                dest->append("*mut ");
+            } else {
+                dest->append("*const ");
+            }
+        } else {
+            if (ref->isMutable()) {
+                dest->append("&mut ");
+            } else {
+                dest->append('&');
+            }
+        }
+        buildTypeName(ref->pointee(), dest);
+        return;
+    }
+    case TypeKind::Array: {
+        const ArrayType* array = type->asArray();
+        dest->append('[');
+        buildTypeName(array->elementType().get(), dest);
+        dest->append(", ");
+        dest->appendNumericValue(array->elementCount());
+        dest->append(']');
+        return;
+    }
+    case TypeKind::Slice: {
+        const SliceType* slice = type->asSlice();
+        dest->append("&[");
+        buildTypeName(slice->elementType().get(), dest);
+        dest->append(']');
+        return;
+    }
+    case TypeKind::Function: {
+        const FunctionType* func = type->asFunction();
+        dest->append("&Fn(");
+        foreachList(func->arguments(), [dest](const Rc<Field>& arg){
+            dest->append(arg->name());
+            dest->append(": ");
+            buildTypeName(arg->type(), dest);
+        }, [dest](const Rc<Field>& arg){
+            dest->append(", ");
+        });
+        if (func->returnValue().isSome()) {
+            dest->append(") -> ");
+            buildTypeName(func->returnValue().unwrap().get(), dest);
+        } else {
+            dest->append(')');
+        }
+        return;
+    }
+    case TypeKind::Enum:
+        buildNamedTypeName(type->asEnum(), dest);
+        return;
+    case TypeKind::Struct:
+        buildNamedTypeName(type->asStruct(), dest);
+        return;
+    case TypeKind::Variant:
+        buildNamedTypeName(type->asVariant(), dest);
+        return;
+    case TypeKind::Imported:
+        buildNamedTypeName(type->asImported(), dest);
+        return;
+    case TypeKind::Alias:
+        buildNamedTypeName(type->asAlias(), dest);
+        return;
+    }
+    assert(false);
+}
 
 Value::~Value()
 {
@@ -59,6 +191,16 @@ bool ContainerValue::isContainer() const
     return true;
 }
 
+bool ContainerValue::isInitialized() const
+{
+    for (const Rc<Value>& v : _values) {
+        if (!v->isInitialized()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool ContainerValue::encode(bmcl::MemWriter* dest) const
 {
     for (const Rc<Value>& value : _values) {
@@ -93,6 +235,11 @@ ArrayValue::~ArrayValue()
 Type* ArrayValue::type()
 {
     return _type.get();
+}
+
+bmcl::Option<std::size_t> ArrayValue::fixedSize() const
+{
+    return _type->elementCount();
 }
 
 SliceValue::SliceValue(const Rc<SliceType>& type)
@@ -130,6 +277,11 @@ Type* SliceValue::type()
     return _type.get();
 }
 
+bmcl::Option<std::size_t> SliceValue::fixedSize() const
+{
+    return bmcl::None;
+}
+
 StructValue::StructValue(const Rc<StructType>& type)
 {
     _values.reserve(type->fields()->size());
@@ -145,6 +297,11 @@ StructValue::~StructValue()
 Type* StructValue::type()
 {
     return _type.get();
+}
+
+bmcl::Option<std::size_t> StructValue::fixedSize() const
+{
+    return _type->fields()->size();
 }
 
 VariantValue::VariantValue(const Rc<VariantType>& type)
@@ -212,6 +369,11 @@ Type* VariantValue::type()
     return _type.get();
 }
 
+bmcl::Option<std::size_t> VariantValue::fixedSize() const
+{
+    return bmcl::None;
+}
+
 bool NonContainerValue::isContainer() const
 {
     return false;
@@ -248,6 +410,11 @@ bool AddressValue::decode(bmcl::MemReader* src)
     }
     _address.unwrap() = src->readUint64Le();
     return true;
+}
+
+bool AddressValue::isInitialized() const
+{
+    return _address.isSome();
 }
 
 ReferenceValue::ReferenceValue(const Rc<ReferenceType>& type)
@@ -303,6 +470,11 @@ bool EnumValue::decode(bmcl::MemReader* src)
     TRY(src->readVarUint(&value));
     _currentId.unwrap() = value;
     return true;
+}
+
+bool EnumValue::isInitialized() const
+{
+    return _currentId.isSome();
 }
 
 Type* EnumValue::type()
@@ -401,6 +573,12 @@ bool NumericValue<T>::decode(bmcl::MemReader* src)
     return true;
 }
 
+template <typename T>
+bool NumericValue<T>::isInitialized() const
+{
+    return _value.isSome();
+}
+
 template class NumericValue<std::uint8_t>;
 template class NumericValue<std::int8_t>;
 template class NumericValue<std::uint16_t>;
@@ -436,6 +614,11 @@ bool VarintValue::decode(bmcl::MemReader* src)
     return true;
 }
 
+bool VarintValue::isInitialized() const
+{
+    return _value.isSome();
+}
+
 VaruintValue::VaruintValue(const Rc<BuiltinType>& type)
     : BuiltinValue(type)
 {
@@ -460,5 +643,10 @@ bool VaruintValue::decode(bmcl::MemReader* src)
     TRY(src->readVarUint(&value));
     _value.emplace(value);
     return true;
+}
+
+bool VaruintValue::isInitialized() const
+{
+    return _value.isSome();
 }
 }

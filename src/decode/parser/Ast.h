@@ -35,9 +35,14 @@ public:
         return _importDecls;
     }
 
-    const Rc<ModuleInfo>& moduleInfo() const
+    const ModuleInfo* moduleInfo() const
     {
-        return _moduleInfo;
+        return _moduleInfo.get();
+    }
+
+    const bmcl::Option<Rc<Component>>& component() const
+    {
+        return _component;
     }
 
     const std::unordered_map<bmcl::StringView, Rc<NamedType>>& typeMap() const
@@ -68,16 +73,12 @@ public:
         return it->second;
     }
 
-    const bmcl::Option<Rc<Component>>& component() const
+    void setModuleInfo(ModuleInfo* info)
     {
-        return _component;
+        _moduleInfo.reset(info);
     }
 
-private:
-    friend class Parser;
-    friend class Package;
-
-    void addTopLevelType(const Rc<NamedType>& type)
+    void addTopLevelType(NamedType* type)
     {
         auto it = _typeNameToType.emplace(type->name(), type);
         assert(it.second); //TODO: check for top level type name conflicts
@@ -88,6 +89,23 @@ private:
         _typeNameToImplBlock.emplace(block->name(), block);
     }
 
+    void addImportDecl(TypeImport* decl)
+    {
+        _importDecls.emplace_back(decl);
+    }
+
+    void addConstant(Constant* constant)
+    {
+        auto it = _constants.emplace(constant->name(), constant);
+        assert(it.second); //TODO: check for top level type name conflicts
+    }
+
+    void setComponent(Component* comp)
+    {
+        _component.emplace(comp);
+    }
+
+private:
     std::vector<Rc<TypeImport>> _importDecls;
 
     bmcl::Option<Rc<Component>> _component;
@@ -95,8 +113,7 @@ private:
     std::unordered_map<bmcl::StringView, Rc<NamedType>> _typeNameToType;
     std::unordered_map<bmcl::StringView, Rc<ImplBlock>> _typeNameToImplBlock;
     std::unordered_map<bmcl::StringView, Rc<Constant>> _constants;
-    std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
-    Rc<Module> _moduleDecl;
+    //std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<ModuleInfo> _moduleInfo;
 };
 

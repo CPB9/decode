@@ -11,7 +11,6 @@ class NameVisitor : public ConstAstVisitor<B> {
 public:
     B& base();
 
-    bool visitFunctionType(const FunctionType* type);
     bool visitEnumType(const EnumType* type);
     bool visitStructType(const StructType* type);
     bool visitVariantType(const VariantType* type);
@@ -27,12 +26,6 @@ template <typename B>
 inline B& NameVisitor<B>::base()
 {
     return *static_cast<B*>(this);
-}
-
-template <typename B>
-inline bool NameVisitor<B>::visitFunctionType(const FunctionType* type)
-{
-    return base().appendTypeName(type);
 }
 
 template <typename B>

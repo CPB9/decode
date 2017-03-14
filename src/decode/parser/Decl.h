@@ -120,21 +120,24 @@ private:
 
 class FunctionType;
 
+class Function;
+
 class ImplBlock : public NamedDecl {
 public:
-
-    const std::vector<Rc<FunctionType>>& functions() const
+    const std::vector<Rc<Function>>& functions() const
     {
         return _funcs;
     }
 
-protected:
-    ImplBlock() = default;
+    void addFunction(Function* func)
+    {
+        _funcs.emplace_back(func);
+    }
 
 private:
     friend class Parser;
 
-    std::vector<Rc<FunctionType>> _funcs;
+    std::vector<Rc<Function>> _funcs;
 };
 
 }

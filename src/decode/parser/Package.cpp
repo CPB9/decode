@@ -314,7 +314,7 @@ bmcl::Buffer Package::encode() const
     buf.write(magic.data(), magic.size());
 
     for (const auto& it : _modNameToAstMap) {
-        const Rc<FileInfo>& finfo = it.second->moduleInfo()->fileInfo();
+        Rc<const FileInfo> finfo = it.second->moduleInfo()->fileInfo();
 
         const std::string& fname = finfo->fileName();
         assert(fname.size() <= std::numeric_limits<std::uint8_t>::max());
@@ -385,7 +385,7 @@ bool Package::resolveTypes(const Rc<Ast>& ast)
                     BMCL_CRITICAL() << "circular imports " << ast->moduleInfo()->moduleName().toStdString() << ": " << modifiedType->name().toStdString();
                     BMCL_CRITICAL() << "circular imports " << searchedAst->first.toStdString() << ".decode: " << foundType.unwrap()->name().toStdString();
                 }
-                modifiedType->_link = foundType.unwrap();
+                modifiedType->setLink(foundType.unwrap().get());
             }
         }
     }
@@ -405,8 +405,8 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
         return true;
     }
 
-    StatusMap& map = statuses.unwrap()->_statusMap;
-    const bmcl::Option<Rc<Parameters>>& params = comp.unwrap()->parameters();
+    StatusMap& map = statuses.unwrap()->statusMap();
+    const bmcl::Option<Rc<FieldList>>& params = comp.unwrap()->parameters();
     if (params.isNone() && !map.empty()) {
         //TODO: report error
         return false;
@@ -416,11 +416,11 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
         _statusMsgs.emplace_back(comp.unwrap(), it.second);
         for (const Rc<StatusRegexp>& re : it.second->parts()) {
 
-            Rc<FieldList> fields = params.unwrap()->fields();
+            Rc<FieldList> fields = params.unwrap();
             Rc<Type> lastType;
             Rc<Field> lastField;
 
-            if (re->_accessors.empty()) {
+            if (re->accessors().empty()) {
                 continue;
             }
             auto resolveField = [&](FieldAccessor* facc) -> bool {
@@ -429,18 +429,18 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
                     //TODO: report error
                     return false;
                 }
-                facc->_field = field.unwrap();
+                facc->setField(field.unwrap().get());
                 lastField = field.unwrap();
                 lastType = field.unwrap()->type();
                 return true;
             };
-            if (re->_accessors.front()->accessorKind() != AccessorKind::Field) {
+            if (re->accessors().front()->accessorKind() != AccessorKind::Field) {
                 return false;
             }
-            if (!resolveField(static_cast<FieldAccessor*>(re->_accessors.front().get()))) {
+            if (!resolveField(static_cast<FieldAccessor*>(re->accessors().front().get()))) {
                 return false;
             }
-            for (auto jt = re->_accessors.begin() + 1; jt < re->_accessors.end(); jt++) {
+            for (auto jt = re->accessors().begin() + 1; jt < re->accessors().end(); jt++) {
                 Rc<Accessor> acc = *jt;
                 if (acc->accessorKind() == AccessorKind::Field) {
                     if (!lastType->isStruct()) {
@@ -454,7 +454,7 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
                     }
                 } else if (acc->accessorKind() == AccessorKind::Subscript) {
                     SubscriptAccessor* sacc = static_cast<SubscriptAccessor*>(acc.get());
-                    sacc->_type = lastType;
+                    sacc->setType(lastType.get());
                     if (lastType->isSlice()) {
                         SliceType* slice = lastType->asSlice();
                         lastType = slice->elementType();
@@ -469,7 +469,6 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
                 } else {
                     return false;
                 }
-
             }
         }
     }
@@ -481,7 +480,7 @@ bool Package::mapComponent(const Rc<Ast>& ast)
 {
     if (ast->component().isSome()) {
         std::size_t id = _components.size(); //FIXME: make user-set
-        ast->component().unwrap()->_number = id;
+        ast->component().unwrap()->setNumber(id);
         _components.emplace(id, ast->component().unwrap());
     }
     return true;

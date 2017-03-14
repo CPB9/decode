@@ -84,7 +84,7 @@ void CmdDecoderGen::generateSource(const std::map<std::size_t, Rc<Component>>& c
             continue;
         }
         std::size_t cmdNum = 0;
-        for (const Rc<FunctionType>& jt : it.second->commands().unwrap()->functions()) {
+        for (const Rc<Function>& jt : it.second->commands().unwrap()->functions()) {
             generateFunc(it.second, jt, it.first, cmdNum);
             cmdNum++;
             _output->appendEol();
@@ -117,7 +117,7 @@ void CmdDecoderGen::generateMainFunc(const std::map<std::size_t, Rc<Component>>&
         _output->append("        switch (cmdNum) {\n");
 
         std::size_t cmdNum = 0;
-        for (const Rc<FunctionType>& func : it.second->commands().unwrap()->functions()) {
+        for (const Rc<Function>& func : it.second->commands().unwrap()->functions()) {
             (void)func;
             _output->append("        case ");
             _output->appendNumericValue(cmdNum);
@@ -135,12 +135,12 @@ void CmdDecoderGen::generateMainFunc(const std::map<std::size_t, Rc<Component>>&
 }
 
 template <typename C>
-void CmdDecoderGen::foreachParam(const Rc<FunctionType>& func, C&& f)
+void CmdDecoderGen::foreachParam(const Rc<Function>& func, C&& f)
 {
     std::size_t fieldNum = 0;
     _paramName.resize(2);
     InlineSerContext ctx;
-    for (const Rc<Field>& field : func->arguments()) {
+    for (const Rc<Field>& field : func->type()->arguments()) {
         _paramName.appendNumericValue(fieldNum);
         f(field, _paramName.view());
         _paramName.resize(2);
@@ -148,9 +148,9 @@ void CmdDecoderGen::foreachParam(const Rc<FunctionType>& func, C&& f)
     }
 }
 
-void CmdDecoderGen::writePointerOp(const Rc<Type>& type)
+void CmdDecoderGen::writePointerOp(const Type* type)
 {
-    const Type* t = type.get(); //HACK: fix Rc::operator->
+    const Type* t = type; //HACK: fix Rc::operator->
     switch (type->typeKind()) {
     case TypeKind::Reference:
     case TypeKind::Array:
@@ -164,7 +164,7 @@ void CmdDecoderGen::writePointerOp(const Rc<Type>& type)
         _output->append("&");
         break;
     case TypeKind::Imported:
-        writePointerOp(t->asImported()->link());
+        writePointerOp(t->asImported()->link().get());
         break;
     case TypeKind::Alias:
         writePointerOp(t->asAlias()->alias());
@@ -172,28 +172,29 @@ void CmdDecoderGen::writePointerOp(const Rc<Type>& type)
     }
 }
 
-void CmdDecoderGen::generateFunc(const Rc<Component>& comp, const Rc<FunctionType>& func, unsigned componenNum, unsigned cmdNum)
+void CmdDecoderGen::generateFunc(const Rc<Component>& comp, const Rc<Function>& func, unsigned componenNum, unsigned cmdNum)
 {
+    const FunctionType* ftype = func->type();
     _output->append("static ");
     appendFunctionPrototype(componenNum, cmdNum);
     _output->append("\n{\n");
 
     foreachParam(func, [this](const Rc<Field>& field, bmcl::StringView name) {
         _output->append("    ");
-        _typeReprGen->genTypeRepr(field->type().get(), name);
+        _typeReprGen->genTypeRepr(field->type(), name);
         _output->append(";\n");
     });
 
-    if (func->returnValue().isSome()) {
+    if (ftype->returnValue().isSome()) {
         _output->append("    ");
-        _typeReprGen->genTypeRepr(func->returnValue().unwrap().get(), "_rv");
+        _typeReprGen->genTypeRepr(ftype->returnValue().unwrap().get(), "_rv");
         _output->append(";\n");
     }
     _output->appendEol();
 
     InlineSerContext ctx;
     foreachParam(func, [this, ctx](const Rc<Field>& field, bmcl::StringView name) {
-        _inlineDeser.inspect(field->type().get(), ctx, name);
+        _inlineDeser.inspect(field->type(), ctx, name);
     });
     _output->appendEol();
 
@@ -209,16 +210,16 @@ void CmdDecoderGen::generateFunc(const Rc<Component>& comp, const Rc<FunctionTyp
         _output->append(name);
         _output->append(", ");
     });
-    if (func->returnValue().isSome()) {
-        writePointerOp(func->returnValue().unwrap());
+    if (ftype->returnValue().isSome()) {
+        writePointerOp(ftype->returnValue().unwrap().get());
         _output->append("_rv");
-    } else if (!func->arguments().empty()) {
+    } else if (!ftype->arguments().empty()) {
         _output->removeFromBack(2);
     }
     _output->append("));\n\n");
 
-    if (func->returnValue().isSome()) {
-        _inlineSer.inspect(func->returnValue().unwrap().get(), ctx, "_rv");
+    if (ftype->returnValue().isSome()) {
+        _inlineSer.inspect(ftype->returnValue().unwrap().get(), ctx, "_rv");
     }
 
     _output->append("\n    return PhotonError_Ok;\n}");

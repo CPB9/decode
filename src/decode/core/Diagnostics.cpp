@@ -7,7 +7,7 @@
 
 namespace decode {
 
-Report::Report(const Rc<FileInfo>& fileInfo)
+Report::Report(const FileInfo* fileInfo)
     : _fileInfo(fileInfo)
 {
 }
@@ -103,9 +103,9 @@ void Report::print(std::ostream* out) const
     }
 }
 
-Rc<Report> Diagnostics::addReport(const Rc<FileInfo>& fileInfo)
+Rc<Report> Diagnostics::addReport(const FileInfo* fileInfo)
 {
-    _reports.push_back(new Report(fileInfo));
+    _reports.emplace_back(new Report(fileInfo));
     return _reports.back();
 }
 

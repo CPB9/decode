@@ -14,7 +14,7 @@ class Configuration;
 
 class CfgOption : public RefCountable {
 public:
-    virtual bool matchesConfiguration(const Rc<Configuration>& cfg) const = 0;
+    virtual bool matchesConfiguration(const Configuration* cfg) const = 0;
 };
 
 class SingleCfgOption : public CfgOption {
@@ -22,7 +22,7 @@ public:
     SingleCfgOption(bmcl::StringView key);
     SingleCfgOption(bmcl::StringView key, bmcl::StringView value);
 
-    bool matchesConfiguration(const Rc<Configuration>& cfg) const override;
+    bool matchesConfiguration(const Configuration* cfg) const override;
 
 protected:
     bmcl::StringView _key;
@@ -33,7 +33,7 @@ class NotCfgOption : public SingleCfgOption {
 public:
     using SingleCfgOption::SingleCfgOption;
 
-    bool matchesConfiguration(const Rc<Configuration>& cfg) const override;
+    bool matchesConfiguration(const Configuration* cfg) const override;
 };
 
 class AnyCfgOption : public CfgOption {
@@ -41,18 +41,18 @@ public:
     AnyCfgOption();
     ~AnyCfgOption();
 
-    void addOption(const Rc<CfgOption>& attr);
-    bool matchesConfiguration(const Rc<Configuration>& cfg) const override;
+    void addOption(const CfgOption* attr);
+    bool matchesConfiguration(const Configuration* cfg) const override;
 
 protected:
-    std::vector<Rc<CfgOption>> _attrs;
+    std::vector<Rc<const CfgOption>> _attrs;
 };
 
 class AllCfgOption : public AnyCfgOption {
 public:
     using AnyCfgOption::AnyCfgOption;
 
-    bool matchesConfiguration(const Rc<Configuration>& cfg) const override;
+    bool matchesConfiguration(const Configuration* cfg) const override;
 };
 
 }

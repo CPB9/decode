@@ -24,7 +24,7 @@ void TypeDefGen::genComponentDef(const Component* comp)
     if (comp->parameters().isNone()) {
         return;
     }
-    appendFieldList(comp->parameters().unwrap()->fields().get(), bmcl::StringView::empty());
+    appendFieldList(comp->parameters().unwrap().get(), bmcl::StringView::empty());
 }
 
 bool TypeDefGen::visitEnumType(const EnumType* type)
@@ -86,7 +86,7 @@ void TypeDefGen::appendFieldList(const FieldList* fields, bmcl::StringView name)
 
     for (const Rc<Field>& field : *fields) {
         _output->appendIndent(1);
-        _typeReprGen->genTypeRepr(field->type().get(), field->name());
+        _typeReprGen->genTypeRepr(field->type(), field->name());
         _output->append(";\n");
     }
 
@@ -193,7 +193,7 @@ void TypeDefGen::appendVariant(const VariantType* type)
 bool TypeDefGen::visitAliasType(const AliasType* type)
 {
     _output->append("typedef ");
-    const Type* link = type->alias().get();
+    const Type* link = type->alias();
     if (link->isFunction()) {
         StringBuilder typedefName = "Photon";
         typedefName.append(type->name());

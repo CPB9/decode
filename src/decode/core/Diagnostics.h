@@ -26,7 +26,7 @@ public:
         Note,
     };
 
-    Report(const Rc<FileInfo>& fileInfo);
+    Report(const FileInfo* fileInfo);
     ~Report();
 
     void print(std::ostream* out) const;
@@ -42,13 +42,13 @@ private:
     bmcl::Option<Level> _level;
     bmcl::Option<Location> _location;
 
-    Rc<FileInfo> _fileInfo;
+    Rc<const FileInfo> _fileInfo;
 };
 
 class Diagnostics : public RefCountable {
 public:
 
-    Rc<Report> addReport(const Rc<FileInfo>& fileInfo);
+    Rc<Report> addReport(const FileInfo* fileInfo);
 
     bool hasReports()
     {

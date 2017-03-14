@@ -140,13 +140,13 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
 {
     std::unordered_set<std::string> dest;
     if (comp->commands().isSome()) {
-        for (const Rc<FunctionType>& fn : comp->commands().unwrap()->functions()) {
-            _includeCollector.collect(fn.get(), &dest);
+        for (const Rc<Function>& fn : comp->commands().unwrap()->functions()) {
+            _includeCollector.collect(fn->type(), &dest);
         }
     }
     if (comp->implBlock().isSome()) {
-        for (const Rc<FunctionType>& fn : comp->implBlock().unwrap()->functions()) {
-            _includeCollector.collect(fn.get(), &dest);
+        for (const Rc<Function>& fn : comp->implBlock().unwrap()->functions()) {
+            _includeCollector.collect(fn->type(), &dest);
         }
     }
     dest.insert("core/Reader");
@@ -160,8 +160,8 @@ void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
     bmcl::Option<const Rc<ImplBlock>&> impl = _ast->findImplBlockWithName(topLevelType->name());
     std::unordered_set<std::string> dest;
     if (impl.isSome()) {
-        for (const Rc<FunctionType>& fn : impl.unwrap()->functions()) {
-            _includeCollector.collect(fn.get(), &dest);
+        for (const Rc<Function>& fn : impl.unwrap()->functions()) {
+            _includeCollector.collect(fn->type(), &dest);
         }
     }
     dest.insert("core/Reader");
@@ -203,10 +203,10 @@ void HeaderGen::appendFunctionPrototypes(const Component* comp)
     appendFunctionPrototypes(comp->implBlock().unwrap()->functions(), bmcl::StringView::empty());
 }
 
-void HeaderGen::appendFunctionPrototypes(const std::vector<Rc<FunctionType>>& funcs, bmcl::StringView typeName)
+void HeaderGen::appendFunctionPrototypes(const std::vector<Rc<Function>>& funcs, bmcl::StringView typeName)
 {
-    for (const Rc<FunctionType>& func : funcs) {
-        appendFunctionPrototype(func, typeName);
+    for (const Rc<Function>& func : funcs) {
+        appendFunctionPrototype(func.get(), typeName);
     }
     if (!funcs.empty()) {
         _output->append('\n');
@@ -222,9 +222,8 @@ void HeaderGen::appendFunctionPrototypes(const NamedType* type)
     appendFunctionPrototypes(block.unwrap()->functions(), type->name());
 }
 
-static Rc<Type> wrapIntoPointerIfNeeded(const Rc<Type>& type)
+static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
 {
-    const Type* t = type.get(); //HACK
     switch (type->typeKind()) {
     case TypeKind::Reference:
     case TypeKind::Array:
@@ -235,11 +234,11 @@ static Rc<Type> wrapIntoPointerIfNeeded(const Rc<Type>& type)
     case TypeKind::Slice:
     case TypeKind::Struct:
     case TypeKind::Variant:
-        return new ReferenceType(type, ReferenceKind::Pointer, false);
+        return new ReferenceType(ReferenceKind::Pointer, false, type);
     case TypeKind::Imported:
-        return wrapIntoPointerIfNeeded(t->asImported()->link());
+        return wrapIntoPointerIfNeeded(type->asImported()->link().get());
     case TypeKind::Alias:
-        return wrapIntoPointerIfNeeded(t->asAlias()->alias());
+        return wrapIntoPointerIfNeeded(type->asAlias()->alias());
     }
     assert(false);
     return nullptr;
@@ -250,26 +249,27 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
     if (comp->commands().isNone()) {
         return;
     }
-    for (const Rc<FunctionType>& func : comp->commands().unwrap()->functions()) {
+    for (const Rc<Function>& func : comp->commands().unwrap()->functions()) {
+        const FunctionType* ftype = func->type();
         _output->append("PhotonError Photon");
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append("_");
         _output->appendWithFirstUpper(func->name());
         _output->append("(");
 
-        foreachList(func->arguments(), [this](const Rc<Field>& field) {
+        foreachList(ftype->arguments(), [this](const Rc<Field>& field) {
             Rc<Type> type = wrapIntoPointerIfNeeded(field->type());
             _typeReprGen->genTypeRepr(type.get(), field->name());
         }, [this](const Rc<Field>&) {
             _output->append(", ");
         });
 
-        if (func->returnValue().isSome()) {
-            if (!func->arguments().empty()) {
+        if (ftype->returnValue().isSome()) {
+            if (!ftype->arguments().empty()) {
                 _output->append(", ");
             }
-            Rc<ReferenceType> type = new ReferenceType(func->returnValue().unwrap(), ReferenceKind::Pointer, true);
-            _typeReprGen->genTypeRepr(type.get(), "rv"); //TODO: check name conflicts
+            ReferenceType* rtype = new ReferenceType(ReferenceKind::Pointer, true, ftype->returnValue().unwrap().get());
+            _typeReprGen->genTypeRepr(rtype, "rv"); //TODO: check name conflicts
         }
 
         _output->append(");\n");
@@ -277,10 +277,11 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
     _output->appendEol();
 }
 
-void HeaderGen::appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName)
+void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView typeName)
 {
-    if (func->returnValue().isSome()) {
-        _typeReprGen->genTypeRepr(func->returnValue()->get());
+    const FunctionType* type = func->type();
+    if (type->returnValue().isSome()) {
+        _typeReprGen->genTypeRepr(type->returnValue()->get());
         _output->append(' ');
     } else {
         _output->append("void ");
@@ -291,8 +292,8 @@ void HeaderGen::appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::Stri
     _output->appendWithFirstUpper(func->name());
     _output->append('(');
 
-    if (func->selfArgument().isSome()) {
-        SelfArgument self = func->selfArgument().unwrap();
+    if (type->selfArgument().isSome()) {
+        SelfArgument self = type->selfArgument().unwrap();
         switch(self) {
         case SelfArgument::Reference:
             _output->append("const ");
@@ -304,18 +305,18 @@ void HeaderGen::appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::Stri
         case SelfArgument::Value:
             break;
         }
-        if (!func->arguments().empty()) {
+        if (!type->arguments().empty()) {
             _output->append(", ");
         }
     }
 
-    if (func->arguments().size() > 0) {
-        for (auto it = func->arguments().begin(); it < (func->arguments().end() - 1); it++) {
+    if (type->arguments().size() > 0) {
+        for (auto it = type->arguments().begin(); it < (type->arguments().end() - 1); it++) {
             const Field* field = it->get();
-            _typeReprGen->genTypeRepr(field->type().get(), field->name());
+            _typeReprGen->genTypeRepr(field->type(), field->name());
             _output->append(", ");
         }
-        _typeReprGen->genTypeRepr(func->arguments().back()->type().get(), func->arguments().back()->name());
+        _typeReprGen->genTypeRepr(type->arguments().back()->type(), type->arguments().back()->name());
     }
 
     _output->append(");\n");

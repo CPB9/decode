@@ -1,7 +1,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/core/Rc.h"
+#include "decode/core/NamedRc.h"
 
 #include <bmcl/StringView.h>
 
@@ -11,12 +11,13 @@ namespace decode {
 
 class Type;
 
-class Constant : public RefCountable {
+class Constant : public NamedRc {
 public:
-
-    bmcl::StringView name() const
+    Constant(bmcl::StringView name, std::uintmax_t value, Type* type)
+        : NamedRc(name)
+        , _value(value)
+        , _type(type)
     {
-        return _name;
     }
 
     std::uintmax_t value() const
@@ -30,11 +31,7 @@ public:
     }
 
 private:
-    friend class Parser;
-
-    bmcl::StringView _name;
     std::uintmax_t _value;
     Rc<Type> _type;
 };
-
 }

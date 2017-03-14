@@ -252,7 +252,7 @@ void AstVisitorBase<B, P>::traverseReferenceType(typename P<ReferenceType>::type
     if (!base().visitReferenceType(ref)) {
         return;
     }
-    traverseType(ref->pointee().get());
+    traverseType(ref->pointee());
 }
 
 template <typename B, template <typename> class P>
@@ -283,7 +283,7 @@ void AstVisitorBase<B, P>::traverseFunctionType(typename P<FunctionType>::type f
         traverseType(fn->returnValue().unwrap().get());
     }
     for (const Rc<Field>& field : fn->arguments()) {
-        traverseType(field->type().get());
+        traverseType(field->type());
     }
 }
 
@@ -303,7 +303,7 @@ void AstVisitorBase<B, P>::traverseStructType(typename P<StructType>::type str)
     }
     Rc<FieldList> fieldList = str->fields();
     for (const Rc<Field>& field : *fieldList) {
-        traverseType(field->type().get());
+        traverseType(field->type());
     }
 }
 
@@ -334,7 +334,7 @@ void AstVisitorBase<B, P>::traverseStructVariantField(typename P<StructVariantFi
     }
     Rc<FieldList> fieldList = field->fields();
     for (const Rc<Field>& field : *fieldList) {
-        traverseType(field->type().get());
+        traverseType(field->type());
     }
 }
 
@@ -391,7 +391,7 @@ void AstVisitorBase<B, P>::traverseAliasType(typename P<AliasType>::type alias)
     if (!base().visitAliasType(alias)) {
         return;
     }
-    traverseType(alias->alias().get());
+    traverseType(alias->alias());
 }
 
 template <typename B, template <typename> class P>
@@ -455,8 +455,8 @@ template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseComponentParameters(typename P<Component>::type comp)
 {
     if (comp->parameters().isSome()) {
-        for (const Rc<Field>& field : *comp->parameters().unwrap()->fields()) {
-            traverseType(field->type().get());
+        for (const Rc<Field>& field : *comp->parameters().unwrap()) {
+            traverseType(field->type());
         }
     }
 }

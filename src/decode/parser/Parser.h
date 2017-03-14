@@ -41,6 +41,7 @@ class TypeDecl;
 class Ast;
 class Constant;
 class CfgOption;
+class Function;
 
 enum class BuiltinTypeKind;
 
@@ -89,7 +90,6 @@ private:
     bool skipCommentsAndSpace();
     void consumeAndSkipBlanks();
     void skipBlanks();
-    bool consumeAndSetNamedDeclName(NamedDecl* decl);
 
     bool parseModuleDecl();
     bool parseImports();
@@ -113,16 +113,19 @@ private:
     template <typename T, bool genericAllowed, typename F>
     bool parseTag(TokenKind startToken, F&& fieldParser);
 
+    template <typename T, bool genericAllowed, typename F>
+    bool parseTag2(TokenKind startToken, F&& fieldParser);
+
     template<typename T, typename F>
     Rc<T> parseNamelessTag(TokenKind startToken, TokenKind sep, F&& parser);
 
     Rc<Field> parseField();
-    bool parseRecordField(const Rc<FieldList>& parent);
-    bool parseEnumConstant(const Rc<EnumType>& parent);
-    bool parseVariantField(const Rc<VariantType>& parent);
+    bool parseRecordField(FieldList* parent);
+    bool parseEnumConstant(EnumType* parent);
+    bool parseVariantField(VariantType* parent);
     bool parseComponentField(const Rc<Component>& parent);
 
-    Rc<FunctionType> parseFunction(bool selfAllowed = true);
+    Rc<Function> parseFunction(bool selfAllowed = true);
 
     Rc<Type> parseType();
     Rc<Type> parseFunctionPointer();
@@ -150,7 +153,7 @@ private:
     template <typename T>
     Rc<T> beginType();
     template <typename T>
-    Rc<T> beginNamedType();
+    Rc<T> beginNamedType(bmcl::StringView name);
     template <typename T>
     void consumeAndEndType(const Rc<T>& type);
     template <typename T>
@@ -162,8 +165,6 @@ private:
     void finishSplittingLines();
 
     Rc<Report> reportCurrentTokenError(const char* msg);
-
-    Rc<Type> findDeclaredType(bmcl::StringView name) const;
 
     Rc<Diagnostics> _diag;
 

@@ -34,12 +34,12 @@ private:
     void appendFunctionName(unsigned componenNum, unsigned cmdNum);
 
     template <typename C>
-    void foreachParam(const Rc<FunctionType>& func, C&& callable);
+    void foreachParam(const Rc<Function>& func, C&& callable);
 
-    void generateFunc(const Rc<Component>& comp, const Rc<FunctionType>& func, unsigned componenNum, unsigned cmdNum);
+    void generateFunc(const Rc<Component>& comp, const Rc<Function>& func, unsigned componenNum, unsigned cmdNum);
     void generateMainFunc(const std::map<std::size_t, Rc<Component>>& comps);
 
-    void writePointerOp(const Rc<Type>& type);
+    void writePointerOp(const Type* type);
 
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;

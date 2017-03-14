@@ -9,14 +9,17 @@ namespace decode {
 
 class NamedRc : public RefCountable {
 public:
+    NamedRc(bmcl::StringView name)
+        : _name(name)
+    {
+    }
+
     bmcl::StringView name() const
     {
         return _name;
     }
 
 private:
-    friend class Parser;
-
     bmcl::StringView _name;
 };
 

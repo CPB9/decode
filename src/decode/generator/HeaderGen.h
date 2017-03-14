@@ -14,6 +14,7 @@ namespace decode {
 
 class Component;
 class FunctionType;
+class Function;
 
 class HeaderGen : public FuncPrototypeGen<HeaderGen> {
 public:
@@ -46,11 +47,11 @@ private:
     void appendIncludesAndFwds(const Component* comp);
     void appendCommonIncludePaths();
 
-    void appendFunctionPrototype(const Rc<FunctionType>& func, bmcl::StringView typeName);
+    void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
     void appendFunctionPrototypes(const Component* comp);
     void appendCommandPrototypes(const Component* comp);
-    void appendFunctionPrototypes(const std::vector<Rc<FunctionType>>& funcs, bmcl::StringView typeName);
+    void appendFunctionPrototypes(const std::vector<Rc<Function>>& funcs, bmcl::StringView typeName);
 
     const Ast* _ast;
     SrcBuilder* _output;

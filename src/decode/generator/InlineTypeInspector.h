@@ -164,7 +164,7 @@ inline bool InlineTypeInspector<B>::visitSliceType(const SliceType* type)
 template <typename B>
 inline bool InlineTypeInspector<B>::visitAliasType(const AliasType* type)
 {
-    base().traverseType(type->alias().get());
+    base().traverseType(type->alias());
     return false;
 }
 

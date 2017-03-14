@@ -95,7 +95,7 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
             auto facc = static_cast<const FieldAccessor*>(acc.get());
             currentField.append('.');
             currentField.append(facc->field()->name());
-            lastType = facc->field()->type().get();
+            lastType = facc->field()->type();
             break;
         }
         case AccessorKind::Subscript: {

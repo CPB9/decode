@@ -2,6 +2,8 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/parser/ModuleInfo.h"
+#include "decode/parser/Field.h"
 
 #include <bmcl/Either.h>
 
@@ -11,41 +13,37 @@ namespace decode {
 
 class ImplBlock;
 
-class Parameters: public RefCountable {
+class Function : public NamedRc {
 public:
-
-    const Rc<FieldList>& fields() const
+    Function(bmcl::StringView name, FunctionType* type)
+        : NamedRc(name)
+        , _type(type)
     {
-        return _fields;
     }
 
-protected:
-    Parameters()
-        : _fields(new FieldList)
+    const FunctionType* type() const
     {
+        return _type.get();
     }
 
 private:
-    friend class Parser;
-
-    Rc<FieldList> _fields;
+    Rc<FunctionType> _type;
 };
 
 class Commands: public RefCountable {
 public:
-
-    const std::vector<Rc<FunctionType>>& functions() const
+    const std::vector<Rc<Function>>& functions() const
     {
         return _functions;
     }
 
-protected:
-    Commands() = default;
+    void addFunction(Function* func)
+    {
+        _functions.emplace_back(func);
+    }
 
 private:
-    friend class Parser;
-
-    std::vector<Rc<FunctionType>> _functions;
+    std::vector<Rc<Function>> _functions;
 };
 
 enum class AccessorKind {
@@ -55,7 +53,6 @@ enum class AccessorKind {
 
 class Accessor : public RefCountable {
 public:
-
     AccessorKind accessorKind() const
     {
         return _accessorKind;
@@ -68,8 +65,6 @@ protected:
     }
 
 private:
-    friend class Parser;
-
     AccessorKind _accessorKind;
 };
 
@@ -80,6 +75,12 @@ struct Range {
 
 class FieldAccessor : public Accessor {
 public:
+    FieldAccessor(bmcl::StringView value, Field* field)
+        : Accessor(AccessorKind::Field)
+        , _value(value)
+        , _field(field)
+    {
+    }
 
     bmcl::StringView value() const
     {
@@ -91,46 +92,50 @@ public:
         return _field;
     }
 
-protected:
-    FieldAccessor()
-        : Accessor(AccessorKind::Field)
+    void setField(Field* field)
     {
+        _field.reset(field);
     }
 
 private:
-    friend class Parser;
-    friend class Package;
-
     bmcl::StringView _value;
     Rc<Field> _field;
 };
 
 class SubscriptAccessor : public Accessor {
 public:
+    SubscriptAccessor(const Range& range, Type* type)
+        : Accessor(AccessorKind::Subscript)
+        , _subscript(range)
+        , _type(type)
+    {
+    }
+
+    SubscriptAccessor(std::uintmax_t subscript, Type* type)
+        : Accessor(AccessorKind::Subscript)
+        , _subscript(subscript)
+        , _type(type)
+    {
+    }
 
     const Rc<Type>& type() const
     {
         return _type;
     }
 
-    const bmcl::Either<Range, uintmax_t>& subscript() const
+    const bmcl::Either<Range, std::uintmax_t>& subscript() const
     {
         return _subscript;
     }
 
-protected:
-    SubscriptAccessor()
-        : Accessor(AccessorKind::Subscript)
-        , _subscript(bmcl::InPlaceSecond)
+    void setType(Type* type)
     {
+        _type.reset(type);
     }
 
 private:
-    friend class Parser;
-    friend class Package;
-
+    bmcl::Either<Range, std::uintmax_t> _subscript;
     Rc<Type> _type;
-    bmcl::Either<Range, uintmax_t> _subscript;
 };
 
 class StatusRegexp : public RefCountable {
@@ -140,18 +145,27 @@ public:
         return _accessors;
     }
 
-protected:
-    StatusRegexp() = default;
+    std::vector<Rc<Accessor>>& accessors()
+    {
+        return _accessors;
+    }
+
+    void addAccessor(Accessor* acc)
+    {
+        _accessors.emplace_back(acc);
+    }
 
 private:
-    friend class Parser;
-    friend class Package;
-
     std::vector<Rc<Accessor>> _accessors;
 };
 
 class StatusMsg : public RefCountable {
 public:
+    StatusMsg(std::size_t num)
+        : _number(num)
+    {
+    }
+
     std::size_t number() const
     {
         return _number;
@@ -162,16 +176,17 @@ public:
         return _parts;
     }
 
-protected:
-    StatusMsg(std::size_t num)
-        : _number(num)
+    std::vector<Rc<StatusRegexp>>& parts()
     {
+        return _parts;
+    }
+
+    void addPart(StatusRegexp* part)
+    {
+        _parts.emplace_back(part);
     }
 
 private:
-    friend class Parser;
-    friend class Package;
-
     std::vector<Rc<StatusRegexp>> _parts;
     std::size_t _number;
 };
@@ -185,21 +200,30 @@ public:
         return _statusMap;
     }
 
-protected:
-    Statuses() = default;
+    StatusMap& statusMap()
+    {
+        return _statusMap;
+    }
 
+    bool addStatus(std::uintmax_t n, StatusMsg* msg)
+    {
+        auto it = _statusMap.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple(msg));
+        return it.second;
+    }
 
 private:
-    friend class Parser;
-    friend class Package;
-
     StatusMap _statusMap;
 };
 
 class Component : public RefCountable {
 public:
+    Component(std::size_t compNum, const ModuleInfo* info)
+        : _number(compNum)
+        , _modInfo(info)
+    {
+    }
 
-    const bmcl::Option<Rc<Parameters>>& parameters() const
+    const bmcl::Option<Rc<FieldList>>& parameters() const
     {
         return _params;
     }
@@ -221,7 +245,7 @@ public:
 
     bmcl::StringView moduleName() const
     {
-        return _moduleName;
+        return _modInfo->moduleName();
     }
 
     std::size_t number() const
@@ -229,19 +253,38 @@ public:
         return _number;
     }
 
-protected:
-    Component() = default;
+    void setParameters(FieldList* params)
+    {
+        _params.emplace(params);
+    }
+
+    void setStatuses(Statuses* statuses)
+    {
+        _statuses.emplace(statuses);
+    }
+
+    void setCommands(Commands* cmds)
+    {
+        _cmds.emplace(cmds);
+    }
+
+    void setImplBlock(ImplBlock* block)
+    {
+        _implBlock.emplace(block);
+    }
+
+    void setNumber(std::size_t number)
+    {
+        _number = number;
+    }
 
 private:
-    friend class Parser;
-    friend class Package;
-
-    bmcl::Option<Rc<Parameters>> _params;
+    bmcl::Option<Rc<FieldList>> _params;
     bmcl::Option<Rc<Commands>> _cmds;
     bmcl::Option<Rc<Statuses>> _statuses;
     bmcl::Option<Rc<ImplBlock>> _implBlock;
-    bmcl::StringView _moduleName;
     std::size_t _number;
+    Rc<const ModuleInfo> _modInfo;
 };
 
 struct ComponentAndMsg {

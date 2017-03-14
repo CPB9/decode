@@ -77,73 +77,6 @@ public:
     const EnumType* asEnum() const;
     const ReferenceType* asReference() const;
 
-    bool isArray() const
-    {
-        return _typeKind == TypeKind::Array;
-    }
-
-    bool isSlice() const
-    {
-        return _typeKind == TypeKind::Slice;
-    }
-
-    bool isStruct() const
-    {
-        return _typeKind == TypeKind::Struct;
-    }
-
-    bool isFunction() const
-    {
-        return _typeKind == TypeKind::Function;
-    }
-
-    bool isBuiltin() const
-    {
-        return _typeKind == TypeKind::Builtin;
-    }
-
-    bool isAlias() const
-    {
-        return _typeKind == TypeKind::Alias;
-    }
-
-    bool isImported() const
-    {
-        return _typeKind == TypeKind::Imported;
-    }
-
-    bool isVariant() const
-    {
-        return _typeKind == TypeKind::Variant;
-    }
-
-    bool isEnum() const
-    {
-        return _typeKind == TypeKind::Enum;
-    }
-
-    bool isReference() const
-    {
-        return _typeKind == TypeKind::Reference;
-    }
-
-    TypeKind typeKind() const
-    {
-        return _typeKind;
-    }
-
-protected:
-    Type(TypeKind kind)
-        : _typeKind(kind)
-    {
-    }
-
-private:
-    friend class Parser;
-    friend class Package;
-    friend class Value;
-
-
     ArrayType* asArray();
     SliceType* asSlice();
     StructType* asStruct();
@@ -155,14 +88,39 @@ private:
     EnumType* asEnum();
     ReferenceType* asReference();
 
+    TypeKind typeKind() const;
+
+    bool isArray() const;
+    bool isSlice() const;
+    bool isStruct() const;
+    bool isFunction() const;
+    bool isBuiltin() const;
+    bool isAlias() const;
+    bool isImported() const;
+    bool isVariant() const;
+    bool isEnum() const;
+    bool isReference() const;
+
+    const Type* parent() const;
+    void setParent(Type* parent);
+
+protected:
+    Type(TypeKind kind)
+        : _typeKind(kind)
+        , _parent(nullptr)
+    {
+    }
+
+private:
     TypeKind _typeKind;
+    Type* _parent; //not owned, cyclic refs
 };
 
 class NamedType : public Type {
 public:
-    const Rc<ModuleInfo>& moduleInfo() const
+    const ModuleInfo* moduleInfo() const
     {
-        return _moduleInfo;
+        return _moduleInfo.get();
     }
 
     bmcl::StringView moduleName() const
@@ -175,42 +133,64 @@ public:
         return _name;
     }
 
+    void setName(bmcl::StringView name)
+    {
+        _name = name;
+    }
+
+    void setModuleInfo(const ModuleInfo* info)
+    {
+        _moduleInfo.reset(info);
+    }
+
 protected:
-    NamedType(TypeKind kind)
+    NamedType(TypeKind kind) //TODO: remove
         : Type(kind)
     {
     }
 
-private:
-    friend class Parser;
-    friend class Package;
+    NamedType(TypeKind kind, bmcl::StringView name, const ModuleInfo* info)
+        : Type(kind)
+        , _name(name)
+        , _moduleInfo(info)
+    {
+    }
 
+private:
     bmcl::StringView _name;
-    Rc<ModuleInfo> _moduleInfo;
+    Rc<const ModuleInfo> _moduleInfo;
 };
 
 class AliasType : public NamedType {
 public:
-    const Rc<Type>& alias() const
+    AliasType(bmcl::StringView name, const ModuleInfo* info, Type* alias)
+        : NamedType(TypeKind::Alias, name, info)
+        , _alias(alias)
     {
-        return _alias;
     }
 
-protected:
-    AliasType()
-        : NamedType(TypeKind::Alias)
+    const Type* alias() const
     {
+        return _alias.get();
+    }
+
+    Type* alias()
+    {
+        return _alias.get();
+    }
+
+    void setAlias(AliasType* type)
+    {
+        _alias.reset(type);
     }
 
 private:
-    friend class Parser;
-
     Rc<Type> _alias;
 };
 
 class ReferenceType : public Type {
 public:
-    ReferenceType(const Rc<Type>& pointee, ReferenceKind kind, bool isMutable = false)
+    ReferenceType(ReferenceKind kind, bool isMutable, Type* pointee)
         : Type(TypeKind::Reference)
         , _pointee(pointee)
         , _referenceKind(kind)
@@ -228,20 +208,32 @@ public:
         return _referenceKind;
     }
 
-    const Rc<Type>& pointee() const
+    const Type* pointee() const
     {
-        return _pointee;
+        return _pointee.get();
     }
 
-protected:
-    ReferenceType()
-        : Type(TypeKind::Reference)
+    Type* pointee()
     {
+        return _pointee.get();
+    }
+
+    void setPointee(Type* pointee)
+    {
+        _pointee.reset(pointee);
+    }
+
+    void setMutable(bool isMutable)
+    {
+        _isMutable = isMutable;
+    }
+
+    void setReferenceKind(ReferenceKind kind)
+    {
+        _referenceKind = kind;
     }
 
 private:
-    friend class Parser;
-
     Rc<Type> _pointee;
     ReferenceKind _referenceKind;
     bool _isMutable;
@@ -249,36 +241,38 @@ private:
 
 class BuiltinType : public Type {
 public:
-
-    BuiltinTypeKind builtinTypeKind() const
-    {
-        return _builtinTypeKind;
-    }
-
-protected:
     BuiltinType(BuiltinTypeKind kind)
         : Type(TypeKind::Builtin)
         , _builtinTypeKind(kind)
     {
     }
 
-private:
-    friend class Parser;
+    BuiltinTypeKind builtinTypeKind() const
+    {
+        return _builtinTypeKind;
+    }
 
+private:
     BuiltinTypeKind _builtinTypeKind;
 };
 
 class SliceType : public Type {
 public:
+    SliceType(const ModuleInfo* info, Type* elementType)
+        : Type(TypeKind::Slice)
+        , _moduleInfo(info)
+        , _elementType(elementType)
+    {
+    }
 
     const Rc<Type>& elementType() const
     {
         return _elementType;
     }
 
-    const Rc<ModuleInfo>& moduleInfo() const
+    const ModuleInfo* moduleInfo() const
     {
-        return _moduleInfo;
+        return _moduleInfo.get();
     }
 
     bmcl::StringView moduleName() const
@@ -286,22 +280,19 @@ public:
         return _moduleInfo->moduleName();
     }
 
-
-protected:
-    SliceType()
-        : Type(TypeKind::Slice)
-    {
-    }
-
 private:
-    friend class Parser;
-
-    Rc<ModuleInfo> _moduleInfo;
+    Rc<const ModuleInfo> _moduleInfo;
     Rc<Type> _elementType;
 };
 
 class ArrayType : public Type {
 public:
+    ArrayType(std::uintmax_t elementCount, Type* elementType)
+        : Type(TypeKind::Array)
+        , _elementCount(elementCount)
+        , _elementType(elementType)
+    {
+    }
 
     std::uintmax_t elementCount() const
     {
@@ -313,42 +304,42 @@ public:
         return _elementType;
     }
 
-protected:
-    ArrayType()
-        : Type(TypeKind::Array)
-    {
-    }
-
 private:
-    friend class Parser;
-
     std::uintmax_t _elementCount;
     Rc<Type> _elementType;
 };
 
 class ImportedType : public NamedType {
 public:
+    ImportedType(bmcl::StringView name, bmcl::StringView importPath, const ModuleInfo* info, NamedType* link = nullptr)
+        : NamedType(TypeKind::Imported, name, info)
+        , _importPath(importPath)
+        , _link(link)
+    {
+    }
+
     const Rc<NamedType>& link() const
     {
         return _link;
     }
 
-protected:
-    ImportedType()
-        : NamedType(TypeKind::Imported)
+    void setLink(NamedType* link)
     {
+        _link.reset(link);
     }
 
 private:
-    friend class Parser;
-    friend class Package;
-
     bmcl::StringView _importPath;
     Rc<NamedType> _link;
 };
 
-class FunctionType : public NamedType {
+class FunctionType : public Type { //TODO: inherit from type
 public:
+    FunctionType(const ModuleInfo* info)
+        : Type(TypeKind::Function)
+        , _modInfo(info)
+    {
+    }
 
     const bmcl::Option<Rc<Type>>& returnValue() const
     {
@@ -365,41 +356,59 @@ public:
         return _self;
     }
 
-protected:
-    FunctionType()
-        : NamedType(TypeKind::Function)
+    void addArgument(Field* field)
     {
+        _arguments.emplace_back(field);
+    }
+
+    void setReturnValue(Type* type)
+    {
+        _returnValue.emplace(type);
+    }
+
+    void setSelfArgument(SelfArgument arg)
+    {
+        _self.emplace(arg);
     }
 
 private:
-    friend class Parser;
-
     bmcl::Option<SelfArgument> _self;
     std::vector<Rc<Field>> _arguments;
     bmcl::Option<Rc<Type>> _returnValue;
+    Rc<const ModuleInfo> _modInfo;
 };
 
 class StructType : public NamedType {
 public:
+    StructType(bmcl::StringView name, const ModuleInfo* info)
+        : NamedType(TypeKind::Struct, name, info)
+        , _fields(new FieldList)
+    {
+    }
+
     const Rc<FieldList>& fields() const
     {
         return _fields;
     }
 
-protected:
-    StructType()
-        : NamedType(TypeKind::Struct)
+    void addField(Field* field)
     {
+        _fields.get()->emplace_back(field);
     }
 
 private:
-    friend class Parser;
-
     Rc<FieldList> _fields;
 };
 
 class EnumConstant : public NamedRc {
 public:
+
+    EnumConstant(bmcl::StringView name, std::int64_t value, bool isUserSet)
+        : NamedRc(name)
+        , _value(value)
+        , _isUserSet(isUserSet)
+    {
+    }
 
     std::int64_t value() const
     {
@@ -411,25 +420,22 @@ public:
         return _isUserSet;
     }
 
-protected:
-    EnumConstant() = default;
-
 private:
-    friend class Parser;
-
     std::int64_t _value;
     bool _isUserSet;
 };
 
 class EnumType : public NamedType {
 public:
+    EnumType(bmcl::StringView name, const ModuleInfo* info)
+        : NamedType(TypeKind::Enum, name, info)
+    {
+    }
 
     const std::map<std::int64_t, Rc<EnumConstant>>& constants() const
     {
         return _constantDecls;
     }
-
-protected:
 
     bool addConstant(const Rc<EnumConstant>& constant)
     {
@@ -437,14 +443,7 @@ protected:
         return pair.second;
     }
 
-    EnumType()
-        : NamedType(TypeKind::Enum)
-    {
-    }
-
 private:
-    friend class Parser;
-
     std::map<std::int64_t, Rc<EnumConstant>> _constantDecls;
 };
 
@@ -452,22 +451,89 @@ class VariantField;
 
 class VariantType : public NamedType {
 public:
+    VariantType(bmcl::StringView name, const ModuleInfo* info)
+        : NamedType(TypeKind::Variant, name, info)
+    {
+    }
+
     const std::vector<Rc<VariantField>>& fields() const
     {
         return _fields;
     }
 
-protected:
-    VariantType()
-        : NamedType(TypeKind::Variant)
+    void addField(VariantField* field)
     {
+        _fields.emplace_back(field);
     }
 
 private:
-    friend class Parser;
-
     std::vector<Rc<VariantField>> _fields;
 };
+
+inline bool Type::isArray() const
+{
+    return _typeKind == TypeKind::Array;
+}
+
+inline bool Type::isSlice() const
+{
+    return _typeKind == TypeKind::Slice;
+}
+
+inline bool Type::isStruct() const
+{
+    return _typeKind == TypeKind::Struct;
+}
+
+inline bool Type::isFunction() const
+{
+    return _typeKind == TypeKind::Function;
+}
+
+inline bool Type::isBuiltin() const
+{
+    return _typeKind == TypeKind::Builtin;
+}
+
+inline bool Type::isAlias() const
+{
+    return _typeKind == TypeKind::Alias;
+}
+
+inline bool Type::isImported() const
+{
+    return _typeKind == TypeKind::Imported;
+}
+
+inline bool Type::isVariant() const
+{
+    return _typeKind == TypeKind::Variant;
+}
+
+inline bool Type::isEnum() const
+{
+    return _typeKind == TypeKind::Enum;
+}
+
+inline bool Type::isReference() const
+{
+    return _typeKind == TypeKind::Reference;
+}
+
+inline TypeKind Type::typeKind() const
+{
+    return _typeKind;
+}
+
+inline const Type* Type::parent() const
+{
+    return _parent;
+}
+
+inline void Type::setParent(Type* parent)
+{
+    _parent = parent;
+}
 
 inline const ArrayType* Type::asArray() const
 {

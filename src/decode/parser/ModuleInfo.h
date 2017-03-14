@@ -10,22 +10,19 @@ namespace decode {
 
 class ModuleInfo : public RefCountable {
 public:
-    ModuleInfo(bmcl::StringView name, const Rc<FileInfo>& fileInfo);
+    ModuleInfo(bmcl::StringView name, const FileInfo* fileInfo);
 
     bmcl::StringView moduleName() const;
-    const Rc<FileInfo> fileInfo() const;
+    const FileInfo* fileInfo() const;
     const std::string& fileName() const;
     const std::string& contents() const;
 
 private:
-    friend class Parser;
-    ModuleInfo() = default;
-
     bmcl::StringView _moduleName;
-    Rc<FileInfo> _fileInfo;
+    Rc<const FileInfo> _fileInfo;
 };
 
-inline ModuleInfo::ModuleInfo(bmcl::StringView name, const Rc<FileInfo>& fileInfo)
+inline ModuleInfo::ModuleInfo(bmcl::StringView name, const FileInfo* fileInfo)
     : _moduleName(name)
     , _fileInfo(fileInfo)
 {
@@ -36,9 +33,9 @@ inline bmcl::StringView ModuleInfo::moduleName() const
     return _moduleName;
 }
 
-inline const Rc<FileInfo> ModuleInfo::fileInfo() const
+inline const FileInfo* ModuleInfo::fileInfo() const
 {
-    return _fileInfo;
+    return _fileInfo.get();
 }
 
 inline const std::string& ModuleInfo::contents() const

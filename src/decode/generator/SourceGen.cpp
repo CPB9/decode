@@ -87,7 +87,7 @@ void SourceGen::appendStructSerializer(const StructType* type)
 
     for (const Rc<Field>& field : *type->fields()) {
         argName.append(field->name().begin(), field->name().end());
-        _inlineSer.inspect(field->type().get(), ctx, argName.view());
+        _inlineSer.inspect(field->type(), ctx, argName.view());
         argName.resize(6);
     }
 }
@@ -99,7 +99,7 @@ void SourceGen::appendStructDeserializer(const StructType* type)
 
     for (const Rc<Field>& field : *type->fields()) {
         argName.append(field->name().begin(), field->name().end());
-        _inlineDeser.inspect(field->type().get(), ctx, argName.view());
+        _inlineDeser.inspect(field->type(), ctx, argName.view());
         argName.resize(6);
     }
 }
@@ -147,7 +147,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
                 argName.append(type->name());
                 argName.append(".");
                 argName.append(f->name());
-                _inlineSer.inspect(f->type().get(), ctx, argName.view());
+                _inlineSer.inspect(f->type(), ctx, argName.view());
                 argName.resize(11);
             }
             break;
@@ -214,7 +214,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
                 argName.append(type->name());
                 argName.append(".");
                 argName.append(f->name());
-                _inlineDeser.inspect(f->type().get(), ctx, argName.view());
+                _inlineDeser.inspect(f->type(), ctx, argName.view());
                 argName.resize(11);
             }
             break;

@@ -35,7 +35,7 @@ inline bool IncludeCollector::visitImportedType(const ImportedType* u)
 inline bool IncludeCollector::visitAliasType(const AliasType* alias)
 {
     if (alias == _currentType) {
-        traverseType(alias->alias().get()); //HACK
+        traverseType(alias->alias()); //HACK
         return false;
     }
     addInclude(alias);
@@ -79,7 +79,7 @@ void IncludeCollector::collect(const StatusMsg* msg, std::unordered_set<std::str
             switch (acc->accessorKind()) {
             case AccessorKind::Field: {
                 auto facc = static_cast<const FieldAccessor*>(acc.get());
-                const Type* type = facc->field()->type().get();
+                const Type* type = facc->field()->type();
                 traverseType(type);
                 break;
             }
@@ -110,8 +110,8 @@ void IncludeCollector::collect(const Component* comp, std::unordered_set<std::st
     if (comp->parameters().isNone()) {
         return;
     }
-    for (const Rc<Field>& field : *comp->parameters().unwrap()->fields()) {
-        traverseType(field->type().get());
+    for (const Rc<Field>& field : *comp->parameters().unwrap()) {
+        traverseType(field->type());
     }
 }
 }

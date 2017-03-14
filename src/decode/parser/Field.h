@@ -21,23 +21,29 @@ enum class VariantFieldKind {
 
 class Field : public NamedRc {
 public:
-
-    const Rc<Type>& type() const
+    Field(bmcl::StringView name, Type* type)
+        : NamedRc(name)
+        , _type(type)
     {
-        return _type;
     }
 
-protected:
-    Field() = default;
+    const Type* type() const
+    {
+        return _type.get();
+    }
+
+    Type* type()
+    {
+        return _type.get();
+    }
 
 private:
-    friend class Parser;
 
     Rc<Type> _type;
 };
 
 template<typename T>
-class RefCountableVector : public std::vector<T>, public RefCountable {
+class RefCountableVector : public std::vector<T>, public RefCountable { //TODO: remove Rc
 };
 
 class FieldList : public RefCountableVector<Rc<Field>> {
@@ -55,71 +61,64 @@ public:
 
 class VariantField : public NamedRc {
 public:
+    VariantField(VariantFieldKind kind, bmcl::StringView name)
+        : NamedRc(name)
+        , _variantFieldKind(kind)
+    {
+    }
 
     VariantFieldKind variantFieldKind() const
     {
         return _variantFieldKind;
     }
 
-protected:
-    VariantField(VariantFieldKind kind)
-        : _variantFieldKind(kind)
-    {
-    }
-
-    VariantFieldKind _variantFieldKind;
-
 private:
-    friend class Parser;
+    VariantFieldKind _variantFieldKind;
 };
 
 class ConstantVariantField : public VariantField {
-protected:
-    ConstantVariantField()
-        : VariantField(VariantFieldKind::Constant)
+public:
+    ConstantVariantField(bmcl::StringView name)
+        : VariantField(VariantFieldKind::Constant, name)
     {
     }
-
-private:
-    friend class Parser;
 };
 
 class StructVariantField : public VariantField {
 public:
+    StructVariantField(bmcl::StringView name)
+        : VariantField(VariantFieldKind::Struct, name)
+        , _fields(new FieldList)
+    {
+    }
+
     const Rc<FieldList>& fields() const
     {
         return _fields;
     }
 
-protected:
-    StructVariantField()
-        : VariantField(VariantFieldKind::Struct)
-    {
-    }
-
 private:
-    friend class Parser;
-
     Rc<FieldList> _fields;
 };
 
 class TupleVariantField : public VariantField {
 public:
+    TupleVariantField(bmcl::StringView name)
+        : VariantField(VariantFieldKind::Tuple, name)
+    {
+    }
 
     const std::vector<Rc<Type>>& types() const
     {
         return _types;
     }
 
-protected:
-    TupleVariantField()
-        : VariantField(VariantFieldKind::Tuple)
+    void addType(Type* type)
     {
+        _types.emplace_back(type);
     }
 
 private:
-    friend class Parser;
-
     std::vector<Rc<Type>> _types;
 };
 

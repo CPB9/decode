@@ -20,6 +20,7 @@ public:
     virtual bool decode(bmcl::MemReader* src) = 0;
 
     virtual bool isContainer() const = 0;
+    virtual bool isInitialized() const = 0;
 
 protected:
     virtual Type* type() = 0;
@@ -35,6 +36,9 @@ public:
     bool decode(bmcl::MemReader* src) override;
 
     bool isContainer() const override;
+    bool isInitialized() const override;
+
+    virtual bmcl::Option<std::size_t> fixedSize() const = 0;
 
     const std::vector<Rc<Value>> values() const;
 
@@ -46,6 +50,8 @@ class ArrayValue : public ContainerValue {
 public:
     ArrayValue(const Rc<ArrayType>& type);
     ~ArrayValue();
+
+    bmcl::Option<std::size_t> fixedSize() const override;
 
 protected:
     Type* type() override;
@@ -62,6 +68,8 @@ public:
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
 
+    bmcl::Option<std::size_t> fixedSize() const override;
+
 protected:
     Type* type() override;
 
@@ -73,6 +81,8 @@ class StructValue : public ContainerValue {
 public:
     StructValue(const Rc<StructType>& type);
     ~StructValue();
+
+    bmcl::Option<std::size_t> fixedSize() const override;
 
 protected:
     Type* type() override;
@@ -88,6 +98,8 @@ public:
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
+
+    bmcl::Option<std::size_t> fixedSize() const override;
 
 protected:
     Type* type() override;
@@ -110,6 +122,8 @@ public:
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
 
+    bool isInitialized() const override;
+
 protected:
     bmcl::Option<uint64_t> _address;
 };
@@ -118,6 +132,7 @@ class ReferenceValue : public AddressValue {
 public:
     ReferenceValue(const Rc<ReferenceType>& type);
     ~ReferenceValue();
+
 
 protected:
     Type* type() override;
@@ -130,6 +145,7 @@ class FunctionValue : public AddressValue {
 public:
     FunctionValue(const Rc<FunctionType>& type);
     ~FunctionValue();
+
 
 protected:
     Type* type() override;
@@ -145,6 +161,8 @@ public:
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
+
+    bool isInitialized() const override;
 
 protected:
     Type* type() override;
@@ -176,6 +194,8 @@ public:
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
 
+    bool isInitialized() const override;
+
 private:
     bmcl::Option<T> _value;
 };
@@ -197,6 +217,8 @@ public:
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
 
+    bool isInitialized() const override;
+
 private:
     bmcl::Option<int64_t> _value;
 };
@@ -208,6 +230,8 @@ public:
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
+
+    bool isInitialized() const override;
 
 private:
     bmcl::Option<uint64_t> _value;
