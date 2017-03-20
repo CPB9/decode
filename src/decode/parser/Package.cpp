@@ -495,9 +495,9 @@ bool Package::resolveAll()
     BMCL_DEBUG() << "resolving";
     bool isOk = true;
     for (const auto& modifiedAst : _modNameToAstMap) {
+        TRY(mapComponent(modifiedAst.second));
         isOk &= resolveTypes(modifiedAst.second);
         isOk &= resolveStatuses(modifiedAst.second);
-        TRY(mapComponent(modifiedAst.second));
     }
     if (!isOk) {
         BMCL_CRITICAL() << "asd";

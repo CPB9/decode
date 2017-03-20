@@ -24,7 +24,12 @@ Node* Node::childAt(std::size_t idx)
     return nullptr;
 }
 
-bmcl::StringView Node::name() const
+bmcl::StringView Node::fieldName() const
+{
+    return bmcl::StringView::empty();
+}
+
+bmcl::StringView Node::typeName() const
 {
     return bmcl::StringView::empty();
 }

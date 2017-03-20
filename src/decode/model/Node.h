@@ -42,7 +42,8 @@ public:
     virtual std::size_t numChildren() const;
     virtual bmcl::Option<std::size_t> childIndex(const Node* node) const;
     virtual Node* childAt(std::size_t idx);
-    virtual bmcl::StringView name() const;
+    virtual bmcl::StringView fieldName() const;
+    virtual bmcl::StringView typeName() const;
     virtual Value value() const;
 
 protected:

@@ -5,11 +5,12 @@
 
 namespace decode {
 
-FieldsNode::FieldsNode(FieldList* params, Node* parent)
+FieldsNode::FieldsNode(const FieldList* params, const ValueInfoCache* cache, Node* parent)
     : Node(parent)
 {
     for (const Rc<Field>& field : *params) {
-        Rc<ValueNode> node = ValueNode::fromType(field->type(), this);
+        Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, this);
+        node->setFieldName(field->name());
         _nameToNodeMap.emplace(field->name(), node);
         _nodes.emplace_back(node);
     }
@@ -19,7 +20,7 @@ FieldsNode::~FieldsNode()
 {
 }
 
-bmcl::StringView FieldsNode::name() const
+bmcl::StringView FieldsNode::fieldName() const
 {
     return _name;
 }

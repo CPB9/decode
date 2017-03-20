@@ -9,7 +9,9 @@
 namespace decode {
 
 enum ColumnDesc {
-    Name = 0,
+    ColumnName = 0,
+    ColumnTypeName = 1,
+    ColumnValue = 2,
 };
 
 QModel::QModel(Node* node)
@@ -28,54 +30,67 @@ QVariant QModel::data(const QModelIndex& index, int role) const
     }
 
     Node* node = (Node*)index.internalPointer();
-    if (role != Qt::DecorationRole && role != Qt::DisplayRole) {
+    if (role != Qt::BackgroundRole && role != Qt::DisplayRole) {
         return QVariant();
     }
 
-    if (index.column() == ColumnDesc::Name) {
-        bmcl::StringView name = node->name();
-        if (!name.isEmpty()) {
-            return QString::fromUtf8(name.data(), name.size());
-        }
-        return QVariant();
-    }
-
-    Value value = node->value();
     if (role == Qt::DisplayRole) {
-        switch (value.kind()) {
-        case ValueKind::None:
+        if (index.column() == ColumnDesc::ColumnName) {
+            bmcl::StringView name = node->fieldName();
+            if (!name.isEmpty()) {
+                return QString::fromUtf8(name.data(), name.size());
+            }
             return QVariant();
-        case ValueKind::Uninitialized:
-            return QString("???");
-        case ValueKind::Signed: {
-            QVariant v;
-            v.setValue(value.asSigned());
-            return v;
         }
-        case ValueKind::Unsigned: {
-            QVariant v;
-            v.setValue(value.asUnsigned());
-            return v;
-        }
-        case ValueKind::String:
-            return QString::fromStdString(value.asString());
-        case ValueKind::StringView: {
-            bmcl::StringView view = value.asStringView();
-            return QString::fromUtf8(view.data(), view.size());
-        }
+
+        if (index.column() == ColumnDesc::ColumnTypeName) {
+            bmcl::StringView name = node->typeName();
+            if (!name.isEmpty()) {
+                return QString::fromUtf8(name.data(), name.size());
+            }
+            return QVariant();
         }
     }
 
-    if (role == Qt::DecorationRole) {
-        switch (value.kind()) {
-        case ValueKind::None:
-            return QVariant();
-        case ValueKind::Uninitialized:
-            return QColor(Qt::red);
-        default:
-            return QVariant();
+    if (index.column() == ColumnDesc::ColumnValue) {
+        Value value = node->value();
+        if (role == Qt::DisplayRole) {
+            switch (value.kind()) {
+            case ValueKind::None:
+                return QVariant();
+            case ValueKind::Uninitialized:
+                return QString("???");
+            case ValueKind::Signed: {
+                QVariant v;
+                v.setValue(value.asSigned());
+                return v;
+            }
+            case ValueKind::Unsigned: {
+                QVariant v;
+                v.setValue(value.asUnsigned());
+                return v;
+            }
+            case ValueKind::String:
+                return QString::fromStdString(value.asString());
+            case ValueKind::StringView: {
+                bmcl::StringView view = value.asStringView();
+                return QString::fromUtf8(view.data(), view.size());
+            }
+            }
+        }
+
+        if (role == Qt::BackgroundRole) {
+            switch (value.kind()) {
+            case ValueKind::None:
+                return QVariant();
+            case ValueKind::Uninitialized:
+                return QColor(Qt::red);
+            default:
+                return QVariant();
+            }
         }
     }
+
     return QVariant();
 }
 
@@ -86,9 +101,13 @@ QVariant QModel::headerData(int section, Qt::Orientation orientation, int role) 
     }
 
     if (role == Qt::DisplayRole) {
-        switch ((ColumnDesc)section) {
-        case ColumnDesc::Name:
+        switch (section) {
+        case ColumnDesc::ColumnName:
             return "Name";
+        case ColumnDesc::ColumnTypeName:
+            return "Type Name";
+        case ColumnDesc::ColumnValue:
+            return "Value";
         default:
             return "UNKNOWN";
         };
@@ -148,7 +167,7 @@ QModelIndex QModel::parent(const QModelIndex& modelIndex) const
 int QModel::rowCount(const QModelIndex& parent) const
 {
     if (!parent.isValid()) {
-        return _root->numChildren();
+        return 1;
     }
     Node* node = (Node*)parent.internalPointer();
     return node->numChildren();
@@ -156,6 +175,6 @@ int QModel::rowCount(const QModelIndex& parent) const
 
 int QModel::columnCount(const QModelIndex& parent) const
 {
-    return 2;
+    return 3;
 }
 }

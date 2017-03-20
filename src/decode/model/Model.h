@@ -18,6 +18,7 @@ class Package;
 class StatusDecoder;
 class Component;
 class FieldsNode;
+class ValueInfoCache;
 
 class Model : public Node {
 public:
@@ -29,10 +30,12 @@ public:
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     Node* childAt(std::size_t idx) override;
+    bmcl::StringView fieldName() const override;
 
 public:
     Rc<const Package> _package;
     std::unordered_map<uint64_t, Rc<StatusDecoder>> _decoders;
     std::vector<Rc<FieldsNode>> _nodes;
+    Rc<ValueInfoCache> _cache;
 };
 }

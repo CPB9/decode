@@ -4,144 +4,16 @@
 #include "decode/core/Foreach.h"
 #include "decode/generator/StringBuilder.h"
 #include "decode/parser/Type.h"
+#include "decode/model/ValueInfoCache.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
 
 namespace decode {
 
-static void buildNamedTypeName(const NamedType* type, StringBuilder* dest)
-{
-    dest->append(type->moduleName());
-    dest->append("::");
-    dest->append(type->name());
-}
-
-static void buildTypeName(const Type* type, StringBuilder* dest)
-{
-    switch (type->typeKind()) {
-    case TypeKind::Builtin: {
-        const BuiltinType* builtin = type->asBuiltin();
-        switch (builtin->builtinTypeKind()) {
-        case BuiltinTypeKind::USize:
-            dest->append("usize");
-            return;
-        case BuiltinTypeKind::ISize:
-            dest->append("isize");
-            return;
-        case BuiltinTypeKind::Varuint:
-            dest->append("varuint");
-            return;
-        case BuiltinTypeKind::Varint:
-            dest->append( "varint");
-            return;
-        case BuiltinTypeKind::U8:
-            dest->append( "u8");
-            return;
-        case BuiltinTypeKind::I8:
-            dest->append( "i8");
-            return;
-        case BuiltinTypeKind::U16:
-            dest->append( "u16");
-            return;
-        case BuiltinTypeKind::I16:
-            dest->append( "i16");
-            return;
-        case BuiltinTypeKind::U32:
-            dest->append( "u32");
-            return;
-        case BuiltinTypeKind::I32:
-            dest->append( "i32");
-            return;
-        case BuiltinTypeKind::U64:
-            dest->append( "u64");
-            return;
-        case BuiltinTypeKind::I64:
-            dest->append( "i64");
-            return;
-        case BuiltinTypeKind::Bool:
-            dest->append( "bool");
-            return;
-        case BuiltinTypeKind::Void:
-            dest->append("void");
-            return;
-        }
-        assert(false);
-        break;
-    }
-    case TypeKind::Reference: {
-        const ReferenceType* ref = type->asReference();
-        if (ref->referenceKind() == ReferenceKind::Pointer) {
-            if (ref->isMutable()) {
-                dest->append("*mut ");
-            } else {
-                dest->append("*const ");
-            }
-        } else {
-            if (ref->isMutable()) {
-                dest->append("&mut ");
-            } else {
-                dest->append('&');
-            }
-        }
-        buildTypeName(ref->pointee(), dest);
-        return;
-    }
-    case TypeKind::Array: {
-        const ArrayType* array = type->asArray();
-        dest->append('[');
-        buildTypeName(array->elementType(), dest);
-        dest->append(", ");
-        dest->appendNumericValue(array->elementCount());
-        dest->append(']');
-        return;
-    }
-    case TypeKind::Slice: {
-        const SliceType* slice = type->asSlice();
-        dest->append("&[");
-        buildTypeName(slice->elementType(), dest);
-        dest->append(']');
-        return;
-    }
-    case TypeKind::Function: {
-        const FunctionType* func = type->asFunction();
-        dest->append("&Fn(");
-        foreachList(func->arguments(), [dest](const Rc<Field>& arg){
-            dest->append(arg->name());
-            dest->append(": ");
-            buildTypeName(arg->type(), dest);
-        }, [dest](const Rc<Field>& arg){
-            dest->append(", ");
-        });
-        if (func->returnValue().isSome()) {
-            dest->append(") -> ");
-            buildTypeName(func->returnValue().unwrap().get(), dest);
-        } else {
-            dest->append(')');
-        }
-        return;
-    }
-    case TypeKind::Enum:
-        buildNamedTypeName(type->asEnum(), dest);
-        return;
-    case TypeKind::Struct:
-        buildNamedTypeName(type->asStruct(), dest);
-        return;
-    case TypeKind::Variant:
-        buildNamedTypeName(type->asVariant(), dest);
-        return;
-    case TypeKind::Imported:
-        buildNamedTypeName(type->asImported(), dest);
-        return;
-    case TypeKind::Alias:
-        buildNamedTypeName(type->asAlias(), dest);
-        return;
-    }
-    assert(false);
-}
-
-ValueNode::ValueNode(Node* parent)
+ValueNode::ValueNode(const ValueInfoCache* cache, Node* parent)
     : Node(parent)
+    , _cache(cache)
 {
 }
 
@@ -149,60 +21,93 @@ ValueNode::~ValueNode()
 {
 }
 
-bmcl::StringView ValueNode::name() const
+bmcl::StringView ValueNode::typeName() const
 {
-    return _name;
+    return _cache->nameForType(type());
 }
 
-static Rc<ValueNode> createNodefromType(const Type* type, Node* parent)
+bmcl::StringView ValueNode::fieldName() const
 {
-    switch (type->typeKind()) {
-    case TypeKind::Builtin:
-        return BuiltinValueNode::fromType(type->asBuiltin(), parent);
-    case TypeKind::Reference:
-        return new ReferenceValueNode(type->asReference(), parent);
-    case TypeKind::Array:
-        return new ArrayValueNode(type->asArray(), parent);
-    case TypeKind::Slice:
-        return new SliceValueNode(type->asSlice(), parent);
-    case TypeKind::Function:
-        return new FunctionValueNode(type->asFunction(), parent);
-    case TypeKind::Enum:
-        return new EnumValueNode(type->asEnum(), parent);
-    case TypeKind::Struct:
-        return new StructValueNode(type->asStruct(), parent);
-    case TypeKind::Variant:
-        return new VariantValueNode(type->asVariant(), parent);
-    case TypeKind::Imported:
-        return ValueNode::fromType(type->asImported()->link(), parent);
-    case TypeKind::Alias:
-        return ValueNode::fromType(type->asAlias()->alias(), parent);
+    return _fieldName;
+}
+
+static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+{
+    switch (type->builtinTypeKind()) {
+    case BuiltinTypeKind::USize:
+        //TODO: check target ptr size
+        return new NumericValueNode<std::uint64_t>(type, cache, parent);
+    case BuiltinTypeKind::ISize:
+        //TODO: check target ptr size
+        return new NumericValueNode<std::int64_t>(type, cache, parent);
+    case BuiltinTypeKind::Varint:
+        return new VarintValueNode(type, cache, parent);
+    case BuiltinTypeKind::Varuint:
+        return new VaruintValueNode(type, cache, parent);
+    case BuiltinTypeKind::U8:
+        return new NumericValueNode<std::uint8_t>(type, cache, parent);
+    case BuiltinTypeKind::I8:
+        return new NumericValueNode<std::int8_t>(type, cache, parent);
+    case BuiltinTypeKind::U16:
+        return new NumericValueNode<std::uint16_t>(type, cache, parent);
+    case BuiltinTypeKind::I16:
+        return new NumericValueNode<std::int16_t>(type, cache, parent);
+    case BuiltinTypeKind::U32:
+        return new NumericValueNode<std::uint32_t>(type, cache, parent);
+    case BuiltinTypeKind::I32:
+        return new NumericValueNode<std::int32_t>(type, cache, parent);
+    case BuiltinTypeKind::U64:
+        return new NumericValueNode<std::uint64_t>(type, cache, parent);
+    case BuiltinTypeKind::I64:
+        return new NumericValueNode<std::int64_t>(type, cache, parent);
+    case BuiltinTypeKind::Bool:
+        //TODO: make bool value
+        return new NumericValueNode<std::uint8_t>(type, cache, parent);
+    case BuiltinTypeKind::Void:
+        assert(false);
+        return nullptr;
     }
     assert(false);
     return nullptr;
 }
 
-Rc<ValueNode> ValueNode::fromType(const Type* type, Node* parent)
+static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* cache, Node* parent)
 {
-    Rc<ValueNode> node = createNodefromType(type, parent);
-    StringBuilder b;
-    buildTypeName(type, &b);
-    node->_name = std::move(b.result());
-    return node;
-}
-
-ContainerValueNode::ContainerValueNode(Node* parent)
-    : ValueNode(parent)
-{
-}
-
-ContainerValueNode::ContainerValueNode(std::size_t count, const Type* type, Node* parent)
-    : ValueNode(parent)
-{
-    _values.reserve(count);
-    for (std::size_t i = 0; i < count; i++) {
-        _values.push_back(ValueNode::fromType(type, parent));
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+        return builtinNodeFromType(type->asBuiltin(), cache, parent);
+    case TypeKind::Reference:
+        return new ReferenceValueNode(type->asReference(), cache, parent);
+    case TypeKind::Array:
+        return new ArrayValueNode(type->asArray(), cache, parent);
+    case TypeKind::Slice:
+        return new SliceValueNode(type->asSlice(), cache, parent);
+    case TypeKind::Function:
+        return new FunctionValueNode(type->asFunction(), cache, parent);
+    case TypeKind::Enum:
+        return new EnumValueNode(type->asEnum(), cache, parent);
+    case TypeKind::Struct:
+        return new StructValueNode(type->asStruct(), cache, parent);
+    case TypeKind::Variant:
+        return new VariantValueNode(type->asVariant(), cache, parent);
+    case TypeKind::Imported:
+        return createNodefromType(type->asImported()->link(), cache, parent);
+    case TypeKind::Alias:
+        return createNodefromType(type->asAlias()->alias(), cache, parent);
     }
+    assert(false);
+    return nullptr;
+}
+
+Rc<ValueNode> ValueNode::fromType(const Type* type, const ValueInfoCache* cache, Node* parent)
+{
+    assert(cache);
+    return createNodefromType(type, cache, parent);
+}
+
+ContainerValueNode::ContainerValueNode(const ValueInfoCache* cache, Node* parent)
+    : ValueNode(cache, parent)
+{
 }
 
 ContainerValueNode::~ContainerValueNode()
@@ -263,10 +168,17 @@ Node* ContainerValueNode::childAt(std::size_t idx)
     return childAtGeneric(_values, idx);
 }
 
-ArrayValueNode::ArrayValueNode(const ArrayType* type, Node* parent)
-    : ContainerValueNode(type->elementCount(), type->elementType(), parent)
+ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, Node* parent)
+    : ContainerValueNode(cache, parent)
     , _type(type)
 {
+    std::size_t count = type->elementCount();
+    _values.reserve(count);
+    for (std::size_t i = 0; i < count; i++) {
+        Rc<ValueNode> node = ValueNode::fromType(type->elementType(), _cache.get(), this);
+        node->setFieldName(_cache->arrayIndex(i));
+        _values.push_back(node);
+    }
 }
 
 ArrayValueNode::~ArrayValueNode()
@@ -283,8 +195,8 @@ bmcl::Option<std::size_t> ArrayValueNode::fixedSize() const
     return _type->elementCount();
 }
 
-SliceValueNode::SliceValueNode(const SliceType* type, Node* parent)
-    : ContainerValueNode(parent)
+SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cache, Node* parent)
+    : ContainerValueNode(cache, parent)
     , _type(type)
 {
 }
@@ -319,23 +231,28 @@ bmcl::Option<std::size_t> SliceValueNode::fixedSize() const
 
 void SliceValueNode::resize(std::size_t size)
 {
-    if (size > _values.size()) {
+    std::size_t currentSize = _values.size();
+    if (size > currentSize) {
         _values.reserve(size);
         for (std::size_t i = 0; i < (size - _values.size()); i++) {
-            _values.push_back(ValueNode::fromType(_type->elementType(), this));
+            Rc<ValueNode> node = ValueNode::fromType(_type->elementType(), _cache.get(), this);
+            node->setFieldName(_cache->arrayIndex(currentSize + i));
+            _values.push_back(node);
         }
     } else {
         _values.resize(size);
     }
 }
 
-StructValueNode::StructValueNode(const StructType* type, Node* parent)
-    : ContainerValueNode(parent)
+StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* cache, Node* parent)
+    : ContainerValueNode(cache, parent)
     , _type(type)
 {
     _values.reserve(type->fields()->size());
     for (const Rc<Field>& field : *type->fields()) {
-        _values.push_back(ValueNode::fromType(field->type(), this));
+        Rc<ValueNode> node = ValueNode::fromType(field->type(), _cache.get(), this);
+        node->setFieldName(field->name());
+        _values.push_back(node);
     }
 }
 
@@ -367,8 +284,8 @@ bmcl::OptionPtr<ValueNode> StructValueNode::nodeWithName(bmcl::StringView name)
     return bmcl::None;
 }
 
-VariantValueNode::VariantValueNode(const VariantType* type, Node* parent)
-    : ContainerValueNode(parent)
+VariantValueNode::VariantValueNode(const VariantType* type, const ValueInfoCache* cache, Node* parent)
+    : ContainerValueNode(cache, parent)
     , _type(type)
     , _currentId(0)
 {
@@ -405,7 +322,7 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
         std::size_t size = tField->types().size();
         _values.resize(size);
         for (std::size_t i = 0; i < size; i++) {
-            _values[i] = ValueNode::fromType(tField->types()[i].get(), this);
+            _values[i] = ValueNode::fromType(tField->types()[i].get(), _cache.get(), this);
         }
         TRY(ContainerValueNode::decode(src));
         break;
@@ -415,7 +332,7 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
         std::size_t size = sField->fields()->size();
         _values.resize(size);
         for (std::size_t i = 0; i < size; i++) {
-            _values[i] = ValueNode::fromType(sField->fields()->at(i)->type(), this);
+            _values[i] = ValueNode::fromType(sField->fields()->at(i)->type(), _cache.get(), this);
         }
         TRY(ContainerValueNode::decode(src));
         break;
@@ -438,8 +355,8 @@ bmcl::Option<std::size_t> VariantValueNode::fixedSize() const
     return bmcl::None;
 }
 
-NonContainerValueNode::NonContainerValueNode(Node* parent)
-    : ValueNode(parent)
+NonContainerValueNode::NonContainerValueNode(const ValueInfoCache* cache, Node* parent)
+    : ValueNode(cache, parent)
 {
 }
 
@@ -448,8 +365,8 @@ bool NonContainerValueNode::isContainerValue() const
     return false;
 }
 
-AddressValueNode::AddressValueNode(Node* parent)
-    : NonContainerValueNode(parent)
+AddressValueNode::AddressValueNode(const ValueInfoCache* cache, Node* parent)
+    : NonContainerValueNode(cache, parent)
 {
 }
 
@@ -491,11 +408,11 @@ Value AddressValueNode::value() const
     if (_address.isSome()) {
         return Value::makeUnsigned(_address.unwrap());
     }
-    return Value::makeNone();
+    return Value::makeUninitialized();
 }
 
-ReferenceValueNode::ReferenceValueNode(const ReferenceType* type, Node* parent)
-    : AddressValueNode(parent)
+ReferenceValueNode::ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, Node* parent)
+    : AddressValueNode(cache, parent)
     , _type(type)
 {
 }
@@ -509,8 +426,8 @@ const Type* ReferenceValueNode::type() const
     return _type.get();
 }
 
-FunctionValueNode::FunctionValueNode(const FunctionType* type, Node* parent)
-    : AddressValueNode(parent)
+FunctionValueNode::FunctionValueNode(const FunctionType* type, const ValueInfoCache* cache, Node* parent)
+    : AddressValueNode(cache, parent)
     , _type(type)
 {
 }
@@ -524,8 +441,8 @@ const Type* FunctionValueNode::type() const
     return _type.get();
 }
 
-EnumValueNode::EnumValueNode(const EnumType* type, Node* parent)
-    : NonContainerValueNode(parent)
+EnumValueNode::EnumValueNode(const EnumType* type, const ValueInfoCache* cache, Node* parent)
+    : NonContainerValueNode(cache, parent)
     , _type(type)
 {
 }
@@ -548,8 +465,23 @@ bool EnumValueNode::decode(bmcl::MemReader* src)
 {
     uint64_t value;
     TRY(src->readVarUint(&value));
-    _currentId.unwrap() = value;
+    auto it = _type->constants().find(value);
+    if (it == _type->constants().end()) {
+        //TODO: report error
+        return false;
+    }
+    _currentId.emplace(value);
     return true;
+}
+
+decode::Value EnumValueNode::value() const
+{
+    if (_currentId.isSome()) {
+        auto it = _type->constants().find(_currentId.unwrap());
+        assert(it != _type->constants().end());
+        return Value::makeStringView(it->second->name());
+    }
+    return Value::makeUninitialized();
 }
 
 bool EnumValueNode::isInitialized() const
@@ -562,8 +494,8 @@ const Type* EnumValueNode::type() const
     return _type.get();
 }
 
-BuiltinValueNode::BuiltinValueNode(const BuiltinType* type, Node* parent)
-    : NonContainerValueNode(parent)
+BuiltinValueNode::BuiltinValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+    : NonContainerValueNode(cache, parent)
     , _type(type)
 {
 }
@@ -572,44 +504,11 @@ BuiltinValueNode::~BuiltinValueNode()
 {
 }
 
-Rc<BuiltinValueNode> BuiltinValueNode::fromType(const BuiltinType* type, Node* parent)
+
+Rc<BuiltinValueNode> BuiltinValueNode::fromType(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
 {
-    switch (type->builtinTypeKind()) {
-    case BuiltinTypeKind::USize:
-        //TODO: check target ptr size
-        return new NumericValueNode<std::uint64_t>(type, parent);
-    case BuiltinTypeKind::ISize:
-        //TODO: check target ptr size
-        return new NumericValueNode<std::int64_t>(type, parent);
-    case BuiltinTypeKind::Varint:
-        return new VarintValueNode(type, parent);
-    case BuiltinTypeKind::Varuint:
-        return new VaruintValueNode(type, parent);
-    case BuiltinTypeKind::U8:
-        return new NumericValueNode<std::uint8_t>(type, parent);
-    case BuiltinTypeKind::I8:
-        return new NumericValueNode<std::int8_t>(type, parent);
-    case BuiltinTypeKind::U16:
-        return new NumericValueNode<std::uint16_t>(type, parent);
-    case BuiltinTypeKind::I16:
-        return new NumericValueNode<std::int16_t>(type, parent);
-    case BuiltinTypeKind::U32:
-        return new NumericValueNode<std::uint32_t>(type, parent);
-    case BuiltinTypeKind::I32:
-        return new NumericValueNode<std::int32_t>(type, parent);
-    case BuiltinTypeKind::U64:
-        return new NumericValueNode<std::uint64_t>(type, parent);
-    case BuiltinTypeKind::I64:
-        return new NumericValueNode<std::int64_t>(type, parent);
-    case BuiltinTypeKind::Bool:
-        //TODO: make bool value
-        return new NumericValueNode<std::uint8_t>(type, parent);
-    case BuiltinTypeKind::Void:
-        assert(false);
-        return nullptr;
-    }
-    assert(false);
-    return nullptr;
+    assert(cache);
+    return builtinNodeFromType(type, cache, parent);
 }
 
 const Type* BuiltinValueNode::type() const
@@ -618,8 +517,8 @@ const Type* BuiltinValueNode::type() const
 }
 
 template <typename T>
-NumericValueNode<T>::NumericValueNode(const BuiltinType* type, Node* parent)
-    : BuiltinValueNode(type, parent)
+NumericValueNode<T>::NumericValueNode(const BuiltinType* type,const ValueInfoCache* cache,  Node* parent)
+    : BuiltinValueNode(type, cache, parent)
 {
 }
 
@@ -655,6 +554,19 @@ bool NumericValueNode<T>::decode(bmcl::MemReader* src)
 }
 
 template <typename T>
+decode::Value NumericValueNode<T>::value() const
+{
+    if (_value.isNone()) {
+        return Value::makeUninitialized();
+    }
+    if (std::is_signed<T>::value) {
+        return Value::makeSigned(_value.unwrap());
+    } else {
+        return Value::makeUnsigned(_value.unwrap());
+    }
+}
+
+template <typename T>
 bool NumericValueNode<T>::isInitialized() const
 {
     return _value.isSome();
@@ -669,8 +581,8 @@ template class NumericValueNode<std::int32_t>;
 template class NumericValueNode<std::uint64_t>;
 template class NumericValueNode<std::int64_t>;
 
-VarintValueNode::VarintValueNode(const BuiltinType* type, Node* parent)
-    : BuiltinValueNode(type, parent)
+VarintValueNode::VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+    : BuiltinValueNode(type, cache, parent)
 {
 }
 
@@ -695,13 +607,21 @@ bool VarintValueNode::decode(bmcl::MemReader* src)
     return true;
 }
 
+Value VarintValueNode::value() const
+{
+    if (_value.isSome()) {
+        return Value::makeSigned(_value.unwrap());
+    }
+    return Value::makeUninitialized();
+}
+
 bool VarintValueNode::isInitialized() const
 {
     return _value.isSome();
 }
 
-VaruintValueNode::VaruintValueNode(const BuiltinType* type, Node* parent)
-    : BuiltinValueNode(type, parent)
+VaruintValueNode::VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+    : BuiltinValueNode(type, cache, parent)
 {
 }
 
@@ -724,6 +644,14 @@ bool VaruintValueNode::decode(bmcl::MemReader* src)
     TRY(src->readVarUint(&value));
     _value.emplace(value);
     return true;
+}
+
+Value VaruintValueNode::value() const
+{
+    if (_value.isSome()) {
+        return Value::makeUnsigned(_value.unwrap());
+    }
+    return Value::makeUninitialized();
 }
 
 bool VaruintValueNode::isInitialized() const

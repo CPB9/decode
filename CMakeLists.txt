@@ -107,6 +107,8 @@ add_library(decode
     src/decode/model/Node.h
     src/decode/model/Value.cpp
     src/decode/model/Value.h
+    src/decode/model/ValueInfoCache.cpp
+    src/decode/model/ValueInfoCache.h
     src/decode/model/ValueNode.cpp
     src/decode/model/ValueNode.h
     src/decode/parser/Ast.cpp

@@ -41,6 +41,7 @@ public:
     bool execute(bmcl::MemReader* src, ValueNode* node) override
     {
         (void)src;
+        assert(node->type()->isStruct());
         ContainerValueNode* cnode = static_cast<ContainerValueNode*>(node);
         ValueNode* child = cnode->nodeAt(_fieldIndex);
         return _next->execute(src, child);
@@ -94,9 +95,13 @@ static Rc<DecoderAction> createMsgDecoder(const StatusRegexp* part, const Type* 
     auto it = part->accessors().begin() + 1;
     auto end = part->accessors().end();
 
+    Rc<DecoderAction> firstAction;
     Rc<DecoderAction> previousAction;
 
     auto updateAction = [&](DecoderAction* newAction) {
+        if (!firstAction) {
+            firstAction = newAction;
+        }
         if (previousAction) {
             previousAction->setNext(newAction);
         }
@@ -132,7 +137,7 @@ static Rc<DecoderAction> createMsgDecoder(const StatusRegexp* part, const Type* 
     }
 
     previousAction->setNext(new DecodeNodeAction);
-    return previousAction;
+    return firstAction;
 }
 
 StatusMsgDecoder::StatusMsgDecoder(StatusMsg* msg, FieldsNode* node)
@@ -156,7 +161,7 @@ StatusMsgDecoder::~StatusMsgDecoder()
 bool StatusMsgDecoder::decode(bmcl::MemReader* src)
 {
     for (const std::pair<Rc<DecoderAction>, Rc<ValueNode>>& pair : _chain) {
-        if (pair.first->execute(src, pair.second.get())) {
+        if (!pair.first->execute(src, pair.second.get())) {
             return false;
         }
     }

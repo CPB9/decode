@@ -15,10 +15,11 @@ namespace decode {
 
 class FieldList;
 class ValueNode;
+class ValueInfoCache;
 
 class FieldsNode : public Node {
 public:
-    FieldsNode(FieldList* params, Node* parent);
+    FieldsNode(const FieldList* params, const ValueInfoCache* cache, Node* parent);
     ~FieldsNode();
 
     bmcl::OptionPtr<ValueNode> nodeWithName(bmcl::StringView name);
@@ -31,7 +32,7 @@ public:
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     Node* childAt(std::size_t idx) override;
-    bmcl::StringView name() const override;
+    bmcl::StringView fieldName() const override;
 
 public:
     std::unordered_map<bmcl::StringView, Rc<ValueNode>> _nameToNodeMap;

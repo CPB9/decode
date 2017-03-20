@@ -3,25 +3,29 @@
 #include "decode/parser/Package.h"
 #include "decode/model/Decoder.h"
 #include "decode/model/FieldsNode.h"
+#include "decode/model/ValueInfoCache.h"
 #include "decode/parser/Decl.h" //HACK
 #include "decode/parser/Type.h" //HACK
 #include "decode/parser/Component.h" //HACK
 
 #include <bmcl/ArrayView.h>
 #include <bmcl/MemReader.h>
+#include <bmcl/Logging.h>
 
 namespace decode {
 
 Model::Model(const Package* package)
     : Node(nullptr)
     , _package(package)
+    , _cache(new ValueInfoCache)
 {
     for (auto it : package->components()) {
+        BMCL_DEBUG() << it.first << " " << it.second->number() << " " <<  it.second->name().toStdString() << " " << it.second->parameters().isSome() << " " << it.second->statuses().isSome();
         if (it.second->parameters().isNone()) {
             continue;
         }
 
-        Rc<FieldsNode> node = new FieldsNode(it.second->parameters()->get(), this);
+        Rc<FieldsNode> node = new FieldsNode(it.second->parameters()->get(), _cache.get(), this);
         node->setName(it.second->name());
         _nodes.emplace_back(node);
 
@@ -53,25 +57,46 @@ Node* Model::childAt(std::size_t idx)
     return childAtGeneric(_nodes, idx);
 }
 
+bmcl::StringView Model::fieldName() const
+{
+    return "photon";
+}
+
 void Model::acceptTelemetry(bmcl::ArrayView<uint8_t> bytes)
 {
-    bmcl::MemReader reader(bytes.data(), bytes.size());
+    bmcl::MemReader stream(bytes.data(), bytes.size());
 
-    while (!reader.isEmpty()) {
-        uint64_t compId;
-        if (!reader.readVarUint(&compId)) {
+    while (!stream.isEmpty()) {
+        if (stream.sizeLeft() < 2) {
             //TODO: report error
             return;
         }
+
+        uint16_t msgSize = stream.readUint16Le();
+        if (stream.sizeLeft() < msgSize) {
+            //TODO: report error
+            return;
+        }
+
+        bmcl::MemReader msg(stream.current(), msgSize);
+        uint64_t compId;
+        if (!msg.readVarUint(&compId)) {
+            //TODO: report error
+            return;
+        }
+
         auto it = _decoders.find(compId);
         if (it == _decoders.end()) {
             //TODO: report error
             return;
         }
-        if (!it->second->decode(&reader)) {
+
+        if (!it->second->decode(&msg)) {
             //TODO: report error
             return;
         }
+
+        stream.skip(msgSize);
     }
 }
 }

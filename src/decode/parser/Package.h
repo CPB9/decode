@@ -25,8 +25,22 @@ struct ComponentAndMsg;
 
 typedef bmcl::Result<Rc<Package>, void> PackageResult;
 
+inline bool operator<(const bmcl::StringView left, const bmcl::StringView right)
+{
+    return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
+}
+
 class Package : public RefCountable {
 public:
+    struct StringViewComparator
+    {
+        inline bool operator()(const bmcl::StringView& left, const bmcl::StringView& right)
+        {
+            return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
+        }
+    };
+    using AstMap = std::map<bmcl::StringView, Rc<Ast>, StringViewComparator>;
+
     static PackageResult readFromDirectory(const Rc<Diagnostics>& diag, const char* path);
     static PackageResult decodeFromMemory(const Rc<Diagnostics>& diag, const void* src, std::size_t size);
 
@@ -34,7 +48,7 @@ public:
 
     bmcl::Buffer encode() const;
 
-    const std::unordered_map<bmcl::StringView, Rc<Ast>>& modules() const;
+    const AstMap& modules() const;
     const std::map<std::size_t, Rc<Component>>& components() const;
     const Rc<Diagnostics>& diagnostics() const;
     const std::vector<ComponentAndMsg>& statusMsgs() const;
@@ -49,7 +63,7 @@ private:
     bool mapComponent(const Rc<Ast>& ast);
 
     Rc<Diagnostics> _diag;
-    std::unordered_map<bmcl::StringView, Rc<Ast>> _modNameToAstMap;
+    AstMap _modNameToAstMap;
     std::map<std::size_t, Rc<Component>> _components;
     std::vector<ComponentAndMsg> _statusMsgs;
 };
@@ -59,7 +73,7 @@ inline const std::map<std::size_t, Rc<Component>>& Package::components() const
     return _components;
 }
 
-inline const std::unordered_map<bmcl::StringView, Rc<Ast>>& Package::modules() const
+inline const Package::AstMap& Package::modules() const
 {
     return _modNameToAstMap;
 }
