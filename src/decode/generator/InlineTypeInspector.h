@@ -125,7 +125,7 @@ bool InlineTypeInspector<B>::visitArrayType(const ArrayType* type)
     _argName.push_back(context().currentLoopVar());
     _argName.push_back(']');
     _ctxStack.push(context().indent().incLoopVar());
-    base().traverseType(type->elementType().get());
+    base().traverseType(type->elementType());
     popArgName(3);
     _ctxStack.pop();
     _output->appendIndent(context());
@@ -171,7 +171,7 @@ inline bool InlineTypeInspector<B>::visitAliasType(const AliasType* type)
 template <typename B>
 inline bool InlineTypeInspector<B>::visitImportedType(const ImportedType* type)
 {
-    base().traverseType(type->link().get());
+    base().traverseType(type->link());
     return false;
 }
 

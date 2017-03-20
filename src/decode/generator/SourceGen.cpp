@@ -234,7 +234,7 @@ void SourceGen::appendSliceSerializer(const SliceType* type)
     InlineSerContext ctx;
     _output->appendLoopHeader(ctx, "self->size");
     InlineSerContext lctx = ctx.indent();
-    _inlineSer.inspect(type->elementType().get(), lctx, "self->data[a]");
+    _inlineSer.inspect(type->elementType(), lctx, "self->data[a]");
     _output->append("    }\n");
 }
 
@@ -243,7 +243,7 @@ void SourceGen::appendSliceDeserializer(const SliceType* type)
     InlineSerContext ctx;
     _output->appendLoopHeader(ctx, "self->size");
     InlineSerContext lctx = ctx.indent();
-    _inlineDeser.inspect(type->elementType().get(), lctx, "self->data[a]");
+    _inlineDeser.inspect(type->elementType(), lctx, "self->data[a]");
     _output->append("    }\n");
 }
 

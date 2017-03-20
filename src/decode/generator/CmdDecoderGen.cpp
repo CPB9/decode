@@ -164,7 +164,7 @@ void CmdDecoderGen::writePointerOp(const Type* type)
         _output->append("&");
         break;
     case TypeKind::Imported:
-        writePointerOp(t->asImported()->link().get());
+        writePointerOp(t->asImported()->link());
         break;
     case TypeKind::Alias:
         writePointerOp(t->asAlias()->alias());

@@ -51,7 +51,7 @@ bool TypeDefGen::visitSliceType(const SliceType* type)
     _output->appendTagHeader("struct");
 
     _output->appendIndent(1);
-    _typeReprGen->genTypeRepr(type->elementType().get());
+    _typeReprGen->genTypeRepr(type->elementType());
     _output->append("* data;\n");
 
     _output->appendIndent(1);
@@ -96,7 +96,7 @@ void TypeDefGen::appendFieldList(const FieldList* fields, bmcl::StringView name)
 
 void TypeDefGen::appendStruct(const StructType* type)
 {
-    appendFieldList(type->fields().get(), type->name());
+    appendFieldList(type->fields(), type->name());
 }
 
 void TypeDefGen::appendEnum(const EnumType* type)
@@ -153,7 +153,7 @@ void TypeDefGen::appendVariant(const VariantType* type)
                 break;
             }
             case VariantFieldKind::Struct: {
-                const FieldList* fields = static_cast<const StructVariantField*>(field.get())->fields().get();
+                const FieldList* fields = static_cast<const StructVariantField*>(field.get())->fields();
                 std::string name = field->name().toStdString();
                 name.append(type->name().begin(), type->name().end());
                 appendFieldList(fields, name);

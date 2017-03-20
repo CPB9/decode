@@ -92,9 +92,14 @@ public:
     {
     }
 
-    const Rc<FieldList>& fields() const
+    const FieldList* fields() const
     {
-        return _fields;
+        return _fields.get();
+    }
+
+    FieldList* fields()
+    {
+        return _fields.get();
     }
 
 private:

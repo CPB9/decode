@@ -236,7 +236,7 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
     case TypeKind::Variant:
         return new ReferenceType(ReferenceKind::Pointer, false, type);
     case TypeKind::Imported:
-        return wrapIntoPointerIfNeeded(type->asImported()->link().get());
+        return wrapIntoPointerIfNeeded(type->asImported()->link());
     case TypeKind::Alias:
         return wrapIntoPointerIfNeeded(type->asAlias()->alias());
     }

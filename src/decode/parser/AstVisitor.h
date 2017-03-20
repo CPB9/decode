@@ -261,7 +261,7 @@ void AstVisitorBase<B, P>::traverseArrayType(typename P<ArrayType>::type array)
     if (!base().visitArrayType(array)) {
         return;
     }
-    traverseType(array->elementType().get());
+    traverseType(array->elementType());
 }
 
 template <typename B, template <typename> class P>
@@ -270,7 +270,7 @@ void AstVisitorBase<B, P>::traverseSliceType(typename P<SliceType>::type slice)
     if (!base().visitSliceType(slice)) {
         return;
     }
-    traverseType(slice->elementType().get());
+    traverseType(slice->elementType());
 }
 
 template <typename B, template <typename> class P>
@@ -301,7 +301,7 @@ void AstVisitorBase<B, P>::traverseStructType(typename P<StructType>::type str)
     if (!base().visitStructType(str)) {
         return;
     }
-    Rc<FieldList> fieldList = str->fields();
+    typename P<FieldList>::type fieldList = str->fields();
     for (const Rc<Field>& field : *fieldList) {
         traverseType(field->type());
     }
@@ -332,7 +332,7 @@ void AstVisitorBase<B, P>::traverseStructVariantField(typename P<StructVariantFi
     if (!base().visitStructVariantField(field)) {
         return;
     }
-    Rc<FieldList> fieldList = field->fields();
+    typename P<FieldList>::type fieldList = field->fields();
     for (const Rc<Field>& field : *fieldList) {
         traverseType(field->type());
     }
@@ -381,7 +381,7 @@ void AstVisitorBase<B, P>::traverseImportedType(typename P<ImportedType>::type u
         return;
     }
     if (base().shouldFollowImportedType()) {
-        traverseType(u->link().get());
+        traverseType(u->link());
     }
 }
 

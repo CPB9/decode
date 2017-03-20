@@ -28,7 +28,7 @@ inline bool IncludeCollector::visitVariantType(const VariantType* variant)
 
 inline bool IncludeCollector::visitImportedType(const ImportedType* u)
 {
-    addInclude(u->link().get());
+    addInclude(u->link());
     return false;
 }
 
@@ -45,7 +45,7 @@ inline bool IncludeCollector::visitAliasType(const AliasType* alias)
 bool IncludeCollector::visitSliceType(const SliceType* slice)
 {
     if (slice == _currentType) {
-        traverseType(slice->elementType().get());
+        traverseType(slice->elementType());
         return false;
     }
     SrcBuilder path;
@@ -54,7 +54,7 @@ bool IncludeCollector::visitSliceType(const SliceType* slice)
     gen.genTypeName(slice);
 
     _dest->insert(std::move(path.result()));
-    ascendTypeOnce(slice->elementType().get());
+    ascendTypeOnce(slice->elementType());
     return false;
 }
 

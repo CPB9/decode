@@ -305,6 +305,10 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
         package->addAst(ast.unwrap());
     }
 
+    if (!package->resolveAll()) {
+        return PackageResult();
+    }
+
     return std::move(package);
 }
 

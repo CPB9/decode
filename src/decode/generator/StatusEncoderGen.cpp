@@ -101,11 +101,17 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
         case AccessorKind::Subscript: {
             auto sacc = static_cast<const SubscriptAccessor*>(acc.get());
             const Type* type = sacc->type().get();
+            if (type->isSlice()) {
+                _output->appendIndent(ctx);
+                _output->append("PHOTON_TRY(PhotonWriter_WriteVaruint(dest, ");
+                _output->append(currentField.view());
+                _output->append(".size));\n");
+            }
             //TODO: add bounds checking for slices
             if (type->isSlice()) {
-                lastType = type->asSlice()->elementType().get();
+                lastType = type->asSlice()->elementType();
             } else if (type->isArray()) {
-                lastType = type->asArray()->elementType().get();
+                lastType = type->asArray()->elementType();
             } else {
                 assert(false);
             }

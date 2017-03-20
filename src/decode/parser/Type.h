@@ -2,13 +2,16 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/Hash.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Field.h"
 
 #include <bmcl/StringView.h>
+#include <bmcl/OptionPtr.h>
 
 #include <cstdint>
 #include <map>
+#include <unordered_map>
 
 namespace decode {
 
@@ -265,9 +268,14 @@ public:
     {
     }
 
-    const Rc<Type>& elementType() const
+    const Type* elementType() const
     {
-        return _elementType;
+        return _elementType.get();
+    }
+
+    Type* elementType()
+    {
+        return _elementType.get();
     }
 
     const ModuleInfo* moduleInfo() const
@@ -299,9 +307,14 @@ public:
         return _elementCount;
     }
 
-    const Rc<Type>& elementType() const
+    const Type* elementType() const
     {
-        return _elementType;
+        return _elementType.get();
+    }
+
+    Type* elementType()
+    {
+        return _elementType.get();
     }
 
 private:
@@ -318,9 +331,14 @@ public:
     {
     }
 
-    const Rc<NamedType>& link() const
+    const NamedType* link() const
     {
-        return _link;
+        return _link.get();
+    }
+
+    NamedType* link()
+    {
+        return _link.get();
     }
 
     void setLink(NamedType* link)
@@ -386,18 +404,43 @@ public:
     {
     }
 
-    const Rc<FieldList>& fields() const
+    const FieldList* fields() const
     {
-        return _fields;
+        return _fields.get();
+    }
+
+    FieldList* fields()
+    {
+        return _fields.get();
     }
 
     void addField(Field* field)
     {
         _fields.get()->emplace_back(field);
+        _nameToFieldMap.emplace(field->name(), field);
+    }
+
+    bmcl::OptionPtr<const Field> fieldWithName(bmcl::StringView name) const
+    {
+        auto it = _nameToFieldMap.find(name);
+        if (it == _nameToFieldMap.end()) {
+            return bmcl::None;
+        }
+        return it->second.get();
+    }
+
+    bmcl::Option<std::size_t> indexOfField(Field* field) const
+    {
+        auto it = std::find(_fields->begin(), _fields->end(), field);
+        if (it == _fields->end()) {
+            return bmcl::None;
+        }
+        return std::distance(_fields->begin(), it);
     }
 
 private:
     Rc<FieldList> _fields;
+    std::unordered_map<bmcl::StringView, Rc<Field>> _nameToFieldMap;
 };
 
 class EnumConstant : public NamedRc {
@@ -437,7 +480,7 @@ public:
         return _constantDecls;
     }
 
-    bool addConstant(const Rc<EnumConstant>& constant)
+    bool addConstant(EnumConstant* constant)
     {
         auto pair = _constantDecls.emplace(constant->value(), constant);
         return pair.second;

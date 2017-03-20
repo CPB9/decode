@@ -911,7 +911,7 @@ bool Parser::parseEnumConstant(EnumType* parent)
         TRY(parseSignedInteger(&value));
         //TODO: check value
         Rc<EnumConstant> constant = new EnumConstant(name, value, true);
-        if (!parent->addConstant(constant)) {
+        if (!parent->addConstant(constant.get())) {
             BMCL_CRITICAL() << "enum constant redefinition";
             return false;
         }
@@ -935,7 +935,7 @@ bool Parser::parseVariantField(VariantType* parent)
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LBrace)) {
         Rc<StructVariantField> field = new StructVariantField(name);
-        TRY(parseBraceList(field->fields().get(), std::bind(&Parser::parseRecordField, this, std::placeholders::_1)));
+        TRY(parseBraceList(field->fields(), std::bind(&Parser::parseRecordField, this, std::placeholders::_1)));
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LParen)) {
         Rc<TupleVariantField> field = new TupleVariantField(name);
@@ -1046,7 +1046,7 @@ bool Parser::parseEnum()
 bool Parser::parseStruct()
 {
     return parseTag2<StructType, true>(TokenKind::Struct, [this](StructType* decl) {
-        if (!parseRecordField(decl->fields().get())) {
+        if (!parseRecordField(decl->fields())) {
             return false;
         }
         return true;

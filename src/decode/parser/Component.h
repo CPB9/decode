@@ -12,6 +12,7 @@
 namespace decode {
 
 class ImplBlock;
+class FunctionType;
 
 class Function : public NamedRc {
 public:
@@ -51,12 +52,18 @@ enum class AccessorKind {
     Subscript,
 };
 
+class FieldAccessor;
+class SubscriptAccessor;
+
 class Accessor : public RefCountable {
 public:
     AccessorKind accessorKind() const
     {
         return _accessorKind;
     }
+
+    FieldAccessor* asFieldAccessor();
+    SubscriptAccessor* asSubscriptAccessor();
 
 protected:
     Accessor(AccessorKind kind)
@@ -137,6 +144,16 @@ private:
     bmcl::Either<Range, std::uintmax_t> _subscript;
     Rc<Type> _type;
 };
+
+inline FieldAccessor* Accessor::asFieldAccessor()
+{
+    return static_cast<FieldAccessor*>(this);
+}
+
+inline SubscriptAccessor* Accessor::asSubscriptAccessor()
+{
+    return static_cast<SubscriptAccessor*>(this);
+}
 
 class StatusRegexp : public RefCountable {
 public:
@@ -244,6 +261,11 @@ public:
     }
 
     bmcl::StringView moduleName() const
+    {
+        return _modInfo->moduleName();
+    }
+
+    bmcl::StringView name() const
     {
         return _modInfo->moduleName();
     }

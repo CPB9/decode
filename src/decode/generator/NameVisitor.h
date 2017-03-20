@@ -49,7 +49,7 @@ inline bool NameVisitor<B>::visitVariantType(const VariantType* type)
 template <typename B>
 inline bool NameVisitor<B>::visitImportedType(const ImportedType* type)
 {
-    return base().appendTypeName(type->link().get());
+    return base().appendTypeName(type->link());
 }
 
 template <typename B>

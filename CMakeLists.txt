@@ -39,6 +39,23 @@ add_library(zpaq STATIC
     thirdparty/zpaq/libzpaq.cpp
 )
 
+find_package(Qt5Widgets)
+
+set(DECODE_UI_SRC)
+
+if(Qt5Widgets_FOUND)
+    set(DECODE_UI_HEADERS
+        src/decode/ui/QModel.h
+    )
+    qt5_wrap_cpp(DECODE_UI_MOC
+        src/decode/ui/QModel.h
+    )
+    set(DECODE_UI_SRC
+        src/decode/ui/QModel.cpp
+        ${DECODE_UI_MOC}
+    )
+endif()
+
 add_library(decode
     src/decode/Config.h
     src/decode/core/Diagnostics.cpp
@@ -80,8 +97,18 @@ add_library(decode
     src/decode/generator/CmdDecoderGen.cpp
     src/decode/generator/CmdDecoderGen.h
     src/decode/generator/TypeReprGen.h
+    src/decode/model/Decoder.cpp
+    src/decode/model/Decoder.h
+    src/decode/model/FieldsNode.cpp
+    src/decode/model/FieldsNode.h
+    src/decode/model/Model.cpp
+    src/decode/model/Model.h
+    src/decode/model/Node.cpp
+    src/decode/model/Node.h
     src/decode/model/Value.cpp
     src/decode/model/Value.h
+    src/decode/model/ValueNode.cpp
+    src/decode/model/ValueNode.h
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
     src/decode/parser/Decl.h
@@ -93,6 +120,7 @@ add_library(decode
     src/decode/parser/Parser.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
+    ${DECODE_UI_SRC}
 )
 
 target_link_libraries(decode zpaq)
@@ -109,6 +137,10 @@ set_target_properties(decode
 )
 
 target_link_libraries(decode bmcl)
+
+if(Qt5Widgets_FOUND)
+    target_link_libraries(decode Qt5::Widgets)
+endif()
 
 target_compile_definitions(decode PRIVATE -DBUILDING_DECODE)
 
