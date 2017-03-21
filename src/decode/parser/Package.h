@@ -34,7 +34,7 @@ class Package : public RefCountable {
 public:
     struct StringViewComparator
     {
-        inline bool operator()(const bmcl::StringView& left, const bmcl::StringView& right)
+        inline bool operator()(const bmcl::StringView& left, const bmcl::StringView& right) const
         {
             return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
         }
