@@ -154,8 +154,12 @@ target_include_directories(decode
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
 )
 
-add_subdirectory(thirdparty/gtest EXCLUDE_FROM_ALL)
-add_subdirectory(tests)
+
+get_directory_property(HAS_PARENT_SCOPE PARENT_DIRECTORY)
+if(NOT HAS_PARENT_SCOPE)
+    add_subdirectory(thirdparty/gtest EXCLUDE_FROM_ALL)
+    add_subdirectory(tests)
+endif()
 
 if(WIN32)
     get_target_property(_TARGET_LOCATION bmcl LOCATION)
