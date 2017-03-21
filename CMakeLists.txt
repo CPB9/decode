@@ -25,11 +25,6 @@ endif()
 
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 
-if(WIN32)
-    get_target_property(_TARGET_LOCATION bmcl LOCATION)
-    file(COPY ${_TARGET_LOCATION} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
-endif()
-
 include_directories(
     thirdparty/zpaq
     thirdparty/tclap/include
@@ -161,3 +156,15 @@ target_include_directories(decode
 
 add_subdirectory(thirdparty/gtest EXCLUDE_FROM_ALL)
 add_subdirectory(tests)
+
+if(WIN32)
+    get_target_property(_TARGET_LOCATION bmcl LOCATION)
+    add_custom_command(
+        TARGET decode
+        POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:bmcl>
+        ${CMAKE_CURRENT_BINARY_DIR}
+    )
+endif()
+
