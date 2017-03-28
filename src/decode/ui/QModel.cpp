@@ -3,6 +3,7 @@
 #include "decode/model/Value.h"
 
 #include <bmcl/Option.h>
+#include <bmcl/Logging.h>
 
 #include <QColor>
 
@@ -23,6 +24,63 @@ QModel::~QModel()
 {
 }
 
+static QVariant fieldNameFromNode(const Node* node)
+{
+    bmcl::StringView name = node->fieldName();
+    if (!name.isEmpty()) {
+        return QString::fromUtf8(name.data(), name.size());
+    }
+    return QVariant();
+}
+
+static QVariant typeNameFromNode(const Node* node)
+{
+    bmcl::StringView name = node->typeName();
+    if (!name.isEmpty()) {
+        return QString::fromUtf8(name.data(), name.size());
+    }
+    return QVariant();
+}
+
+static QVariant qvariantFromValue(const Value& value)
+{
+    switch (value.kind()) {
+    case ValueKind::None:
+        return QVariant();
+    case ValueKind::Uninitialized:
+        return QString("???");
+    case ValueKind::Signed: {
+        QVariant v;
+        v.setValue(value.asSigned());
+        return v;
+    }
+    case ValueKind::Unsigned: {
+        QVariant v;
+        v.setValue(value.asUnsigned());
+        return v;
+    }
+    case ValueKind::String:
+        return QString::fromStdString(value.asString());
+    case ValueKind::StringView: {
+        bmcl::StringView view = value.asStringView();
+        return QString::fromUtf8(view.data(), view.size());
+    }
+    }
+    return QVariant();
+}
+
+QVariant backgroundFromValue(const Value& value)
+{
+    switch (value.kind()) {
+    case ValueKind::None:
+        return QVariant();
+    case ValueKind::Uninitialized:
+        return QColor(Qt::red);
+    default:
+        return QVariant();
+    }
+}
+
 QVariant QModel::data(const QModelIndex& index, int role) const
 {
     if (!index.isValid()) {
@@ -36,58 +94,22 @@ QVariant QModel::data(const QModelIndex& index, int role) const
 
     if (role == Qt::DisplayRole) {
         if (index.column() == ColumnDesc::ColumnName) {
-            bmcl::StringView name = node->fieldName();
-            if (!name.isEmpty()) {
-                return QString::fromUtf8(name.data(), name.size());
-            }
-            return QVariant();
+            return fieldNameFromNode(node);
         }
 
         if (index.column() == ColumnDesc::ColumnTypeName) {
-            bmcl::StringView name = node->typeName();
-            if (!name.isEmpty()) {
-                return QString::fromUtf8(name.data(), name.size());
-            }
-            return QVariant();
+            return typeNameFromNode(node);
         }
     }
 
     if (index.column() == ColumnDesc::ColumnValue) {
         Value value = node->value();
         if (role == Qt::DisplayRole) {
-            switch (value.kind()) {
-            case ValueKind::None:
-                return QVariant();
-            case ValueKind::Uninitialized:
-                return QString("???");
-            case ValueKind::Signed: {
-                QVariant v;
-                v.setValue(value.asSigned());
-                return v;
-            }
-            case ValueKind::Unsigned: {
-                QVariant v;
-                v.setValue(value.asUnsigned());
-                return v;
-            }
-            case ValueKind::String:
-                return QString::fromStdString(value.asString());
-            case ValueKind::StringView: {
-                bmcl::StringView view = value.asStringView();
-                return QString::fromUtf8(view.data(), view.size());
-            }
-            }
+            return qvariantFromValue(value);
         }
 
         if (role == Qt::BackgroundRole) {
-            switch (value.kind()) {
-            case ValueKind::None:
-                return QVariant();
-            case ValueKind::Uninitialized:
-                return QColor(Qt::red);
-            default:
-                return QVariant();
-            }
+            return backgroundFromValue(value);
         }
     }
 
@@ -164,6 +186,56 @@ QModelIndex QModel::parent(const QModelIndex& modelIndex) const
     return createIndex(childIdx.unwrap(), 0, parent);
 }
 
+Qt::ItemFlags QModel::flags(const QModelIndex& index) const
+{
+    Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+
+    Node* node = (Node*)index.internalPointer();
+    if (!node->canHaveChildren()) {
+        return f | Qt::ItemNeverHasChildren;
+    }
+    return f;
+}
+
+QMap<int, QVariant> QModel::itemData(const QModelIndex& index) const
+{
+    QMap<int, QVariant> roles;
+    Node* node;
+    if (index.isValid()) {
+        node = (Node*)index.internalPointer();
+    } else {
+        node = _root.get();
+    }
+
+    switch (index.column()) {
+    case ColumnDesc::ColumnName: {
+        roles.insert(Qt::DisplayRole, fieldNameFromNode(node));
+        return roles;
+    }
+    case ColumnDesc::ColumnTypeName:
+        roles.insert(Qt::DisplayRole, typeNameFromNode(node));
+        return roles;
+    case ColumnDesc::ColumnValue: {
+        Value value = node->value();
+        roles.insert(Qt::DisplayRole, qvariantFromValue(value));
+        roles.insert(Qt::BackgroundRole, backgroundFromValue(value));
+        return roles;
+    }
+    };
+    return roles;
+}
+
+bool QModel::hasChildren(const QModelIndex& parent) const
+{
+    Node* node;
+    if (parent.isValid()) {
+        node = (Node*)parent.internalPointer();
+    } else {
+        node = _root.get();
+    }
+    return node->numChildren() != 0;
+}
+
 int QModel::rowCount(const QModelIndex& parent) const
 {
     if (!parent.isValid()) {
@@ -176,5 +248,27 @@ int QModel::rowCount(const QModelIndex& parent) const
 int QModel::columnCount(const QModelIndex& parent) const
 {
     return 3;
+}
+
+static QVector<int> allRoles = {Qt::DisplayRole, Qt::BackgroundRole};
+
+void QModel::notifyValueUpdate(const Node* node, std::size_t index)
+{
+    QModelIndex modelIndex = createIndex(index, ColumnDesc::ColumnValue, (Node*)node);
+    emit dataChanged(modelIndex, modelIndex, allRoles);
+}
+
+void QModel::notifyNodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex)
+{
+    QModelIndex modelIndex = createIndex(nodeIndex, 0, (Node*)node);
+    beginInsertRows(modelIndex, firstIndex, lastIndex);
+    endInsertRows();
+}
+
+void QModel::notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex)
+{
+    QModelIndex modelIndex = createIndex(nodeIndex, 0, (Node*)node);
+    beginRemoveRows(modelIndex, firstIndex, lastIndex);
+    endRemoveRows();
 }
 }

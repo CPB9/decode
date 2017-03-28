@@ -4,15 +4,24 @@
 #include "decode/parser/Type.h"
 #include "decode/model/FieldsNode.h"
 #include "decode/model/ValueNode.h"
+#include "decode/model/ModelEventHandler.h"
 #include "decode/parser/Decl.h" //HACK
 
 #include <bmcl/MemReader.h>
 
 namespace decode {
 
+StatusMsgDecoder::ChainElement::ChainElement(std::size_t index, DecoderAction* action, ValueNode* node)
+    : nodeIndex(index)
+    , action(action)
+    , node(node)
+{
+}
+
+
 class DecoderAction : public RefCountable {
 public:
-    virtual bool execute(bmcl::MemReader* src, ValueNode* node) = 0;
+    virtual bool execute(std::size_t nodeIndex, ModelEventHandler* handler, ValueNode* node, bmcl::MemReader* src) = 0;
 
     void setNext(DecoderAction* next)
     {
@@ -25,9 +34,9 @@ protected:
 
 class DecodeNodeAction : public DecoderAction {
 public:
-    bool execute(bmcl::MemReader* src, ValueNode* node) override
+    bool execute(std::size_t nodeIndex, ModelEventHandler* handler, ValueNode* node, bmcl::MemReader* src) override
     {
-        return node->decode(src);
+        return node->decode(nodeIndex, handler, src);
     }
 };
 
@@ -38,13 +47,13 @@ public:
     {
     }
 
-    bool execute(bmcl::MemReader* src, ValueNode* node) override
+    bool execute(std::size_t nodeIndex, ModelEventHandler* handler, ValueNode* node, bmcl::MemReader* src) override
     {
         (void)src;
         assert(node->type()->isStruct());
         ContainerValueNode* cnode = static_cast<ContainerValueNode*>(node);
         ValueNode* child = cnode->nodeAt(_fieldIndex);
-        return _next->execute(src, child);
+        return _next->execute(_fieldIndex, handler, child, src);
     }
 
 private:
@@ -53,7 +62,7 @@ private:
 
 class DecodeSlicePartsAction : public DecoderAction {
 public:
-    bool execute(bmcl::MemReader* src, ValueNode* node) override
+    bool execute(std::size_t nodeIndex, ModelEventHandler* handler, ValueNode* node, bmcl::MemReader* src) override
     {
         uint64_t sliceSize;
         if (!src->readVarUint(&sliceSize)) {
@@ -63,23 +72,24 @@ public:
         //FIXME: implement range check
         SliceValueNode* cnode = static_cast<SliceValueNode*>(node);
         //TODO: add size check
-        cnode->resize(sliceSize);
-        for (const Rc<ValueNode>& child : cnode->values()) {
-            TRY(_next->execute(src, child.get()));
+        cnode->resize(sliceSize, nodeIndex, handler);
+        const std::vector<Rc<ValueNode>>& values = cnode->values();
+        for (std::size_t i = 0; i < sliceSize; i++) {
+            TRY(_next->execute(i, handler, values[i].get(), src));
         }
         return true;
     }
-
 };
 
 class DecodeArrayPartsAction : public DecoderAction {
 public:
-    bool execute(bmcl::MemReader* src, ValueNode* node) override
+    bool execute(std::size_t nodeIndex, ModelEventHandler* handler, ValueNode* node, bmcl::MemReader* src) override
     {
         //FIXME: implement range check
         ArrayValueNode* cnode = static_cast<ArrayValueNode*>(node);
-        for (const Rc<ValueNode>& child : cnode->values()) {
-            TRY(_next->execute(src, child.get()));
+        const std::vector<Rc<ValueNode>>& values = cnode->values();
+        for (std::size_t i = 0; i < values.size(); i++) {
+            TRY(_next->execute(i, handler, values[i].get(), src));
         }
         return true;
     }
@@ -150,7 +160,11 @@ StatusMsgDecoder::StatusMsgDecoder(StatusMsg* msg, FieldsNode* node)
         auto facc = part->accessors()[0]->asFieldAccessor();
         auto op = node->nodeWithName(facc->field()->name());
         assert(op.isSome());
-        _chain.emplace_back(createMsgDecoder(part.get(), facc->field()->type()), op.unwrap());
+        assert(node->hasParent());
+        auto i = node->childIndex(op.unwrap());
+        std::size_t index = i.unwrap();
+        Rc<DecoderAction> decoder = createMsgDecoder(part.get(), facc->field()->type());
+        _chain.emplace_back(index, decoder.get(), op.unwrap());
     }
 }
 
@@ -158,10 +172,10 @@ StatusMsgDecoder::~StatusMsgDecoder()
 {
 }
 
-bool StatusMsgDecoder::decode(bmcl::MemReader* src)
+bool StatusMsgDecoder::decode(ModelEventHandler* handler, bmcl::MemReader* src)
 {
-    for (const std::pair<Rc<DecoderAction>, Rc<ValueNode>>& pair : _chain) {
-        if (!pair.first->execute(src, pair.second.get())) {
+    for (const ChainElement& elem : _chain) {
+        if (!elem.action->execute(elem.nodeIndex, handler, elem.node.get(), src)) {
             return false;
         }
     }
@@ -181,7 +195,7 @@ StatusDecoder::~StatusDecoder()
 {
 }
 
-bool StatusDecoder::decode(bmcl::MemReader* src)
+bool StatusDecoder::decode(ModelEventHandler* handler, bmcl::MemReader* src)
 {
     uint64_t msgId;
     if (!src->readVarUint(&msgId)) {
@@ -193,7 +207,7 @@ bool StatusDecoder::decode(bmcl::MemReader* src)
         //TODO: report error
         return false;
     }
-    if (!it->second.decode(src)) {
+    if (!it->second.decode(handler, src)) {
         //TODO: report error
         return false;
     }

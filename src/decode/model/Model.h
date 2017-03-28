@@ -19,10 +19,11 @@ class StatusDecoder;
 class Component;
 class FieldsNode;
 class ValueInfoCache;
+class ModelEventHandler;
 
 class Model : public Node {
 public:
-    Model(const Package* package);
+    Model(const Package* package, ModelEventHandler* handler);
     ~Model();
 
     void acceptTelemetry(bmcl::ArrayView<uint8_t> bytes);
@@ -37,5 +38,6 @@ public:
     std::unordered_map<uint64_t, Rc<StatusDecoder>> _decoders;
     std::vector<Rc<FieldsNode>> _nodes;
     Rc<ValueInfoCache> _cache;
+    Rc<ModelEventHandler> _handler;
 };
 }

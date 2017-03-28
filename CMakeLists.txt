@@ -41,12 +41,14 @@ set(DECODE_UI_SRC)
 if(Qt5Widgets_FOUND)
     set(DECODE_UI_HEADERS
         src/decode/ui/QModel.h
+        src/decode/ui/QModelEventHandler.h
     )
     qt5_wrap_cpp(DECODE_UI_MOC
-        src/decode/ui/QModel.h
+        ${DECODE_UI_HEADERS}
     )
     set(DECODE_UI_SRC
         src/decode/ui/QModel.cpp
+        src/decode/ui/QModelEventHandler.cpp
         ${DECODE_UI_MOC}
     )
 endif()

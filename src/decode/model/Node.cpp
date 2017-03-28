@@ -9,6 +9,11 @@ Node::~Node()
 {
 }
 
+bool Node::canHaveChildren() const
+{
+    return true;
+}
+
 std::size_t Node::numChildren() const
 {
     return 0;

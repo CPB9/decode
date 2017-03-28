@@ -20,9 +20,18 @@ public:
 
     QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
     QModelIndex parent(const QModelIndex& index) const override;
+    Qt::ItemFlags flags(const QModelIndex& index) const override;
+    bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
+    QMap<int, QVariant> itemData(const QModelIndex& index) const override;
+    //QModelIndex sibling(int row, int column, const QModelIndex& idx) const override;
 
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     int columnCount(const QModelIndex& parent = QModelIndex()) const override;
+
+public slots:
+    void notifyValueUpdate(const Node* node, std::size_t index);
+    void notifyNodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
+    void notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
 
 private:
     Rc<Node> _root;

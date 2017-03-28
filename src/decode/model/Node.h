@@ -39,6 +39,7 @@ public:
         _parent = node;
     }
 
+    virtual bool canHaveChildren() const;
     virtual std::size_t numChildren() const;
     virtual bmcl::Option<std::size_t> childIndex(const Node* node) const;
     virtual Node* childAt(std::size_t idx);

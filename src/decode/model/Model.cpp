@@ -4,6 +4,7 @@
 #include "decode/model/Decoder.h"
 #include "decode/model/FieldsNode.h"
 #include "decode/model/ValueInfoCache.h"
+#include "decode/model/ModelEventHandler.h"
 #include "decode/parser/Decl.h" //HACK
 #include "decode/parser/Type.h" //HACK
 #include "decode/parser/Component.h" //HACK
@@ -14,10 +15,11 @@
 
 namespace decode {
 
-Model::Model(const Package* package)
+Model::Model(const Package* package, ModelEventHandler* handler)
     : Node(nullptr)
     , _package(package)
     , _cache(new ValueInfoCache)
+    , _handler(handler)
 {
     for (auto it : package->components()) {
         BMCL_DEBUG() << it.first << " " << it.second->number() << " " <<  it.second->name().toStdString() << " " << it.second->parameters().isSome() << " " << it.second->statuses().isSome();
@@ -91,7 +93,7 @@ void Model::acceptTelemetry(bmcl::ArrayView<uint8_t> bytes)
             return;
         }
 
-        if (!it->second->decode(&msg)) {
+        if (!it->second->decode(_handler.get(), &msg)) {
             //TODO: report error
             return;
         }
