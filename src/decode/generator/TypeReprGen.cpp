@@ -1,4 +1,5 @@
 #include "decode/generator/TypeReprGen.h"
+#include "decode/core/Foreach.h"
 #include "decode/generator/TypeNameGen.h"
 
 #include <bmcl/Logging.h>
@@ -155,9 +156,10 @@ void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
     const FunctionType* current = type;
     fnStack.push_back(current);
     while (true) {
-        if (current->returnValue().isSome()) {
-            if (current->returnValue().unwrap()->typeKind() == TypeKind::Function) {
-                current = static_cast<const FunctionType*>(current->returnValue()->get());
+        bmcl::OptionPtr<const Type> rv = current->returnValue();
+        if (rv.isSome()) {
+            if (rv.unwrap()->typeKind() == TypeKind::Function) {
+                current = static_cast<const FunctionType*>(rv.unwrap());
                 fnStack.push_back(current);
             } else {
                 break;
@@ -167,8 +169,9 @@ void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
         }
     }
     bmcl::StringView fieldName = _fieldName;
-    if (fnStack.back()->returnValue().isSome()) {
-        genTypeRepr(fnStack.back()->returnValue().unwrap().get());
+    bmcl::OptionPtr<const Type> rv = fnStack.back()->returnValue();
+    if (rv.isSome()) {
+        genTypeRepr(rv.unwrap());
     } else {
         _output->append("void");
     }
@@ -181,13 +184,11 @@ void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
     _output->append(")(");
 
     auto appendParameters = [this](const FunctionType* t) {
-        if (t->arguments().size() > 0) {
-            for (auto jt = t->arguments().cbegin(); jt < (t->arguments().cend() - 1); jt++) {
-                genTypeRepr((*jt)->type());
-                _output->append(", ");
-            }
-            genTypeRepr(t->arguments().back()->type());
-        }
+        foreachList(t->argumentsRange(), [this](const Field* field) {
+            genTypeRepr(field->type());
+        }, [this](const Field*) {
+            _output->append(", ");
+        });
     };
 
     for (auto it = fnStack.begin(); it < (fnStack.end() - 1); it++) {

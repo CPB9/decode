@@ -9,6 +9,7 @@
 
 #include <ostream>
 #include <vector>
+#include <string>
 
 namespace bmcl {
 class ColorStream;
@@ -38,7 +39,7 @@ public:
 private:
     void printReport(std::ostream* out, bmcl::ColorStream* color) const;
 
-    bmcl::Option<bmcl::StringView> _message;
+    bmcl::Option<std::string> _message;
     bmcl::Option<Level> _level;
     bmcl::Option<Location> _location;
 
@@ -47,7 +48,6 @@ private:
 
 class Diagnostics : public RefCountable {
 public:
-
     Rc<Report> addReport(const FileInfo* fileInfo);
 
     bool hasReports()

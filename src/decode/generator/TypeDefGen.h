@@ -16,7 +16,7 @@ class Component;
 
 class TypeDefGen : public ConstAstVisitor<TypeDefGen> {
 public:
-    TypeDefGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
+    TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~TypeDefGen();
 
     void genTypeDef(const Type* type);
@@ -34,8 +34,8 @@ public:
     bool visitAliasType(const AliasType* type);
 
 private:
-    void appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::StringView name);
-    void appendFieldList(const FieldList* fields, bmcl::StringView name);
+    void appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView name);
+    void appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView name);
     void appendStruct(const StructType* type);
     void appendEnum(const EnumType* type);
     void appendVariant(const VariantType* type);

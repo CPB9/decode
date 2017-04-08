@@ -273,8 +273,8 @@ StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* c
     : ContainerValueNode(cache, parent)
     , _type(type)
 {
-    _values.reserve(type->fields()->size());
-    for (const Rc<Field>& field : *type->fields()) {
+    _values.reserve(type->fieldsRange().size());
+    for (const Field* field : type->fieldsRange()) {
         Rc<ValueNode> node = ValueNode::fromType(field->type(), _cache.get(), this);
         node->setFieldName(field->name());
         _values.push_back(node);
@@ -292,7 +292,7 @@ const Type* StructValueNode::type() const
 
 bmcl::Option<std::size_t> StructValueNode::fixedSize() const
 {
-    return _type->fields()->size();
+    return _type->fieldsRange().size();
 }
 
 bmcl::OptionPtr<ValueNode> StructValueNode::nodeWithName(bmcl::StringView name)
@@ -323,7 +323,7 @@ VariantValueNode::~VariantValueNode()
 Value VariantValueNode::value() const
 {
     if (_currentId.isSome()) {
-        return Value::makeStringView(_type->fields()[_currentId.unwrap()]->name());
+        return Value::makeStringView(_type->fieldsBegin()[_currentId.unwrap()]->name());
     }
     return Value::makeUninitialized();
 }
@@ -342,20 +342,20 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
 {
     uint64_t id;
     TRY(src->readVarUint(&id));
-    if (id >= _type->fields().size()) {
+    if (id >= _type->fieldsRange().size()) {
         //TODO: report error
         return false;
     }
     updateOptionalValue(&_currentId, id, handler, this, nodeIndex);
     //TODO: do not resize if type doesn't change
-    const Rc<VariantField>& field = _type->fields()[id];
+    const VariantField* field = _type->fieldsBegin()[id];
     switch (field->variantFieldKind()) {
     case VariantFieldKind::Constant:
         break;
     case VariantFieldKind::Tuple: {
-        const TupleVariantField* tField = static_cast<const TupleVariantField*>(field.get());
+        const TupleVariantField* tField = static_cast<const TupleVariantField*>(field);
         std::size_t currentSize = _values.size();
-        std::size_t size = tField->types().size();
+        std::size_t size = tField->typesRange().size();
         if (size < currentSize) {
             _values.resize(size);
             handler->nodesRemovedEvent(this, nodeIndex, size, currentSize - 1);
@@ -364,15 +364,15 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
             handler->nodesInsertedEvent(this, nodeIndex, currentSize, size - 1);
         }
         for (std::size_t i = 0; i < size; i++) {
-            _values[i] = ValueNode::fromType(tField->types()[i].get(), _cache.get(), this);
+            _values[i] = ValueNode::fromType(tField->typesBegin()[i], _cache.get(), this);
         }
         TRY(ContainerValueNode::decode(nodeIndex, handler, src));
         break;
     }
     case VariantFieldKind::Struct: {
-        const StructVariantField* sField = static_cast<const StructVariantField*>(field.get());
+        const StructVariantField* sField = static_cast<const StructVariantField*>(field);
         std::size_t currentSize = _values.size();
-        std::size_t size = sField->fields()->size();
+        std::size_t size = sField->fieldsRange().size();
         if (size < currentSize) {
             _values.resize(size);
             handler->nodesRemovedEvent(this, nodeIndex, size, currentSize - 1);
@@ -381,7 +381,7 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
             handler->nodesInsertedEvent(this, nodeIndex, currentSize, size - 1);
         }
         for (std::size_t i = 0; i < size; i++) {
-            _values[i] = ValueNode::fromType(sField->fields()->at(i)->type(), _cache.get(), this);
+            _values[i] = ValueNode::fromType(sField->fieldsBegin()[i]->type(), _cache.get(), this);
         }
         TRY(ContainerValueNode::decode(nodeIndex, handler, src));
         break;
@@ -522,13 +522,15 @@ bool EnumValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bm
 
 bool EnumValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
 {
-    uint64_t value;
-    if (!src->readVarUint(&value)) {
+    int64_t value;
+    if (!src->readVarInt(&value)) {
         //TODO: report error
         return false;
     }
-    auto it = _type->constants().find(value);
-    if (it == _type->constants().end()) {
+    auto it = _type->constantsRange().findIf([value](const EnumConstant* c) {
+        return c->value() == value;
+    });
+    if (it == _type->constantsEnd()) {
         //TODO: report error
         return false;
     }
@@ -539,9 +541,11 @@ bool EnumValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bm
 decode::Value EnumValueNode::value() const
 {
     if (_currentId.isSome()) {
-        auto it = _type->constants().find(_currentId.unwrap());
-        assert(it != _type->constants().end());
-        return Value::makeStringView(it->second->name());
+            auto it = _type->constantsRange().findIf([this](const EnumConstant* c) {
+                return c->value() == _currentId.unwrap();
+            });
+        assert(it != _type->constantsEnd());
+        return Value::makeStringView(it->name());
     }
     return Value::makeUninitialized();
 }

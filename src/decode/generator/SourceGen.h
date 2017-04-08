@@ -16,7 +16,7 @@ namespace decode {
 
 class SourceGen : public ConstAstVisitor<SourceGen>, public FuncPrototypeGen<SourceGen> {
 public:
-    SourceGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
+    SourceGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~SourceGen();
 
     void genTypeSource(const Type* type);

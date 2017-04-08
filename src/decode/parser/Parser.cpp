@@ -1,7 +1,6 @@
 #include "decode/parser/Parser.h"
 
 #include "decode/core/FileInfo.h"
-#include "decode/core/StringSwitch.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/CfgOption.h"
 #include "decode/parser/Decl.h"
@@ -37,7 +36,7 @@ namespace decode {
     _builtinTypes->name = new BuiltinType(BuiltinTypeKind::type); \
     _builtinTypes->btMap.emplace(str, _builtinTypes->name)
 
-Parser::Parser(const Rc<Diagnostics>& diag)
+Parser::Parser(Diagnostics* diag)
     : _diag(diag)
     , _builtinTypes(new AllBuiltinTypes)
 {
@@ -93,11 +92,11 @@ ParseResult Parser::parseFile(const char* fname)
     }
 
     Rc<FileInfo> finfo = new FileInfo(std::string(fname), rv.take());
-    return parseFile(finfo);
+    return parseFile(finfo.get());
 
 }
 
-ParseResult Parser::parseFile(const Rc<FileInfo>& finfo)
+ParseResult Parser::parseFile(FileInfo* finfo)
 {
     cleanup();
     if (parseOneFile(finfo)) {
@@ -595,14 +594,14 @@ bool Parser::parseImplBlock()
         return true;
     }));
 
-    bmcl::Option<const Rc<NamedType>&> type = _ast->findTypeWithName(block->name());
+    bmcl::OptionPtr<NamedType> type = _ast->findTypeWithName(block->name());
     if (type.isNone()) {
         //TODO: report error
         BMCL_CRITICAL() << "No type found for impl block";
         return false;
     }
 
-    _ast->addImplBlock(block);
+    _ast->addImplBlock(block.get());
 
     return true;
 }
@@ -888,13 +887,14 @@ Rc<Field> Parser::parseField()
     return field;
 }
 
-bool Parser::parseRecordField(FieldList* parent)
+template <typename T>
+bool Parser::parseRecordField(T* parent)
 {
     Rc<Field> decl = parseField();
     if (!decl) {
         return false;
     }
-    parent->push_back(decl);
+    parent->addField(decl.get());
     return true;
 }
 
@@ -935,7 +935,9 @@ bool Parser::parseVariantField(VariantType* parent)
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LBrace)) {
         Rc<StructVariantField> field = new StructVariantField(name);
-        TRY(parseBraceList(field->fields(), std::bind(&Parser::parseRecordField, this, std::placeholders::_1)));
+        TRY(parseBraceList(field.get(), [this](StructVariantField* dest) {
+            return parseRecordField(dest);
+        }));
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LParen)) {
         Rc<TupleVariantField> field = new TupleVariantField(name);
@@ -957,7 +959,7 @@ bool Parser::parseVariantField(VariantType* parent)
     return true;
 }
 
-bool Parser::parseComponentField(const Rc<Component>& parent)
+bool Parser::parseComponentField(Component* parent)
 {
     return false;
 }
@@ -1046,7 +1048,7 @@ bool Parser::parseEnum()
 bool Parser::parseStruct()
 {
     return parseTag2<StructType, true>(TokenKind::Struct, [this](StructType* decl) {
-        if (!parseRecordField(decl->fields())) {
+        if (!parseRecordField(decl)) {
             return false;
         }
         return true;
@@ -1054,94 +1056,78 @@ bool Parser::parseStruct()
 }
 
 template<typename T, typename F>
-Rc<T> Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, F&& fieldParser)
+bool Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, T* dest, F&& fieldParser)
 {
     TRY(expectCurrentToken(startToken));
-    Rc<T> decl = new T;
     consumeAndSkipBlanks();
 
-    TRY(parseList(TokenKind::LBrace, sep, TokenKind::RBrace, decl, std::forward<F>(fieldParser)));
-
-    return decl;
+    TRY(parseList(TokenKind::LBrace, sep, TokenKind::RBrace, dest, std::forward<F>(fieldParser)));
+    return true;
 }
 
-bool Parser::parseCommands(const Rc<Component>& parent)
+bool Parser::parseCommands(Component* parent)
 {
-    if(parent->commands().isSome()) {
+    if(parent->hasCmds()) {
         reportCurrentTokenError("Component can have only one commands declaration");
         return false;
     }
-    Rc<Commands> cmds = parseNamelessTag<Commands>(TokenKind::Commands, TokenKind::Eol, [this](const Rc<Commands>& cmds) {
+    TRY(parseNamelessTag(TokenKind::Commands, TokenKind::Eol, parent, [this](Component* comp) {
         Rc<Function> fn = parseFunction(false);
         if (!fn) {
             return false;
         }
-        cmds->addFunction(fn.get());
+        comp->addCommand(fn.get());
         return true;
-    });
-    if (!cmds) {
-        //TODO: report error
-        return false;
-    }
-    parent->setCommands(cmds.get());
+    }));
     return true;
 }
 
-bool Parser::parseComponentImpl(const Rc<Component>& parent)
+bool Parser::parseComponentImpl(Component* parent)
 {
     if(parent->implBlock().isSome()) {
         reportCurrentTokenError("Component can have only one impl declaration");
         return false;
     }
-    Rc<ImplBlock> impl = parseNamelessTag<ImplBlock>(TokenKind::Impl, TokenKind::Eol, [this](const Rc<ImplBlock>& impl) {
+    Rc<ImplBlock> impl = new ImplBlock;
+    TRY(parseNamelessTag(TokenKind::Impl, TokenKind::Eol, impl.get(), [this](ImplBlock* impl) {
         Rc<Function> fn = parseFunction(false);
         if (!fn) {
             return false;
         }
         impl->addFunction(fn.get());
         return true;
-    });
-    if (!impl) {
-        //TODO: report error
-        return false;
-    }
-    parent->setImplBlock(impl.get());
+    }));
     return true;
 }
 
-bool Parser::parseParameters(const Rc<Component>& parent)
+bool Parser::parseParameters(Component* parent)
 {
-    if(parent->parameters().isSome()) {
+    if(parent->hasParams()) {
         reportCurrentTokenError("Component can have only one parameters declaration");
         return false;
     }
-    Rc<FieldList> params = parseNamelessTag<FieldList>(TokenKind::Parameters, TokenKind::Comma, [this](const Rc<FieldList>& params) {
+    TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
         Rc<Field> field = parseField();
         if (!field) {
             return false;
         }
-        params->push_back(field);
+        comp->addParam(field.get());
         return true;
-    });
-    if (!params) {
-        //TODO: report error
-        return false;
-    }
-    parent->setParameters(params.get());
+    }));
     return true;
 }
 
-bool Parser::parseStatuses(const Rc<Component>& parent)
+bool Parser::parseStatuses(Component* parent)
 {
-    if(parent->statuses().isSome()) {
+    if(parent->hasStatuses()) {
         reportCurrentTokenError("Component can have only one statuses declaration");
         return false;
     }
-    Rc<Statuses> statuses = parseNamelessTag<Statuses>(TokenKind::Statuses, TokenKind::Comma, [this, parent](const Rc<Statuses>& statuses) -> bool {
+    TRY(parseNamelessTag(TokenKind::Statuses, TokenKind::Comma, parent, [this](Component* comp) -> bool {
         uintmax_t n;
         TRY(parseUnsignedInteger(&n));
         StatusMsg* msg = new StatusMsg(n);
-        bool isOk = statuses->addStatus(n, msg);
+        bool isOk = comp->addStatus(n, msg);
         if (!isOk) {
             BMCL_CRITICAL() << "redefinition of status param";
             return false;
@@ -1149,7 +1135,7 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
         skipBlanks();
         TRY(expectCurrentToken(TokenKind::Colon));
         consumeAndSkipBlanks();
-        auto parseOneRegexp = [this, parent](std::vector<Rc<StatusRegexp>>* regexps) -> bool {
+        auto parseOneRegexp = [this, comp](StatusMsg* msg) -> bool {
             if (!currentTokenIs(TokenKind::Identifier)) {
                 //TODO: report error
                 return false;
@@ -1197,26 +1183,18 @@ bool Parser::parseStatuses(const Rc<Component>& parent)
                     consume();
                 }
             }
-            if (!re->accessors().empty()) {
-                regexps->push_back(re);
+            if (re->hasAccessors()) {
+                msg->addPart(re.get());
             }
             return true;
         };
-        std::vector<Rc<StatusRegexp>>& parts = msg->parts();
         if (currentTokenIs(TokenKind::LBrace)) {
-            TRY(parseBraceList(&parts, parseOneRegexp));
+            TRY(parseBraceList(msg, parseOneRegexp));
         } else if (currentTokenIs(TokenKind::Identifier)) {
-            TRY(parseOneRegexp(&parts));
+            TRY(parseOneRegexp(msg));
         }
         return true;
-    });
-    if (!statuses) {
-        //TODO: report error
-        return false;
-    }
-    if (!statuses->statusMap().empty()) {
-        parent->setStatuses(statuses.get());
-    }
+    }));
     return true;
 }
 
@@ -1239,19 +1217,19 @@ bool Parser::parseComponent()
 
         switch(_currentToken.kind()) {
         case TokenKind::Parameters: {
-            TRY(parseParameters(comp));
+            TRY(parseParameters(comp.get()));
             break;
         }
         case TokenKind::Commands: {
-            TRY(parseCommands(comp));
+            TRY(parseCommands(comp.get()));
             break;
         }
         case TokenKind::Statuses: {
-            TRY(parseStatuses(comp));
+            TRY(parseStatuses(comp.get()));
             break;
         }
         case TokenKind::Impl: {
-            TRY(parseComponentImpl(comp));
+            TRY(parseComponentImpl(comp.get()));
             break;
         }
         case TokenKind::RBrace:
@@ -1269,7 +1247,7 @@ finish:
     return true;
 }
 
-bool Parser::parseOneFile(const Rc<FileInfo>& finfo)
+bool Parser::parseOneFile(FileInfo* finfo)
 {
     _fileInfo = finfo;
 

@@ -74,18 +74,18 @@ void IncludeCollector::collect(const StatusMsg* msg, std::unordered_set<std::str
     _currentType = 0;
     _dest = dest;
     //FIXME: visit only first accessor in every part
-    for (const Rc<StatusRegexp>& part : msg->parts()) {
-        for (const Rc<Accessor>& acc : part->accessors()) {
+    for (const StatusRegexp* part : msg->partsRange()) {
+        for (const Accessor* acc : part->accessorsRange()) {
             switch (acc->accessorKind()) {
             case AccessorKind::Field: {
-                auto facc = static_cast<const FieldAccessor*>(acc.get());
+                auto facc = static_cast<const FieldAccessor*>(acc);
                 const Type* type = facc->field()->type();
                 traverseType(type);
                 break;
             }
             case AccessorKind::Subscript: {
-                auto sacc = static_cast<const SubscriptAccessor*>(acc.get());
-                const Type* type = sacc->type().get();
+                auto sacc = static_cast<const SubscriptAccessor*>(acc);
+                const Type* type = sacc->type();
                 traverseType(type);
                 break;
             }
@@ -107,10 +107,10 @@ void IncludeCollector::collect(const Component* comp, std::unordered_set<std::st
 {
     _dest = dest;
     _currentType = 0;
-    if (comp->parameters().isNone()) {
+    if (!comp->hasParams()) {
         return;
     }
-    for (const Rc<Field>& field : *comp->parameters().unwrap()) {
+    for (const Field* field : comp->paramsRange()) {
         traverseType(field->type());
     }
 }

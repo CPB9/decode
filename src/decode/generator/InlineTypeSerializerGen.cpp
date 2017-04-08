@@ -2,7 +2,7 @@
 
 namespace decode {
 
-InlineTypeSerializerGen::InlineTypeSerializerGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+InlineTypeSerializerGen::InlineTypeSerializerGen(TypeReprGen* reprGen, SrcBuilder* output)
     : InlineTypeInspector<InlineTypeSerializerGen>(reprGen, output)
 {
 }

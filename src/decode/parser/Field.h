@@ -2,10 +2,11 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/Iterator.h"
 #include "decode/core/NamedRc.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/StringView.h>
-#include <bmcl/Option.h>
 
 #include <vector>
 
@@ -38,25 +39,7 @@ public:
     }
 
 private:
-
     Rc<Type> _type;
-};
-
-template<typename T>
-class RefCountableVector : public std::vector<T>, public RefCountable { //TODO: remove Rc
-};
-
-class FieldList : public RefCountableVector<Rc<Field>> {
-public:
-    bmcl::Option<const Rc<Field>&> fieldWithName(bmcl::StringView name)
-    {
-        for (const Rc<Field>& value : *this) {
-            if (value->name() == name) {
-                return value;
-            }
-        }
-        return bmcl::None;
-    }
 };
 
 class VariantField : public NamedRc {
@@ -88,22 +71,46 @@ class StructVariantField : public VariantField {
 public:
     StructVariantField(bmcl::StringView name)
         : VariantField(VariantFieldKind::Struct, name)
-        , _fields(new FieldList)
     {
     }
 
-    const FieldList* fields() const
+    FieldVec::ConstIterator fieldsBegin() const
     {
-        return _fields.get();
+        return _fields.cbegin();
     }
 
-    FieldList* fields()
+    FieldVec::ConstIterator fieldsEnd() const
     {
-        return _fields.get();
+        return _fields.cend();
+    }
+
+    FieldVec::ConstRange fieldsRange() const
+    {
+        return _fields;
+    }
+
+    FieldVec::Iterator fieldsBegin()
+    {
+        return _fields.begin();
+    }
+
+    FieldVec::Iterator fieldsEnd()
+    {
+        return _fields.end();
+    }
+
+    FieldVec::Range fieldsRange()
+    {
+        return _fields;
+    }
+
+    void addField(Field* field)
+    {
+        _fields.emplace_back(field);
     }
 
 private:
-    Rc<FieldList> _fields;
+    FieldVec _fields;
 };
 
 class TupleVariantField : public VariantField {
@@ -113,7 +120,32 @@ public:
     {
     }
 
-    const std::vector<Rc<Type>>& types() const
+    TypeVec::ConstIterator typesBegin() const
+    {
+        return _types.cbegin();
+    }
+
+    TypeVec::ConstIterator typesEnd() const
+    {
+        return _types.cend();
+    }
+
+    TypeVec::ConstRange typesRange() const
+    {
+        return _types;
+    }
+
+    TypeVec::Iterator typesBegin()
+    {
+        return _types.begin();
+    }
+
+    TypeVec::Iterator typesEnd()
+    {
+        return _types.end();
+    }
+
+    TypeVec::Range typesRange()
     {
         return _types;
     }
@@ -124,7 +156,6 @@ public:
     }
 
 private:
-    std::vector<Rc<Type>> _types;
+    TypeVec _types;
 };
-
 }

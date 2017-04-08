@@ -1,14 +1,13 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/core/Target.h"
 #include "decode/generator/InlineTypeInspector.h"
 
 namespace decode {
 
 class InlineTypeSerializerGen : public InlineTypeInspector<InlineTypeSerializerGen> {
 public:
-    InlineTypeSerializerGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
+    InlineTypeSerializerGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~InlineTypeSerializerGen();
 
     void inspectPointer(const Type* type);

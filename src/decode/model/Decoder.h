@@ -27,7 +27,7 @@ public:
         Rc<ValueNode> node;
     };
 
-    StatusMsgDecoder(StatusMsg* msg, FieldsNode* node);
+    StatusMsgDecoder(const StatusMsg* msg, FieldsNode* node);
     ~StatusMsgDecoder();
 
     bool decode(ModelEventHandler* handler, bmcl::MemReader* src);
@@ -38,7 +38,16 @@ private:
 
 class StatusDecoder : public RefCountable {
 public:
-    StatusDecoder(const Statuses* statuses, FieldsNode* node);
+    template <typename R>
+    StatusDecoder(R statusRange, FieldsNode* node)
+    {
+        for (auto it : statusRange) {
+            _decoders.emplace(std::piecewise_construct,
+                              std::forward_as_tuple(it->number()),
+                              std::forward_as_tuple(it, node));
+        }
+    }
+
     ~StatusDecoder();
 
     bool decode(ModelEventHandler* handler, bmcl::MemReader* src);

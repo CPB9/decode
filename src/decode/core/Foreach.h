@@ -9,7 +9,7 @@ inline void foreachList(I begin, I end, E&& elementFunc, B&& betweenFunc)
         return;
     }
     auto last = end - 1;
-    for (auto it = begin; it < last; it++) {
+    for (I it = begin; it < last; it++) {
         elementFunc(*it);
         betweenFunc(*it);
     }

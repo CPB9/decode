@@ -9,7 +9,7 @@
 
 namespace decode {
 
-StatusEncoderGen::StatusEncoderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+StatusEncoderGen::StatusEncoderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _typeReprGen(reprGen)
     , _output(output)
     , _inlineSer(reprGen, output)
@@ -20,7 +20,7 @@ StatusEncoderGen::~StatusEncoderGen()
 {
 }
 
-void StatusEncoderGen::generateHeader(const std::vector<ComponentAndMsg>& messages)
+void StatusEncoderGen::generateHeader(CompAndMsgVecConstRange messages)
 {
     _output->startIncludeGuard("PRIVATE", "STATUS_ENCODER");
     _output->appendEol();
@@ -44,7 +44,7 @@ void StatusEncoderGen::generateHeader(const std::vector<ComponentAndMsg>& messag
     _output->endIncludeGuard();
 }
 
-void StatusEncoderGen::generateSource(const std::vector<ComponentAndMsg>& messages)
+void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
 {
     IncludeCollector coll;
     std::unordered_set<std::string> includes;
@@ -69,8 +69,8 @@ void StatusEncoderGen::generateSource(const std::vector<ComponentAndMsg>& messag
         appendStatusMessageGenFuncDecl(msg.component.get(), n);
         _output->append("\n{\n");
 
-        for (const Rc<StatusRegexp>& part : msg.msg->parts()) {
-            appendInlineSerializer(msg.component.get(), part.get());
+        for (const StatusRegexp* part : msg.msg->partsRange()) {
+            appendInlineSerializer(msg.component.get(), part);
         }
         _output->append("    return PhotonError_Ok;\n}\n\n");
         n++;
@@ -79,28 +79,28 @@ void StatusEncoderGen::generateSource(const std::vector<ComponentAndMsg>& messag
 
 void StatusEncoderGen::appendInlineSerializer(const Component* comp, const StatusRegexp* part)
 {
-    if (part->accessors().empty()) {
+    if (!part->hasAccessors()) {
         return;
     }
-    assert(part->accessors()[0]->accessorKind() == AccessorKind::Field);
+    assert(part->accessorsBegin()->accessorKind() == AccessorKind::Field);
     AccessorKind lastKind = AccessorKind::Field;
 
     InlineSerContext ctx;
     StringBuilder currentField = "_";
     currentField.append(comp->moduleName());
     const Type* lastType;
-    for (const Rc<Accessor>& acc : part->accessors()) {
+    for (const Accessor* acc : part->accessorsRange()) {
         switch (acc->accessorKind()) {
         case AccessorKind::Field: {
-            auto facc = static_cast<const FieldAccessor*>(acc.get());
+            auto facc = static_cast<const FieldAccessor*>(acc);
             currentField.append('.');
             currentField.append(facc->field()->name());
             lastType = facc->field()->type();
             break;
         }
         case AccessorKind::Subscript: {
-            auto sacc = static_cast<const SubscriptAccessor*>(acc.get());
-            const Type* type = sacc->type().get();
+            auto sacc = static_cast<const SubscriptAccessor*>(acc);
+            const Type* type = sacc->type();
             if (type->isSlice()) {
                 _output->appendIndent(ctx);
                 _output->append("PHOTON_TRY(PhotonWriter_WriteVaruint(dest, ");
@@ -115,8 +115,8 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
             } else {
                 assert(false);
             }
-            if (sacc->subscript().isFirst()) {
-                const Range& range = sacc->subscript().unwrapFirst();
+            if (sacc->isRange()) {
+                const Range& range = sacc->asRange();
                 _output->appendIndent(ctx);
                 _output->append("for (size_t ");
                 _output->append(ctx.currentLoopVar());
@@ -156,7 +156,7 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
                 if (type->isSlice()) {
                     currentField.append(".data");
                 }
-                uintmax_t i = sacc->subscript().unwrapSecond();
+                uintmax_t i = sacc->asIndex();
                 currentField.append('[');
                 currentField.appendNumericValue(i);
                 currentField.append(']');

@@ -7,7 +7,7 @@ namespace decode {
 
 //TODO: refact
 
-HeaderGen::HeaderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+HeaderGen::HeaderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _typeDefGen(reprGen, output)
     , _typeReprGen(reprGen)
@@ -57,7 +57,7 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     appendIncludesAndFwds(comp);
     appendCommonIncludePaths();
     _typeDefGen.genComponentDef(comp);
-    if (comp->parameters().isSome()) {
+    if (comp->hasParams()) {
         _output->append("extern Photon");
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append(" _");
@@ -139,13 +139,12 @@ void HeaderGen::appendImplBlockIncludes(const SliceType* slice)
 void HeaderGen::appendImplBlockIncludes(const Component* comp)
 {
     std::unordered_set<std::string> dest;
-    if (comp->commands().isSome()) {
-        for (const Rc<Function>& fn : comp->commands().unwrap()->functions()) {
-            _includeCollector.collect(fn->type(), &dest);
-        }
+    for (const Function* fn : comp->cmdsRange()) {
+        _includeCollector.collect(fn->type(), &dest);
     }
-    if (comp->implBlock().isSome()) {
-        for (const Rc<Function>& fn : comp->implBlock().unwrap()->functions()) {
+    bmcl::OptionPtr<const ImplBlock> block = comp->implBlock();
+    if (block.isSome()) {
+        for (const Function* fn : block.unwrap()->functionsRange()) {
             _includeCollector.collect(fn->type(), &dest);
         }
     }
@@ -157,10 +156,10 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
 
 void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
 {
-    bmcl::Option<const Rc<ImplBlock>&> impl = _ast->findImplBlockWithName(topLevelType->name());
+    bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlockWithName(topLevelType->name());
     std::unordered_set<std::string> dest;
     if (impl.isSome()) {
-        for (const Rc<Function>& fn : impl.unwrap()->functions()) {
+        for (const Function* fn : impl->functionsRange()) {
             _includeCollector.collect(fn->type(), &dest);
         }
     }
@@ -197,29 +196,30 @@ void HeaderGen::appendIncludesAndFwds(const Type* topLevelType)
 
 void HeaderGen::appendFunctionPrototypes(const Component* comp)
 {
-    if (comp->implBlock().isNone()) {
+    bmcl::OptionPtr<const ImplBlock> impl = comp->implBlock();
+    if (impl.isNone()) {
         return;
     }
-    appendFunctionPrototypes(comp->implBlock().unwrap()->functions(), bmcl::StringView::empty());
+    appendFunctionPrototypes(impl.unwrap()->functionsRange(), bmcl::StringView::empty());
 }
 
-void HeaderGen::appendFunctionPrototypes(const std::vector<Rc<Function>>& funcs, bmcl::StringView typeName)
+void HeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName)
 {
-    for (const Rc<Function>& func : funcs) {
-        appendFunctionPrototype(func.get(), typeName);
+    for (const Function* func : funcs) {
+        appendFunctionPrototype(func, typeName);
     }
-    if (!funcs.empty()) {
+    if (!funcs.isEmpty()) {
         _output->append('\n');
     }
 }
 
 void HeaderGen::appendFunctionPrototypes(const NamedType* type)
 {
-    bmcl::Option<const Rc<ImplBlock>&> block = _ast->findImplBlockWithName(type->name());
+    bmcl::OptionPtr<const ImplBlock> block = _ast->findImplBlockWithName(type->name());
     if (block.isNone()) {
         return;
     }
-    appendFunctionPrototypes(block.unwrap()->functions(), type->name());
+    appendFunctionPrototypes(block.unwrap()->functionsRange(), type->name());
 }
 
 static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
@@ -246,10 +246,10 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
 
 void HeaderGen::appendCommandPrototypes(const Component* comp)
 {
-    if (comp->commands().isNone()) {
+    if (!comp->hasCmds()) {
         return;
     }
-    for (const Rc<Function>& func : comp->commands().unwrap()->functions()) {
+    for (const Function* func : comp->cmdsRange()) {
         const FunctionType* ftype = func->type();
         _output->append("PhotonError Photon");
         _output->appendWithFirstUpper(comp->moduleName());
@@ -257,19 +257,19 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
         _output->appendWithFirstUpper(func->name());
         _output->append("(");
 
-        foreachList(ftype->arguments(), [this](const Rc<Field>& field) {
-            Rc<Type> type = wrapIntoPointerIfNeeded(field->type());
+        foreachList(ftype->argumentsRange(), [this](const Field* field) {
+            Rc<Type> type = wrapIntoPointerIfNeeded(const_cast<Type*>(field->type())); //HACK
             _typeReprGen->genTypeRepr(type.get(), field->name());
-        }, [this](const Rc<Field>&) {
+        }, [this](const Field*) {
             _output->append(", ");
         });
-
-        if (ftype->returnValue().isSome()) {
-            if (!ftype->arguments().empty()) {
+        auto rv = const_cast<FunctionType*>(ftype)->returnValue(); //HACK
+        if (rv.isSome()) {
+            if (ftype->hasArguments()) {
                 _output->append(", ");
             }
-            ReferenceType* rtype = new ReferenceType(ReferenceKind::Pointer, true, ftype->returnValue().unwrap().get());
-            _typeReprGen->genTypeRepr(rtype, "rv"); //TODO: check name conflicts
+            Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
+            _typeReprGen->genTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
         }
 
         _output->append(");\n");
@@ -280,8 +280,12 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
 void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView typeName)
 {
     const FunctionType* type = func->type();
-    if (type->returnValue().isSome()) {
-        _typeReprGen->genTypeRepr(type->returnValue()->get());
+    if (func->name() == "isAtEnd") {
+        BMCL_DEBUG() << "aaaaaaaaaaaaaaaaaaaaaaaaaa " << type->hasReturnValue();
+    }
+    bmcl::OptionPtr<const Type> rv = type->returnValue();
+    if (rv.isSome()) {
+        _typeReprGen->genTypeRepr(rv.unwrap());
         _output->append(' ');
     } else {
         _output->append("void ");
@@ -305,19 +309,16 @@ void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView t
         case SelfArgument::Value:
             break;
         }
-        if (!type->arguments().empty()) {
+        if (type->hasArguments()) {
             _output->append(", ");
         }
     }
 
-    if (type->arguments().size() > 0) {
-        for (auto it = type->arguments().begin(); it < (type->arguments().end() - 1); it++) {
-            const Field* field = it->get();
-            _typeReprGen->genTypeRepr(field->type(), field->name());
-            _output->append(", ");
-        }
-        _typeReprGen->genTypeRepr(type->arguments().back()->type(), type->arguments().back()->name());
-    }
+    foreachList(type->argumentsRange(), [this](const Field* field) {
+        _typeReprGen->genTypeRepr(field->type(), field->name());
+    }, [this](const Field*) {
+        _output->append(", ");
+    });
 
     _output->append(");\n");
 }

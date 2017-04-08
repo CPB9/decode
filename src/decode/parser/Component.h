@@ -6,6 +6,7 @@
 #include "decode/parser/Field.h"
 
 #include <bmcl/Either.h>
+#include <bmcl/OptionPtr.h>
 
 #include <unordered_map>
 
@@ -31,22 +32,6 @@ private:
     Rc<FunctionType> _type;
 };
 
-class Commands: public RefCountable {
-public:
-    const std::vector<Rc<Function>>& functions() const
-    {
-        return _functions;
-    }
-
-    void addFunction(Function* func)
-    {
-        _functions.emplace_back(func);
-    }
-
-private:
-    std::vector<Rc<Function>> _functions;
-};
-
 enum class AccessorKind {
     Field,
     Subscript,
@@ -64,6 +49,9 @@ public:
 
     FieldAccessor* asFieldAccessor();
     SubscriptAccessor* asSubscriptAccessor();
+
+    const FieldAccessor* asFieldAccessor() const;
+    const SubscriptAccessor* asSubscriptAccessor() const;
 
 protected:
     Accessor(AccessorKind kind)
@@ -94,9 +82,14 @@ public:
         return _value;
     }
 
-    const Rc<Field>& field() const
+    const Field* field() const
     {
-        return _field;
+        return _field.get();
+    }
+
+    Field* field()
+    {
+        return _field.get();
     }
 
     void setField(Field* field)
@@ -125,14 +118,34 @@ public:
     {
     }
 
-    const Rc<Type>& type() const
+    const Type* type() const
     {
-        return _type;
+        return _type.get();
     }
 
-    const bmcl::Either<Range, std::uintmax_t>& subscript() const
+    Type* type()
     {
-        return _subscript;
+        return _type.get();
+    }
+
+    bool isRange() const
+    {
+        return _subscript.isFirst();
+    }
+
+    bool isIndex() const
+    {
+        return _subscript.isSecond();
+    }
+
+    const Range& asRange() const
+    {
+        return _subscript.unwrapFirst();
+    }
+
+    std::uintmax_t asIndex() const
+    {
+        return _subscript.unwrapSecond();
     }
 
     void setType(Type* type)
@@ -155,16 +168,53 @@ inline SubscriptAccessor* Accessor::asSubscriptAccessor()
     return static_cast<SubscriptAccessor*>(this);
 }
 
+inline const FieldAccessor* Accessor::asFieldAccessor() const
+{
+    return static_cast<const FieldAccessor*>(this);
+}
+
+inline const SubscriptAccessor* Accessor::asSubscriptAccessor() const
+{
+    return static_cast<const SubscriptAccessor*>(this);
+}
+
 class StatusRegexp : public RefCountable {
 public:
-    const std::vector<Rc<Accessor>>& accessors() const
+    using Accessors = RcVec<Accessor>;
+
+    Accessors::Iterator accessorsBegin()
+    {
+        return _accessors.begin();
+    }
+
+    Accessors::Iterator accessorsEnd()
+    {
+        return _accessors.end();
+    }
+
+    Accessors::Range accessorsRange()
     {
         return _accessors;
     }
 
-    std::vector<Rc<Accessor>>& accessors()
+    Accessors::ConstIterator accessorsBegin() const
+    {
+        return _accessors.cbegin();
+    }
+
+    Accessors::ConstIterator accessorsEnd() const
+    {
+        return _accessors.cend();
+    }
+
+    Accessors::ConstRange accessorsRange() const
     {
         return _accessors;
+    }
+
+    bool hasAccessors() const
+    {
+        return !_accessors.empty();
     }
 
     void addAccessor(Accessor* acc)
@@ -173,29 +223,51 @@ public:
     }
 
 private:
-    std::vector<Rc<Accessor>> _accessors;
+    Accessors _accessors;
 };
 
 class StatusMsg : public RefCountable {
 public:
+    using Parts = RcVec<StatusRegexp>;
+
     StatusMsg(std::size_t num)
         : _number(num)
     {
     }
 
+    Parts::Iterator partsBegin()
+    {
+        return _parts.begin();
+    }
+
+    Parts::Iterator partsEnd()
+    {
+        return _parts.end();
+    }
+
+    Parts::Range partsRange()
+    {
+        return _parts;
+    }
+
+    Parts::ConstIterator partsBegin() const
+    {
+        return _parts.cbegin();
+    }
+
+    Parts::ConstIterator partsEnd() const
+    {
+        return _parts.cend();
+    }
+
+    Parts::ConstRange partsRange() const
+    {
+        return _parts;
+    }
+
     std::size_t number() const
     {
         return _number;
-    }
-
-    const std::vector<Rc<StatusRegexp>>& parts() const
-    {
-        return _parts;
-    }
-
-    std::vector<Rc<StatusRegexp>>& parts()
-    {
-        return _parts;
     }
 
     void addPart(StatusRegexp* part)
@@ -204,60 +276,130 @@ public:
     }
 
 private:
-    std::vector<Rc<StatusRegexp>> _parts;
+    Parts _parts;
     std::size_t _number;
-};
-
-typedef std::unordered_map<std::size_t, Rc<StatusMsg>> StatusMap;
-
-class Statuses: public RefCountable {
-public:
-    const StatusMap& statusMap() const
-    {
-        return _statusMap;
-    }
-
-    StatusMap& statusMap()
-    {
-        return _statusMap;
-    }
-
-    bool addStatus(std::uintmax_t n, StatusMsg* msg)
-    {
-        auto it = _statusMap.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple(msg));
-        return it.second;
-    }
-
-private:
-    StatusMap _statusMap;
 };
 
 class Component : public RefCountable {
 public:
+    using Cmds = RcVec<Function>;
+    using Params = FieldVec;
+    using Statuses = RcSecondUnorderedMap<std::size_t, StatusMsg>;
+
     Component(std::size_t compNum, const ModuleInfo* info)
         : _number(compNum)
         , _modInfo(info)
     {
     }
 
-    const bmcl::Option<Rc<FieldList>>& parameters() const
+    bool hasParams() const
     {
-        return _params;
+        return !_params.empty();
     }
 
-    const bmcl::Option<Rc<Commands>>& commands() const
+    bool hasCmds() const
+    {
+        return !_cmds.empty();
+    }
+
+    bool hasStatuses() const
+    {
+        return !_statuses.empty();
+    }
+
+    Cmds::ConstIterator cmdsBegin() const
+    {
+        return _cmds.cbegin();
+    }
+
+    Cmds::ConstIterator cmdsEnd() const
+    {
+        return _cmds.cend();
+    }
+
+    Cmds::ConstRange cmdsRange() const
     {
         return _cmds;
     }
 
-    const bmcl::Option<Rc<Statuses>>& statuses() const
+    Cmds::Iterator cmdsBegin()
+    {
+        return _cmds.begin();
+    }
+
+    Cmds::Iterator cmdsEnd()
+    {
+        return _cmds.end();
+    }
+
+    Cmds::Range cmdsRange()
+    {
+        return _cmds;
+    }
+
+    Params::ConstIterator paramsBegin() const
+    {
+        return _params.cbegin();
+    }
+
+    Params::ConstIterator paramsEnd() const
+    {
+        return _params.cend();
+    }
+
+    Params::ConstRange paramsRange() const
+    {
+        return _params;
+    }
+
+    Params::Iterator paramsBegin()
+    {
+        return _params.begin();
+    }
+
+    Params::Iterator paramsEnd()
+    {
+        return _params.end();
+    }
+
+    Params::Range paramsRange()
+    {
+        return _params;
+    }
+
+    Statuses::ConstIterator statusesBegin() const
+    {
+        return _statuses.cbegin();
+    }
+
+    Statuses::ConstIterator statusesEnd() const
+    {
+        return _statuses.cend();
+    }
+
+    Statuses::ConstRange statusesRange() const
     {
         return _statuses;
     }
 
-    const bmcl::Option<Rc<ImplBlock>>& implBlock() const
+    Statuses::Iterator statusesBegin()
     {
-        return _implBlock;
+        return _statuses.begin();
+    }
+
+    Statuses::Iterator statusesEnd()
+    {
+        return _statuses.end();
+    }
+
+    Statuses::Range statusesRange()
+    {
+        return _statuses;
+    }
+
+    bmcl::OptionPtr<const ImplBlock> implBlock() const
+    {
+        return _implBlock.get();
     }
 
     bmcl::StringView moduleName() const
@@ -275,24 +417,30 @@ public:
         return _number;
     }
 
-    void setParameters(FieldList* params)
+    bmcl::OptionPtr<Field> paramWithName(bmcl::StringView name)
     {
-        _params.emplace(params);
+        return _params.fieldWithName(name);
     }
 
-    void setStatuses(Statuses* statuses)
+    void addParam(Field* param)
     {
-        _statuses.emplace(statuses);
+        _params.emplace_back(param);
     }
 
-    void setCommands(Commands* cmds)
+    void addCommand(Function* func)
     {
-        _cmds.emplace(cmds);
+        _cmds.emplace_back(func);
+    }
+
+    bool addStatus(std::uintmax_t n, StatusMsg* msg)
+    {
+        auto it = _statuses.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple(msg));
+        return it.second;
     }
 
     void setImplBlock(ImplBlock* block)
     {
-        _implBlock.emplace(block);
+        _implBlock.reset(block);
     }
 
     void setNumber(std::size_t number)
@@ -301,11 +449,11 @@ public:
     }
 
 private:
-    bmcl::Option<Rc<FieldList>> _params;
-    bmcl::Option<Rc<Commands>> _cmds;
-    bmcl::Option<Rc<Statuses>> _statuses;
-    bmcl::Option<Rc<ImplBlock>> _implBlock;
     std::size_t _number;
+    Params _params;
+    Cmds _cmds;
+    Statuses _statuses;
+    Rc<ImplBlock> _implBlock;
     Rc<const ModuleInfo> _modInfo;
 };
 

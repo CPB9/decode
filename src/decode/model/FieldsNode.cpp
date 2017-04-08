@@ -5,10 +5,10 @@
 
 namespace decode {
 
-FieldsNode::FieldsNode(const FieldList* params, const ValueInfoCache* cache, Node* parent)
+FieldsNode::FieldsNode(const Component* params, const ValueInfoCache* cache, Node* parent)
     : Node(parent)
 {
-    for (const Rc<Field>& field : *params) {
+    for (const Field* field : params->paramsRange()) {
         Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, this);
         node->setFieldName(field->name());
         _nameToNodeMap.emplace(field->name(), node);

@@ -13,13 +13,13 @@
 
 namespace decode {
 
-class FieldList;
+class Component;
 class ValueNode;
 class ValueInfoCache;
 
 class FieldsNode : public Node {
 public:
-    FieldsNode(const FieldList* params, const ValueInfoCache* cache, Node* parent);
+    FieldsNode(const Component* params, const ValueInfoCache* cache, Node* parent);
     ~FieldsNode();
 
     bmcl::OptionPtr<ValueNode> nodeWithName(bmcl::StringView name);

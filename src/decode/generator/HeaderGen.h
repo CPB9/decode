@@ -18,7 +18,7 @@ class Function;
 
 class HeaderGen : public FuncPrototypeGen<HeaderGen> {
 public:
-    HeaderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
+    HeaderGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~HeaderGen();
 
     void genTypeHeader(const Ast* ast, const Type* type);
@@ -51,7 +51,7 @@ private:
     void appendFunctionPrototypes(const NamedType* type);
     void appendFunctionPrototypes(const Component* comp);
     void appendCommandPrototypes(const Component* comp);
-    void appendFunctionPrototypes(const std::vector<Rc<Function>>& funcs, bmcl::StringView typeName);
+    void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
 
     const Ast* _ast;
     SrcBuilder* _output;

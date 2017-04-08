@@ -34,7 +34,7 @@ class Report;
 class Diagnostics;
 class BuiltinType;
 class Field;
-class FieldList;
+class FieldVec;
 class StructType;
 class FunctionType;
 class TypeDecl;
@@ -45,7 +45,7 @@ class Function;
 
 enum class BuiltinTypeKind;
 
-typedef bmcl::Result<Rc<Ast>, void> ParseResult;
+using ParseResult = bmcl::Result<Rc<Ast>, void>;
 
 struct AllBuiltinTypes : public RefCountable {
     Rc<BuiltinType> usizeType;
@@ -67,16 +67,16 @@ struct AllBuiltinTypes : public RefCountable {
 
 class DECODE_EXPORT Parser {
 public:
-    Parser(const Rc<Diagnostics>& diag);
+    Parser(Diagnostics* diag);
     ~Parser();
 
     ParseResult parseFile(const char* fileName);
-    ParseResult parseFile(const Rc<FileInfo>& finfo);
+    ParseResult parseFile(FileInfo* finfo);
 
     Location currentLoc() const; //FIXME: temp
 
 private:
-    bool parseOneFile(const Rc<FileInfo>& finfo);
+    bool parseOneFile(FileInfo* finfo);
     void cleanup();
 
     bool expectCurrentToken(TokenKind expected);
@@ -117,13 +117,15 @@ private:
     bool parseTag2(TokenKind startToken, F&& fieldParser);
 
     template<typename T, typename F>
-    Rc<T> parseNamelessTag(TokenKind startToken, TokenKind sep, F&& parser);
+    bool parseNamelessTag(TokenKind startToken, TokenKind sep, T* dest, F&& parser);
 
     Rc<Field> parseField();
-    bool parseRecordField(FieldList* parent);
+
+    template <typename T>
+    bool parseRecordField(T* parent);
     bool parseEnumConstant(EnumType* parent);
     bool parseVariantField(VariantType* parent);
-    bool parseComponentField(const Rc<Component>& parent);
+    bool parseComponentField(Component* parent);
 
     Rc<Function> parseFunction(bool selfAllowed = true);
 
@@ -138,10 +140,10 @@ private:
     bool parseUnsignedInteger(std::uintmax_t* dest);
     bool parseSignedInteger(std::intmax_t* dest);
 
-    bool parseParameters(const Rc<Component>& parent);
-    bool parseCommands(const Rc<Component>& parent);
-    bool parseStatuses(const Rc<Component>& parent);
-    bool parseComponentImpl(const Rc<Component>& parent);
+    bool parseParameters(Component* parent);
+    bool parseCommands(Component* parent);
+    bool parseStatuses(Component* parent);
+    bool parseComponentImpl(Component* parent);
 
     template <typename T>
     Rc<T> beginDecl();

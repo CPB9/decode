@@ -33,7 +33,7 @@
 
 namespace decode {
 
-Generator::Generator(const Rc<Diagnostics>& diag)
+Generator::Generator(Diagnostics* diag)
     : _diag(diag)
 {
 }
@@ -123,7 +123,7 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
     return true;
 }
 
-bool Generator::generateTmPrivate(const Rc<Package>& package)
+bool Generator::generateTmPrivate(const Package* package)
 {
     _output.clear();
 
@@ -161,7 +161,7 @@ bool Generator::generateTmPrivate(const Rc<Package>& package)
     return true;
 }
 
-bool Generator::generateSerializedPackage(const Rc<Package>& package)
+bool Generator::generateSerializedPackage(const Package* package)
 {
     _output.clear();
 
@@ -188,7 +188,7 @@ bool Generator::generateSerializedPackage(const Rc<Package>& package)
     return true;
 }
 
-bool Generator::generateFromPackage(const Rc<Package>& package)
+bool Generator::generateFromPackage(const Package* package)
 {
     _photonPath.append(_savePath);
     _photonPath.append("/photon");
@@ -196,10 +196,10 @@ bool Generator::generateFromPackage(const Rc<Package>& package)
     _photonPath.append('/');
 
     _reprGen = new TypeReprGen(&_output);
-    _hgen.reset(new HeaderGen(_reprGen, &_output));
-    _sgen.reset(new SourceGen(_reprGen, &_output));
-    for (auto it : package->modules()) {
-        if (!generateTypesAndComponents(it.second)) {
+    _hgen.reset(new HeaderGen(_reprGen.get(), &_output));
+    _sgen.reset(new SourceGen(_reprGen.get(), &_output));
+    for (const Ast* it : package->modules()) {
+        if (!generateTypesAndComponents(it)) {
             return false;
         }
     }
@@ -253,9 +253,9 @@ bool Generator::generateSlices()
     return true;
 }
 
-bool Generator::generateStatusMessages(const Rc<Package>& package)
+bool Generator::generateStatusMessages(const Package* package)
 {
-    StatusEncoderGen gen(_reprGen, &_output);
+    StatusEncoderGen gen(_reprGen.get(), &_output);
     gen.generateHeader(package->statusMsgs());
     TRY(dump("StatusEncoder.Private", ".h", &_photonPath));
     _output.clear();
@@ -268,9 +268,9 @@ bool Generator::generateStatusMessages(const Rc<Package>& package)
     return true;
 }
 
-bool Generator::generateCommands(const Rc<Package>& package)
+bool Generator::generateCommands(const Package* package)
 {
-    CmdDecoderGen gen(_reprGen, &_output);
+    CmdDecoderGen gen(_reprGen.get(), &_output);
     gen.generateHeader(package->components());
     TRY(dump("CmdDecoder.Private", ".h", &_photonPath));
     _output.clear();
@@ -294,7 +294,7 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
     return true;
 }
 
-bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
+bool Generator::generateTypesAndComponents(const Ast* ast)
 {
     _currentAst = ast;
     if (ast->moduleInfo()->moduleName() != "core") {
@@ -308,9 +308,8 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
     _photonPath.append('/');
 
     SliceCollector coll;
-    for (const auto& it : ast->typeMap()) {
-        coll.collectUniqueSlices(it.second.get(), &_slices);
-        const NamedType* type = it.second.get();
+    for (const NamedType* type : ast->typesRange()) {
+        coll.collectUniqueSlices(type, &_slices);
         if (type->typeKind() == TypeKind::Imported) {
             continue;
         }
@@ -334,10 +333,10 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
     }
 
     if (ast->component().isSome()) {
-        const Rc<Component>& comp = ast->component().unwrap();
-        coll.collectUniqueSlices(comp.get(), &_slices);
+        bmcl::OptionPtr<const Component> comp = ast->component();
+        coll.collectUniqueSlices(comp.unwrap(), &_slices);
 
-        _hgen->genComponentHeader(_currentAst.get(), comp.get());
+        _hgen->genComponentHeader(_currentAst.get(), comp.unwrap());
         TRY(dump(comp->moduleName(), ".Component.h", &_photonPath));
         _output.clear();
 
@@ -346,7 +345,7 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
         _output.append("/");
         _output.appendWithFirstUpper(comp->moduleName());
         _output.append(".Component.h\"\n\n");
-        if (comp->parameters().isSome()) {
+        if (comp->hasParams()) {
             _output.append("Photon");
             _output.appendWithFirstUpper(comp->moduleName());
             _output.append(" _");
@@ -366,13 +365,13 @@ bool Generator::generateTypesAndComponents(const Rc<Ast>& ast)
         _output.clear();
     }
 
-    if (!ast->constants().empty()) {
+    if (ast->hasConstants()) {
         _hgen->startIncludeGuard(ast->moduleInfo()->moduleName(), "CONSTANTS");
-        for (auto it : ast->constants()) {
+        for (const Constant* c : ast->constantsRange()) {
             _output.append("#define PHOTON_");
-            _output.append(it.second->name());
+            _output.append(c->name());
             _output.append(" ");
-            _output.appendNumericValue(it.second->value());
+            _output.appendNumericValue(c->value());
             _output.appendEol();
         }
         _output.appendEol();

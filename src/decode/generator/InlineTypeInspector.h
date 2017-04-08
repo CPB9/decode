@@ -1,7 +1,6 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/core/Target.h"
 #include "decode/parser/AstVisitor.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeReprGen.h"
@@ -14,7 +13,7 @@ namespace decode {
 template <typename B>
 class InlineTypeInspector : public ConstAstVisitor<B> {
 public:
-    InlineTypeInspector(const Rc<TypeReprGen>& reprGen, SrcBuilder* output);
+    InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output);
 
     void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName);
 
@@ -86,7 +85,7 @@ inline B& InlineTypeInspector<B>::base()
 }
 
 template <typename B>
-InlineTypeInspector<B>::InlineTypeInspector(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+InlineTypeInspector<B>::InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _reprGen(reprGen)
 {

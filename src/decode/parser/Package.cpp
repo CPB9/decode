@@ -1,6 +1,7 @@
 #include "decode/parser/Package.h"
 
 #include "decode/core/Diagnostics.h"
+#include "decode/core/Configuration.h"
 #include "decode/parser/Parser.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Decl.h"
@@ -103,8 +104,9 @@ private:
 
 const std::size_t suffixSize = sizeof(DECODE_SUFFIX) - 1;
 
-Package::Package(const Rc<Diagnostics>& diag)
+Package::Package(Configuration* cfg, Diagnostics* diag)
     : _diag(diag)
+    , _cfg(cfg)
 {
 }
 
@@ -112,12 +114,12 @@ Package::~Package()
 {
 }
 
-PackageResult Package::readFromDirectory(const Rc<Diagnostics>& diag, const char* path)
+PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path)
 {
 
     std::string spath = path;
 
-    Rc<Package> package = new Package(diag);
+    Rc<Package> package = new Package(cfg, diag);
     std::size_t pathSize;
     Parser p(diag);
 
@@ -230,7 +232,7 @@ error:
 typedef std::array<std::uint8_t, 4> MagicType;
 const MagicType magic = {{ 0x7a, 0x70, 0x61, 0x71 }};
 
-PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void* src, std::size_t size)
+PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size)
 {
     bmcl::Buffer buf;
     ZpaqReader in(src, size);
@@ -243,10 +245,9 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
         return PackageResult();
     }
 
-    Rc<Package> package = new Package(diag);
     bmcl::MemReader reader(buf.data(), buf.size());
 
-    if (reader.readableSize() < magic.size()) {
+    if (reader.readableSize() < (magic.size() + 2)) {
         //TODO: report error
         return PackageResult();
     }
@@ -259,6 +260,59 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
         return PackageResult();
     }
 
+    Rc<Configuration> cfg = new Configuration;
+
+    cfg->setDebugLevel(reader.readUint8());
+    cfg->setCompressionLevel(reader.readUint8());
+
+    uint64_t numOptions;
+    if (!reader.readVarUint(&numOptions)) {
+        //TODO: report error
+        return PackageResult();
+    }
+    for (uint64_t i = 0; i < numOptions; i++) {
+        uint64_t keySize;
+        if (!reader.readVarUint(&keySize)) {
+            //TODO: report error
+            return PackageResult();
+        }
+
+        if (reader.readableSize() < keySize) {
+            //TODO: report error
+            return PackageResult();
+        }
+
+        bmcl::StringView key((const char*)reader.current(), keySize);
+        reader.skip(keySize);
+
+        if (reader.readableSize() < 1) {
+            //TODO: report error
+            return PackageResult();
+        }
+
+        bool hasValue = reader.readUint8();
+        if (hasValue) {
+
+            uint64_t valueSize;
+            if (!reader.readVarUint(&valueSize)) {
+                //TODO: report error
+                return PackageResult();
+            }
+
+            if (reader.readableSize() < valueSize) {
+                //TODO: report error
+                return PackageResult();
+            }
+
+            bmcl::StringView value((const char*)reader.current(), keySize);
+            reader.skip(valueSize);
+            cfg->setCfgOption(key, value);
+        } else {
+            cfg->setCfgOption(key);
+        }
+    }
+
+    Rc<Package> package = new Package(cfg.get(), diag);
     Parser p(diag);
 
     while (!reader.isEmpty()) {
@@ -278,12 +332,12 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
         std::string fname(begin, end);
         reader.skip(fnameSize);
 
-        if (reader.readableSize() < 4) {
+        uint64_t contentsSize;
+        if (!reader.readVarUint(&contentsSize)) {
             //TODO: report error
             return PackageResult();
         }
 
-        std::uint32_t contentsSize = reader.readUint32Le();
         if (reader.readableSize() < contentsSize) {
             //TODO: report error
             return PackageResult();
@@ -296,13 +350,13 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
 
         Rc<FileInfo> finfo = new FileInfo(std::move(fname), std::move(contents));
 
-        ParseResult ast = p.parseFile(finfo);
+        ParseResult ast = p.parseFile(finfo.get());
         if (ast.isErr()) {
             //TODO: report error
             return PackageResult();
         }
 
-        package->addAst(ast.unwrap());
+        package->addAst(ast.unwrap().get());
     }
 
     if (!package->resolveAll()) {
@@ -314,11 +368,35 @@ PackageResult Package::decodeFromMemory(const Rc<Diagnostics>& diag, const void*
 
 bmcl::Buffer Package::encode() const
 {
+    return encode(_cfg->compressionLevel());
+}
+
+bmcl::Buffer Package::encode(unsigned compressionLevel) const
+{
+    if (compressionLevel > 5) {
+        compressionLevel = 5;
+    }
     bmcl::Buffer buf;
     buf.write(magic.data(), magic.size());
 
-    for (const auto& it : _modNameToAstMap) {
-        Rc<const FileInfo> finfo = it.second->moduleInfo()->fileInfo();
+    buf.writeUint8(_cfg->debugLevel());
+    buf.writeUint8(_cfg->compressionLevel());
+
+    buf.writeVarUint(_cfg->numOptions());
+    for (auto it : _cfg->optionsRange()) {
+        buf.writeVarUint(it.first.size());
+        buf.write(it.first.data(), it.first.size());
+        if (it.second.isSome()) {
+            buf.writeUint8(1);
+            buf.writeVarUint(it.second->size());
+            buf.write(it.second->data(), it.second->size());
+        } else {
+            buf.writeUint8(0);
+        }
+    }
+
+    for (const Ast* it : modules()) {
+        Rc<const FileInfo> finfo = it->moduleInfo()->fileInfo();
 
         const std::string& fname = finfo->fileName();
         assert(fname.size() <= std::numeric_limits<std::uint8_t>::max());
@@ -328,7 +406,7 @@ bmcl::Buffer Package::encode() const
         const std::string& contents = finfo->contents();
 
         assert(contents.size() <= std::numeric_limits<std::uint32_t>::max());
-        buf.writeUint32Le(contents.size());
+        buf.writeVarUint(contents.size());
         buf.write((const void*)contents.data(), contents.size());
     }
 
@@ -337,7 +415,7 @@ bmcl::Buffer Package::encode() const
     ZpaqWriter out(&result);
 
     try {
-        libzpaq::compress(&in, &out, "5");
+        libzpaq::compress(&in, &out, std::to_string(compressionLevel).c_str());
     } catch (const std::exception& err) {
         BMCL_CRITICAL() << "error compressing zpaq archive: " << err.what();
         std::terminate();
@@ -346,7 +424,7 @@ bmcl::Buffer Package::encode() const
     return result;
 }
 
-void Package::addAst(const Rc<Ast>& ast)
+void Package::addAst(Ast* ast)
 {
     bmcl::StringView modName = ast->moduleInfo()->moduleName();
     _modNameToAstMap.emplace(modName, ast);
@@ -360,24 +438,24 @@ bool Package::addFile(const char* path, Parser* p)
         return false;
     }
 
-    addAst(ast.unwrap());
+    addAst(ast.unwrap().get());
 
     BMCL_DEBUG() << "finished " << ast.unwrap()->moduleInfo()->fileName();
     return true;
 }
 
-bool Package::resolveTypes(const Rc<Ast>& ast)
+bool Package::resolveTypes(Ast* ast)
 {
     bool isOk = true;
-    for (const Rc<TypeImport>& import : ast->imports()) {
+    for (TypeImport* import : ast->importsRange()) {
         auto searchedAst = _modNameToAstMap.find(import->path().toStdString());
         if (searchedAst == _modNameToAstMap.end()) {
             isOk = false;
             BMCL_CRITICAL() << "invalid import mod in " << ast->moduleInfo()->moduleName().toStdString() << ": " << import->path().toStdString();
             continue;
         }
-        for (const Rc<ImportedType>& modifiedType : import->types()) {
-            bmcl::Option<const Rc<NamedType>&> foundType = searchedAst->second->findTypeWithName(modifiedType->name());
+        for (ImportedType* modifiedType : import->typesRange()) {
+            bmcl::OptionPtr<NamedType> foundType = searchedAst->second->findTypeWithName(modifiedType->name());
             if (foundType.isNone()) {
                 isOk = false;
                 //TODO: report error
@@ -389,69 +467,66 @@ bool Package::resolveTypes(const Rc<Ast>& ast)
                     BMCL_CRITICAL() << "circular imports " << ast->moduleInfo()->moduleName().toStdString() << ": " << modifiedType->name().toStdString();
                     BMCL_CRITICAL() << "circular imports " << searchedAst->first.toStdString() << ".decode: " << foundType.unwrap()->name().toStdString();
                 }
-                modifiedType->setLink(foundType.unwrap().get());
+                modifiedType->setLink(foundType.unwrap());
             }
         }
     }
     return isOk;
 }
 
-bool Package::resolveStatuses(const Rc<Ast>& ast)
+bool Package::resolveStatuses(Ast* ast)
 {
     bool isOk = true;
-    const bmcl::Option<Rc<Component>>& comp = ast->component();
+    bmcl::OptionPtr<Component> comp = ast->component();
     if (comp.isNone()) {
         return true;
     }
 
-    const bmcl::Option<Rc<Statuses>>& statuses = comp.unwrap()->statuses();
-    if (statuses.isNone()) {
+    if (!comp->hasStatuses()) {
         return true;
     }
 
-    StatusMap& map = statuses.unwrap()->statusMap();
-    const bmcl::Option<Rc<FieldList>>& params = comp.unwrap()->parameters();
-    if (params.isNone() && !map.empty()) {
+    if (!comp->hasParams() && comp->hasStatuses()) {
         //TODO: report error
         return false;
     }
 
-    for (auto it : map) {
-        _statusMsgs.emplace_back(comp.unwrap(), it.second);
-        for (const Rc<StatusRegexp>& re : it.second->parts()) {
+    for (StatusMsg* it : comp->statusesRange()) {
+        _statusMsgs.emplace_back(comp.unwrap(), it);
+        for (StatusRegexp* re : it->partsRange()) {
 
-            Rc<FieldList> fields = params.unwrap();
+            FieldVec::Range fields;
             Rc<Type> lastType;
             Rc<Field> lastField;
 
-            if (re->accessors().empty()) {
+            if (!re->hasAccessors()) {
                 continue;
             }
             auto resolveField = [&](FieldAccessor* facc) -> bool {
-                bmcl::Option<const Rc<Field>&> field  = fields->fieldWithName(facc->value());
+                bmcl::OptionPtr<Field> field  = comp->paramWithName(facc->value());
                 if (field.isNone()) {
                     //TODO: report error
                     return false;
                 }
-                facc->setField(field.unwrap().get());
+                facc->setField(field.unwrap());
                 lastField = field.unwrap();
                 lastType = field.unwrap()->type();
                 return true;
             };
-            if (re->accessors().front()->accessorKind() != AccessorKind::Field) {
+            if (re->accessorsBegin()->accessorKind() != AccessorKind::Field) {
                 return false;
             }
-            if (!resolveField(static_cast<FieldAccessor*>(re->accessors().front().get()))) {
+            if (!resolveField(re->accessorsBegin()->asFieldAccessor())) {
                 return false;
             }
-            for (auto jt = re->accessors().begin() + 1; jt < re->accessors().end(); jt++) {
+            for (auto jt = re->accessorsBegin() + 1; jt < re->accessorsEnd(); jt++) {
                 Rc<Accessor> acc = *jt;
                 if (acc->accessorKind() == AccessorKind::Field) {
                     if (!lastType->isStruct()) {
                         //TODO: report error
                         return false;
                     }
-                    fields = lastType->asStruct()->fields();
+                    fields = lastType->asStruct()->fieldsRange();
                     FieldAccessor* facc = static_cast<FieldAccessor*>(acc.get());
                     if (!resolveField(facc)) {
                         return false;
@@ -480,11 +555,11 @@ bool Package::resolveStatuses(const Rc<Ast>& ast)
     return isOk;
 }
 
-bool Package::mapComponent(const Rc<Ast>& ast)
+bool Package::mapComponent(Ast* ast)
 {
     if (ast->component().isSome()) {
         std::size_t id = _components.size(); //FIXME: make user-set
-        ast->component().unwrap()->setNumber(id);
+        ast->component()->setNumber(id);
         _components.emplace(id, ast->component().unwrap());
     }
     return true;
@@ -494,10 +569,10 @@ bool Package::resolveAll()
 {
     BMCL_DEBUG() << "resolving";
     bool isOk = true;
-    for (const auto& modifiedAst : _modNameToAstMap) {
-        TRY(mapComponent(modifiedAst.second));
-        isOk &= resolveTypes(modifiedAst.second);
-        isOk &= resolveStatuses(modifiedAst.second);
+    for (Ast* modifiedAst : modules()) {
+        TRY(mapComponent(modifiedAst));
+        isOk &= resolveTypes(modifiedAst);
+        isOk &= resolveStatuses(modifiedAst);
     }
     if (!isOk) {
         BMCL_CRITICAL() << "asd";

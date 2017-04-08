@@ -27,12 +27,67 @@ class Constant;
 
 class Ast : public RefCountable {
 public:
+    using Types = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
+    using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
+    using Imports = RcVec<TypeImport>;
+    using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
+
     Ast();
     ~Ast();
 
-    const std::vector<Rc<TypeImport>>& imports() const
+    Types::ConstIterator typesBegin() const
+    {
+        return _typeNameToType.cbegin();
+    }
+
+    Types::ConstIterator typesEnd() const
+    {
+        return _typeNameToType.cend();
+    }
+
+    Types::ConstRange typesRange() const
+    {
+        return _typeNameToType;
+    }
+
+    Imports::ConstIterator importsBegin() const
+    {
+        return _importDecls.cbegin();
+    }
+
+    Imports::ConstIterator importsEnd() const
+    {
+        return _importDecls.cend();
+    }
+
+    Imports::ConstRange importsRange() const
     {
         return _importDecls;
+    }
+
+    Imports::Range importsRange()
+    {
+        return _importDecls;
+    }
+
+    bool hasConstants() const
+    {
+        return !_constants.empty();
+    }
+
+    Constants::ConstIterator constantsBegin() const
+    {
+        return _constants.cbegin();
+    }
+
+    Constants::ConstIterator constantsEnd() const
+    {
+        return _constants.cend();
+    }
+
+    Constants::ConstRange constantsRange() const
+    {
+        return _constants;
     }
 
     const ModuleInfo* moduleInfo() const
@@ -40,37 +95,29 @@ public:
         return _moduleInfo.get();
     }
 
-    const bmcl::Option<Rc<Component>>& component() const
+    bmcl::OptionPtr<const Component> component() const
     {
-        return _component;
+        return _component.get();
     }
 
-    const std::unordered_map<bmcl::StringView, Rc<NamedType>>& typeMap() const
+    bmcl::OptionPtr<Component> component()
     {
-        return _typeNameToType;
+        return _component.get();
     }
 
-    const std::unordered_map<bmcl::StringView, Rc<Constant>>& constants() const
+    bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const
     {
-        return _constants;
+        return _typeNameToType.findValueWithKey(name);
     }
 
-    bmcl::Option<const Rc<NamedType>&> findTypeWithName(bmcl::StringView name) const
+    bmcl::OptionPtr<NamedType> findTypeWithName(bmcl::StringView name)
     {
-        auto it = _typeNameToType.find(name);
-        if (it == _typeNameToType.end()) {
-            return bmcl::None;
-        }
-        return it->second;
+        return _typeNameToType.findValueWithKey(name);
     }
 
-    bmcl::Option<const Rc<ImplBlock>&> findImplBlockWithName(bmcl::StringView name) const
+    bmcl::OptionPtr<const ImplBlock> findImplBlockWithName(bmcl::StringView name) const
     {
-        auto it = _typeNameToImplBlock.find(name);
-        if (it == _typeNameToImplBlock.end()) {
-            return bmcl::None;
-        }
-        return it->second;
+        return _typeNameToImplBlock.findValueWithKey(name);
     }
 
     void setModuleInfo(ModuleInfo* info)
@@ -84,7 +131,7 @@ public:
         assert(it.second); //TODO: check for top level type name conflicts
     }
 
-    void addImplBlock(const Rc<ImplBlock>& block)
+    void addImplBlock(ImplBlock* block)
     {
         _typeNameToImplBlock.emplace(block->name(), block);
     }
@@ -102,17 +149,22 @@ public:
 
     void setComponent(Component* comp)
     {
-        _component.emplace(comp);
+        _component.reset(comp);
+    }
+
+    const std::string& fileName() const
+    {
+        return _moduleInfo->fileName();
     }
 
 private:
-    std::vector<Rc<TypeImport>> _importDecls;
+    Imports _importDecls;
 
-    bmcl::Option<Rc<Component>> _component;
+    Rc<Component> _component;
 
-    std::unordered_map<bmcl::StringView, Rc<NamedType>> _typeNameToType;
-    std::unordered_map<bmcl::StringView, Rc<ImplBlock>> _typeNameToImplBlock;
-    std::unordered_map<bmcl::StringView, Rc<Constant>> _constants;
+    Types _typeNameToType;
+    ImplBlocks _typeNameToImplBlock;
+    Constants _constants;
     //std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<ModuleInfo> _moduleInfo;
 };

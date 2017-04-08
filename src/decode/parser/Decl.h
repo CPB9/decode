@@ -24,9 +24,9 @@ class ImportedType;
 class Decl : public RefCountable {
 public:
 
-    const Rc<ModuleInfo>& moduleInfo() const
+    const ModuleInfo* moduleInfo() const
     {
-        return _moduleInfo;
+        return _moduleInfo.get();
     }
 
 protected:
@@ -70,9 +70,14 @@ private:
 class TypeDecl : public Decl {
 public:
 
-    const Rc<Type>& type() const
+    const Type* type() const
     {
-        return _type;
+        return _type.get();
+    }
+
+    Type* type()
+    {
+        return _type.get();
     }
 
 protected:
@@ -98,12 +103,18 @@ class ImportedType;
 
 class TypeImport : public Decl {
 public:
+    using Types = RcVec<ImportedType>;
     bmcl::StringView path() const
     {
         return _importPath;
     }
 
-    const std::vector<Rc<ImportedType>>& types() const
+    Types::ConstRange typesRange() const
+    {
+        return _types;
+    }
+
+    Types::Range typesRange()
     {
         return _types;
     }
@@ -124,7 +135,19 @@ class Function;
 
 class ImplBlock : public NamedDecl {
 public:
-    const std::vector<Rc<Function>>& functions() const
+    using Functions = RcVec<Function>;
+
+    Functions::ConstIterator functionsBegin() const
+    {
+        return _funcs.cbegin();
+    }
+
+    Functions::ConstIterator functionsEnd() const
+    {
+        return _funcs.cend();
+    }
+
+    Functions::ConstRange functionsRange() const
     {
         return _funcs;
     }
@@ -137,7 +160,7 @@ public:
 private:
     friend class Parser;
 
-    std::vector<Rc<Function>> _funcs;
+    Functions _funcs;
 };
 
 }

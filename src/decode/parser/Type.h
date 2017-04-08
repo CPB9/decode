@@ -2,12 +2,15 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/Iterator.h"
 #include "decode/core/Hash.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Field.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/OptionPtr.h>
+#include <bmcl/Logging.h>
 
 #include <cstdint>
 #include <map>
@@ -104,19 +107,14 @@ public:
     bool isEnum() const;
     bool isReference() const;
 
-    const Type* parent() const;
-    void setParent(Type* parent);
-
 protected:
     Type(TypeKind kind)
         : _typeKind(kind)
-        , _parent(nullptr)
     {
     }
 
 private:
     TypeKind _typeKind;
-    Type* _parent; //not owned, cyclic refs
 };
 
 class NamedType : public Type {
@@ -359,12 +357,52 @@ public:
     {
     }
 
-    const bmcl::Option<Rc<Type>>& returnValue() const
+    bmcl::OptionPtr<Type> returnValue()
     {
-        return _returnValue;
+        return _returnValue.get();
     }
 
-    const std::vector<Rc<Field>>& arguments() const
+    bmcl::OptionPtr<const Type> returnValue() const
+    {
+        return _returnValue.get();
+    }
+
+    bool hasReturnValue() const
+    {
+        return _returnValue.get() != nullptr;
+    }
+
+    bool hasArguments() const
+    {
+        return !_arguments.empty();
+    }
+
+    FieldVec::Iterator argumentsBegin()
+    {
+        return _arguments.begin();
+    }
+
+    FieldVec::Iterator argumentsEnd()
+    {
+        return _arguments.end();
+    }
+
+    FieldVec::Range argumentsRange()
+    {
+        return _arguments;
+    }
+
+    FieldVec::ConstIterator argumentsBegin() const
+    {
+        return _arguments.cbegin();
+    }
+
+    FieldVec::ConstIterator argumentsEnd() const
+    {
+        return _arguments.cend();
+    }
+
+    FieldVec::ConstRange argumentsRange() const
     {
         return _arguments;
     }
@@ -381,7 +419,7 @@ public:
 
     void setReturnValue(Type* type)
     {
-        _returnValue.emplace(type);
+        _returnValue.reset(type);
     }
 
     void setSelfArgument(SelfArgument arg)
@@ -391,61 +429,77 @@ public:
 
 private:
     bmcl::Option<SelfArgument> _self;
-    std::vector<Rc<Field>> _arguments;
-    bmcl::Option<Rc<Type>> _returnValue;
+    FieldVec _arguments;
+    Rc<Type> _returnValue;
     Rc<const ModuleInfo> _modInfo;
 };
 
 class StructType : public NamedType {
 public:
+    using Fields = FieldVec;
+
     StructType(bmcl::StringView name, const ModuleInfo* info)
         : NamedType(TypeKind::Struct, name, info)
-        , _fields(new FieldList)
     {
     }
 
-    const FieldList* fields() const
+    Fields::ConstIterator fieldsBegin() const
     {
-        return _fields.get();
+        return _fields.cbegin();
     }
 
-    FieldList* fields()
+    Fields::ConstIterator fieldsEnd() const
     {
-        return _fields.get();
+        return _fields.cend();
+    }
+
+    Fields::ConstRange fieldsRange() const
+    {
+        return _fields;
+    }
+
+    Fields::Iterator fieldsBegin()
+    {
+        return _fields.begin();
+    }
+
+    Fields::Iterator fieldsEnd()
+    {
+        return _fields.end();
+    }
+
+    Fields::Range fieldsRange()
+    {
+        return _fields;
     }
 
     void addField(Field* field)
     {
-        _fields.get()->emplace_back(field);
+        _fields.emplace_back(field);
         _nameToFieldMap.emplace(field->name(), field);
     }
 
     bmcl::OptionPtr<const Field> fieldWithName(bmcl::StringView name) const
     {
-        auto it = _nameToFieldMap.find(name);
-        if (it == _nameToFieldMap.end()) {
-            return bmcl::None;
-        }
-        return it->second.get();
+        return _nameToFieldMap.findValueWithKey(name);
     }
 
-    bmcl::Option<std::size_t> indexOfField(Field* field) const
+    bmcl::Option<std::size_t> indexOfField(const Field* field) const
     {
-        auto it = std::find(_fields->begin(), _fields->end(), field);
-        if (it == _fields->end()) {
+        auto it = std::find(_fields.begin(), _fields.end(), field);
+        if (it == _fields.end()) {
             return bmcl::None;
         }
-        return std::distance(_fields->begin(), it);
+        return std::distance(_fields.begin(), it);
     }
 
 private:
-    Rc<FieldList> _fields;
-    std::unordered_map<bmcl::StringView, Rc<Field>> _nameToFieldMap;
+    Fields _fields;
+    RcSecondUnorderedMap<bmcl::StringView, Field> _nameToFieldMap;
 };
 
 class EnumConstant : public NamedRc {
 public:
-
     EnumConstant(bmcl::StringView name, std::int64_t value, bool isUserSet)
         : NamedRc(name)
         , _value(value)
@@ -470,12 +524,24 @@ private:
 
 class EnumType : public NamedType {
 public:
+    using Constants = RcSecondUnorderedMap<std::int64_t, EnumConstant>;
+
     EnumType(bmcl::StringView name, const ModuleInfo* info)
         : NamedType(TypeKind::Enum, name, info)
     {
     }
 
-    const std::map<std::int64_t, Rc<EnumConstant>>& constants() const
+    Constants::ConstIterator constantsBegin() const
+    {
+        return _constantDecls.cbegin();
+    }
+
+    Constants::ConstIterator constantsEnd() const
+    {
+        return _constantDecls.cend();
+    }
+
+    Constants::ConstRange constantsRange() const
     {
         return _constantDecls;
     }
@@ -487,19 +553,46 @@ public:
     }
 
 private:
-    std::map<std::int64_t, Rc<EnumConstant>> _constantDecls;
+    Constants _constantDecls;
 };
 
 class VariantField;
 
 class VariantType : public NamedType {
 public:
+    using Fields = VariantFieldVec;
+
     VariantType(bmcl::StringView name, const ModuleInfo* info)
         : NamedType(TypeKind::Variant, name, info)
     {
     }
 
-    const std::vector<Rc<VariantField>>& fields() const
+    Fields::ConstIterator fieldsBegin() const
+    {
+        return _fields.cbegin();
+    }
+
+    Fields::ConstIterator fieldsEnd() const
+    {
+        return _fields.cend();
+    }
+
+    Fields::ConstRange fieldsRange() const
+    {
+        return _fields;
+    }
+
+    Fields::Iterator fieldsBegin()
+    {
+        return _fields.begin();
+    }
+
+    Fields::Iterator fieldsEnd()
+    {
+        return _fields.end();
+    }
+
+    Fields::Range fieldsRange()
     {
         return _fields;
     }
@@ -510,7 +603,7 @@ public:
     }
 
 private:
-    std::vector<Rc<VariantField>> _fields;
+    VariantFieldVec _fields;
 };
 
 inline bool Type::isArray() const
@@ -566,16 +659,6 @@ inline bool Type::isReference() const
 inline TypeKind Type::typeKind() const
 {
     return _typeKind;
-}
-
-inline const Type* Type::parent() const
-{
-    return _parent;
-}
-
-inline void Type::setParent(Type* parent)
-{
-    _parent = parent;
 }
 
 inline const ArrayType* Type::asArray() const

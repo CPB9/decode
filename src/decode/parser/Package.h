@@ -3,6 +3,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/ResultFwd.h>
 
@@ -21,14 +22,10 @@ class Parser;
 class Package;
 class Component;
 class StatusRegexp;
+class Configuration;
 struct ComponentAndMsg;
 
-typedef bmcl::Result<Rc<Package>, void> PackageResult;
-
-inline bool operator<(const bmcl::StringView left, const bmcl::StringView right)
-{
-    return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
-}
+using PackageResult = bmcl::Result<Rc<Package>, void>;
 
 class Package : public RefCountable {
 public:
@@ -39,51 +36,66 @@ public:
             return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
         }
     };
-    using AstMap = std::map<bmcl::StringView, Rc<Ast>, StringViewComparator>;
 
-    static PackageResult readFromDirectory(const Rc<Diagnostics>& diag, const char* path);
-    static PackageResult decodeFromMemory(const Rc<Diagnostics>& diag, const void* src, std::size_t size);
+    using AstMap = RcSecondMap<bmcl::StringView, Ast, StringViewComparator>;
+
+    static PackageResult readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path);
+    static PackageResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
 
     ~Package();
 
     bmcl::Buffer encode() const;
+    bmcl::Buffer encode(unsigned compressionLevel) const;
 
-    const AstMap& modules() const;
-    const std::map<std::size_t, Rc<Component>>& components() const;
-    const Rc<Diagnostics>& diagnostics() const;
-    const std::vector<ComponentAndMsg>& statusMsgs() const;
+    AstMap::ConstRange modules() const;
+    AstMap::Range modules();
+    ComponentMap::ConstRange components() const;
+    const Diagnostics* diagnostics() const;
+    Diagnostics* diagnostics();
+    CompAndMsgVecConstRange statusMsgs() const;
 
 private:
-    Package(const Rc<Diagnostics>& diag);
+    Package(Configuration* cfg, Diagnostics* diag);
     bool addFile(const char* path, Parser* p);
-    void addAst(const Rc<Ast>& ast);
+    void addAst(Ast* ast);
     bool resolveAll();
-    bool resolveTypes(const Rc<Ast>& ast);
-    bool resolveStatuses(const Rc<Ast>& ast);
-    bool mapComponent(const Rc<Ast>& ast);
+    bool resolveTypes(Ast* ast);
+    bool resolveStatuses(Ast* ast);
+    bool mapComponent(Ast* ast);
 
     Rc<Diagnostics> _diag;
+    Rc<Configuration> _cfg;
     AstMap _modNameToAstMap;
-    std::map<std::size_t, Rc<Component>> _components;
-    std::vector<ComponentAndMsg> _statusMsgs;
+    ComponentMap _components;
+    CompAndMsgVec _statusMsgs;
 };
 
-inline const std::map<std::size_t, Rc<Component>>& Package::components() const
+inline ComponentMap::ConstRange Package::components() const
 {
     return _components;
 }
 
-inline const Package::AstMap& Package::modules() const
+inline Package::AstMap::ConstRange Package::modules() const
 {
     return _modNameToAstMap;
 }
 
-inline const Rc<Diagnostics>& Package::diagnostics() const
+inline Package::AstMap::Range Package::modules()
 {
-    return _diag;
+    return _modNameToAstMap;
 }
 
-inline const std::vector<ComponentAndMsg>& Package::statusMsgs() const
+inline const Diagnostics* Package::diagnostics() const
+{
+    return _diag.get();
+}
+
+inline Diagnostics* Package::diagnostics()
+{
+    return _diag.get();
+}
+
+inline CompAndMsgVecConstRange Package::statusMsgs() const
 {
     return _statusMsgs;
 }

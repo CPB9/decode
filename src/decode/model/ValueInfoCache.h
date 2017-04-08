@@ -14,6 +14,13 @@ class Type;
 
 class ValueInfoCache : public RefCountable {
 public:
+    struct Hasher {
+        std::size_t operator()(const Rc<const Type>& key) const
+        {
+            return std::hash<const Type*>()(key.get());
+        }
+    };
+
     ValueInfoCache();
     ~ValueInfoCache();
 
@@ -24,6 +31,6 @@ private:
     void updateIndexes(std::size_t newSize) const;
 
     mutable std::vector<bmcl::StringView> _arrayIndexes;
-    mutable std::unordered_map<const Type*, std::string> _names;
+    mutable std::unordered_map<Rc<const Type>, std::string, Hasher> _names;
 };
 }

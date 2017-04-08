@@ -1,6 +1,5 @@
 #pragma once
 
-#include "decode/core/Rc.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Component.h"
@@ -279,10 +278,11 @@ void AstVisitorBase<B, P>::traverseFunctionType(typename P<FunctionType>::type f
     if (!base().visitFunctionType(fn)) {
         return;
     }
-    if (fn->returnValue().isSome()) {
-        traverseType(fn->returnValue().unwrap().get());
+    auto rv = fn->returnValue();
+    if (rv.isSome()) {
+        traverseType(rv.unwrap());
     }
-    for (const Rc<Field>& field : fn->arguments()) {
+    for (typename P<Field>::type field : fn->argumentsRange()) {
         traverseType(field->type());
     }
 }
@@ -301,8 +301,7 @@ void AstVisitorBase<B, P>::traverseStructType(typename P<StructType>::type str)
     if (!base().visitStructType(str)) {
         return;
     }
-    typename P<FieldList>::type fieldList = str->fields();
-    for (const Rc<Field>& field : *fieldList) {
+    for (typename P<Field>::type field : str->fieldsRange()) {
         traverseType(field->type());
     }
 }
@@ -321,8 +320,8 @@ void AstVisitorBase<B, P>::traverseTupleVariantField(typename P<TupleVariantFiel
     if (!base().visitTupleVariantField(field)) {
         return;
     }
-    for (const Rc<Type>& t : field->types()) {
-        traverseType(t.get());
+    for (typename P<Type>::type t : field->typesRange()) {
+        traverseType(t);
     }
 }
 
@@ -332,8 +331,7 @@ void AstVisitorBase<B, P>::traverseStructVariantField(typename P<StructVariantFi
     if (!base().visitStructVariantField(field)) {
         return;
     }
-    typename P<FieldList>::type fieldList = field->fields();
-    for (const Rc<Field>& field : *fieldList) {
+    for (typename P<Field>::type field : field->fieldsRange()) {
         traverseType(field->type());
     }
 }
@@ -369,8 +367,8 @@ void AstVisitorBase<B, P>::traverseVariantType(typename P<VariantType>::type var
     if (!base().visitVariantType(variant)) {
         return;
     }
-    for (const Rc<VariantField>& field : variant->fields()) {
-        traverseVariantField(field.get());
+    for (typename P<VariantField>::type field : variant->fieldsRange()) {
+        traverseVariantField(field);
     }
 }
 
@@ -454,8 +452,8 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
 template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseComponentParameters(typename P<Component>::type comp)
 {
-    if (comp->parameters().isSome()) {
-        for (const Rc<Field>& field : *comp->parameters().unwrap()) {
+    if (comp->hasParams()) {
+        for (typename P<Field>::type field : comp->paramsRange()) {
             traverseType(field->type());
         }
     }

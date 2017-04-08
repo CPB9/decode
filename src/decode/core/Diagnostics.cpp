@@ -28,7 +28,7 @@ void Report::setLocation(Location loc)
 
 void Report::setMessage(bmcl::StringView str)
 {
-    _message = str;
+    _message.emplace(str.begin(), str.end());
 }
 
 void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) const
@@ -70,7 +70,7 @@ void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) cons
             *colorStream << bmcl::ColorAttr::Reset;
             *colorStream << bmcl::ColorAttr::Bright;
         }
-        *out << _message->toStdString() << std::endl;
+        *out << _message.unwrap() << std::endl;
     }
     if (_location.isSome()) {
         if (colorStream) {

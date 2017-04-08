@@ -4,13 +4,10 @@
 #include "decode/core/Rc.h"
 #include "decode/model/Node.h"
 
+#include <bmcl/Fwd.h>
+
 #include <cstdint>
 #include <unordered_map>
-
-namespace bmcl {
-template <typename T>
-class ArrayView;
-}
 
 namespace decode {
 
@@ -26,7 +23,7 @@ public:
     Model(const Package* package, ModelEventHandler* handler);
     ~Model();
 
-    void acceptTelemetry(bmcl::ArrayView<uint8_t> bytes);
+    void acceptTelemetry(bmcl::Bytes bytes);
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;

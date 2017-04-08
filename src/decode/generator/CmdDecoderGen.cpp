@@ -2,7 +2,7 @@
 
 namespace decode {
 
-CmdDecoderGen::CmdDecoderGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+CmdDecoderGen::CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _typeReprGen(reprGen)
     , _output(output)
     , _inlineSer(reprGen, _output)
@@ -15,8 +15,9 @@ CmdDecoderGen::~CmdDecoderGen()
 {
 }
 
-void CmdDecoderGen::generateHeader(const std::map<std::size_t, Rc<Component>>& comps)
+void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
 {
+    (void)comps;
     _output->startIncludeGuard("PRIVATE", "CMD_DECODER");
     _output->appendEol();
 
@@ -65,27 +66,27 @@ void CmdDecoderGen::appendFunctionName(unsigned componenNum, unsigned cmdNum)
     _output->appendNumericValue(cmdNum);
 }
 
-void CmdDecoderGen::generateSource(const std::map<std::size_t, Rc<Component>>& comps)
+void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 {
     _output->appendLocalIncludePath("CmdDecoder.Private");
     _output->appendEol();
 
-    for (auto it : comps) {
+    for (const Component* it : comps) {
         _output->append("#include \"photon/");
-        _output->append(it.second->moduleName());
+        _output->append(it->moduleName());
         _output->append("/");
-        _output->appendWithFirstUpper(it.second->moduleName());
+        _output->appendWithFirstUpper(it->moduleName());
         _output->appendWithFirstUpper(".Component.h\"\n");
     }
     _output->appendEol();
 
     for (auto it : comps) {
-        if (it.second->commands().isNone()) {
+        if (!it->hasCmds()) {
             continue;
         }
         std::size_t cmdNum = 0;
-        for (const Rc<Function>& jt : it.second->commands().unwrap()->functions()) {
-            generateFunc(it.second, jt, it.first, cmdNum);
+        for (const Function* jt : it->cmdsRange()) {
+            generateFunc(it, jt, it->number(), cmdNum);
             cmdNum++;
             _output->appendEol();
             _output->appendEol();
@@ -100,30 +101,30 @@ void CmdDecoderGen::appendMainFunctionPrototype()
     _output->append("PhotonError Photon_ExecCmd(uint8_t compNum, uint8_t cmdNum, PhotonReader* src, PhotonWriter* dest)");
 }
 
-void CmdDecoderGen::generateMainFunc(const std::map<std::size_t, Rc<Component>>& comps)
+void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
 {
     appendMainFunctionPrototype();
     _output->append("\n{\n");
     _output->append("    switch (compNum) {\n");
-    for (auto it : comps) {
-        if (it.second->commands().isNone()) {
+    for (const Component* it : comps) {
+        if (!it->hasCmds()) {
             continue;
         }
 
         _output->append("    case ");
-        _output->appendNumericValue(it.first);
+        _output->appendNumericValue(it->number());
         _output->append(": {\n");
 
         _output->append("        switch (cmdNum) {\n");
 
         std::size_t cmdNum = 0;
-        for (const Rc<Function>& func : it.second->commands().unwrap()->functions()) {
+        for (const Function* func : it->cmdsRange()) {
             (void)func;
             _output->append("        case ");
             _output->appendNumericValue(cmdNum);
             _output->append(":\n");
             _output->append("            return ");
-            appendFunctionName(it.first, cmdNum);
+            appendFunctionName(it->number(), cmdNum);
             _output->append("(src, dest);\n");
             cmdNum++;
         }
@@ -135,12 +136,12 @@ void CmdDecoderGen::generateMainFunc(const std::map<std::size_t, Rc<Component>>&
 }
 
 template <typename C>
-void CmdDecoderGen::foreachParam(const Rc<Function>& func, C&& f)
+void CmdDecoderGen::foreachParam(const Function* func, C&& f)
 {
     std::size_t fieldNum = 0;
     _paramName.resize(2);
     InlineSerContext ctx;
-    for (const Rc<Field>& field : func->type()->arguments()) {
+    for (const Field* field : func->type()->argumentsRange()) {
         _paramName.appendNumericValue(fieldNum);
         f(field, _paramName.view());
         _paramName.resize(2);
@@ -172,28 +173,28 @@ void CmdDecoderGen::writePointerOp(const Type* type)
     }
 }
 
-void CmdDecoderGen::generateFunc(const Rc<Component>& comp, const Rc<Function>& func, unsigned componenNum, unsigned cmdNum)
+void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, unsigned componenNum, unsigned cmdNum)
 {
     const FunctionType* ftype = func->type();
     _output->append("static ");
     appendFunctionPrototype(componenNum, cmdNum);
     _output->append("\n{\n");
 
-    foreachParam(func, [this](const Rc<Field>& field, bmcl::StringView name) {
+    foreachParam(func, [this](const Field* field, bmcl::StringView name) {
         _output->append("    ");
         _typeReprGen->genTypeRepr(field->type(), name);
         _output->append(";\n");
     });
-
-    if (ftype->returnValue().isSome()) {
+    bmcl::OptionPtr<const Type> rv = ftype->returnValue();
+    if (rv.isSome()) {
         _output->append("    ");
-        _typeReprGen->genTypeRepr(ftype->returnValue().unwrap().get(), "_rv");
+        _typeReprGen->genTypeRepr(rv.unwrap(), "_rv");
         _output->append(";\n");
     }
     _output->appendEol();
 
     InlineSerContext ctx;
-    foreachParam(func, [this, ctx](const Rc<Field>& field, bmcl::StringView name) {
+    foreachParam(func, [this, ctx](const Field* field, bmcl::StringView name) {
         _inlineDeser.inspect(field->type(), ctx, name);
     });
     _output->appendEol();
@@ -204,22 +205,22 @@ void CmdDecoderGen::generateFunc(const Rc<Component>& comp, const Rc<Function>& 
     _output->append("_");
     _output->appendWithFirstUpper(func->name());
     _output->append("(");
-    foreachParam(func, [this](const Rc<Field>& field, bmcl::StringView name) {
+    foreachParam(func, [this](const Field* field, bmcl::StringView name) {
         (void)field;
         writePointerOp(field->type());
         _output->append(name);
         _output->append(", ");
     });
-    if (ftype->returnValue().isSome()) {
-        writePointerOp(ftype->returnValue().unwrap().get());
+    if (rv.isSome()) {
+        writePointerOp(rv.unwrap());
         _output->append("_rv");
-    } else if (!ftype->arguments().empty()) {
+    } else if (ftype->hasArguments()) {
         _output->removeFromBack(2);
     }
     _output->append("));\n\n");
 
-    if (ftype->returnValue().isSome()) {
-        _inlineSer.inspect(ftype->returnValue().unwrap().get(), ctx, "_rv");
+    if (rv.isSome()) {
+        _inlineSer.inspect(rv.unwrap(), ctx, "_rv");
     }
 
     _output->append("\n    return PhotonError_Ok;\n}");

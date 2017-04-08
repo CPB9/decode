@@ -110,6 +110,8 @@ add_library(decode
     src/decode/model/ValueNode.h
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
+    src/decode/parser/Containers.cpp
+    src/decode/parser/Containers.h
     src/decode/parser/Decl.h
     src/decode/parser/Lexer.cpp
     src/decode/parser/Lexer.h

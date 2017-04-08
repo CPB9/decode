@@ -4,7 +4,7 @@
 
 namespace decode {
 
-TypeDefGen::TypeDefGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+TypeDefGen::TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _typeReprGen(reprGen)
     , _output(output)
 {
@@ -21,10 +21,10 @@ void TypeDefGen::genTypeDef(const Type* type)
 
 void TypeDefGen::genComponentDef(const Component* comp)
 {
-    if (comp->parameters().isNone()) {
+    if (!comp->hasParams()) {
         return;
     }
-    appendFieldList(comp->parameters().unwrap().get(), bmcl::StringView::empty());
+    appendFieldVec(comp->paramsRange(), bmcl::StringView::empty());
 }
 
 bool TypeDefGen::visitEnumType(const EnumType* type)
@@ -64,14 +64,14 @@ bool TypeDefGen::visitSliceType(const SliceType* type)
     return false;
 }
 
-void TypeDefGen::appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::StringView name)
+void TypeDefGen::appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView name)
 {
     _output->appendTagHeader("struct");
 
     std::size_t i = 1;
-    for (const Rc<Type>& type : fields) {
+    for (const Type* type : fields) {
         _output->appendIndent(1);
-        _typeReprGen->genTypeRepr(type.get(), "_" + std::to_string(i));
+        _typeReprGen->genTypeRepr(type, "_" + std::to_string(i));
         _output->append(";\n");
         i++;
     }
@@ -80,11 +80,11 @@ void TypeDefGen::appendFieldVec(const std::vector<Rc<Type>>& fields, bmcl::Strin
     _output->appendEol();
 }
 
-void TypeDefGen::appendFieldList(const FieldList* fields, bmcl::StringView name)
+void TypeDefGen::appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView name)
 {
     _output->appendTagHeader("struct");
 
-    for (const Rc<Field>& field : *fields) {
+    for (const Field* field : fields) {
         _output->appendIndent(1);
         _typeReprGen->genTypeRepr(field->type(), field->name());
         _output->append(";\n");
@@ -96,22 +96,22 @@ void TypeDefGen::appendFieldList(const FieldList* fields, bmcl::StringView name)
 
 void TypeDefGen::appendStruct(const StructType* type)
 {
-    appendFieldList(type->fields(), type->name());
+    appendFieldVec(type->fieldsRange(), type->name());
 }
 
 void TypeDefGen::appendEnum(const EnumType* type)
 {
     _output->appendTagHeader("enum");
 
-    for (const auto& pair : type->constants()) {
+    for (const EnumConstant* c : type->constantsRange()) {
         _output->appendIndent(1);
         _output->appendModPrefix();
         _output->append(type->name());
         _output->append("_");
-        _output->append(pair.second->name().toStdString());
-        if (pair.second->isUserSet()) {
+        _output->append(c->name().toStdString());
+        if (c->isUserSet()) {
             _output->append(" = ");
-            _output->append(std::to_string(pair.second->value()));
+            _output->append(std::to_string(c->value()));
         }
         _output->append(",\n");
     }
@@ -126,7 +126,7 @@ void TypeDefGen::appendVariant(const VariantType* type)
 
     _output->appendTagHeader("enum");
 
-    for (const Rc<VariantField>& field : type->fields()) {
+    for (const VariantField* field : type->fieldsRange()) {
         _output->appendIndent(1);
         _output->appendModPrefix();
         _output->append(type->name());
@@ -141,22 +141,22 @@ void TypeDefGen::appendVariant(const VariantType* type)
     _output->append("Type;\n");
     _output->appendEol();
 
-    for (const Rc<VariantField>& field : type->fields()) {
+    for (const VariantField* field : type->fieldsRange()) {
         switch (field->variantFieldKind()) {
             case VariantFieldKind::Constant:
                 break;
             case VariantFieldKind::Tuple: {
-                const std::vector<Rc<Type>>& types = static_cast<const TupleVariantField*>(field.get())->types();
+                auto types = static_cast<const TupleVariantField*>(field)->typesRange();
                 std::string name = field->name().toStdString();
                 name.append(type->name().begin(), type->name().end());
                 appendFieldVec(types, name);
                 break;
             }
             case VariantFieldKind::Struct: {
-                const FieldList* fields = static_cast<const StructVariantField*>(field.get())->fields();
+                auto fields = static_cast<const StructVariantField*>(field)->fieldsRange();
                 std::string name = field->name().toStdString();
                 name.append(type->name().begin(), type->name().end());
-                appendFieldList(fields, name);
+                appendFieldVec(fields, name);
                 break;
             }
         }
@@ -165,7 +165,7 @@ void TypeDefGen::appendVariant(const VariantType* type)
     _output->appendTagHeader("struct");
     _output->append("    union {\n");
 
-    for (const Rc<VariantField>& field : type->fields()) {
+    for (const VariantField* field : type->fieldsRange()) {
         if (field->variantFieldKind() == VariantFieldKind::Constant) {
             continue;
         }

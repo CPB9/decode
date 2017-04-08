@@ -18,7 +18,6 @@ StatusMsgDecoder::ChainElement::ChainElement(std::size_t index, DecoderAction* a
 {
 }
 
-
 class DecoderAction : public RefCountable {
 public:
     virtual bool execute(std::size_t nodeIndex, ModelEventHandler* handler, ValueNode* node, bmcl::MemReader* src) = 0;
@@ -97,13 +96,13 @@ public:
 
 static Rc<DecoderAction> createMsgDecoder(const StatusRegexp* part, const Type* lastType)
 {
-    assert(!part->accessors().empty());
-    if (part->accessors().size() == 1) {
+    assert(part->hasAccessors());
+    if (part->accessorsRange().size() == 1) {
         return new DecodeNodeAction;
     }
 
-    auto it = part->accessors().begin() + 1;
-    auto end = part->accessors().end();
+    auto it = part->accessorsBegin() + 1;
+    auto end = part->accessorsEnd();
 
     Rc<DecoderAction> firstAction;
     Rc<DecoderAction> previousAction;
@@ -119,18 +118,18 @@ static Rc<DecoderAction> createMsgDecoder(const StatusRegexp* part, const Type* 
     };
 
     while (it != end) {
-        const Rc<Accessor>& acc = *it;
+        const Accessor* acc = *it;
         if (acc->accessorKind() == AccessorKind::Field) {
             auto facc = acc->asFieldAccessor();
             assert(lastType->isStruct());
-            bmcl::Option<std::size_t> index = lastType->asStruct()->indexOfField(facc->field().get());
+            bmcl::Option<std::size_t> index = lastType->asStruct()->indexOfField(facc->field());
             assert(index.isSome());
             lastType = facc->field()->type();
             DescentAction* newAction = new DescentAction(index.unwrap());
             updateAction(newAction);
         } else if (acc->accessorKind() == AccessorKind::Subscript) {
             auto sacc = acc->asSubscriptAccessor();
-            const Type* type = sacc->type().get();
+            const Type* type = sacc->type();
             if (type->isArray()) {
                 updateAction(new DecodeArrayPartsAction);
                 lastType = type->asArray()->elementType();
@@ -150,20 +149,20 @@ static Rc<DecoderAction> createMsgDecoder(const StatusRegexp* part, const Type* 
     return firstAction;
 }
 
-StatusMsgDecoder::StatusMsgDecoder(StatusMsg* msg, FieldsNode* node)
+StatusMsgDecoder::StatusMsgDecoder(const StatusMsg* msg, FieldsNode* node)
 {
-    for (const Rc<StatusRegexp>& part : msg->parts()) {
-        if (part->accessors().empty()) {
+    for (const StatusRegexp* part : msg->partsRange()) {
+        if (!part->hasAccessors()) {
             continue;
         }
-        assert(part->accessors()[0]->accessorKind() == AccessorKind::Field);
-        auto facc = part->accessors()[0]->asFieldAccessor();
+        assert(part->accessorsBegin()->accessorKind() == AccessorKind::Field);
+        auto facc = part->accessorsBegin()->asFieldAccessor();
         auto op = node->nodeWithName(facc->field()->name());
         assert(op.isSome());
         assert(node->hasParent());
         auto i = node->childIndex(op.unwrap());
         std::size_t index = i.unwrap();
-        Rc<DecoderAction> decoder = createMsgDecoder(part.get(), facc->field()->type());
+        Rc<DecoderAction> decoder = createMsgDecoder(part, facc->field()->type());
         _chain.emplace_back(index, decoder.get(), op.unwrap());
     }
 }
@@ -180,15 +179,6 @@ bool StatusMsgDecoder::decode(ModelEventHandler* handler, bmcl::MemReader* src)
         }
     }
     return true;
-}
-
-StatusDecoder::StatusDecoder(const Statuses* statuses, FieldsNode* node)
-{
-    for (auto it : statuses->statusMap()) {
-        _decoders.emplace(std::piecewise_construct,
-                          std::forward_as_tuple(it.first),
-                          std::forward_as_tuple(it.second.get(), node));
-    }
 }
 
 StatusDecoder::~StatusDecoder()

@@ -5,7 +5,7 @@ namespace decode {
 
 //TODO: refact
 
-SourceGen::SourceGen(const Rc<TypeReprGen>& reprGen, SrcBuilder* output)
+SourceGen::SourceGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _typeReprGen(reprGen)
     , _inlineSer(reprGen, output)
@@ -29,12 +29,12 @@ void SourceGen::appendIncludes(const NamedType* type)
 void SourceGen::appendEnumSerializer(const EnumType* type)
 {
     _output->append("    switch(self) {\n");
-    for (const auto& pair : type->constants()) {
+    for (const EnumConstant* c : type->constantsRange()) {
         _output->append("    case ");
         _output->appendModPrefix();
         _output->append(type->name());
         _output->append("_");
-        _output->append(pair.second->name());
+        _output->append(c->name());
         _output->append(":\n");
     }
     _output->append("        break;\n");
@@ -61,15 +61,15 @@ void SourceGen::appendEnumDeserializer(const EnumType* type)
     });
 
     _output->append("    switch(value) {\n");
-    for (const auto& pair : type->constants()) {
+    for (const EnumConstant* c : type->constantsRange()) {
         _output->append("    case ");
-        _output->appendNumericValue(pair.first);
+        _output->appendNumericValue(c->value());
         _output->append(":\n");
         _output->append("        result = ");
         _output->appendModPrefix();
         _output->append(type->name());
         _output->append("_");
-        _output->append(pair.second->name());
+        _output->append(c->name());
         _output->append(";\n");
         _output->append("        break;\n");
     }
@@ -85,7 +85,7 @@ void SourceGen::appendStructSerializer(const StructType* type)
     InlineSerContext ctx;
     StringBuilder argName("self->");
 
-    for (const Rc<Field>& field : *type->fields()) {
+    for (const Field* field : type->fieldsRange()) {
         argName.append(field->name().begin(), field->name().end());
         _inlineSer.inspect(field->type(), ctx, argName.view());
         argName.resize(6);
@@ -97,7 +97,7 @@ void SourceGen::appendStructDeserializer(const StructType* type)
     InlineSerContext ctx;
     StringBuilder argName("self->");
 
-    for (const Rc<Field>& field : *type->fields()) {
+    for (const Field* field : type->fieldsRange()) {
         argName.append(field->name().begin(), field->name().end());
         _inlineDeser.inspect(field->type(), ctx, argName.view());
         argName.resize(6);
@@ -113,7 +113,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
 
     _output->append("    switch(self->type) {\n");
     StringBuilder argName("self->data.");
-    for (const Rc<VariantField>& field : type->fields()) {
+    for (const VariantField* field : type->fieldsRange()) {
         _output->append("    case ");
         _output->appendModPrefix();
         _output->append(type->name());
@@ -127,22 +127,22 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
         case VariantFieldKind::Constant:
             break;
         case VariantFieldKind::Tuple: {
-            const TupleVariantField* tupField = static_cast<TupleVariantField*>(field.get());
+            const TupleVariantField* tupField = static_cast<const TupleVariantField*>(field);
             std::size_t j = 1;
-            for (const Rc<Type>& t : tupField->types()) {
+            for (const Type* t : tupField->typesRange()) {
                 argName.appendWithFirstLower(field->name());
                 argName.append(type->name());
                 argName.append("._");
                 argName.appendNumericValue(j);
-                _inlineSer.inspect(t.get(), ctx, argName.view());
+                _inlineSer.inspect(t, ctx, argName.view());
                 argName.resize(11);
                 j++;
             }
             break;
         }
         case VariantFieldKind::Struct: {
-            const StructVariantField* varField = static_cast<StructVariantField*>(field.get());
-            for (const Rc<Field>& f : *varField->fields()) {
+            const StructVariantField* varField = static_cast<const StructVariantField*>(field);
+            for (const Field* f : varField->fieldsRange()) {
                 argName.appendWithFirstLower(field->name());
                 argName.append(type->name());
                 argName.append(".");
@@ -176,7 +176,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
     _output->append("    switch(value) {\n");
     std::size_t i = 0;
     StringBuilder argName("self->data.");
-    for (const Rc<VariantField>& field : type->fields()) {
+    for (const VariantField* field : type->fieldsRange()) {
         _output->append("    case ");
         _output->appendNumericValue(i);
         i++;
@@ -194,22 +194,22 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
         case VariantFieldKind::Constant:
             break;
         case VariantFieldKind::Tuple: {
-            const TupleVariantField* tupField = static_cast<TupleVariantField*>(field.get());
+            const TupleVariantField* tupField = static_cast<const TupleVariantField*>(field);
             std::size_t j = 1;
-            for (const Rc<Type>& t : tupField->types()) {
+            for (const Type* t : tupField->typesRange()) {
                     argName.appendWithFirstLower(field->name());
                     argName.append(type->name());
                     argName.append("._");
                     argName.appendNumericValue(j);
-                    _inlineDeser.inspect(t.get(), ctx, argName.view());
+                    _inlineDeser.inspect(t, ctx, argName.view());
                     argName.resize(11);
                     j++;
             }
             break;
         }
         case VariantFieldKind::Struct: {
-            const StructVariantField* varField = static_cast<StructVariantField*>(field.get());
-            for (const Rc<Field>& f : *varField->fields()) {
+            const StructVariantField* varField = static_cast<const StructVariantField*>(field);
+            for (const Field* f : varField->fieldsRange()) {
                 argName.appendWithFirstLower(field->name());
                 argName.append(type->name());
                 argName.append(".");

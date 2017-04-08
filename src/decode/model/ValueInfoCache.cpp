@@ -103,16 +103,17 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
     case TypeKind::Function: {
         const FunctionType* func = type->asFunction();
         dest->append("&Fn(");
-        foreachList(func->arguments(), [dest](const Rc<Field>& arg){
+        foreachList(func->argumentsRange(), [dest](const Field* arg){
             dest->append(arg->name());
             dest->append(": ");
             buildTypeName(arg->type(), dest);
-        }, [dest](const Rc<Field>& arg){
+        }, [dest](const Field*){
             dest->append(", ");
         });
-        if (func->returnValue().isSome()) {
+        bmcl::OptionPtr<const Type> rv = func->returnValue();
+        if (rv.isSome()) {
             dest->append(") -> ");
-            buildTypeName(func->returnValue().unwrap().get(), dest);
+            buildTypeName(rv.unwrap(), dest);
         } else {
             dest->append(')');
         }

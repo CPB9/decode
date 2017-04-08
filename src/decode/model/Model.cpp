@@ -21,22 +21,21 @@ Model::Model(const Package* package, ModelEventHandler* handler)
     , _cache(new ValueInfoCache)
     , _handler(handler)
 {
-    for (auto it : package->components()) {
-        BMCL_DEBUG() << it.first << " " << it.second->number() << " " <<  it.second->name().toStdString() << " " << it.second->parameters().isSome() << " " << it.second->statuses().isSome();
-        if (it.second->parameters().isNone()) {
+    for (const Component* it : package->components()) {
+        if (!it->hasParams()) {
             continue;
         }
 
-        Rc<FieldsNode> node = new FieldsNode(it.second->parameters()->get(), _cache.get(), this);
-        node->setName(it.second->name());
+        Rc<FieldsNode> node = new FieldsNode(it, _cache.get(), this);
+        node->setName(it->name());
         _nodes.emplace_back(node);
 
-        if (it.second->statuses().isNone()) {
+        if (!it->hasStatuses()) {
             continue;
         }
 
-        Rc<StatusDecoder> decoder = new StatusDecoder(it.second->statuses()->get(), node.get());
-        _decoders.emplace(it.first, decoder);
+        Rc<StatusDecoder> decoder = new StatusDecoder(it->statusesRange(), node.get());
+        _decoders.emplace(it->number(), decoder);
     }
 }
 
@@ -64,7 +63,7 @@ bmcl::StringView Model::fieldName() const
     return "photon";
 }
 
-void Model::acceptTelemetry(bmcl::ArrayView<uint8_t> bytes)
+void Model::acceptTelemetry(bmcl::Bytes bytes)
 {
     bmcl::MemReader stream(bytes.data(), bytes.size());
 

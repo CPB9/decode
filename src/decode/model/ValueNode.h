@@ -191,7 +191,7 @@ public:
 
 private:
     Rc<const EnumType> _type;
-    bmcl::Option<std::size_t> _currentId;
+    bmcl::Option<int64_t> _currentId;
 };
 
 class BuiltinValueNode : public NonContainerValueNode {
