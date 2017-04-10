@@ -585,7 +585,7 @@ bool Parser::parseImplBlock()
     block->_name = _currentToken.value();
     consumeAndSkipBlanks();
 
-    TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block, [this](const Rc<ImplBlock>& block) -> bool {
+    TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
         Rc<Function> fn = parseFunction();
         if (!fn) {
             return false;
@@ -1097,6 +1097,7 @@ bool Parser::parseComponentImpl(Component* parent)
         impl->addFunction(fn.get());
         return true;
     }));
+    parent->setImplBlock(impl.get());
     return true;
 }
 

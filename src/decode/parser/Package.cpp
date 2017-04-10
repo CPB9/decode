@@ -488,6 +488,7 @@ bool Package::resolveStatuses(Ast* ast)
 
     if (!comp->hasParams() && comp->hasStatuses()) {
         //TODO: report error
+        BMCL_CRITICAL() << "no params, has statuses";
         return false;
     }
 
@@ -495,7 +496,7 @@ bool Package::resolveStatuses(Ast* ast)
         _statusMsgs.emplace_back(comp.unwrap(), it);
         for (StatusRegexp* re : it->partsRange()) {
 
-            FieldVec::Range fields;
+            FieldVec::Range fields = comp->paramsRange();
             Rc<Type> lastType;
             Rc<Field> lastField;
 
@@ -503,17 +504,21 @@ bool Package::resolveStatuses(Ast* ast)
                 continue;
             }
             auto resolveField = [&](FieldAccessor* facc) -> bool {
-                bmcl::OptionPtr<Field> field  = comp->paramWithName(facc->value());
-                if (field.isNone()) {
+                auto field  = fields.findIf([facc](const Field* f) -> bool {
+                    return f->name() == facc->value();
+                });
+                if (field == fields.end()) {
                     //TODO: report error
+                    BMCL_CRITICAL() << "no field with name: " << facc->value().toStdString();
                     return false;
                 }
-                facc->setField(field.unwrap());
-                lastField = field.unwrap();
-                lastType = field.unwrap()->type();
+                facc->setField(*field);
+                lastField = *field;
+                lastType = field->type();
                 return true;
             };
             if (re->accessorsBegin()->accessorKind() != AccessorKind::Field) {
+                BMCL_CRITICAL() << "first accessor must be field";
                 return false;
             }
             if (!resolveField(re->accessorsBegin()->asFieldAccessor())) {
@@ -524,6 +529,7 @@ bool Package::resolveStatuses(Ast* ast)
                 if (acc->accessorKind() == AccessorKind::Field) {
                     if (!lastType->isStruct()) {
                         //TODO: report error
+                        BMCL_CRITICAL() << "field accessor can only access struct";
                         return false;
                     }
                     fields = lastType->asStruct()->fieldsRange();
@@ -543,9 +549,11 @@ bool Package::resolveStatuses(Ast* ast)
                         //TODO: check ranges
                     } else {
                         //TODO: report error
+                        BMCL_CRITICAL() << "subscript accessor can only access array or slice";
                         return false;
                     }
                 } else {
+                    BMCL_CRITICAL() << "invalid accessor kind";
                     return false;
                 }
             }
@@ -567,9 +575,9 @@ bool Package::mapComponent(Ast* ast)
 
 bool Package::resolveAll()
 {
-    BMCL_DEBUG() << "resolving";
     bool isOk = true;
     for (Ast* modifiedAst : modules()) {
+        BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
         TRY(mapComponent(modifiedAst));
         isOk &= resolveTypes(modifiedAst);
         isOk &= resolveStatuses(modifiedAst);
