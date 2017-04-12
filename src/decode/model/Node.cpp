@@ -24,9 +24,9 @@ bmcl::Option<std::size_t> Node::childIndex(const Node* node) const
     return bmcl::None;
 }
 
-Node* Node::childAt(std::size_t idx)
+bmcl::OptionPtr<Node> Node::childAt(std::size_t idx)
 {
-    return nullptr;
+    return bmcl::None;
 }
 
 bmcl::StringView Node::fieldName() const
@@ -42,5 +42,21 @@ bmcl::StringView Node::typeName() const
 Value Node::value() const
 {
     return Value::makeNone();
+}
+
+ValueKind Node::valueKind() const
+{
+    return ValueKind::None;
+}
+
+bool Node::canSetValue() const
+{
+    return false;
+}
+
+bool Node::setValue(const Value& value)
+{
+    (void)value;
+    return false;
 }
 }

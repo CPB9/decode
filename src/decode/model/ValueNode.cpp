@@ -4,6 +4,7 @@
 #include "decode/core/Foreach.h"
 #include "decode/generator/StringBuilder.h"
 #include "decode/parser/Type.h"
+#include "decode/parser/Component.h"
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/ModelEventHandler.h"
 
@@ -179,7 +180,7 @@ bmcl::Option<std::size_t> ContainerValueNode::childIndex(const Node* node) const
     return childIndexGeneric(_values, node);
 }
 
-Node* ContainerValueNode::childAt(std::size_t idx)
+bmcl::OptionPtr<Node> ContainerValueNode::childAt(std::size_t idx)
 {
     return childAtGeneric(_values, idx);
 }
@@ -204,11 +205,6 @@ ArrayValueNode::~ArrayValueNode()
 const Type* ArrayValueNode::type() const
 {
     return _type.get();
-}
-
-bmcl::Option<std::size_t> ArrayValueNode::fixedSize() const
-{
-    return _type->elementCount();
 }
 
 SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cache, Node* parent)
@@ -244,11 +240,6 @@ bool SliceValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, b
 const Type* SliceValueNode::type() const
 {
     return _type.get();
-}
-
-bmcl::Option<std::size_t> SliceValueNode::fixedSize() const
-{
-    return bmcl::None;
 }
 
 void SliceValueNode::resize(std::size_t size, std::size_t nodeIndex, ModelEventHandler* handler)
@@ -288,11 +279,6 @@ StructValueNode::~StructValueNode()
 const Type* StructValueNode::type() const
 {
     return _type.get();
-}
-
-bmcl::Option<std::size_t> StructValueNode::fixedSize() const
-{
-    return _type->fieldsRange().size();
 }
 
 bmcl::OptionPtr<ValueNode> StructValueNode::nodeWithName(bmcl::StringView name)
@@ -398,11 +384,6 @@ const Type* VariantValueNode::type() const
     return _type.get();
 }
 
-bmcl::Option<std::size_t> VariantValueNode::fixedSize() const
-{
-    return bmcl::None;
-}
-
 NonContainerValueNode::NonContainerValueNode(const ValueInfoCache* cache, Node* parent)
     : ValueNode(cache, parent)
 {
@@ -416,6 +397,11 @@ bool NonContainerValueNode::isContainerValue() const
 bool NonContainerValueNode::canHaveChildren() const
 {
     return false;
+}
+
+bool NonContainerValueNode::canSetValue() const
+{
+    return true;
 }
 
 AddressValueNode::AddressValueNode(const ValueInfoCache* cache, Node* parent)
@@ -466,6 +452,21 @@ Value AddressValueNode::value() const
         return Value::makeUnsigned(_address.unwrap());
     }
     return Value::makeUninitialized();
+}
+
+ValueKind AddressValueNode::valueKind() const
+{
+    return ValueKind::Unsigned;
+}
+
+bool AddressValueNode::setValue(const Value& value)
+{
+    if (value.isA(ValueKind::Unsigned)) {
+        //TODO: check word size
+        _address.emplace(value.asUnsigned());
+        return true;
+    }
+    return false;
 }
 
 ReferenceValueNode::ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, Node* parent)
@@ -641,6 +642,55 @@ bool NumericValueNode<T>::isInitialized() const
     return _value.isSome();
 }
 
+template <typename T>
+ValueKind NumericValueNode<T>::valueKind() const
+{
+    if (std::is_signed<T>::value) {
+        return ValueKind::Signed;
+    }
+    return ValueKind::Unsigned;
+}
+
+template <typename T>
+bool NumericValueNode<T>::emplace(int64_t value)
+{
+    if (std::is_signed<T>::value) {
+        if (value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max()) {
+            _value.emplace(value);
+            return true;
+        }
+        return false;
+    } else {
+        if (value >= 0 && uint64_t(value) <= std::numeric_limits<T>::max()) {
+            _value.emplace(value);
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+template <typename T>
+bool NumericValueNode<T>::emplace(uint64_t value)
+{
+    if (value <= std::numeric_limits<T>::max()) {
+        _value.emplace(value);
+        return true;
+    }
+    return false;
+}
+
+template <typename T>
+bool NumericValueNode<T>::setValue(const Value& value)
+{
+    if (value.isA(ValueKind::Signed)) {
+        return emplace(value.asSigned());
+    } else if (value.isA(ValueKind::Unsigned)) {
+        return emplace(value.asUnsigned());
+    }
+    return false;
+}
+
 template class NumericValueNode<std::uint8_t>;
 template class NumericValueNode<std::int8_t>;
 template class NumericValueNode<std::uint16_t>;
@@ -692,6 +742,20 @@ bool VarintValueNode::isInitialized() const
     return _value.isSome();
 }
 
+ValueKind VarintValueNode::valueKind() const
+{
+    return ValueKind::Signed;
+}
+
+bool VarintValueNode::setValue(const Value& value)
+{
+    if (value.isA(ValueKind::Signed)) {
+        _value.emplace(value.asSigned());
+        return true;
+    }
+    return false;
+}
+
 VaruintValueNode::VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
     : BuiltinValueNode(type, cache, parent)
 {
@@ -732,5 +796,19 @@ Value VaruintValueNode::value() const
 bool VaruintValueNode::isInitialized() const
 {
     return _value.isSome();
+}
+
+ValueKind VaruintValueNode::valueKind() const
+{
+    return ValueKind::Unsigned;
+}
+
+bool VaruintValueNode::setValue(const Value& value)
+{
+    if (value.isA(ValueKind::Unsigned)) {
+        _value.emplace(value.asUnsigned());
+        return true;
+    }
+    return false;
 }
 }

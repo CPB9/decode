@@ -4,6 +4,7 @@
 #include "decode/core/Rc.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Field.h"
+#include "decode/parser/Decl.h"
 
 #include <bmcl/Either.h>
 #include <bmcl/OptionPtr.h>

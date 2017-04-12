@@ -20,13 +20,17 @@ public:
 
     QModelIndex index(int row, int column, const QModelIndex& parent = QModelIndex()) const override;
     QModelIndex parent(const QModelIndex& index) const override;
-    Qt::ItemFlags flags(const QModelIndex& index) const override;
     bool hasChildren(const QModelIndex& parent = QModelIndex()) const override;
     QMap<int, QVariant> itemData(const QModelIndex& index) const override;
     //QModelIndex sibling(int row, int column, const QModelIndex& idx) const override;
 
+    Qt::ItemFlags flags(const QModelIndex& index) const override;
+    bool setData(const QModelIndex& index, const QVariant& value, int role) override;
+
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     int columnCount(const QModelIndex& parent = QModelIndex()) const override;
+
+    void setEditable(bool isEditable = true);
 
 public slots:
     void notifyValueUpdate(const Node* node, std::size_t index);
@@ -35,5 +39,6 @@ public slots:
 
 private:
     Rc<Node> _root;
+    bool _isEditable;
 };
 }

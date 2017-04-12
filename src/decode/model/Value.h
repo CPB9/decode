@@ -1,6 +1,7 @@
 #pragma once
 
 #include "decode/Config.h"
+#include "decode/model/ValueKind.h"
 
 #include <bmcl/AlignedUnion.h>
 #include <bmcl/StringView.h>
@@ -8,15 +9,6 @@
 #include <cstdint>
 
 namespace decode {
-
-enum class ValueKind {
-    None,
-    Uninitialized,
-    Signed,
-    Unsigned,
-    String,
-    StringView,
-};
 
 class Value {
 public:

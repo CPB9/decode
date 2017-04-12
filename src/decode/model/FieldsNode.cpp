@@ -5,10 +5,10 @@
 
 namespace decode {
 
-FieldsNode::FieldsNode(const Component* params, const ValueInfoCache* cache, Node* parent)
+FieldsNode::FieldsNode(FieldVec::ConstRange params, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : Node(parent)
 {
-    for (const Field* field : params->paramsRange()) {
+    for (const Field* field : params) {
         Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, this);
         node->setFieldName(field->name());
         _nameToNodeMap.emplace(field->name(), node);
@@ -44,8 +44,25 @@ bmcl::Option<std::size_t> FieldsNode::childIndex(const Node* node) const
     return childIndexGeneric(_nodes, node);
 }
 
-Node* FieldsNode::childAt(std::size_t idx)
+bmcl::OptionPtr<Node> FieldsNode::childAt(std::size_t idx)
 {
     return childAtGeneric(_nodes, idx);
+}
+
+void FieldsNode::setName(bmcl::StringView name)
+{
+    _name = name;
+}
+
+bool FieldsNode::encodeFields(ModelEventHandler* handler, bmcl::MemWriter* dest) const
+{
+    for (std::size_t i = 0; i < _nodes.size(); i++) {
+        const ValueNode* node = _nodes[i].get();
+        if (!node->encode(i, handler, dest)) {
+            //TODO: report error
+            return false;
+        }
+    }
+    return true;
 }
 }

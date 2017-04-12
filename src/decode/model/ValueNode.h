@@ -16,6 +16,8 @@ namespace decode {
 
 class ValueInfoCache;
 class ModelEventHandler;
+class Function;
+
 
 class ValueNode : public Node {
 public:
@@ -59,14 +61,12 @@ public:
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
-    Node* childAt(std::size_t idx) override;
+    bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
 
     ValueNode* nodeAt(std::size_t index)
     {
         return _values[index].get();
     }
-
-    virtual bmcl::Option<std::size_t> fixedSize() const = 0;
 
     const std::vector<Rc<ValueNode>> values() const;
 
@@ -81,7 +81,6 @@ public:
     ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, Node* parent);
     ~ArrayValueNode();
 
-    bmcl::Option<std::size_t> fixedSize() const override;
     const Type* type() const override;
 
 private:
@@ -96,7 +95,6 @@ public:
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
 
-    bmcl::Option<std::size_t> fixedSize() const override;
     const Type* type() const override;
 
     void resize(std::size_t size, std::size_t nodeIndex, ModelEventHandler* handler);
@@ -110,7 +108,6 @@ public:
     StructValueNode(const StructType* type, const ValueInfoCache* cache, Node* parent);
     ~StructValueNode();
 
-    bmcl::Option<std::size_t> fixedSize() const override;
     const Type* type() const override;
     bmcl::OptionPtr<ValueNode> nodeWithName(bmcl::StringView name);
 
@@ -126,7 +123,6 @@ public:
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
 
-    bmcl::Option<std::size_t> fixedSize() const override;
     const Type* type() const override;
     Value value() const override;
 
@@ -140,6 +136,8 @@ public:
     NonContainerValueNode(const ValueInfoCache* cache, Node* parent);
     bool isContainerValue() const override;
     bool canHaveChildren() const override;
+
+    bool canSetValue() const override;
 };
 
 class AddressValueNode : public NonContainerValueNode {
@@ -152,6 +150,9 @@ public:
 
     bool isInitialized() const override;
     Value value() const override;
+
+    ValueKind valueKind() const override;
+    bool setValue(const Value& value) override;
 
 protected:
     bmcl::Option<uint64_t> _address;
@@ -189,6 +190,10 @@ public:
     bool isInitialized() const override;
     const Type* type() const override;
 
+    //TODO: implement enum editing
+    //ValueKind valueKind() const override;
+    //bool setValue(const Value& value) override;
+
 private:
     Rc<const EnumType> _type;
     bmcl::Option<int64_t> _currentId;
@@ -219,7 +224,13 @@ public:
 
     bool isInitialized() const override;
 
+    ValueKind valueKind() const override;
+    bool setValue(const Value& value) override;
+
 private:
+    bool emplace(int64_t value);
+    bool emplace(uint64_t value);
+
     bmcl::Option<T> _value;
 };
 
@@ -243,6 +254,9 @@ public:
 
     bool isInitialized() const override;
 
+    ValueKind valueKind() const override;
+    bool setValue(const Value& value) override;
+
 private:
     bmcl::Option<int64_t> _value;
 };
@@ -258,7 +272,11 @@ public:
 
     bool isInitialized() const override;
 
+    ValueKind valueKind() const override;
+    bool setValue(const Value& value) override;
+
 private:
     bmcl::Option<uint64_t> _value;
 };
+
 }
