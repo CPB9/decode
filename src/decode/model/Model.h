@@ -19,10 +19,10 @@ class FieldsNode;
 class ValueInfoCache;
 class ModelEventHandler;
 
-class TmNode : public Node {
+class PackageTmNode : public Node {
 public:
-    TmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, Node* parent);
-    ~TmNode();
+    PackageTmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
+    ~PackageTmNode();
 
     void acceptTelemetry(bmcl::Bytes bytes);
 
@@ -37,6 +37,23 @@ private:
     std::vector<Rc<FieldsNode>> _nodes;
 };
 
+class CmdContainerNode;
+
+class PackageCmdsNode : public Node {
+public:
+    PackageCmdsNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
+    ~PackageCmdsNode();
+
+    std::size_t numChildren() const override;
+    bmcl::Option<std::size_t> childIndex(const Node* node) const override;
+    bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
+    bmcl::StringView fieldName() const override;
+
+private:
+    Rc<ModelEventHandler> _handler;
+    std::vector<Rc<CmdContainerNode>> _nodes;
+};
+
 class Model : public Node {
 public:
     Model(const Package* package, ModelEventHandler* handler);
@@ -44,7 +61,7 @@ public:
 
     void acceptTelemetry(bmcl::Bytes bytes);
 
-    TmNode* tmNode();
+    PackageTmNode* tmNode();
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
@@ -55,7 +72,8 @@ public:
     Rc<const Package> _package;
     Rc<ValueInfoCache> _cache;
     Rc<ModelEventHandler> _handler;
-    Rc<TmNode> _tmNode;
-    std::array<Rc<Node>, 1> _nodes;
+    Rc<PackageTmNode> _tmNode;
+    Rc<PackageCmdsNode> _cmdsNode;
+    std::vector<Rc<Node>> _nodes;
 };
 }

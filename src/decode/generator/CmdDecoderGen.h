@@ -29,7 +29,6 @@ public:
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
 private:
-
     void appendFunctionPrototype(unsigned componenNum, unsigned cmdNum);
     void appendMainFunctionPrototype();
     void appendFunctionName(unsigned componenNum, unsigned cmdNum);

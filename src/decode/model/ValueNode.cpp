@@ -26,7 +26,7 @@ inline void updateOptionalValue(bmcl::Option<T>* value, T newValue, ModelEventHa
     }
 }
 
-ValueNode::ValueNode(const ValueInfoCache* cache, Node* parent)
+ValueNode::ValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : Node(parent)
     , _cache(cache)
 {
@@ -46,7 +46,7 @@ bmcl::StringView ValueNode::fieldName() const
     return _fieldName;
 }
 
-static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
@@ -86,7 +86,7 @@ static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const V
     return nullptr;
 }
 
-static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* cache, Node* parent)
+static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     switch (type->typeKind()) {
     case TypeKind::Builtin:
@@ -114,13 +114,13 @@ static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* 
     return nullptr;
 }
 
-Rc<ValueNode> ValueNode::fromType(const Type* type, const ValueInfoCache* cache, Node* parent)
+Rc<ValueNode> ValueNode::fromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     assert(cache);
     return createNodefromType(type, cache, parent);
 }
 
-ContainerValueNode::ContainerValueNode(const ValueInfoCache* cache, Node* parent)
+ContainerValueNode::ContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ValueNode(cache, parent)
 {
 }
@@ -185,7 +185,7 @@ bmcl::OptionPtr<Node> ContainerValueNode::childAt(std::size_t idx)
     return childAtGeneric(_values, idx);
 }
 
-ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, Node* parent)
+ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
 {
@@ -207,7 +207,7 @@ const Type* ArrayValueNode::type() const
     return _type.get();
 }
 
-SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cache, Node* parent)
+SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
 {
@@ -260,7 +260,7 @@ void SliceValueNode::resize(std::size_t size, std::size_t nodeIndex, ModelEventH
     assert(values().size() == size);
 }
 
-StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* cache, Node* parent)
+StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
 {
@@ -295,7 +295,7 @@ bmcl::OptionPtr<ValueNode> StructValueNode::nodeWithName(bmcl::StringView name)
     return bmcl::None;
 }
 
-VariantValueNode::VariantValueNode(const VariantType* type, const ValueInfoCache* cache, Node* parent)
+VariantValueNode::VariantValueNode(const VariantType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
     , _currentId(0)
@@ -384,7 +384,7 @@ const Type* VariantValueNode::type() const
     return _type.get();
 }
 
-NonContainerValueNode::NonContainerValueNode(const ValueInfoCache* cache, Node* parent)
+NonContainerValueNode::NonContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ValueNode(cache, parent)
 {
 }
@@ -404,7 +404,7 @@ bool NonContainerValueNode::canSetValue() const
     return true;
 }
 
-AddressValueNode::AddressValueNode(const ValueInfoCache* cache, Node* parent)
+AddressValueNode::AddressValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : NonContainerValueNode(cache, parent)
 {
 }
@@ -469,7 +469,7 @@ bool AddressValueNode::setValue(const Value& value)
     return false;
 }
 
-ReferenceValueNode::ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, Node* parent)
+ReferenceValueNode::ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : AddressValueNode(cache, parent)
     , _type(type)
 {
@@ -484,7 +484,7 @@ const Type* ReferenceValueNode::type() const
     return _type.get();
 }
 
-FunctionValueNode::FunctionValueNode(const FunctionType* type, const ValueInfoCache* cache, Node* parent)
+FunctionValueNode::FunctionValueNode(const FunctionType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : AddressValueNode(cache, parent)
     , _type(type)
 {
@@ -499,7 +499,7 @@ const Type* FunctionValueNode::type() const
     return _type.get();
 }
 
-EnumValueNode::EnumValueNode(const EnumType* type, const ValueInfoCache* cache, Node* parent)
+EnumValueNode::EnumValueNode(const EnumType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : NonContainerValueNode(cache, parent)
     , _type(type)
 {
@@ -561,7 +561,7 @@ const Type* EnumValueNode::type() const
     return _type.get();
 }
 
-BuiltinValueNode::BuiltinValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+BuiltinValueNode::BuiltinValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : NonContainerValueNode(cache, parent)
     , _type(type)
 {
@@ -572,7 +572,7 @@ BuiltinValueNode::~BuiltinValueNode()
 }
 
 
-Rc<BuiltinValueNode> BuiltinValueNode::fromType(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+Rc<BuiltinValueNode> BuiltinValueNode::fromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     assert(cache);
     return builtinNodeFromType(type, cache, parent);
@@ -584,7 +584,7 @@ const Type* BuiltinValueNode::type() const
 }
 
 template <typename T>
-NumericValueNode<T>::NumericValueNode(const BuiltinType* type,const ValueInfoCache* cache,  Node* parent)
+NumericValueNode<T>::NumericValueNode(const BuiltinType* type,const ValueInfoCache* cache,  bmcl::OptionPtr<Node> parent)
     : BuiltinValueNode(type, cache, parent)
 {
 }
@@ -700,7 +700,7 @@ template class NumericValueNode<std::int32_t>;
 template class NumericValueNode<std::uint64_t>;
 template class NumericValueNode<std::int64_t>;
 
-VarintValueNode::VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+VarintValueNode::VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : BuiltinValueNode(type, cache, parent)
 {
 }
@@ -756,7 +756,7 @@ bool VarintValueNode::setValue(const Value& value)
     return false;
 }
 
-VaruintValueNode::VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent)
+VaruintValueNode::VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : BuiltinValueNode(type, cache, parent)
 {
 }

@@ -5,6 +5,7 @@
 #include "decode/model/FieldsNode.h"
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/ModelEventHandler.h"
+#include "decode/model/CmdNode.h"
 #include "decode/parser/Decl.h" //HACK
 #include "decode/parser/Type.h" //HACK
 #include "decode/parser/Component.h" //HACK
@@ -15,7 +16,7 @@
 
 namespace decode {
 
-TmNode::TmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, Node* parent)
+PackageTmNode::PackageTmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
     : Node(parent)
     , _handler(handler)
 {
@@ -37,11 +38,11 @@ TmNode::TmNode(const Package* package, const ValueInfoCache* cache, ModelEventHa
     }
 }
 
-TmNode::~TmNode()
+PackageTmNode::~PackageTmNode()
 {
 }
 
-void TmNode::acceptTelemetry(bmcl::Bytes bytes)
+void PackageTmNode::acceptTelemetry(bmcl::Bytes bytes)
 {
     bmcl::MemReader stream(bytes.data(), bytes.size());
 
@@ -79,24 +80,62 @@ void TmNode::acceptTelemetry(bmcl::Bytes bytes)
     }
 }
 
-std::size_t TmNode::numChildren() const
+std::size_t PackageTmNode::numChildren() const
 {
     return _nodes.size();
 }
 
-bmcl::Option<std::size_t> TmNode::childIndex(const Node* node) const
+bmcl::Option<std::size_t> PackageTmNode::childIndex(const Node* node) const
 {
     return childIndexGeneric(_nodes, node);
 }
 
-bmcl::OptionPtr<Node> TmNode::childAt(std::size_t idx)
+bmcl::OptionPtr<Node> PackageTmNode::childAt(std::size_t idx)
 {
     return childAtGeneric(_nodes, idx);
 }
 
-bmcl::StringView TmNode::fieldName() const
+bmcl::StringView PackageTmNode::fieldName() const
 {
     return "tm";
+}
+
+PackageCmdsNode::PackageCmdsNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
+    : Node(parent)
+    , _handler(handler)
+{
+    for (const Component* it : package->components()) {
+        if (!it->hasCmds()) {
+            continue;
+        }
+
+        Rc<CmdContainerNode> node = new CmdContainerNode(it->cmdsRange(), cache, this);
+        _nodes.emplace_back(node);
+    }
+}
+
+PackageCmdsNode::~PackageCmdsNode()
+{
+}
+
+std::size_t PackageCmdsNode::numChildren() const
+{
+    return _nodes.size();
+}
+
+bmcl::Option<std::size_t> PackageCmdsNode::childIndex(const Node* node) const
+{
+    return childIndexGeneric(_nodes, node);
+}
+
+bmcl::OptionPtr<Node> PackageCmdsNode::childAt(std::size_t idx)
+{
+    return childAtGeneric(_nodes, idx);
+}
+
+bmcl::StringView PackageCmdsNode::fieldName() const
+{
+    return "cmds";
 }
 
 Model::Model(const Package* package, ModelEventHandler* handler)
@@ -104,9 +143,11 @@ Model::Model(const Package* package, ModelEventHandler* handler)
     , _package(package)
     , _cache(new ValueInfoCache)
     , _handler(handler)
-    , _tmNode(new TmNode(package, _cache.get(), handler, this))
+    , _tmNode(new PackageTmNode(package, _cache.get(), handler, this))
+    , _cmdsNode(new PackageCmdsNode(package, _cache.get(), handler, this))
 {
-    _nodes = {{_tmNode}};
+    _nodes.emplace_back(_tmNode.get());
+    _nodes.emplace_back(_cmdsNode.get());
 }
 
 Model::~Model()
@@ -138,7 +179,7 @@ void Model::acceptTelemetry(bmcl::Bytes bytes)
     _tmNode->acceptTelemetry(bytes);
 }
 
-TmNode* Model::tmNode()
+PackageTmNode* Model::tmNode()
 {
     return _tmNode.get();
 }

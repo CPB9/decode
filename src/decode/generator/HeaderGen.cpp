@@ -280,9 +280,6 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
 void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView typeName)
 {
     const FunctionType* type = func->type();
-    if (func->name() == "isAtEnd") {
-        BMCL_DEBUG() << "aaaaaaaaaaaaaaaaaaaaaaaaaa " << type->hasReturnValue();
-    }
     bmcl::OptionPtr<const Type> rv = type->returnValue();
     if (rv.isSome()) {
         _typeReprGen->genTypeRepr(rv.unwrap());

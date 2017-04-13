@@ -213,7 +213,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     });
     if (rv.isSome()) {
         writePointerOp(rv.unwrap());
-        _output->append("_rv");
+        _output->append("&_rv");
     } else if (ftype->hasArguments()) {
         _output->removeFromBack(2);
     }
@@ -230,5 +230,4 @@ void CmdDecoderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
     _typeReprGen->genTypeRepr(type, fieldName);
 }
-
 }

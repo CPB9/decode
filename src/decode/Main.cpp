@@ -67,5 +67,4 @@ int main(int argc, char* argv[])
     generateSource(package.unwrap().get(), outPathArg.getValue().c_str());
 
     diag->printReports(&std::cout);
-
 }

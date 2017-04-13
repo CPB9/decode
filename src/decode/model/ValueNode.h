@@ -23,7 +23,7 @@ class ValueNode : public Node {
 public:
     ~ValueNode();
 
-    static Rc<ValueNode> fromType(const Type* type, const ValueInfoCache* cache, Node* parent);
+    static Rc<ValueNode> fromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     virtual bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const = 0;
     virtual bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) = 0;
@@ -41,7 +41,7 @@ public:
     }
 
 protected:
-    explicit ValueNode(const ValueInfoCache* cache, Node* parent);
+    explicit ValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     Rc<const ValueInfoCache> _cache;
 
@@ -71,14 +71,14 @@ public:
     const std::vector<Rc<ValueNode>> values() const;
 
 protected:
-    explicit ContainerValueNode(const ValueInfoCache* cache, Node* parent);
+    explicit ContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     std::vector<Rc<ValueNode>> _values;
 };
 
 class ArrayValueNode : public ContainerValueNode {
 public:
-    ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, Node* parent);
+    ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~ArrayValueNode();
 
     const Type* type() const override;
@@ -89,7 +89,7 @@ private:
 
 class SliceValueNode : public ContainerValueNode {
 public:
-    SliceValueNode(const SliceType* type, const ValueInfoCache* cache, Node* parent);
+    SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~SliceValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
@@ -105,7 +105,7 @@ private:
 
 class StructValueNode : public ContainerValueNode {
 public:
-    StructValueNode(const StructType* type, const ValueInfoCache* cache, Node* parent);
+    StructValueNode(const StructType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~StructValueNode();
 
     const Type* type() const override;
@@ -117,7 +117,7 @@ private:
 
 class VariantValueNode : public ContainerValueNode {
 public:
-    VariantValueNode(const VariantType* type, const ValueInfoCache* cache, Node* parent);
+    VariantValueNode(const VariantType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VariantValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
@@ -133,16 +133,18 @@ private:
 
 class NonContainerValueNode : public ValueNode {
 public:
-    NonContainerValueNode(const ValueInfoCache* cache, Node* parent);
     bool isContainerValue() const override;
     bool canHaveChildren() const override;
 
     bool canSetValue() const override;
+
+protected:
+    NonContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 };
 
 class AddressValueNode : public NonContainerValueNode {
 public:
-    AddressValueNode(const ValueInfoCache* cache, Node* parent);
+    AddressValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~AddressValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
@@ -160,7 +162,7 @@ protected:
 
 class ReferenceValueNode : public AddressValueNode {
 public:
-    ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, Node* parent);
+    ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~ReferenceValueNode();
     const Type* type() const override;
 
@@ -170,7 +172,7 @@ private:
 
 class FunctionValueNode : public AddressValueNode {
 public:
-    FunctionValueNode(const FunctionType* type, const ValueInfoCache* cache, Node* parent);
+    FunctionValueNode(const FunctionType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~FunctionValueNode();
     const Type* type() const override;
 
@@ -180,7 +182,7 @@ private:
 
 class EnumValueNode : public NonContainerValueNode {
 public:
-    EnumValueNode(const EnumType* type, const ValueInfoCache* cache, Node* parent);
+    EnumValueNode(const EnumType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~EnumValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
@@ -203,11 +205,11 @@ class BuiltinValueNode : public NonContainerValueNode {
 public:
     ~BuiltinValueNode();
 
-    static Rc<BuiltinValueNode> fromType(const BuiltinType* type, const ValueInfoCache* cache, Node* parent);
+    static Rc<BuiltinValueNode> fromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     const Type* type() const override;
 
 protected:
-    BuiltinValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent);
+    BuiltinValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     Rc<const BuiltinType> _type;
 };
@@ -215,7 +217,7 @@ protected:
 template <typename T>
 class NumericValueNode : public BuiltinValueNode {
 public:
-    NumericValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent);
+    NumericValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~NumericValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
@@ -245,7 +247,7 @@ extern template class NumericValueNode<std::int64_t>;
 
 class VarintValueNode : public BuiltinValueNode {
 public:
-    VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent);
+    VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VarintValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
@@ -263,7 +265,7 @@ private:
 
 class VaruintValueNode : public BuiltinValueNode {
 public:
-    VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, Node* parent);
+    VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VaruintValueNode();
 
     bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;

@@ -6,7 +6,7 @@ if(NOT MSVC)
     add_definitions()
 endif()
 
-macro(enable_sanitizer)
+macro(enable_asan)
     add_definitions(
         -fsanitize=address
         -fsanitize=undefined
@@ -19,8 +19,23 @@ macro(enable_sanitizer)
     SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=undefined")
 endmacro()
 
+macro(enable_msan)
+    add_definitions(
+        -fsanitize=memory
+        -fno-common
+        -fno-omit-frame-pointer
+        -ggdb
+        #-fsanitize-blacklist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer-blacklist.txt
+    )
+    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=memory")
+endmacro()
+
 if(ASAN)
-    enable_sanitizer()
+    enable_asan()
+endif()
+
+if(MSAN)
+    enable_msan()
 endif()
 
 add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
@@ -93,6 +108,8 @@ add_library(decode
     src/decode/generator/CmdDecoderGen.cpp
     src/decode/generator/CmdDecoderGen.h
     src/decode/generator/TypeReprGen.h
+    src/decode/model/CmdNode.cpp
+    src/decode/model/CmdNode.h
     src/decode/model/Decoder.cpp
     src/decode/model/Decoder.h
     src/decode/model/FieldsNode.cpp

@@ -4,7 +4,10 @@
 
 #include <bmcl/Option.h>
 #include <bmcl/Logging.h>
+#include <bmcl/Buffer.h>
+#include <bmcl/FileUtils.h>
 
+#include <QMimeData>
 #include <QColor>
 
 namespace decode {
@@ -166,7 +169,7 @@ QVariant QModel::data(const QModelIndex& index, int role) const
 
     if (index.column() == ColumnDesc::ColumnValue) {
         if (role == Qt::DisplayRole) {
-            return qvariantFromValue(node->value());
+            return qstringFromValue(node->value());
         }
 
         if (role == Qt::EditRole) {
@@ -258,11 +261,14 @@ Qt::ItemFlags QModel::flags(const QModelIndex& index) const
         return f;
     }
 
-    if (_isEditable && index.column() == ColumnDesc::ColumnValue) {
-        f |= Qt::ItemIsEditable;
+    Node* node = (Node*)index.internalPointer();
+    if (index.column() == ColumnDesc::ColumnValue) {
+        f |= Qt::ItemIsDragEnabled;
+        if (_isEditable && node->canSetValue()) {
+            f |= Qt::ItemIsEditable;
+        }
     }
 
-    Node* node = (Node*)index.internalPointer();
     if (!node->canHaveChildren()) {
         return f | Qt::ItemNeverHasChildren;
     }
@@ -297,17 +303,18 @@ QMap<int, QVariant> QModel::itemData(const QModelIndex& index) const
         node = _root.get();
     }
 
-    switch (index.column()) {
+    switch (index.column())
     case ColumnDesc::ColumnName: {
         roles.insert(Qt::DisplayRole, fieldNameFromNode(node));
         return roles;
-    }
     case ColumnDesc::ColumnTypeName:
         roles.insert(Qt::DisplayRole, typeNameFromNode(node));
         return roles;
     case ColumnDesc::ColumnValue: {
         Value value = node->value();
-        roles.insert(Qt::DisplayRole, qvariantFromValue(value));
+        QString s = qstringFromValue(value);
+        roles.insert(Qt::DisplayRole, s);
+        roles.insert(Qt::EditRole, s);
         roles.insert(Qt::BackgroundRole, backgroundFromValue(value));
         return roles;
     }
@@ -329,7 +336,7 @@ bool QModel::hasChildren(const QModelIndex& parent) const
 int QModel::rowCount(const QModelIndex& parent) const
 {
     if (!parent.isValid()) {
-        return _root->numChildren();
+        return 1;
     }
     Node* node = (Node*)parent.internalPointer();
     return node->numChildren();
@@ -366,5 +373,33 @@ void QModel::notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::si
 void QModel::setEditable(bool isEditable)
 {
     _isEditable = isEditable;
+}
+
+static QString mimeStr = "decode/dragnode";
+
+QMimeData* QModel::mimeData(const QModelIndexList& indexes) const
+{
+    bmcl::Buffer buf;
+    buf.writeUint64Le(bmcl::applicationPid());
+    for (const QModelIndex& i : indexes) {
+        if (i.column() == ColumnDesc::ColumnValue) {
+            buf.writeUint64Le((uint64_t)i.internalPointer());
+        }
+    }
+    QMimeData* mdata = new QMimeData;
+    mdata->setData(mimeStr, QByteArray((const char*)buf.begin(), buf.size()));
+    return mdata;
+}
+
+QStringList QModel::mimeTypes() const
+{
+    QStringList lst;
+    lst.append(mimeStr);
+    return lst;
+}
+
+Qt::DropActions QModel::supportedDragActions() const
+{
+    return Qt::CopyAction;
 }
 }

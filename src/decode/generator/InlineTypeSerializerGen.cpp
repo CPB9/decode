@@ -15,7 +15,7 @@ void InlineTypeSerializerGen::inspectPointer(const Type* type)
 {
     _output->appendWritableSizeCheck(context(), "sizeof(void*)");
     _output->appendIndent(context());
-    _output->append("PhotonWriter_WritePtrLe(dest, ");
+    _output->append("PhotonWriter_WritePtrLe(dest, (const void*)");
     appendArgumentName();
     _output->append(");\n");
 }
