@@ -17,7 +17,7 @@
 namespace decode {
 
 class ModuleInfo;
-class Module;
+class ModuleDecl;
 class TypeImport;
 class ImportedType;
 class Type;
@@ -120,9 +120,10 @@ public:
         return _typeNameToImplBlock.findValueWithKey(name);
     }
 
-    void setModuleInfo(ModuleInfo* info)
+    void setModuleDecl(ModuleDecl* decl)
     {
-        _moduleInfo.reset(info);
+        _moduleDecl.reset(decl);
+        _moduleInfo.reset(decl->moduleInfo());
     }
 
     void addTopLevelType(NamedType* type)
@@ -139,6 +140,9 @@ public:
     void addImportDecl(TypeImport* decl)
     {
         _importDecls.emplace_back(decl);
+        for (ImportedType* type : decl->typesRange()) {
+            addTopLevelType(type);
+        }
     }
 
     void addConstant(Constant* constant)
@@ -166,7 +170,8 @@ private:
     ImplBlocks _typeNameToImplBlock;
     Constants _constants;
     //std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
-    Rc<ModuleInfo> _moduleInfo;
+    Rc<const ModuleInfo> _moduleInfo;
+    Rc<ModuleDecl> _moduleDecl;
 };
 
 }

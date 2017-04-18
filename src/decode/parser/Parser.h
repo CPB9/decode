@@ -19,7 +19,7 @@ enum class ReferenceKind;
 class Lexer;
 class Decl;
 class Ast;
-class Module;
+class ModuleDecl;
 class NamedDecl;
 class FileInfo;
 class ModuleInfo;

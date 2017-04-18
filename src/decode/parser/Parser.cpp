@@ -186,8 +186,7 @@ template <typename T>
 Rc<T> Parser::beginDecl()
 {
     Rc<T> decl = new T;
-    decl->_startLoc = _currentToken.location();
-    decl->_start = _currentToken.begin();
+    decl->_start = _currentToken.location();
     return decl;
 }
 
@@ -201,8 +200,7 @@ void Parser::consumeAndEndDecl(const Rc<T>& decl)
 template <typename T>
 void Parser::endDecl(const Rc<T>& decl)
 {
-    decl->_endLoc = _currentToken.location();
-    decl->_end = _currentToken.begin();
+    decl->_end = _currentToken.location();
     decl->_moduleInfo = _moduleInfo;
 }
 
@@ -264,6 +262,7 @@ bool Parser::parseModuleDecl()
 {
     TRY(skipCommentsAndSpace());
 
+    Location start = _currentToken.location();
     TRY(expectCurrentToken(TokenKind::Module, "Every module must begin with module declaration"));
     consume();
 
@@ -274,7 +273,9 @@ bool Parser::parseModuleDecl()
 
     bmcl::StringView modName = _currentToken.value();
     _moduleInfo = new ModuleInfo(modName, _fileInfo.get());
-    _ast->setModuleInfo(_moduleInfo.get());
+
+    Rc<ModuleDecl> modDecl = new ModuleDecl(_moduleInfo.get(), start, _currentToken.location());
+    _ast->setModuleDecl(modDecl.get());
     consume();
 
     return true;
@@ -287,16 +288,15 @@ bool Parser::parseImports()
         if (_currentToken.kind() != TokenKind::Import) {
             return true;
         }
-        Rc<TypeImport> importDecl = beginDecl<TypeImport>();
         TRY(consumeAndExpectCurrentToken(TokenKind::Blank));
         TRY(consumeAndExpectCurrentToken(TokenKind::Identifier));
-        importDecl->_importPath = _currentToken.value();
+        Rc<TypeImport> import = new TypeImport(_currentToken.value());
         TRY(consumeAndExpectCurrentToken(TokenKind::DoubleColon));
         consume();
 
-        auto createImportedTypeFromCurrentToken = [this, importDecl]() {
-            Rc<ImportedType> type = new ImportedType(_currentToken.value(), importDecl->_importPath, _moduleInfo.get());
-            importDecl->_types.push_back(type);
+        auto createImportedTypeFromCurrentToken = [this, import]() {
+            Rc<ImportedType> type = new ImportedType(_currentToken.value(), import->path(), _moduleInfo.get());
+            import->addType(type.get());
             //TODO: check import conflicts
             _ast->addTopLevelType(type.get());
             consume();
@@ -326,8 +326,7 @@ bool Parser::parseImports()
             return false;
         }
 
-        endDecl(importDecl);
-        _ast->addImportDecl(importDecl.get());
+        _ast->addImportDecl(import.get());
     }
 
     return true;

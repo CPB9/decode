@@ -23,6 +23,12 @@ class ImportedType;
 
 class Decl : public RefCountable {
 public:
+    Decl(const ModuleInfo* info, Location start, Location end)
+        : _moduleInfo(info)
+        , _start(start)
+        , _end(end)
+    {
+    }
 
     const ModuleInfo* moduleInfo() const
     {
@@ -30,40 +36,34 @@ public:
     }
 
 protected:
-    Decl() = default;
-
+    friend class Parser;
     void cloneDeclTo(Decl* dest)
     {
-        dest->_startLoc = _startLoc;
-        dest->_endLoc = _endLoc;
         dest->_start = _start;
         dest->_end = _end;
         dest->_moduleInfo = _moduleInfo;
     }
 
-private:
-    friend class Parser;
+    Decl() = default;
 
-    Location _startLoc;
-    Location _endLoc;
-    const char* _start;
-    const char* _end;
-    Rc<ModuleInfo> _moduleInfo;
+private:
+
+    Rc<const ModuleInfo> _moduleInfo;
+    Location _start;
+    Location _end;
 };
 
 class NamedDecl : public Decl {
 public:
+    NamedDecl() = default;
+
     bmcl::StringView name() const
     {
         return _name;
     }
 
-protected:
-    NamedDecl() = default;
-
 private:
     friend class Parser;
-
     bmcl::StringView _name;
 };
 
@@ -89,21 +89,30 @@ private:
     Rc<Type> _type;
 };
 
-class Module : public NamedDecl {
+class ModuleDecl : public Decl {
 public:
+    ModuleDecl(const ModuleInfo* info, Location start, Location end)
+        : Decl(info, start, end)
+    {
+    }
 
-protected:
-    Module() = default;
-
-private:
-    friend class Parser;
+    bmcl::StringView moduleName() const
+    {
+        return moduleInfo()->moduleName();
+    }
 };
 
 class ImportedType;
 
-class TypeImport : public Decl {
+class TypeImport : public RefCountable {
 public:
     using Types = RcVec<ImportedType>;
+
+    TypeImport(bmcl::StringView path)
+        : _importPath(path)
+    {
+    }
+
     bmcl::StringView path() const
     {
         return _importPath;
@@ -119,12 +128,12 @@ public:
         return _types;
     }
 
-protected:
-    TypeImport() = default;
+    void addType(ImportedType* type)
+    {
+        _types.emplace_back(type);
+    }
 
 private:
-    friend class Parser;
-
     bmcl::StringView _importPath;
     std::vector<Rc<ImportedType>> _types;
 };
@@ -159,6 +168,7 @@ public:
 
 private:
     friend class Parser;
+    ImplBlock() = default;
 
     Functions _funcs;
 };
