@@ -6,6 +6,8 @@
 #include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/FileUtils.h>
+#include <bmcl/OptionPtr.h>
+#include <bmcl/MemReader.h>
 
 #include <QMimeData>
 #include <QColor>
@@ -255,7 +257,7 @@ QModelIndex QModel::parent(const QModelIndex& modelIndex) const
 
 Qt::ItemFlags QModel::flags(const QModelIndex& index) const
 {
-    Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    Qt::ItemFlags f = Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
 
     if (!index.isValid()) {
         return f;
@@ -263,7 +265,6 @@ Qt::ItemFlags QModel::flags(const QModelIndex& index) const
 
     Node* node = (Node*)index.internalPointer();
     if (index.column() == ColumnDesc::ColumnValue) {
-        f |= Qt::ItemIsDragEnabled;
         if (_isEditable && node->canSetValue()) {
             f |= Qt::ItemIsEditable;
         }
@@ -300,7 +301,7 @@ QMap<int, QVariant> QModel::itemData(const QModelIndex& index) const
     if (index.isValid()) {
         node = (Node*)index.internalPointer();
     } else {
-        node = _root.get();
+        return roles;
     }
 
     switch (index.column())
@@ -327,10 +328,9 @@ bool QModel::hasChildren(const QModelIndex& parent) const
     Node* node;
     if (parent.isValid()) {
         node = (Node*)parent.internalPointer();
-    } else {
-        node = _root.get();
+        return node->canHaveChildren() != 0;
     }
-    return node->numChildren() != 0;
+    return true;
 }
 
 int QModel::rowCount(const QModelIndex& parent) const
@@ -375,20 +375,39 @@ void QModel::setEditable(bool isEditable)
     _isEditable = isEditable;
 }
 
-static QString mimeStr = "decode/dragnode";
+static QString mimeStr = "decode/qmodel_drag_node";
+
+const QString& QModel::dragMimeStr()
+{
+    return mimeStr;
+}
 
 QMimeData* QModel::mimeData(const QModelIndexList& indexes) const
 {
+    QMimeData* mdata = new QMimeData;
+    if (indexes.size() < 1) {
+        BMCL_DEBUG() << "unable to pack";
+        return mdata;
+    }
     bmcl::Buffer buf;
     buf.writeUint64Le(bmcl::applicationPid());
-    for (const QModelIndex& i : indexes) {
-        if (i.column() == ColumnDesc::ColumnValue) {
-            buf.writeUint64Le((uint64_t)i.internalPointer());
-        }
-    }
-    QMimeData* mdata = new QMimeData;
+    buf.writeUint64Le((uint64_t)indexes[0].internalPointer());
     mdata->setData(mimeStr, QByteArray((const char*)buf.begin(), buf.size()));
     return mdata;
+}
+
+bmcl::OptionPtr<Node> QModel::unpackMimeData(const QMimeData* data)
+{
+    QByteArray d = data->data(mimeStr);
+    if (d.size() != 16) {
+        return bmcl::None;
+    }
+    bmcl::MemReader reader((const uint8_t*)d.data(), d.size());
+    if (reader.readUint64Le() != bmcl::applicationPid()) {
+        return bmcl::None;
+    }
+    uint64_t addr = reader.readUint64Le(); //unsafe
+    return (Node*)addr;
 }
 
 QStringList QModel::mimeTypes() const
@@ -400,6 +419,31 @@ QStringList QModel::mimeTypes() const
 
 Qt::DropActions QModel::supportedDragActions() const
 {
-    return Qt::CopyAction;
+    return Qt::CopyAction | Qt::MoveAction;
+}
+
+bool QModel::canDropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) const
+{
+    (void)data;
+    (void)action;
+    (void)row;
+    (void)column;
+    (void)parent;
+    return false;
+}
+
+bool QModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent)
+{
+    (void)data;
+    (void)action;
+    (void)row;
+    (void)column;
+    (void)parent;
+    return false;
+}
+
+Qt::DropActions QModel::supportedDropActions() const
+{
+    return Qt::IgnoreAction;
 }
 }

@@ -1,12 +1,16 @@
 #include "decode/model/CmdNode.h"
+#include "decode/core/Try.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Type.h"
 #include "decode/model/ValueInfoCache.h"
 
+#include <bmcl/MemWriter.h>
+
 namespace decode {
 
-CmdNode::CmdNode(const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+CmdNode::CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : FieldsNode(func->type()->argumentsRange(), cache, parent)
+    , _comp(comp)
     , _func(func)
     , _cache(cache)
 {
@@ -19,8 +23,20 @@ CmdNode::~CmdNode()
 
 bool CmdNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const
 {
-    //TODO: implement
-    return true;
+    TRY(dest->writeVarUint(_comp->number()));
+    auto it = std::find(_comp->cmdsBegin(), _comp->cmdsEnd(), _func.get());
+    if (it == _comp->cmdsEnd()) {
+        //TODO: report error
+        return false;
+    }
+
+    TRY(dest->writeVarUint(std::distance(_comp->cmdsBegin(), it)));
+    return encodeFields(handler, dest);
+}
+
+Rc<CmdNode> CmdNode::clone(bmcl::OptionPtr<Node> parent)
+{
+    return new CmdNode(_comp.get(), _func.get(), _cache.get(), parent);
 }
 
 bmcl::StringView CmdNode::typeName() const
@@ -28,16 +44,22 @@ bmcl::StringView CmdNode::typeName() const
     return _cache->nameForType(_func->type());
 }
 
-CmdContainerNode::CmdContainerNode(RcVec<Function>::ConstRange range, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+CmdContainerNode::CmdContainerNode(bmcl::OptionPtr<Node> parent)
     : Node(parent)
 {
-    for (const Function* f : range) {
-        _nodes.emplace_back(new CmdNode(f, cache, this));
-    }
 }
 
 CmdContainerNode::~CmdContainerNode()
 {
+}
+
+Rc<CmdContainerNode> CmdContainerNode::withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+{
+    CmdContainerNode* self = new CmdContainerNode(parent);
+    for (const Function* f : comp->cmdsRange()) {
+        self->_nodes.emplace_back(new CmdNode(comp, f, cache, self));
+    }
+    return self;
 }
 
 std::size_t CmdContainerNode::numChildren() const
@@ -58,5 +80,18 @@ bmcl::OptionPtr<Node> CmdContainerNode::childAt(std::size_t idx)
 bmcl::StringView CmdContainerNode::fieldName() const
 {
     return "asd";
+}
+
+void CmdContainerNode::addCmdNode(CmdNode* node)
+{
+    _nodes.emplace_back(node);
+}
+
+bool CmdContainerNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const
+{
+    for (const CmdNode* node : RcVec<CmdNode>::ConstRange(_nodes)) {
+        TRY(node->encode(handler, dest));
+    }
+    return true;
 }
 }

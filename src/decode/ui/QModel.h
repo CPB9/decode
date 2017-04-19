@@ -3,6 +3,8 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
+#include <bmcl/Fwd.h>
+
 #include <QAbstractItemModel>
 
 namespace decode {
@@ -34,12 +36,20 @@ public:
     QMimeData* mimeData(const QModelIndexList& indexes) const override;
     Qt::DropActions supportedDragActions() const override;
 
+    bool canDropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) const override;
+    bool dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) override;
+    Qt::DropActions supportedDropActions() const override;
+
     void setEditable(bool isEditable = true);
 
 public slots:
     void notifyValueUpdate(const Node* node, std::size_t index);
     void notifyNodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
     void notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
+
+protected:
+    static bmcl::OptionPtr<Node> unpackMimeData(const QMimeData* data);
+    static const QString& dragMimeStr();
 
 private:
     Rc<Node> _root;

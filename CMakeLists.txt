@@ -55,6 +55,7 @@ set(DECODE_UI_SRC)
 
 if(Qt5Widgets_FOUND)
     set(DECODE_UI_HEADERS
+        src/decode/ui/QCmdModel.h
         src/decode/ui/QModel.h
         src/decode/ui/QModelEventHandler.h
     )
@@ -62,6 +63,7 @@ if(Qt5Widgets_FOUND)
         ${DECODE_UI_HEADERS}
     )
     set(DECODE_UI_SRC
+        src/decode/ui/QCmdModel.cpp
         src/decode/ui/QModel.cpp
         src/decode/ui/QModelEventHandler.cpp
         ${DECODE_UI_MOC}

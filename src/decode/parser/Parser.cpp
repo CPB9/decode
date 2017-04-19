@@ -297,8 +297,6 @@ bool Parser::parseImports()
         auto createImportedTypeFromCurrentToken = [this, import]() {
             Rc<ImportedType> type = new ImportedType(_currentToken.value(), import->path(), _moduleInfo.get());
             import->addType(type.get());
-            //TODO: check import conflicts
-            _ast->addTopLevelType(type.get());
             consume();
         };
 
