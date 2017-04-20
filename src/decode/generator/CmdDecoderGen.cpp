@@ -180,16 +180,23 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     appendFunctionPrototype(componenNum, cmdNum);
     _output->append("\n{\n");
 
+    if (!func->type()->hasArguments()) {
+        _output->append("    (void)src;\n");
+    }
+
     foreachParam(func, [this](const Field* field, bmcl::StringView name) {
         _output->append("    ");
         _typeReprGen->genTypeRepr(field->type(), name);
         _output->append(";\n");
     });
+
     bmcl::OptionPtr<const Type> rv = ftype->returnValue();
     if (rv.isSome()) {
         _output->append("    ");
         _typeReprGen->genTypeRepr(rv.unwrap(), "_rv");
         _output->append(";\n");
+    } else {
+        _output->append("    (void)dest;\n");
     }
     _output->appendEol();
 
