@@ -48,8 +48,9 @@ public slots:
     void notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
 
 protected:
-    static bmcl::OptionPtr<Node> unpackMimeData(const QMimeData* data);
-    static const QString& dragMimeStr();
+    static bmcl::OptionPtr<Node> unpackMimeData(const QMimeData* data, const QString& mimeTypeStr);
+    static QMimeData* packMimeData(const QModelIndexList& indexes, const QString& mimeTypeStr);
+    static const QString& qmodelMimeStr();
 
 private:
     Rc<Node> _root;

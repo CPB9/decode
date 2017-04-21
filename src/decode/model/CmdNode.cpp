@@ -79,7 +79,7 @@ bmcl::OptionPtr<Node> CmdContainerNode::childAt(std::size_t idx)
 
 bmcl::StringView CmdContainerNode::fieldName() const
 {
-    return "asd";
+    return "packet";
 }
 
 void CmdContainerNode::addCmdNode(CmdNode* node)
@@ -93,5 +93,10 @@ bool CmdContainerNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest)
         TRY(node->encode(handler, dest));
     }
     return true;
+}
+
+void CmdContainerNode::swapNodes(std::size_t i1, std::size_t i2)
+{
+    std::swap(_nodes[i1], _nodes[i2]);
 }
 }

@@ -375,30 +375,34 @@ void QModel::setEditable(bool isEditable)
     _isEditable = isEditable;
 }
 
-static QString mimeStr = "decode/qmodel_drag_node";
+static QString _mimeStr = "decode/qmodel_drag_node";
 
-const QString& QModel::dragMimeStr()
+const QString& QModel::qmodelMimeStr()
 {
-    return mimeStr;
+    return _mimeStr;
 }
 
-QMimeData* QModel::mimeData(const QModelIndexList& indexes) const
+QMimeData* QModel::packMimeData(const QModelIndexList& indexes, const QString& mimeTypeStr)
 {
     QMimeData* mdata = new QMimeData;
     if (indexes.size() < 1) {
-        BMCL_DEBUG() << "unable to pack";
         return mdata;
     }
     bmcl::Buffer buf;
     buf.writeUint64Le(bmcl::applicationPid());
     buf.writeUint64Le((uint64_t)indexes[0].internalPointer());
-    mdata->setData(mimeStr, QByteArray((const char*)buf.begin(), buf.size()));
+    mdata->setData(mimeTypeStr, QByteArray((const char*)buf.begin(), buf.size()));
     return mdata;
 }
 
-bmcl::OptionPtr<Node> QModel::unpackMimeData(const QMimeData* data)
+QMimeData* QModel::mimeData(const QModelIndexList& indexes) const
 {
-    QByteArray d = data->data(mimeStr);
+    return packMimeData(indexes, _mimeStr);
+}
+
+bmcl::OptionPtr<Node> QModel::unpackMimeData(const QMimeData* data, const QString& mimeTypeStr)
+{
+    QByteArray d = data->data(mimeTypeStr);
     if (d.size() != 16) {
         return bmcl::None;
     }
@@ -412,14 +416,12 @@ bmcl::OptionPtr<Node> QModel::unpackMimeData(const QMimeData* data)
 
 QStringList QModel::mimeTypes() const
 {
-    QStringList lst;
-    lst.append(mimeStr);
-    return lst;
+    return QStringList{_mimeStr};
 }
 
 Qt::DropActions QModel::supportedDragActions() const
 {
-    return Qt::CopyAction | Qt::MoveAction;
+    return Qt::CopyAction;
 }
 
 bool QModel::canDropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) const

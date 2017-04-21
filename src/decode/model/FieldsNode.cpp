@@ -65,4 +65,5 @@ bool FieldsNode::encodeFields(ModelEventHandler* handler, bmcl::MemWriter* dest)
     }
     return true;
 }
+
 }

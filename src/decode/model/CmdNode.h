@@ -45,6 +45,8 @@ public:
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
     bmcl::StringView fieldName() const override;
 
+    void swapNodes(std::size_t i1, std::size_t i2);
+
 private:
     RcVec<CmdNode> _nodes;
 };
