@@ -87,7 +87,7 @@ public:
         return left.asBase() >= right.asBase();
     }
 
-    friend B operator+(const B& it, size_type size)
+    friend B operator+(const B& it, typename I::difference_type size)
     {
         return it.asBase() + size;
     }
@@ -97,7 +97,7 @@ public:
         return size + it.asBase();
     }
 
-    friend B operator-(const B& it, size_type size)
+    friend B operator-(const B& it, typename I::difference_type size)
     {
         return it.asBase() - size;
     }

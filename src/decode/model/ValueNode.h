@@ -128,7 +128,7 @@ public:
 
 private:
     Rc<const VariantType> _type;
-    bmcl::Option<std::size_t> _currentId;
+    bmcl::Option<std::uint64_t> _currentId;
 };
 
 class NonContainerValueNode : public ValueNode {
