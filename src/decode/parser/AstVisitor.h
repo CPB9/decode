@@ -326,12 +326,12 @@ void AstVisitorBase<B, P>::traverseTupleVariantField(typename P<TupleVariantFiel
 }
 
 template <typename B, template <typename> class P>
-void AstVisitorBase<B, P>::traverseStructVariantField(typename P<StructVariantField>::type field)
+void AstVisitorBase<B, P>::traverseStructVariantField(typename P<StructVariantField>::type sfield)
 {
-    if (!base().visitStructVariantField(field)) {
+    if (!base().visitStructVariantField(sfield)) {
         return;
     }
-    for (typename P<Field>::type field : field->fieldsRange()) {
+    for (typename P<Field>::type field : sfield->fieldsRange()) {
         traverseType(field->type());
     }
 }
