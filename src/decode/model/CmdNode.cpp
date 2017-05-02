@@ -56,6 +56,7 @@ CmdContainerNode::~CmdContainerNode()
 Rc<CmdContainerNode> CmdContainerNode::withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     CmdContainerNode* self = new CmdContainerNode(parent);
+    self->_fieldName = comp->moduleName();
     for (const Function* f : comp->cmdsRange()) {
         self->_nodes.emplace_back(new CmdNode(comp, f, cache, self));
     }
@@ -79,7 +80,7 @@ bmcl::OptionPtr<Node> CmdContainerNode::childAt(std::size_t idx)
 
 bmcl::StringView CmdContainerNode::fieldName() const
 {
-    return "packet";
+    return _fieldName;
 }
 
 void CmdContainerNode::addCmdNode(CmdNode* node)

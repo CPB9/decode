@@ -3,6 +3,8 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
+#include <bmcl/Bytes.h>
+
 #include <unordered_map>
 #include <vector>
 
@@ -50,7 +52,7 @@ public:
 
     ~StatusDecoder();
 
-    bool decode(ModelEventHandler* handler, bmcl::MemReader* src);
+    bool decode(ModelEventHandler* handler, uint8_t msgId, bmcl::Bytes payload);
 
 private:
     std::unordered_map<uint64_t, StatusMsgDecoder> _decoders;

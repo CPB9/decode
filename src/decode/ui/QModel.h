@@ -42,6 +42,8 @@ public:
 
     void setEditable(bool isEditable = true);
 
+    void setRoot(Node* node);
+
 public slots:
     void notifyValueUpdate(const Node* node, std::size_t index);
     void notifyNodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);

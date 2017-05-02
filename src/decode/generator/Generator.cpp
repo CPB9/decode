@@ -15,6 +15,7 @@
 #include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/Sha3.h>
+#include <bmcl/FixedArrayView.h>
 
 #include <unordered_set>
 #include <iostream>
@@ -348,8 +349,8 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         if (comp->hasParams()) {
             _output.append("Photon");
             _output.appendWithFirstUpper(comp->moduleName());
-            _output.append(" _");
-            _output.appendWithFirstLower(comp->moduleName());
+            _output.append(" _photon");
+            _output.appendWithFirstUpper(comp->moduleName());
             _output.append(';');
         }
         TRY(dump(comp->moduleName(), ".Component.c", &_photonPath));

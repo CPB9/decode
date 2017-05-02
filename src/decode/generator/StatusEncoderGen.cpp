@@ -86,8 +86,8 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
     AccessorKind lastKind = AccessorKind::Field;
 
     InlineSerContext ctx;
-    StringBuilder currentField = "_";
-    currentField.append(comp->moduleName());
+    StringBuilder currentField = "_photon";
+    currentField.appendWithFirstUpper(comp->moduleName());
     const Type* lastType;
     for (const Accessor* acc : part->accessorsRange()) {
         switch (acc->accessorKind()) {

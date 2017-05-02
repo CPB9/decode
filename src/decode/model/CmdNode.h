@@ -48,6 +48,7 @@ public:
     void swapNodes(std::size_t i1, std::size_t i2);
 
 private:
+    bmcl::StringView _fieldName;
     RcVec<CmdNode> _nodes;
 };
 }

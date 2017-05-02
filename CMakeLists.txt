@@ -43,6 +43,8 @@ add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 include_directories(
     thirdparty/zpaq
     thirdparty/tclap/include
+    thirdparty/cpptoml/include
+    thirdparty/pegtl
 )
 
 add_library(zpaq STATIC
@@ -127,6 +129,8 @@ add_library(decode
     src/decode/model/ValueInfoCache.h
     src/decode/model/ValueNode.cpp
     src/decode/model/ValueNode.h
+    src/decode/model/ModelEventHandler.h
+    src/decode/model/ModelEventHandler.cpp
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
     src/decode/parser/Containers.cpp
@@ -140,6 +144,18 @@ add_library(decode
     src/decode/parser/Parser.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
+    src/decode/groundcontrol/Crc.h
+    src/decode/groundcontrol/Crc.cpp
+    src/decode/groundcontrol/MemIntervalSet.h
+    src/decode/groundcontrol/MemIntervalSet.cpp
+    src/decode/groundcontrol/Exchange.h
+    src/decode/groundcontrol/Exchange.cpp
+    src/decode/groundcontrol/FwtState.h
+    src/decode/groundcontrol/FwtState.cpp
+    src/decode/groundcontrol/GroundControl.h
+    src/decode/groundcontrol/GroundControl.cpp
+    src/decode/groundcontrol/TmState.h
+    src/decode/groundcontrol/TmState.cpp
     ${DECODE_UI_SRC}
 )
 
@@ -173,7 +189,6 @@ endif()
 target_include_directories(decode
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pegtl
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
 )
 
@@ -185,7 +200,6 @@ if(NOT HAS_PARENT_SCOPE)
 endif()
 
 if(WIN32)
-    get_target_property(_TARGET_LOCATION bmcl LOCATION)
     add_custom_command(
         TARGET decode
         POST_BUILD

@@ -24,7 +24,7 @@ public:
     PackageTmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
     ~PackageTmNode();
 
-    void acceptTelemetry(bmcl::Bytes bytes);
+    void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
@@ -59,7 +59,7 @@ public:
     Model(const Package* package, ModelEventHandler* handler);
     ~Model();
 
-    void acceptTelemetry(bmcl::Bytes bytes);
+    void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
     PackageTmNode* tmNode();
 

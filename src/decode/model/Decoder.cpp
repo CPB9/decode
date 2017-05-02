@@ -185,19 +185,15 @@ StatusDecoder::~StatusDecoder()
 {
 }
 
-bool StatusDecoder::decode(ModelEventHandler* handler, bmcl::MemReader* src)
+bool StatusDecoder::decode(ModelEventHandler* handler, uint8_t msgId, bmcl::Bytes payload)
 {
-    uint64_t msgId;
-    if (!src->readVarUint(&msgId)) {
-        //TODO: report error
-        return false;
-    }
     auto it = _decoders.find(msgId);
     if (it == _decoders.end()) {
         //TODO: report error
         return false;
     }
-    if (!it->second.decode(handler, src)) {
+    bmcl::MemReader src(payload);
+    if (!it->second.decode(handler, &src)) {
         //TODO: report error
         return false;
     }

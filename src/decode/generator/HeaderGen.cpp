@@ -60,8 +60,8 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     if (comp->hasParams()) {
         _output->append("extern Photon");
         _output->appendWithFirstUpper(comp->moduleName());
-        _output->append(" _");
-        _output->append(comp->moduleName());
+        _output->append(" _photon");
+        _output->appendWithFirstUpper(comp->moduleName());
         _output->append(";\n\n");
     }
     appendImplBlockIncludes(comp);

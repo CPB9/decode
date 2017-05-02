@@ -241,10 +241,18 @@ void SourceGen::appendSliceSerializer(const SliceType* type)
 void SourceGen::appendSliceDeserializer(const SliceType* type)
 {
     InlineSerContext ctx;
-    _output->appendLoopHeader(ctx, "self->size");
+    _output->appendIndent(1);
+    _output->appendVarDecl("uint64_t", "size");
+    _output->appendIndent(1);
+    _output->appendWithTryMacro([](SrcBuilder* output) {
+        output->append("PhotonReader_ReadVaruint(src, &size)");
+    });
+    _output->appendLoopHeader(ctx, "size");
     InlineSerContext lctx = ctx.indent();
     _inlineDeser.inspect(type->elementType(), lctx, "self->data[a]");
     _output->append("    }\n");
+    _output->appendIndent(1);
+    _output->append("self->size = size;\n");
 }
 
 template <typename T, typename F>

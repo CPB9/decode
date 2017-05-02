@@ -30,6 +30,13 @@ QModel::~QModel()
 {
 }
 
+void QModel::setRoot(Node* node)
+{
+    beginResetModel();
+    _root.reset(node);
+    endResetModel();
+}
+
 static QVariant fieldNameFromNode(const Node* node)
 {
     bmcl::StringView name = node->fieldName();

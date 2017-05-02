@@ -42,41 +42,18 @@ PackageTmNode::~PackageTmNode()
 {
 }
 
-void PackageTmNode::acceptTelemetry(bmcl::Bytes bytes)
+
+void  PackageTmNode::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
 {
-    bmcl::MemReader stream(bytes.data(), bytes.size());
+    auto it = _decoders.find(compNum);
+    if (it == _decoders.end()) {
+        //TODO: report error
+        return;
+    }
 
-    while (!stream.isEmpty()) {
-        if (stream.sizeLeft() < 2) {
-            //TODO: report error
-            return;
-        }
-
-        uint16_t msgSize = stream.readUint16Le();
-        if (stream.sizeLeft() < msgSize) {
-            //TODO: report error
-            return;
-        }
-
-        bmcl::MemReader msg(stream.current(), msgSize);
-        uint64_t compId;
-        if (!msg.readVarUint(&compId)) {
-            //TODO: report error
-            return;
-        }
-
-        auto it = _decoders.find(compId);
-        if (it == _decoders.end()) {
-            //TODO: report error
-            return;
-        }
-
-        if (!it->second->decode(_handler.get(), &msg)) {
-            //TODO: report error
-            return;
-        }
-
-        stream.skip(msgSize);
+    if (!it->second->decode(_handler.get(), msgNum, payload)) {
+        //TODO: report error
+        return;
     }
 }
 
@@ -174,13 +151,13 @@ bmcl::StringView Model::fieldName() const
     return "photon";
 }
 
-void Model::acceptTelemetry(bmcl::Bytes bytes)
-{
-    _tmNode->acceptTelemetry(bytes);
-}
-
 PackageTmNode* Model::tmNode()
 {
     return _tmNode.get();
+}
+
+void Model::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
+{
+    _tmNode->acceptTmMsg(compNum, msgNum, payload);
 }
 }

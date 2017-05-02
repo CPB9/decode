@@ -1,5 +1,6 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Configuration.h"
+#include "decode/core/Iterator.h"
 #include "decode/parser/Parser.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Ast.h"
@@ -13,6 +14,8 @@
 #include <bmcl/Buffer.h>
 
 #include <tclap/CmdLine.h>
+
+#include <cpptoml.h>
 
 #include <iostream>
 #include <chrono>
@@ -46,16 +49,44 @@ int main(int argc, char* argv[])
     TCLAP::CmdLine cmdLine("Decode source generator");
     TCLAP::ValueArg<std::string> inPathArg("i", "in", "Input directory", true, "./", "path");
     TCLAP::ValueArg<std::string> outPathArg("o", "out", "Output directory", true, "./", "path");
+    TCLAP::ValueArg<std::string> cfgArg("c", "cfg", "Configuration", true, "", "path");
     TCLAP::ValueArg<unsigned> debugLevelArg("d", "debug-level", "Generated code debug level", false, 0, "0-5");
-    TCLAP::ValueArg<unsigned> compLevelArg("c", "compression-level", "Package compression level", false, 5, "0-5");
+    TCLAP::ValueArg<unsigned> compLevelArg("C", "compression-level", "Package compression level", false, 5, "0-5");
 
     cmdLine.add(&inPathArg);
     cmdLine.add(&outPathArg);
+    cmdLine.add(&cfgArg);
     cmdLine.add(&debugLevelArg);
     cmdLine.add(&compLevelArg);
     cmdLine.parse(argc, argv);
 
     Rc<Configuration> cfg = new Configuration;
+    try {
+        auto table = cpptoml::parse_file(cfgArg.getValue());
+
+        auto cfgDefs = table->get_array("cfg_defs");
+        for (auto it : *cfgDefs) {
+            auto asString = it->as<std::string>();
+            if (asString) {
+                cfg->setCfgOption(asString->get());
+            } else {
+                //TODO: report error
+            }
+        }
+        auto cfgOpts = table->get_table("cfg_options");
+        for (auto it : *cfgOpts) {
+            auto asString = it.second->as<std::string>();
+            if (asString) {
+                cfg->setCfgOption(it.first, asString->get());
+            } else {
+                //TODO: report error
+            }
+        }
+    } catch(const std::exception& e) {
+        BMCL_DEBUG() << "error parsing config: " << e.what();
+        return -1;
+    }
+
     unsigned debugLevel = std::min(5u, debugLevelArg.getValue());
     cfg->setDebugLevel(debugLevel);
     unsigned compLevel = std::min(5u, compLevelArg.getValue());
