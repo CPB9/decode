@@ -148,8 +148,9 @@ bool Generator::generateTmPrivate(const Package* package)
         _output.append(", .interest = ");
         _output.appendNumericValue(0);
         _output.append(", .priority = ");
-        _output.appendNumericValue(0);
-        _output.append(", .isAllowed = true");
+        _output.appendNumericValue(msg.msg->priority());
+        _output.append(", .isEnabled = ");
+        _output.appendBoolValue(msg.msg->isEnabled());
         _output.append("},\n");
         statusesNum++;
     }

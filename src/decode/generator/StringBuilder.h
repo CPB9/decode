@@ -40,6 +40,7 @@ public:
     template <typename T>
     void appendNumericValue(T value);
 
+    void appendBoolValue(bool value);
     void appendHexValue(uint8_t value);
 
     void clear();
@@ -234,6 +235,15 @@ inline void StringBuilder::appendHexValue(uint8_t value)
     str[2] = chars[(value & 0xf0) >> 4];
     str[3] = chars[value & 0x0f];
     append(str, str + 4);
+}
+
+inline void StringBuilder::appendBoolValue(bool value)
+{
+    if (value) {
+        append("true");
+    } else {
+        append("false");
+    }
 }
 
 template <typename... A>

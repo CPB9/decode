@@ -231,8 +231,10 @@ class StatusMsg : public RefCountable {
 public:
     using Parts = RcVec<StatusRegexp>;
 
-    StatusMsg(std::size_t num)
+    StatusMsg(std::size_t num, std::size_t priority, bool isEnabled)
         : _number(num)
+        , _priority(priority)
+        , _isEnabled(isEnabled)
     {
     }
 
@@ -271,6 +273,16 @@ public:
         return _number;
     }
 
+    std::size_t priority() const
+    {
+        return _priority;
+    }
+
+    bool isEnabled() const
+    {
+        return _isEnabled;
+    }
+
     void addPart(StatusRegexp* part)
     {
         _parts.emplace_back(part);
@@ -279,6 +291,8 @@ public:
 private:
     Parts _parts;
     std::size_t _number;
+    std::size_t _priority;
+    bool _isEnabled;
 };
 
 class Component : public RefCountable {

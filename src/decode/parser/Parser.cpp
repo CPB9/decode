@@ -1122,15 +1122,45 @@ bool Parser::parseStatuses(Component* parent)
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Statuses, TokenKind::Comma, parent, [this](Component* comp) -> bool {
-        uintmax_t n;
-        TRY(parseUnsignedInteger(&n));
-        StatusMsg* msg = new StatusMsg(n);
-        bool isOk = comp->addStatus(n, msg);
+        TRY(expectCurrentToken(TokenKind::LBracket));
+        consumeAndSkipBlanks();
+
+        uintmax_t num;
+        TRY(parseUnsignedInteger(&num));
+
+        skipBlanks();
+        TRY(expectCurrentToken(TokenKind::Comma));
+        consumeAndSkipBlanks();
+
+        uintmax_t prio;
+        TRY(parseUnsignedInteger(&prio));
+
+        skipBlanks();
+        TRY(expectCurrentToken(TokenKind::Comma));
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Identifier));
+
+        bool isEnabled;
+        if (_currentToken.value() == "false") {
+            isEnabled = false;
+        } else if (_currentToken.value() == "true") {
+            isEnabled = true;
+        } else {
+            BMCL_DEBUG() << "invalid bool param";
+            return false;
+        }
+
+        consumeAndSkipBlanks();
+        TRY(expectCurrentToken(TokenKind::RBracket));
+
+        StatusMsg* msg = new StatusMsg(num, prio, isEnabled);
+        bool isOk = comp->addStatus(num, msg);
         if (!isOk) {
             BMCL_CRITICAL() << "redefinition of status param";
             return false;
         }
-        skipBlanks();
+        consumeAndSkipBlanks();
         TRY(expectCurrentToken(TokenKind::Colon));
         consumeAndSkipBlanks();
         auto parseOneRegexp = [this, comp](StatusMsg* msg) -> bool {

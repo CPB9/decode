@@ -21,9 +21,9 @@ component {
     }
 
     statuses {
-        0: currentMessage,
-        1: { currentMessage, allowedMessagesCount },
-        3: { test.f1[2].f2[4] },
+        [0, 3, true ]: currentMessage,
+        [1, 4, false]: { currentMessage, allowedMessagesCount },
+        [3, 2, false]: { test.f1[2].f2[4] },
     }
 
     commands {
