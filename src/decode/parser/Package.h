@@ -39,6 +39,7 @@ public:
 
     using AstMap = RcSecondMap<bmcl::StringView, Ast, StringViewComparator>;
 
+    static PackageResult readFromDirectories(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> dirs);
     static PackageResult readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path);
     static PackageResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
 
@@ -57,6 +58,7 @@ public:
 private:
     Package(Configuration* cfg, Diagnostics* diag);
     bool addFile(const char* path, Parser* p);
+    bool addDir(const char* path, Package* package, Parser* p);
     void addAst(Ast* ast);
     bool resolveAll();
     bool resolveTypes(Ast* ast);

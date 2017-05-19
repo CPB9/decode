@@ -47,7 +47,7 @@ void generateSource(Package* package, const char* outPath)
 int main(int argc, char* argv[])
 {
     TCLAP::CmdLine cmdLine("Decode source generator");
-    TCLAP::ValueArg<std::string> inPathArg("i", "in", "Input directory", true, "./", "path");
+    TCLAP::MultiArg<std::string> inPathArg("i", "in", "Input directory", true, "path");
     TCLAP::ValueArg<std::string> outPathArg("o", "out", "Output directory", true, "./", "path");
     TCLAP::ValueArg<std::string> cfgArg("c", "cfg", "Configuration", true, "", "path");
     TCLAP::ValueArg<unsigned> debugLevelArg("d", "debug-level", "Generated code debug level", false, 0, "0-5");
@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
     cfg->setCompressionLevel(compLevel);
 
     Rc<Diagnostics> diag = new Diagnostics;
-    PackageResult package = Package::readFromDirectory(cfg.get(), diag.get(), inPathArg.getValue().c_str());
+    PackageResult package = Package::readFromDirectories(cfg.get(), diag.get(), inPathArg.getValue());
 
     generateSource(package.unwrap().get(), outPathArg.getValue().c_str());
 

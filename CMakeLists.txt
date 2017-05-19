@@ -199,13 +199,9 @@ if(NOT HAS_PARENT_SCOPE)
     add_subdirectory(tests)
 endif()
 
-if(WIN32)
-    add_custom_command(
-        TARGET decode
-        POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:bmcl>
-        ${CMAKE_CURRENT_BINARY_DIR}
-    )
-endif()
-
+set_target_properties(decode decode_gen
+    PROPERTIES
+    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)

@@ -1,26 +1,26 @@
 #include "decode/parser/Package.h"
 
-#include "decode/core/Diagnostics.h"
 #include "decode/core/Configuration.h"
-#include "decode/parser/Parser.h"
-#include "decode/parser/Ast.h"
-#include "decode/parser/Decl.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Lexer.h"
+#include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
+#include "decode/parser/Ast.h"
+#include "decode/parser/Component.h"
+#include "decode/parser/Decl.h"
+#include "decode/parser/Lexer.h"
+#include "decode/parser/Parser.h"
 
-#include <bmcl/Result.h>
-#include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
+#include <bmcl/Logging.h>
 #include <bmcl/MemReader.h>
+#include <bmcl/Result.h>
 
 #include <libzpaq.h>
 
-#include <string>
 #include <array>
 #include <cstring>
-#include <limits>
 #include <exception>
+#include <limits>
+#include <string>
 
 #if defined(__linux__)
 # include <dirent.h>
@@ -114,15 +114,10 @@ Package::~Package()
 {
 }
 
-PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path)
+bool Package::addDir(const char* path, Package* package, Parser* p)
 {
-
-    std::string spath = path;
-
-    Rc<Package> package = new Package(cfg, diag);
     std::size_t pathSize;
-    Parser p(diag);
-
+    std::string spath = path;
 #if defined(__linux__)
 #define NEXT_FILE() continue
     spath.push_back('/');
@@ -130,7 +125,7 @@ PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, 
     DIR* dir = opendir(path);
     if (dir == NULL) {
         //TODO: handle error;
-        return PackageResult();
+        return false;
     }
 
     struct dirent* ent;
@@ -141,7 +136,7 @@ PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, 
     std::string regexp = path;
     if (regexp.empty()) {
         //TODO: report error
-        return PackageResult();
+        return false;
     }
     if (regexp.back() != '\\') {
         regexp.push_back('\\');
@@ -187,14 +182,14 @@ PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, 
         }
 
         nameSize = std::strlen(name);
-         // length of .decode suffix
+        // length of .decode suffix
         if (nameSize >= suffixSize) {
             if (std::memcmp(name + nameSize - suffixSize, DECODE_SUFFIX, suffixSize) != 0) {
                 NEXT_FILE();
             }
         }
         spath.append(name, nameSize);
-        if (!package->addFile(spath.c_str(), &p)) {
+        if (!package->addFile(spath.c_str(), p)) {
             goto error;
         }
         spath.resize(pathSize);
@@ -214,11 +209,7 @@ nextFile:
 #endif
     }
 
-    if (!package->resolveAll()) {
-        goto error;
-    }
-
-    return std::move(package);
+    return true;
 
 error:
 #if defined(__linux__)
@@ -226,11 +217,34 @@ error:
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     FindClose(handle);
 #endif
-    return PackageResult();
+    return false;
+}
+
+PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path)
+{
+    return readFromDirectories(cfg, diag, {path});
+}
+
+PackageResult Package::readFromDirectories(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> dirs)
+{
+    Rc<Package> package = new Package(cfg, diag);
+    Parser p(diag);
+
+    for (const std::string& path : dirs) {
+        if (!package->addDir(path.c_str(), package.get(), &p)) {
+            return PackageResult();
+        }
+    }
+
+    if (!package->resolveAll()) {
+        return PackageResult();
+    }
+
+    return std::move(package);
 }
 
 typedef std::array<std::uint8_t, 4> MagicType;
-const MagicType magic = {{ 0x7a, 0x70, 0x61, 0x71 }};
+const MagicType magic = {{0x7a, 0x70, 0x61, 0x71}};
 
 PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size)
 {
@@ -240,7 +254,7 @@ PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std:
 
     try {
         libzpaq::decompress(&in, &out);
-    } catch(const std::exception& err) {
+    } catch (const std::exception& err) {
         BMCL_CRITICAL() << "error decompressing zpaq archive: " << err.what();
         return PackageResult();
     }
@@ -292,7 +306,6 @@ PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std:
 
         bool hasValue = reader.readUint8();
         if (hasValue) {
-
             uint64_t valueSize;
             if (!reader.readVarUint(&valueSize)) {
                 //TODO: report error
@@ -451,7 +464,9 @@ bool Package::resolveTypes(Ast* ast)
         auto searchedAst = _modNameToAstMap.find(import->path().toStdString());
         if (searchedAst == _modNameToAstMap.end()) {
             isOk = false;
-            BMCL_CRITICAL() << "invalid import mod in " << ast->moduleInfo()->moduleName().toStdString() << ": " << import->path().toStdString();
+            BMCL_CRITICAL() << "invalid import mod in "
+                            << ast->moduleInfo()->moduleName().toStdString() << ": "
+                            << import->path().toStdString();
             continue;
         }
         for (ImportedType* modifiedType : import->typesRange()) {
@@ -459,13 +474,19 @@ bool Package::resolveTypes(Ast* ast)
             if (foundType.isNone()) {
                 isOk = false;
                 //TODO: report error
-                BMCL_CRITICAL() << "invalid import type in " << ast->moduleInfo()->moduleName().toStdString() << ": " << modifiedType->name().toStdString();
+                BMCL_CRITICAL() << "invalid import type in "
+                                << ast->moduleInfo()->moduleName().toStdString() << ": "
+                                << modifiedType->name().toStdString();
             } else {
                 if (modifiedType->typeKind() == foundType.unwrap()->typeKind()) {
                     isOk = false;
                     //TODO: report error - circular imports
-                    BMCL_CRITICAL() << "circular imports " << ast->moduleInfo()->moduleName().toStdString() << ": " << modifiedType->name().toStdString();
-                    BMCL_CRITICAL() << "circular imports " << searchedAst->first.toStdString() << ".decode: " << foundType.unwrap()->name().toStdString();
+                    BMCL_CRITICAL() << "circular imports "
+                                    << ast->moduleInfo()->moduleName().toStdString()
+                                    << ": " << modifiedType->name().toStdString();
+                    BMCL_CRITICAL() << "circular imports "
+                                    << searchedAst->first.toStdString() << ".decode: "
+                                    << foundType.unwrap()->name().toStdString();
                 }
                 modifiedType->setLink(foundType.unwrap());
             }
@@ -495,7 +516,6 @@ bool Package::resolveStatuses(Ast* ast)
     for (StatusMsg* it : comp->statusesRange()) {
         _statusMsgs.emplace_back(comp.unwrap(), it);
         for (StatusRegexp* re : it->partsRange()) {
-
             FieldVec::Range fields = comp->paramsRange();
             Rc<Type> lastType;
             Rc<Field> lastField;
@@ -504,7 +524,7 @@ bool Package::resolveStatuses(Ast* ast)
                 continue;
             }
             auto resolveField = [&](FieldAccessor* facc) -> bool {
-                auto field  = fields.findIf([facc](const Field* f) -> bool {
+                auto field = fields.findIf([facc](const Field* f) -> bool {
                     return f->name() == facc->value();
                 });
                 if (field == fields.end()) {
@@ -566,7 +586,7 @@ bool Package::resolveStatuses(Ast* ast)
 bool Package::mapComponent(Ast* ast)
 {
     if (ast->component().isSome()) {
-        std::size_t id = _components.size(); //FIXME: make user-set
+        std::size_t id = _components.size(); // FIXME: make user-set
         ast->component()->setNumber(id);
         _components.emplace(id, ast->component().unwrap());
     }
@@ -588,3 +608,4 @@ bool Package::resolveAll()
     return isOk;
 }
 }
+

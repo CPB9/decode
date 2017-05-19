@@ -2,13 +2,13 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/parser/Containers.h"
 #include "decode/generator/SrcBuilder.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/StringView.h>
 
-#include <unordered_map>
 #include <memory>
+#include <unordered_map>
 
 namespace decode {
 
@@ -28,6 +28,7 @@ public:
     void setOutPath(bmcl::StringView path);
 
     bool generateFromPackage(const Package* ast);
+
 private:
     bool generateTypesAndComponents(const Ast* ast);
     bool generateSlices();
@@ -52,5 +53,4 @@ private:
     Rc<TypeReprGen> _reprGen;
     RcSecondUnorderedMap<std::string, const SliceType> _slices;
 };
-
 }
