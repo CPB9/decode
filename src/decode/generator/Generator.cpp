@@ -180,7 +180,7 @@ bool Generator::generateSerializedPackage(const Package* package)
 
     _output.appendNumericValueDefine("_PHOTON_PACKAGE_SIZE", encoded.size());
     _output.appendEol();
-    _output.appendByteArrayDefinition("_package", encoded);
+    _output.appendByteArrayDefinition("static const", "_package", encoded);
     _output.appendEol();
 
     bmcl::Sha3<512> ctx;
@@ -189,7 +189,7 @@ bool Generator::generateSerializedPackage(const Package* package)
 
     _output.appendNumericValueDefine("_PHOTON_PACKAGE_HASH_SIZE", hash.size());
     _output.appendEol();
-    _output.appendByteArrayDefinition("_packageHash", hash);
+    _output.appendByteArrayDefinition("static const", "_packageHash", hash);
     _output.appendEol();
 
     std::string packageDetailPath = _savePath + "/photon/Package.Private.inc.c";

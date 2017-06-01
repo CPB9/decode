@@ -140,9 +140,14 @@ void SrcBuilder::endIncludeGuard()
     appendEol();
 }
 
-void SrcBuilder::appendByteArrayDefinition(bmcl::StringView name, bmcl::Bytes data)
+void SrcBuilder::appendByteArrayDefinition(bmcl::StringView prefix, bmcl::StringView name, bmcl::Bytes data)
 {
-    append("static uint8_t ");
+    append(prefix);
+    if (prefix.isEmpty()) {
+        append("uint8_t ");
+    } else {
+        append(" uint8_t ");
+    }
     append(name);
     append('[');
     appendNumericValue(data.size());

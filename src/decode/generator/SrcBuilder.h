@@ -37,7 +37,7 @@ public:
     void appendLocalIncludePath(bmcl::StringView path);
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
-    void appendByteArrayDefinition(bmcl::StringView name, bmcl::Bytes data);
+    void appendByteArrayDefinition(bmcl::StringView prefix, bmcl::StringView name, bmcl::Bytes data);
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
     void startCppGuard();
     void endIncludeGuard();
