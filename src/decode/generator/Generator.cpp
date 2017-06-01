@@ -12,6 +12,7 @@
 #include "decode/generator/SliceCollector.h"
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/generator/CmdDecoderGen.h"
+#include "decode/generator/CmdEncoderGen.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Decl.h"
@@ -280,16 +281,28 @@ bool Generator::generateStatusMessages(const Package* package)
 
 bool Generator::generateCommands(const Package* package)
 {
-    CmdDecoderGen gen(_reprGen.get(), &_output);
-    gen.generateHeader(package->components());
+    CmdDecoderGen decGen(_reprGen.get(), &_output);
+    decGen.generateHeader(package->components());
     TRY(dump("CmdDecoder.Private", ".h", &_photonPath));
     _output.clear();
 
-    gen.generateSource(package->components());
+    decGen.generateSource(package->components());
     TRY(dump("CmdDecoder.Private", ".c", &_photonPath));
     _output.clear();
 
     _main.append("#include \"photon/CmdDecoder.Private.c\"\n");
+
+    CmdEncoderGen encGen(_reprGen.get(), &_output);
+    encGen.generateHeader(package->components());
+    TRY(dump("CmdEncoder.Private", ".h", &_photonPath));
+    _output.clear();
+
+    encGen.generateSource(package->components());
+    TRY(dump("CmdEncoder.Private", ".c", &_photonPath));
+    _output.clear();
+
+    _main.append("#include \"photon/CmdEncoder.Private.c\"\n");
+
     return true;
 }
 

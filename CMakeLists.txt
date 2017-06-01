@@ -111,6 +111,8 @@ add_library(decode
     src/decode/generator/TypeReprGen.h
     src/decode/generator/CmdDecoderGen.cpp
     src/decode/generator/CmdDecoderGen.h
+    src/decode/generator/CmdEncoderGen.cpp
+    src/decode/generator/CmdEncoderGen.h
     src/decode/generator/TypeReprGen.h
     src/decode/model/CmdNode.cpp
     src/decode/model/CmdNode.h

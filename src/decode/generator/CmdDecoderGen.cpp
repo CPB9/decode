@@ -36,20 +36,6 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
 
     _output->startCppGuard();
 
-//     for (auto it : comps) {
-//         if (it.second->commands().isNone()) {
-//             continue;
-//         }
-//         std::size_t cmdNum = 0;
-//         for (const Rc<FunctionType>& jt : it.second->commands().unwrap()->functions()) {
-//             (void)jt;
-//             appendFunctionPrototype(it.first, cmdNum);
-//             _output->append(";\n");
-//             cmdNum++;
-//         }
-//     }
-//     _output->appendEol();
-
     appendMainFunctionPrototype();
     _output->append(";\n");
 
