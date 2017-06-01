@@ -50,6 +50,14 @@ inline bool IncludeCollector::visitAliasType(const AliasType* alias)
     return false;
 }
 
+bool IncludeCollector::visitFunctionType(const FunctionType* func)
+{
+    for (const Field* arg : func->argumentsRange()) {
+        traverseType(arg->type());
+    }
+    return true;
+}
+
 bool IncludeCollector::visitSliceType(const SliceType* slice)
 {
     if (slice == _currentType) {
@@ -121,6 +129,13 @@ void IncludeCollector::collect(const Component* comp, std::unordered_set<std::st
     for (const Field* field : comp->paramsRange()) {
         traverseType(field->type());
     }
+}
+
+void IncludeCollector::collect(const Function* func, std::unordered_set<std::string>* dest)
+{
+    _dest = dest;
+    _currentType = func->type();
+    traverseType(func->type());
 }
 }
 

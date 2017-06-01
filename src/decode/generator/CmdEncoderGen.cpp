@@ -1,6 +1,7 @@
 #include "decode/generator/CmdEncoderGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeReprGen.h"
+#include "decode/generator/IncludeCollector.h"
 #include "decode/core/Foreach.h"
 
 namespace decode {
@@ -41,9 +42,22 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->startIncludeGuard("PRIVATE", "CMD_ENCODER");
     _output->appendEol();
 
-    _output->appendLocalIncludePath("core/Error");
-    _output->appendLocalIncludePath("core/Reader");
-    _output->appendLocalIncludePath("core/Writer");
+    std::unordered_set<std::string> includes;
+    IncludeCollector col;
+
+    includes.emplace("core/Error");
+    includes.emplace("core/Reader");
+    includes.emplace("core/Writer");
+    for (auto it : comps) {
+        for (const Function* jt : it->cmdsRange()) {
+            col.collect(jt, &includes);
+        }
+    }
+
+    for (const std::string& path : includes) {
+        _output->appendLocalIncludePath(path);
+    }
+
     _output->appendEol();
 
     _output->startCppGuard();
