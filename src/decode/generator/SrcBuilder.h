@@ -42,6 +42,8 @@ public:
     void startCppGuard();
     void endIncludeGuard();
     void endCppGuard();
+    void appendModIfdef(bmcl::StringView name);
+    void appendEndif();
 
     template <typename T>
     void appendNumericValueDefine(bmcl::StringView name, T value);
@@ -52,7 +54,7 @@ public:
     bmcl::StringView modName() const;
 
 private:
-    bmcl::StringView _modName;
+    bmcl::StringView _modName; //TODO: remove
 };
 
 inline void SrcBuilder::setModName(bmcl::StringView modName)
@@ -63,6 +65,18 @@ inline void SrcBuilder::setModName(bmcl::StringView modName)
 inline bmcl::StringView SrcBuilder::modName() const
 {
     return _modName;
+}
+
+inline void SrcBuilder::appendModIfdef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_HAS_MODULE_");
+    appendUpper(name);
+    append("\n");
+}
+
+inline void SrcBuilder::appendEndif()
+{
+    append("#endif\n");
 }
 
 template <typename... A>

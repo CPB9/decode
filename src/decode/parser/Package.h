@@ -13,14 +13,11 @@
 #include "decode/core/Hash.h"
 #include "decode/parser/Containers.h"
 
-#include <bmcl/ResultFwd.h>
+#include <bmcl/Fwd.h>
+#include <bmcl/Buffer.h>
 
 #include <unordered_map>
 #include <map>
-
-namespace bmcl {
-class Buffer;
-}
 
 namespace decode {
 
@@ -47,14 +44,12 @@ public:
 
     using AstMap = RcSecondMap<bmcl::StringView, Ast, StringViewComparator>;
 
-    static PackageResult readFromDirectories(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> dirs);
-    static PackageResult readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path);
+    static PackageResult readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> files);
     static PackageResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
 
     ~Package();
 
-    bmcl::Buffer encode() const;
-    bmcl::Buffer encode(unsigned compressionLevel) const;
+    void encode(bmcl::Buffer* dest) const;
 
     AstMap::ConstRange modules() const;
     AstMap::Range modules();
@@ -65,8 +60,9 @@ public:
 
 private:
     Package(Configuration* cfg, Diagnostics* diag);
-    bool addFile(const char* path, Parser* p);
+
     bool addDir(const char* path, Package* package, Parser* p);
+    bool addFile(const char* path, Parser* p);
     void addAst(Ast* ast);
     bool resolveAll();
     bool resolveTypes(Ast* ast);

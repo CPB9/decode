@@ -39,6 +39,7 @@ public:
     template <typename... A>
     void appendSeveral(std::size_t n, A&&... args);
 
+    void appendUpper(bmcl::StringView view);
     void appendWithFirstUpper(bmcl::StringView view);
     void appendWithFirstLower(bmcl::StringView view);
 
@@ -147,6 +148,11 @@ void StringBuilder::appendWithFirstModified(bmcl::StringView view, F&& func)
     append(view);
     std::size_t i = _output.size() - view.size();
     _output[i] = func(_output[i]);
+}
+
+inline void StringBuilder::appendUpper(bmcl::StringView view)
+{
+    append(view.toUpper());
 }
 
 inline void StringBuilder::appendWithFirstUpper(bmcl::StringView view)

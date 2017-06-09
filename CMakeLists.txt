@@ -43,7 +43,7 @@ add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
 include_directories(
     thirdparty/zpaq
     thirdparty/tclap/include
-    thirdparty/cpptoml/include
+    thirdparty
     thirdparty/pegtl
 )
 
@@ -74,16 +74,22 @@ endif()
 
 add_library(decode
     src/decode/Config.h
+    src/decode/core/CfgOption.cpp
+    src/decode/core/CfgOption.h
+    src/decode/core/Configuration.cpp
+    src/decode/core/Configuration.h
     src/decode/core/Diagnostics.cpp
     src/decode/core/Diagnostics.h
     src/decode/core/FileInfo.h
     src/decode/core/Hash.h
     src/decode/core/Location.h
     src/decode/core/Rc.h
-    src/decode/core/Configuration.cpp
-    src/decode/core/Configuration.h
-    src/decode/core/CfgOption.cpp
-    src/decode/core/CfgOption.h
+    src/decode/core/Zpaq.cpp
+    src/decode/core/Zpaq.h
+    src/decode/generator/CmdDecoderGen.cpp
+    src/decode/generator/CmdDecoderGen.h
+    src/decode/generator/CmdEncoderGen.cpp
+    src/decode/generator/CmdEncoderGen.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
     src/decode/generator/HeaderGen.cpp
@@ -109,11 +115,19 @@ add_library(decode
     src/decode/generator/TypeNameGen.h
     src/decode/generator/TypeReprGen.cpp
     src/decode/generator/TypeReprGen.h
-    src/decode/generator/CmdDecoderGen.cpp
-    src/decode/generator/CmdDecoderGen.h
-    src/decode/generator/CmdEncoderGen.cpp
-    src/decode/generator/CmdEncoderGen.h
     src/decode/generator/TypeReprGen.h
+    src/decode/groundcontrol/Crc.cpp
+    src/decode/groundcontrol/Crc.h
+    src/decode/groundcontrol/Exchange.cpp
+    src/decode/groundcontrol/Exchange.h
+    src/decode/groundcontrol/FwtState.cpp
+    src/decode/groundcontrol/FwtState.h
+    src/decode/groundcontrol/GroundControl.cpp
+    src/decode/groundcontrol/GroundControl.h
+    src/decode/groundcontrol/MemIntervalSet.cpp
+    src/decode/groundcontrol/MemIntervalSet.h
+    src/decode/groundcontrol/TmState.cpp
+    src/decode/groundcontrol/TmState.h
     src/decode/model/CmdNode.cpp
     src/decode/model/CmdNode.h
     src/decode/model/Decoder.cpp
@@ -121,18 +135,18 @@ add_library(decode
     src/decode/model/FieldsNode.cpp
     src/decode/model/FieldsNode.h
     src/decode/model/Model.cpp
+    src/decode/model/ModelEventHandler.cpp
+    src/decode/model/ModelEventHandler.h
     src/decode/model/Model.h
     src/decode/model/Node.cpp
     src/decode/model/Node.h
     src/decode/model/Value.cpp
     src/decode/model/Value.h
-    src/decode/model/ValueKind.h
     src/decode/model/ValueInfoCache.cpp
     src/decode/model/ValueInfoCache.h
+    src/decode/model/ValueKind.h
     src/decode/model/ValueNode.cpp
     src/decode/model/ValueNode.h
-    src/decode/model/ModelEventHandler.h
-    src/decode/model/ModelEventHandler.cpp
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
     src/decode/parser/Containers.cpp
@@ -144,20 +158,11 @@ add_library(decode
     src/decode/parser/Package.h
     src/decode/parser/Parser.cpp
     src/decode/parser/Parser.h
+    src/decode/parser/Project.cpp
+    src/decode/parser/Project.h
     src/decode/parser/Span.h
     src/decode/parser/Token.h
-    src/decode/groundcontrol/Crc.h
-    src/decode/groundcontrol/Crc.cpp
-    src/decode/groundcontrol/MemIntervalSet.h
-    src/decode/groundcontrol/MemIntervalSet.cpp
-    src/decode/groundcontrol/Exchange.h
-    src/decode/groundcontrol/Exchange.cpp
-    src/decode/groundcontrol/FwtState.h
-    src/decode/groundcontrol/FwtState.cpp
-    src/decode/groundcontrol/GroundControl.h
-    src/decode/groundcontrol/GroundControl.cpp
-    src/decode/groundcontrol/TmState.h
-    src/decode/groundcontrol/TmState.cpp
+    src/decode/parser/Token.h
     ${DECODE_UI_SRC}
 )
 

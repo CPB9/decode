@@ -41,8 +41,10 @@ void StatusEncoderGen::generateHeader(CompAndMsgVecConstRange messages)
 
     std::size_t n = 0;
     for (const ComponentAndMsg& msg : messages) {
+        _output->appendModIfdef(msg.component->moduleName());
         appendStatusMessageGenFuncDecl(msg.component.get(), n);
         _output->append(";\n");
+        _output->appendEndif();
         n++;
     }
 

@@ -15,6 +15,7 @@
 #include "decode/generator/CmdEncoderGen.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Package.h"
+#include "decode/parser/Project.h"
 #include "decode/parser/Decl.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Constant.h"
@@ -137,15 +138,12 @@ bool Generator::generateTmPrivate(const Package* package)
 {
     _output.clear();
 
-    _output.append("#define _PHOTON_TM_MSG_COUNT ");
-    _output.appendNumericValue(package->statusMsgs().size());
-    _output.append("\n\n");
-
     _output.append("static PhotonTmMessageDesc _messageDesc[");
     _output.appendNumericValue(package->statusMsgs().size());
     _output.append("] = {\n");
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
+        _output.appendModIfdef(msg.component->moduleName());
         _output.appendIndent(1);
         _output.append("{");
         _output.append(".func = ");
@@ -161,9 +159,12 @@ bool Generator::generateTmPrivate(const Package* package)
         _output.append(", .isEnabled = ");
         _output.appendBoolValue(msg.msg->isEnabled());
         _output.append("},\n");
+        _output.appendEndif();
         statusesNum++;
     }
-    _output.append("};\n");
+    _output.append("};\n\n");
+
+    _output.append("#define _PHOTON_TM_MSG_COUNT sizeof(_messageDesc) / sizeof(_messageDesc[0])\n\n");
 
     std::string tmDetailPath = _savePath + "/photon/Tm.Private.inc.c";
     TRY(saveOutput(tmDetailPath.c_str(), &_output));
@@ -172,7 +173,7 @@ bool Generator::generateTmPrivate(const Package* package)
     return true;
 }
 
-bool Generator::generateSerializedPackage(const Package* package)
+bool Generator::generateSerializedPackage(const Project* package)
 {
     _output.clear();
 
@@ -199,12 +200,13 @@ bool Generator::generateSerializedPackage(const Package* package)
     return true;
 }
 
-bool Generator::generateFromPackage(const Package* package)
+bool Generator::generateProject(const Project* project)
 {
     _photonPath.append(_savePath);
     _photonPath.append("/photon");
     TRY(makeDirectory(_photonPath.result().c_str()));
     _photonPath.append('/');
+    const Package* package = project->package();
 
     _reprGen = new TypeReprGen(&_output);
     _hgen.reset(new HeaderGen(_reprGen.get(), &_output));
@@ -218,13 +220,12 @@ bool Generator::generateFromPackage(const Package* package)
     TRY(generateSlices());
 
     TRY(generateTmPrivate(package));
-    TRY(generateSerializedPackage(package));
+    TRY(generateSerializedPackage(project));
     TRY(generateStatusMessages(package));
     TRY(generateCommands(package));
 
-    std::string mainPath = _savePath + "/photon/Photon.c";
+    std::string mainPath = _savePath + "Photon.c";
     TRY(saveOutput(mainPath.c_str(), &_main));
-
 
     _main.resize(0);
     _output.resize(0);
@@ -376,11 +377,13 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
             _output.append(';');
         }
         TRY(dump(comp->moduleName(), ".Component.c", &_photonPath));
+        _main.appendModIfdef(ast->moduleInfo()->moduleName());
         _main.append("#include \"photon/");
         _main.append(comp->moduleName());
         _main.append("/");
         _main.appendWithFirstUpper(comp->moduleName());
         _main.append(".Component.c\"\n");
+        _main.appendEndif();
         _output.clear();
 
         //sgen->genTypeSource(type);
