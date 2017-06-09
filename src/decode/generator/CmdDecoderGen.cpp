@@ -66,25 +66,31 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
     _output->appendEol();
 
     for (const Component* it : comps) {
+        _output->appendModIfdef(it->moduleName());
         _output->append("#include \"photon/");
         _output->append(it->moduleName());
         _output->append("/");
         _output->appendWithFirstUpper(it->moduleName());
         _output->appendWithFirstUpper(".Component.h\"\n");
+        _output->appendEndif();
+        _output->appendEol();
     }
-    _output->appendEol();
 
     for (auto it : comps) {
         if (!it->hasCmds()) {
             continue;
         }
         std::size_t cmdNum = 0;
+        _output->appendModIfdef(it->moduleName());
+        _output->appendEol();
         for (const Function* jt : it->cmdsRange()) {
             generateFunc(it, jt, it->number(), cmdNum);
             cmdNum++;
             _output->appendEol();
             _output->appendEol();
         }
+        _output->appendEndif();
+        _output->appendEol();
     }
 
     generateMainFunc(comps);
@@ -104,6 +110,7 @@ void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
         if (!it->hasCmds()) {
             continue;
         }
+        _output->appendModIfdef(it->moduleName());
 
         _output->append("    case ");
         _output->appendNumericValue(it->number());
@@ -125,6 +132,7 @@ void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
         _output->append("        default:\n");
         _output->append("            return PhotonError_InvalidCmdId;\n");
         _output->append("        }\n    }\n");
+        _output->appendEndif();
     }
     _output->append("    }\n    return PhotonError_InvalidComponentId;\n}");
 }

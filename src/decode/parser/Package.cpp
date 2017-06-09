@@ -22,8 +22,6 @@
 #include <bmcl/MemReader.h>
 #include <bmcl/Result.h>
 
-#include <libzpaq.h>
-
 #include <array>
 #include <cstring>
 #include <exception>
@@ -36,11 +34,6 @@
 #elif defined(_MSC_VER) || defined(__MINGW32__)
 # include <windows.h>
 #endif
-
-void libzpaq::error(const char* msg)
-{
-    throw std::runtime_error(msg);
-}
 
 namespace decode {
 
@@ -55,58 +48,6 @@ ComponentAndMsg::ComponentAndMsg(const Rc<Component>& component, const Rc<Status
 ComponentAndMsg::~ComponentAndMsg()
 {
 }
-
-class ZpaqReader : public libzpaq::Reader {
-public:
-    ZpaqReader(const bmcl::Buffer& buf)
-        : _reader(buf.data(), buf.size())
-    {
-    }
-
-    ZpaqReader(const void* src, std::size_t size)
-        : _reader(src, size)
-    {
-    }
-
-    int get() override
-    {
-        if (_reader.isEmpty()) {
-            return -1;
-        }
-        return _reader.readUint8();
-    }
-
-    int read(char* buf, int n) override
-    {
-        std::size_t size = std::min<std::size_t>(n, _reader.readableSize());
-        _reader.read(buf, size);
-        return size;
-    }
-
-private:
-    bmcl::MemReader _reader;
-};
-
-class ZpaqWriter : public libzpaq::Writer {
-public:
-    ZpaqWriter(bmcl::Buffer* buf)
-        : _buf(buf)
-    {
-    }
-
-    void put(int c) override
-    {
-        _buf->writeUint8(c);
-    }
-
-    void write(const char* buf, int n) override
-    {
-        _buf->write(buf, n);
-    }
-
-private:
-    bmcl::Buffer* _buf;
-};
 
 #define DECODE_SUFFIX ".decode"
 
@@ -228,18 +169,13 @@ error:
     return false;
 }
 
-PackageResult Package::readFromDirectory(Configuration* cfg, Diagnostics* diag, const char* path)
-{
-    return readFromDirectories(cfg, diag, {path});
-}
-
-PackageResult Package::readFromDirectories(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> dirs)
+PackageResult Package::readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> files)
 {
     Rc<Package> package = new Package(cfg, diag);
     Parser p(diag);
 
-    for (const std::string& path : dirs) {
-        if (!package->addDir(path.c_str(), package.get(), &p)) {
+    for (const std::string& path : files) {
+        if (!package->addFile(path.c_str(), &p)) {
             return PackageResult();
         }
     }
@@ -256,18 +192,7 @@ const MagicType magic = {{0x7a, 0x70, 0x61, 0x71}};
 
 PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size)
 {
-    bmcl::Buffer buf;
-    ZpaqReader in(src, size);
-    ZpaqWriter out(&buf);
-
-    try {
-        libzpaq::decompress(&in, &out);
-    } catch (const std::exception& err) {
-        BMCL_CRITICAL() << "error decompressing zpaq archive: " << err.what();
-        return PackageResult();
-    }
-
-    bmcl::MemReader reader(buf.data(), buf.size());
+    bmcl::MemReader reader(src, size);
 
     if (reader.readableSize() < (magic.size() + 2)) {
         //TODO: report error
@@ -387,32 +312,23 @@ PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std:
     return std::move(package);
 }
 
-bmcl::Buffer Package::encode() const
+void Package::encode(bmcl::Buffer* dest) const
 {
-    return encode(_cfg->compressionLevel());
-}
+    dest->write(magic.data(), magic.size());
 
-bmcl::Buffer Package::encode(unsigned compressionLevel) const
-{
-    if (compressionLevel > 5) {
-        compressionLevel = 5;
-    }
-    bmcl::Buffer buf;
-    buf.write(magic.data(), magic.size());
+    dest->writeUint8(_cfg->debugLevel());
+    dest->writeUint8(_cfg->compressionLevel());
 
-    buf.writeUint8(_cfg->debugLevel());
-    buf.writeUint8(_cfg->compressionLevel());
-
-    buf.writeVarUint(_cfg->numOptions());
+    dest->writeVarUint(_cfg->numOptions());
     for (auto it : _cfg->optionsRange()) {
-        buf.writeVarUint(it.first.size());
-        buf.write(it.first.data(), it.first.size());
+        dest->writeVarUint(it.first.size());
+        dest->write(it.first.data(), it.first.size());
         if (it.second.isSome()) {
-            buf.writeUint8(1);
-            buf.writeVarUint(it.second->size());
-            buf.write(it.second->data(), it.second->size());
+            dest->writeUint8(1);
+            dest->writeVarUint(it.second->size());
+            dest->write(it.second->data(), it.second->size());
         } else {
-            buf.writeUint8(0);
+            dest->writeUint8(0);
         }
     }
 
@@ -421,28 +337,15 @@ bmcl::Buffer Package::encode(unsigned compressionLevel) const
 
         const std::string& fname = finfo->fileName();
         assert(fname.size() <= std::numeric_limits<std::uint8_t>::max());
-        buf.writeUint8(fname.size());
-        buf.write((const void*)fname.data(), fname.size());
+        dest->writeUint8(fname.size());
+        dest->write((const void*)fname.data(), fname.size());
 
         const std::string& contents = finfo->contents();
 
         assert(contents.size() <= std::numeric_limits<std::uint32_t>::max());
-        buf.writeVarUint(contents.size());
-        buf.write((const void*)contents.data(), contents.size());
+        dest->writeVarUint(contents.size());
+        dest->write((const void*)contents.data(), contents.size());
     }
-
-    bmcl::Buffer result;
-    ZpaqReader in(buf);
-    ZpaqWriter out(&result);
-
-    try {
-        libzpaq::compress(&in, &out, std::to_string(compressionLevel).c_str());
-    } catch (const std::exception& err) {
-        BMCL_CRITICAL() << "error compressing zpaq archive: " << err.what();
-        std::terminate();
-    }
-
-    return result;
 }
 
 void Package::addAst(Ast* ast)

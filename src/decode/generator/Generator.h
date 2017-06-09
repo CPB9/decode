@@ -23,6 +23,7 @@ namespace decode {
 class Ast;
 class Diagnostics;
 class Package;
+class Project;
 class HeaderGen;
 class SourceGen;
 class NamedType;
@@ -35,7 +36,7 @@ public:
 
     void setOutPath(bmcl::StringView path);
 
-    bool generateFromPackage(const Package* ast);
+    bool generateProject(const Project* project);
 
 private:
     bool generateTypesAndComponents(const Ast* ast);
@@ -43,9 +44,12 @@ private:
     bool generateStatusMessages(const Package* package);
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
-    bool generateSerializedPackage(const Package* package);
+    bool generateSerializedPackage(const Project* project);
 
     bool makeDirectory(const char* path);
+
+    void appendModIfdef(bmcl::StringView name);
+    void appendEndif();
 
     bool saveOutput(const char* path, SrcBuilder* output);
     bool dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
