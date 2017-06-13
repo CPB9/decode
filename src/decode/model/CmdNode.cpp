@@ -16,11 +16,12 @@
 
 namespace decode {
 
-CmdNode::CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+CmdNode::CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs)
     : FieldsNode(func->type()->argumentsRange(), cache, parent)
     , _comp(comp)
     , _func(func)
     , _cache(cache)
+    , _expandArgs(expandArgs)
 {
     setName(func->name());
 }
@@ -42,6 +43,18 @@ bool CmdNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const
     return encodeFields(handler, dest);
 }
 
+std::size_t CmdNode::numChildren() const
+{
+    if (_expandArgs)
+        return _nodes.size();
+    return 0;
+}
+
+bool CmdNode::canHaveChildren() const
+{
+    return _expandArgs;
+}
+
 Rc<CmdNode> CmdNode::clone(bmcl::OptionPtr<Node> parent)
 {
     return new CmdNode(_comp.get(), _func.get(), _cache.get(), parent);
@@ -61,12 +74,12 @@ CmdContainerNode::~CmdContainerNode()
 {
 }
 
-Rc<CmdContainerNode> CmdContainerNode::withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+Rc<CmdContainerNode> CmdContainerNode::withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs)
 {
     CmdContainerNode* self = new CmdContainerNode(parent);
     self->_fieldName = comp->moduleName();
     for (const Function* f : comp->cmdsRange()) {
-        self->_nodes.emplace_back(new CmdNode(comp, f, cache, self));
+        self->_nodes.emplace_back(new CmdNode(comp, f, cache, self, expandArgs));
     }
     return self;
 }

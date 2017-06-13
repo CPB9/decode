@@ -94,7 +94,7 @@ PackageCmdsNode::PackageCmdsNode(const Package* package, const ValueInfoCache* c
             continue;
         }
 
-        Rc<CmdContainerNode> node = CmdContainerNode::withAllCmds(it, cache, this);
+        Rc<CmdContainerNode> node = CmdContainerNode::withAllCmds(it, cache, this, false);
         _nodes.emplace_back(node);
     }
 }

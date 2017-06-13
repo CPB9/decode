@@ -22,10 +22,12 @@ class ModelEventHandler;
 
 class CmdNode : public FieldsNode {
 public:
-    CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
+    CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs = true);
     ~CmdNode();
 
     bool encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const;
+    std::size_t numChildren() const override;
+    bool canHaveChildren() const override;
 
     bmcl::StringView typeName() const override;
 
@@ -35,6 +37,8 @@ private:
     Rc<const Component> _comp;
     Rc<const Function> _func;
     Rc<const ValueInfoCache> _cache;
+
+    bool _expandArgs;
 };
 
 class CmdContainerNode : public Node {
@@ -42,7 +46,7 @@ public:
     CmdContainerNode(bmcl::OptionPtr<Node> parent);
     ~CmdContainerNode();
 
-    static Rc<CmdContainerNode> withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
+    static Rc<CmdContainerNode> withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs);
 
     void addCmdNode(CmdNode* node);
 
