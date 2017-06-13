@@ -58,6 +58,8 @@ public:
     Diagnostics* diagnostics();
     CompAndMsgVecConstRange statusMsgs() const;
 
+    bmcl::OptionPtr<Ast> moduleWithName(bmcl::StringView name);
+
 private:
     Package(Configuration* cfg, Diagnostics* diag);
 

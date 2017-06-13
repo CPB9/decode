@@ -320,7 +320,7 @@ void Package::encode(bmcl::Buffer* dest) const
     dest->writeUint8(_cfg->compressionLevel());
 
     dest->writeVarUint(_cfg->numOptions());
-    for (auto it : _cfg->optionsRange()) {
+    for (const auto& it : _cfg->optionsRange()) {
         dest->writeVarUint(it.first.size());
         dest->write(it.first.data(), it.first.size());
         if (it.second.isSome()) {
@@ -518,5 +518,13 @@ bool Package::resolveAll()
     }
     return isOk;
 }
-}
 
+bmcl::OptionPtr<Ast> Package::moduleWithName(bmcl::StringView name)
+{
+    auto it = _modNameToAstMap.find(name);
+    if (it == _modNameToAstMap.end()) {
+        return bmcl::None;
+    }
+    return it->second.get();
+}
+}

@@ -8,8 +8,5 @@
 
 namespace decode {
 
-struct ModuleDesc {
-    std::string name;
-    std::uint64_t id;
-};
+
 }

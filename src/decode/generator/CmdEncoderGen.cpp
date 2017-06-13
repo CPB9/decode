@@ -38,7 +38,6 @@ void CmdEncoderGen::appendEncoderPrototype(const Component* comp, const Function
 
 void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
 {
-    (void)comps;
     _output->startIncludeGuard("PRIVATE", "CMD_ENCODER");
     _output->appendEol();
 
@@ -48,7 +47,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     includes.emplace("core/Error");
     includes.emplace("core/Reader");
     includes.emplace("core/Writer");
-    for (auto it : comps) {
+    for (const Component* it : comps) {
         for (const Function* jt : it->cmdsRange()) {
             col.collect(jt, &includes);
         }
@@ -62,7 +61,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
 
     _output->startCppGuard();
 
-    for (auto it : comps) {
+    for (const Component* it : comps) {
         for (const Function* jt : it->cmdsRange()) {
             appendEncoderPrototype(it, jt);
             _output->append(";\n");
@@ -80,7 +79,7 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
     _output->appendLocalIncludePath("CmdEncoder.Private"); //TODO: pass as argument
     _output->append("\n");
 
-    for (auto it : comps) {
+    for (const Component* it : comps) {
         std::size_t funcNum = 0;
         for (const Function* jt : it->cmdsRange()) {
             InlineSerContext ctx;

@@ -12,6 +12,8 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 #include "decode/parser/Package.h"
+#include "decode/parser/Ast.h"
+#include "decode/parser/Component.h"
 #include "decode/generator/Generator.h"
 
 #include <bmcl/Result.h>
@@ -21,9 +23,37 @@
 
 #include <toml11/toml.hpp>
 
+#include <unordered_map>
 #include <set>
 
 namespace decode {
+
+template <typename C>
+void removeDuplicates(C* container)
+{
+    std::sort(container->begin(), container->end());
+    auto it = std::unique(container->begin(), container->end());
+    container->erase(it, container->end());
+}
+
+struct DeviceDesc {
+    std::vector<std::string> modules;
+    std::vector<std::string> tmSources;
+    std::vector<std::string> cmdTargets;
+    std::string name;
+    std::uint64_t id;
+    Rc<Project::Device> device;
+};
+
+struct ModuleDesc {
+    std::string name;
+    std::uint64_t id;
+    std::vector<std::string> sources;
+    std::string relativeDest;
+};
+
+using DeviceDescMap = std::unordered_map<std::string, DeviceDesc>;
+using ModuleDescMap = std::unordered_map<std::string, ModuleDesc>;
 
 #if defined(__linux__)
 static constexpr char sep = '/';
@@ -108,12 +138,10 @@ static bool isAbsPath(const std::string& path)
 }
 
 
-Project::Project(Configuration* cfg, Diagnostics* diag, const char* projectFilePath)
+Project::Project(Configuration* cfg, Diagnostics* diag)
     : _cfg(cfg)
     , _diag(diag)
-    , _projectFilePath(projectFilePath)
 {
-    normalizePath(&_projectFilePath);
 }
 
 Project::~Project()
@@ -172,11 +200,84 @@ static TableResult readToml(const std::string& path)
     return TableResult();
 }
 
-bool Project::readModuleDescriptions(std::vector<std::string>* decodeFiles, std::vector<SourcesToCopy>* sources)
+ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const char* path)
 {
-    std::string projectDir = _projectFilePath;
+    std::string projectFilePath(path);
+    normalizePath(&projectFilePath);
+    Rc<Project> proj = new Project(cfg, diag);
+
+    BMCL_DEBUG() << "reading project file: " << projectFilePath;
+    TableResult projectFile = readToml(projectFilePath);
+    if (projectFile.isErr()) {
+        return ProjectResult();
+    }
+
+    std::string master;
+    DeviceDescMap deviceDescMap;
+    std::vector<std::string> moduleDirs;
+    std::vector<std::string> commonModuleNames;
+    //read project file
+    try {
+        const toml::Table& projectTable = getValueFromTable<toml::Table>(projectFile.unwrap(), "project");
+        proj->_name = getValueFromTable<std::string>(projectTable, "name");
+        master = getValueFromTable<std::string>(projectTable, "master");
+        int64_t id = getValueFromTable<std::int64_t>(projectTable, "mcc_id");
+        if (id < 0) {
+            BMCL_CRITICAL() << "mcc_id cannot be negative: " << id;
+            return ProjectResult();
+        }
+        proj->_mccId = id;
+        commonModuleNames = maybeGetArrayFromTable<std::string>(projectTable, "common_modules");
+        moduleDirs = maybeGetArrayFromTable<std::string>(projectTable, "module_dirs");
+        removeDuplicates(&moduleDirs);
+        for (std::string& path : moduleDirs) {
+            normalizePath(&path);
+        }
+
+        const toml::Array& devicesArray = getValueFromTable<toml::Array>(projectFile.unwrap(), "devices");
+        std::set<uint64_t> deviceIds;
+        for (const toml::value& value : devicesArray) {
+            if (value.type() != toml::value_t::Table) {
+                BMCL_CRITICAL() << "devices section must be a table";
+                return ProjectResult();
+            }
+            const toml::Table& tab = value.cast<toml::value_t::Table>();
+            DeviceDesc dev;
+            dev.name = getValueFromTable<std::string>(tab, "name");
+            int64_t id = getValueFromTable<int64_t>(tab, "id");
+            if (id < 0) {
+                BMCL_CRITICAL() << "device id cannot be negative: " << id;
+                return ProjectResult();
+            }
+            if (id == proj->_mccId) {
+                BMCL_CRITICAL() << "device id cannot be the same as mcc_id: " << id;
+                return ProjectResult();
+            }
+            auto idsPair = deviceIds.insert(id);
+            if (!idsPair.second) {
+                BMCL_CRITICAL() << "found devices with conflicting ids";
+                return ProjectResult();
+            }
+            dev.id = id;
+            dev.modules = maybeGetArrayFromTable<std::string>(tab, "modules");
+            dev.tmSources = maybeGetArrayFromTable<std::string>(tab, "tm_sources");
+            dev.cmdTargets = maybeGetArrayFromTable<std::string>(tab, "cmd_targets");
+            auto devPair = deviceDescMap.emplace(dev.name, std::move(dev));
+            if (!devPair.second) {
+                BMCL_CRITICAL() << "device with name " << dev.name << " already exists";
+                return ProjectResult();
+            }
+        }
+    } catch (...) {
+        return ProjectResult();
+    }
+
+    std::vector<std::string> decodeFiles;
+    ModuleDescMap moduleDescMap;
+
+    std::string projectDir = projectFilePath;
     removeFilePart(&projectDir);
-    for (const std::string& modDir : _moduleDirs) {
+    for (const std::string& modDir : moduleDirs) {
         std::string dirPath;
         if (!isAbsPath(modDir)) {
             dirPath = projectDir;
@@ -189,7 +290,7 @@ bool Project::readModuleDescriptions(std::vector<std::string>* decodeFiles, std:
         BMCL_DEBUG() << "reading mod dir: " << dirTomlPath;
         TableResult dirToml = readToml(dirTomlPath);
         if (dirToml.isErr()) {
-            return false;
+            return ProjectResult();
         }
         std::vector<std::string> modules = maybeGetArrayFromTable<std::string>(dirToml.unwrap(), "modules");
         std::set<uint64_t> moduleIds;
@@ -203,170 +304,106 @@ bool Project::readModuleDescriptions(std::vector<std::string>* decodeFiles, std:
             BMCL_DEBUG() << "reading module root: " << modTomlPath;
             TableResult modToml = readToml(modTomlPath);
             if (modToml.isErr()) {
-                return false;
+                return ProjectResult();
             }
             int64_t id = getValueFromTable<int64_t>(modToml.unwrap(), "id");
             if (id < 0) {
                 BMCL_CRITICAL() << "module id cannot be negative: " << id;
-                return false;
+                return ProjectResult();
             }
             auto idsPair = moduleIds.insert(id);
             if (!idsPair.second) {
                 BMCL_CRITICAL() << "found modules with conflicting ids";
-                return false;
+                return ProjectResult();
             }
             mod.id = id;
-            SourcesToCopy src;
-            src.relativeDest = getValueFromTable<std::string>(modToml.unwrap(), "dest");
-            decodeFiles->push_back(joinPath(moduleDir, getValueFromTable<std::string>(modToml.unwrap(), "decode")));
-            src.sources = maybeGetArrayFromTable<std::string>(modToml.unwrap(), "sources");
-            for (std::string& src : src.sources) {
+            mod.relativeDest = getValueFromTable<std::string>(modToml.unwrap(), "dest");
+            decodeFiles.push_back(joinPath(moduleDir, getValueFromTable<std::string>(modToml.unwrap(), "decode")));
+            mod.sources = maybeGetArrayFromTable<std::string>(modToml.unwrap(), "sources");
+            for (std::string& src : mod.sources) {
                 src = joinPath(moduleDir, src);
             }
-            sources->push_back(std::move(src));
-            auto modPair = _modules.emplace(moduleName, std::move(mod));
+            auto modPair = moduleDescMap.emplace(moduleName, std::move(mod));
             if (!modPair.second) {
                 BMCL_CRITICAL() << "module with name " << mod.name << " already exists";
-                return false;
+                return ProjectResult();
             }
         }
     }
-    return true;
-}
 
-bool Project::readProjectFile()
-{
-    BMCL_DEBUG() << "reading project file: " << _projectFilePath;
-    TableResult projectFile = readToml(_projectFilePath);
-    if (projectFile.isErr()) {
-        return false;
-    }
-
-    try {
-        const toml::Table& projectTable = getValueFromTable<toml::Table>(projectFile.unwrap(), "project");
-        _name = getValueFromTable<std::string>(projectTable, "name");
-        _master = getValueFromTable<std::string>(projectTable, "master");
-        int64_t id = getValueFromTable<std::int64_t>(projectTable, "mcc_id");
-        if (id < 0) {
-            BMCL_CRITICAL() << "mcc_id cannot be negative: " << id;
-            return false;
-        }
-        _mccId = id;
-        _commonModuleNames = maybeGetArrayFromTable<std::string>(projectTable, "common_modules");
-        _moduleDirs = maybeGetArrayFromTable<std::string>(projectTable, "module_dirs");
-        for (std::string& path : _moduleDirs) {
-            normalizePath(&path);
-        }
-
-        const toml::Array& devicesArray = getValueFromTable<toml::Array>(projectFile.unwrap(), "devices");
-        std::set<uint64_t> deviceIds;
-        for (const toml::value& value : devicesArray) {
-            if (value.type() != toml::value_t::Table) {
-                BMCL_CRITICAL() << "devices section must be a table";
-                return false;
-            }
-            const toml::Table& tab = value.cast<toml::value_t::Table>();
-            DeviceDesc dev;
-            dev.name = getValueFromTable<std::string>(tab, "name");
-            int64_t id = getValueFromTable<int64_t>(tab, "id");
-            if (id < 0) {
-                BMCL_CRITICAL() << "device id cannot be negative: " << id;
-                return false;
-            }
-            if (id == _mccId) {
-                BMCL_CRITICAL() << "device id cannot be the same as mcc_id: " << id;
-                return false;
-            }
-            auto idsPair = deviceIds.insert(id);
-            if (!idsPair.second) {
-                BMCL_CRITICAL() << "found devices with conflicting ids";
-                return false;
-            }
-            dev.id = id;
-            dev.modules = maybeGetArrayFromTable<std::string>(tab, "modules");
-            dev.tmSources = maybeGetArrayFromTable<std::string>(tab, "tm_sources");
-            dev.cmdTargets = maybeGetArrayFromTable<std::string>(tab, "cmd_targets");
-            auto devPair = _devices.emplace(dev.name, std::move(dev));
-            if (!devPair.second) {
-                BMCL_CRITICAL() << "device with name " << dev.name << " already exists";
-                return false;
-            }
-        }
-    } catch (...) {
-        return false;
-    }
-    return true;
-}
-
-bool Project::checkProject()
-{
-    if (_devices.find(_master) == _devices.end()) {
-        BMCL_CRITICAL() << "device with name " << _master << " marked as master does not exist";
-        return false;
-    }
-    for (const std::string& modName : _commonModuleNames) {
-        if (_modules.find(modName) == _modules.end()) {
-            BMCL_CRITICAL() << "common module " << modName << " does not exist";
-            return false;
-        }
-    }
-
-    for (auto it : _devices) {
-        for (const std::string& modName : it.second.modules) {
-            if (_modules.find(modName) == _modules.end()) {
-                BMCL_CRITICAL() << "module " << modName << " does not exist";
-                return false;
-            }
-        }
-        for (const std::string& deviceName : it.second.tmSources) {
-            //TODO: deviceName == it->second.name
-            if (_devices.find(deviceName) == _devices.end()) {
-                BMCL_CRITICAL() << "unknown tm source: " << deviceName;
-                return false;
-            }
-        }
-        for (const std::string& deviceName : it.second.cmdTargets) {
-            //TODO: deviceName == it->second.name
-            if (_devices.find(deviceName) == _devices.end()) {
-                BMCL_CRITICAL() << "unknown cmd target: " << deviceName;
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-bool Project::parsePackage(const std::vector<std::string>& decodeFiles)
-{
-    PackageResult package = Package::readFromFiles(_cfg.get(), _diag.get(), decodeFiles);
+    //parse package
+    PackageResult package = Package::readFromFiles(cfg, diag, decodeFiles);
     if (package.isErr()) {
-        return false;
+        return ProjectResult();
     }
-    _package = package.take();
-    return true;
-}
+    proj->_package = package.take();
 
-bool Project::copySources(const std::vector<Project::SourcesToCopy>& sources)
-{
-    return true;
-}
+    //check project
+    if (deviceDescMap.find(master) == deviceDescMap.end()) {
+        BMCL_CRITICAL() << "device with name " << master << " marked as master does not exist";
+        return ProjectResult();
+    }
+    std::vector<Rc<Ast>> commonModules;
+    for (const std::string& modName : commonModuleNames) {
+        bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName((modName));
+        commonModules.emplace_back(mod.unwrap());
+        if (mod.isNone()) {
+            BMCL_CRITICAL() << "common module " << modName << " does not exist";
+            return ProjectResult();
+        }
+    }
 
-ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const char* projectFilePath)
-{
-    Rc<Project> proj = new Project(cfg, diag, projectFilePath);
-    if (!proj->readProjectFile()) {
-        return ProjectResult();
+    for (auto& it : deviceDescMap) {
+        Rc<Device> dev = new Device;
+        dev->id = it.second.id;
+        dev->name = std::move(it.second.name);
+        dev->modules = commonModules;
+
+        for (const std::string& modName : it.second.modules) {
+            bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName((modName));
+            if (mod.isNone()) {
+                BMCL_CRITICAL() << "module " << modName << " does not exist";
+                return ProjectResult();
+            }
+            dev->modules.emplace_back(mod.unwrap());
+        }
+
+        it.second.device = dev;
+        proj->_devices.push_back(dev);
     }
-    std::vector<std::string> decodeFiles;
-    std::vector<SourcesToCopy> sources;
-    if (!proj->readModuleDescriptions(&decodeFiles, &sources)) {
-        return ProjectResult();
-    }
-    if (!proj->checkProject()) {
-        return ProjectResult();
-    }
-    if (!proj->parsePackage(decodeFiles)) {
-        return ProjectResult();
+
+    for (auto& it : deviceDescMap) {
+        Rc<Device> dev = it.second.device;
+
+        for (const std::string& deviceName : it.second.tmSources) {
+            if (deviceName == dev->name) {
+                //TODO: do not ignore
+                continue;
+            }
+            auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
+                return d->name == deviceName;
+            });
+            if (jt == proj->_devices.end()) {
+                BMCL_CRITICAL() << "unknown tm source: " << deviceName;
+                return ProjectResult();
+            }
+            dev->tmSources.push_back(*jt);
+        }
+
+        for (const std::string& deviceName : it.second.cmdTargets) {
+            if (deviceName == dev->name) {
+                //TODO: do not ignore
+                continue;
+            }
+            auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
+                return d->name == deviceName;
+            });
+            if (jt == proj->_devices.end()) {
+                BMCL_CRITICAL() << "unknown cmd target: " << deviceName;
+                return ProjectResult();
+            }
+            dev->cmdTargets.push_back(*jt);
+        }
     }
 
     return proj;
@@ -387,29 +424,9 @@ bool Project::generate(const char* destDir)
     return genOk;
 }
 
-const Project::ModuleDescMap& Project::modules() const
-{
-    return _modules;
-}
-
-const Project::DeviceDescMap& Project::devices() const
-{
-    return _devices;
-}
-
-const std::string& Project::masterDeviceName() const
-{
-    return _master;
-}
-
 const std::string& Project::name() const
 {
     return _name;
-}
-
-const std::vector<std::string>& Project::commonModuleNames() const
-{
-    return _commonModuleNames;
 }
 
 std::uint64_t Project::mccId() const

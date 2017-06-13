@@ -138,9 +138,7 @@ bool Generator::generateTmPrivate(const Package* package)
 {
     _output.clear();
 
-    _output.append("static PhotonTmMessageDesc _messageDesc[");
-    _output.appendNumericValue(package->statusMsgs().size());
-    _output.append("] = {\n");
+    _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendModIfdef(msg.component->moduleName());
@@ -245,7 +243,7 @@ bool Generator::generateSlices()
     TRY(makeDirectory(_photonPath.result().c_str()));
     _photonPath.append('/');
 
-    for (auto it : _slices) {
+    for (const auto& it : _slices) {
         _hgen->genSliceHeader(it.second.get());
         TRY(dump(it.first, ".h", &_photonPath));
         _output.clear();
