@@ -76,7 +76,7 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendEol();
     }
 
-    for (auto it : comps) {
+    for (const Component* it : comps) {
         if (!it->hasCmds()) {
             continue;
         }

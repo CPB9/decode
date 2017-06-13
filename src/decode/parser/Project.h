@@ -10,15 +10,13 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/parser/ModuleDesc.h"
-#include "decode/parser/DeviceDesc.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/StringView.h>
 
 #include <string>
 #include <vector>
-#include <unordered_map>
+#include <unordered_set>
 
 namespace decode {
 
@@ -26,17 +24,18 @@ class Diagnostics;
 class Configuration;
 class Project;
 class Package;
+class Ast;
 
 using ProjectResult = bmcl::Result<Rc<Project>, void>;
 
 class Project : public RefCountable {
 public:
-    using DeviceDescMap = std::unordered_map<std::string, DeviceDesc>;
-    using ModuleDescMap = std::unordered_map<std::string, ModuleDesc>;
-
-    struct SourcesToCopy {
-        std::vector<std::string> sources;
-        std::string relativeDest;
+    struct Device : public RefCountable {
+        std::vector<Rc<Ast>> modules;
+        std::vector<Rc<Device>> tmSources;
+        std::vector<Rc<Device>> cmdTargets;
+        std::string name;
+        uint64_t id;
     };
 
     static ProjectResult fromFile(Configuration* cfg, Diagnostics* diag, const char* projectFilePath);
@@ -44,35 +43,20 @@ public:
 
     bool generate(const char* destDir);
 
-    const ModuleDescMap& modules() const;
-    const DeviceDescMap& devices() const;
-    const std::string& masterDeviceName() const;
     const std::string& name() const;
-    const std::vector<std::string>& commonModuleNames() const;
     std::uint64_t mccId() const;
     const Package* package() const;
 
     bmcl::Buffer encode() const;
 
 private:
-    Project(Configuration* cfg, Diagnostics* diag, const char* projectFilePath);
-
-    bool readProjectFile();
-    bool readModuleDescriptions(std::vector<std::string>* decodeFiles, std::vector<SourcesToCopy>* sources);
-    bool checkProject();
-    bool parsePackage(const std::vector<std::string>& decodeFiles);
-    bool copySources(const std::vector<SourcesToCopy>& sources);
+    Project(Configuration* cfg, Diagnostics* diag);
 
     Rc<Configuration> _cfg;
     Rc<Diagnostics> _diag;
     Rc<Package> _package;
-    std::string _projectFilePath;
+    std::vector<Rc<Device>> _devices;
     std::string _name;
-    std::string _master;
-    std::vector<std::string> _commonModuleNames;
-    std::vector<std::string> _moduleDirs;
-    DeviceDescMap _devices;
-    ModuleDescMap _modules;
     std::uint64_t _mccId;
 };
 }

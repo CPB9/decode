@@ -58,31 +58,41 @@ void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
 {
     IncludeCollector coll;
     std::unordered_set<std::string> includes;
+    std::unordered_set<Rc<Component>> comps;
     includes.emplace("core/Writer");
     includes.emplace("core/Error");
     for (const ComponentAndMsg& msg : messages) {
         coll.collect(msg.msg.get(), &includes);
         //TODO: remove duplicates
-        _output->append("#include \"photon/");
-        _output->append(msg.component->moduleName());
-        _output->append('/');
-        _output->appendWithFirstUpper(msg.component->moduleName());
-        _output->append(".Component.h\"\n");
+        comps.insert(msg.component);
+
     }
     for (const std::string& inc : includes) {
         _output->appendLocalIncludePath(inc);
+    }
+    for (const Rc<Component>& comp : comps) {
+        _output->appendModIfdef(comp->moduleName());
+        _output->append("#include \"photon/");
+        _output->append(comp->moduleName());
+        _output->append('/');
+        _output->appendWithFirstUpper(comp->moduleName());
+        _output->append(".Component.h\"\n");
+        _output->appendEndif();
     }
     _output->appendEol();
 
     std::size_t n = 0;
     for (const ComponentAndMsg& msg : messages) {
+        _output->appendModIfdef(msg.component->moduleName());
         appendStatusMessageGenFuncDecl(msg.component.get(), n);
         _output->append("\n{\n");
 
         for (const StatusRegexp* part : msg.msg->partsRange()) {
             appendInlineSerializer(msg.component.get(), part);
         }
-        _output->append("    return PhotonError_Ok;\n}\n\n");
+        _output->append("    return PhotonError_Ok;\n}\n");
+        _output->appendEndif();
+        _output->appendEol();
         n++;
     }
 }
