@@ -84,6 +84,8 @@ add_library(decode
     src/decode/core/Hash.h
     src/decode/core/Location.h
     src/decode/core/Rc.h
+    src/decode/core/PathUtils.cpp
+    src/decode/core/PathUtils.h
     src/decode/core/Zpaq.cpp
     src/decode/core/Zpaq.h
     src/decode/generator/CmdDecoderGen.cpp

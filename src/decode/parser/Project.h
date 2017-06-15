@@ -10,13 +10,15 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/Hash.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/StringView.h>
 
 #include <string>
 #include <vector>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace decode {
 
@@ -38,6 +40,13 @@ public:
         uint64_t id;
     };
 
+    struct SourcesToCopy {
+        std::vector<std::string> sources;
+        std::string relativeDest;
+    };
+
+    using DeviceVec = RcVec<Device>;
+
     static ProjectResult fromFile(Configuration* cfg, Diagnostics* diag, const char* projectFilePath);
     ~Project();
 
@@ -46,8 +55,13 @@ public:
     const std::string& name() const;
     std::uint64_t mccId() const;
     const Package* package() const;
+    const Device* master() const;
+    DeviceVec::ConstIterator devicesBegin() const;
+    DeviceVec::ConstIterator devicesEnd() const;
+    DeviceVec::ConstRange devices() const;
 
     bmcl::Buffer encode() const;
+    bmcl::Option<const SourcesToCopy&> sourcesForModule(const Ast* module) const;
 
 private:
     Project(Configuration* cfg, Diagnostics* diag);
@@ -55,7 +69,9 @@ private:
     Rc<Configuration> _cfg;
     Rc<Diagnostics> _diag;
     Rc<Package> _package;
+    Rc<Device> _master;
     std::vector<Rc<Device>> _devices;
+    std::unordered_map<Rc<const Ast>, SourcesToCopy> _sourcesMap;
     std::string _name;
     std::uint64_t _mccId;
 };

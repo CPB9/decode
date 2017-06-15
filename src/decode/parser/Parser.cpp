@@ -785,7 +785,6 @@ Rc<Type> Parser::parseSliceType()
         return nullptr;
     }
 
-
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
 

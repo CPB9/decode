@@ -137,5 +137,14 @@ void IncludeCollector::collect(const Function* func, std::unordered_set<std::str
     _currentType = func->type();
     traverseType(func->type());
 }
+
+void IncludeCollector::collect(const Ast* ast, std::unordered_set<std::string>* dest)
+{
+    _dest = dest;
+    _currentType = nullptr;
+    for (const Type* t : ast->typesRange()) {
+        traverseType(t);
+    }
+}
 }
 

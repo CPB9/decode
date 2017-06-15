@@ -47,6 +47,8 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     includes.emplace("core/Error");
     includes.emplace("core/Reader");
     includes.emplace("core/Writer");
+    includes.emplace("core/Try");
+
     for (const Component* it : comps) {
         for (const Function* jt : it->cmdsRange()) {
             col.collect(jt, &includes);

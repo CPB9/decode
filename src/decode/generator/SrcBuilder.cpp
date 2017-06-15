@@ -166,4 +166,23 @@ void SrcBuilder::appendByteArrayDefinition(bmcl::StringView prefix, bmcl::String
     append("\n};\n");
 
 }
+
+void SrcBuilder::appendComponentInclude(bmcl::StringView name, bmcl::StringView ext)
+{
+    append("#include \"photon/");
+    append(name);
+    append("/");
+    appendWithFirstUpper(name);
+    append(".Component");
+    append(ext);
+    append("\"\n");
+}
+
+void SrcBuilder::appendTypeInclude(bmcl::StringView name, bmcl::StringView ext)
+{
+    append("#include \"photon/");
+    append(name);
+    append(ext);
+    append("\"\n");
+}
 }

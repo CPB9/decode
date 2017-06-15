@@ -45,6 +45,8 @@ private:
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
     bool generateSerializedPackage(const Project* project);
+    bool generateDeviceFiles(const Project* project);
+    bool generateConfig(const Project* project);
 
     bool makeDirectory(const char* path);
 
@@ -52,13 +54,15 @@ private:
     void appendEndif();
 
     bool saveOutput(const char* path, SrcBuilder* output);
+    bool dumpIfNotEmpty(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
     bool dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
+
+    void appendBuiltinSources(bmcl::StringView ext);
 
     SrcBuilder _photonPath;
     Rc<Diagnostics> _diag;
     std::string _savePath;
     SrcBuilder _output;
-    SrcBuilder _main;
     Rc<const Ast> _currentAst;
     std::unique_ptr<HeaderGen> _hgen;
     std::unique_ptr<SourceGen> _sgen;

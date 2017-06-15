@@ -21,6 +21,7 @@
 #include "decode/parser/Constant.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
+#include "decode/core/PathUtils.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
@@ -40,7 +41,7 @@
 # include <windows.h>
 #endif
 
-//TODO: refact
+//TODO: use joinPath
 
 namespace decode {
 
@@ -52,7 +53,6 @@ Generator::Generator(Diagnostics* diag)
 void Generator::setOutPath(bmcl::StringView path)
 {
     _savePath = path.toStdString();
-    _savePath.push_back('/');
 }
 
 bool Generator::makeDirectory(const char* path)
@@ -101,7 +101,7 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
     std::size_t size = output->result().size();
     std::size_t total = 0;
     while(total < size) {
-        ssize_t written = write(fd, output->result().c_str() + total, size);
+        ssize_t written = write(fd, output->result().c_str() + total, size - total);
         if (written == -1) {
             if (errno == EINTR) {
                 continue;
@@ -132,6 +132,89 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
     assert(output->result().size() == bytesWritten);
 #endif
     return true;
+}
+
+static bool copyFile(const char* from, const char* to)
+{
+#if defined(__linux__)
+    int fdFrom;
+    while (true) {
+        fdFrom = open(from, O_RDONLY);
+        if (fdFrom == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            //TODO: handle error
+            BMCL_CRITICAL() << "unable to open file for reading: " << from;
+            return false;
+        }
+        break;
+    }
+    int fdTo;
+    while (true) {
+        fdTo = open(to, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fdTo == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            //TODO: handle error
+            BMCL_CRITICAL() << "unable to open file for writing: " << to;
+            return false;
+        }
+        break;
+    }
+
+    bool isOk = true;
+    while (true) {
+        char temp[4096];
+
+        ssize_t size;
+        while(true) {
+            size = read(fdFrom, temp, sizeof(temp));
+            if (size == 0) {
+                goto end;
+            }
+            if (size == -1) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                BMCL_CRITICAL() << "unable to read file: " << to;
+                //TODO: handle error
+                isOk = false;
+                goto end;
+            }
+            break;
+        }
+
+        std::size_t total = 0;
+        while(total < size) {
+            ssize_t written = write(fdTo, &temp[total], size);
+            if (written == -1) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                BMCL_CRITICAL() << "unable to write file: " << to;
+                //TODO: handle error
+                isOk = false;
+                goto end;
+            }
+            total += written;
+        }
+    }
+
+end:
+    close(fdFrom);
+    close(fdTo);
+    return isOk;
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+    if (!CopyFile(from, to, false)) {
+        BMCL_CRITICAL() << "failed to copy file " << from << " to " << to;
+        return false;
+    }
+    return true;
+#endif
 }
 
 bool Generator::generateTmPrivate(const Package* package)
@@ -198,6 +281,145 @@ bool Generator::generateSerializedPackage(const Project* package)
     return true;
 }
 
+void Generator::appendBuiltinSources(bmcl::StringView ext)
+{
+    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private", "StatusEncoder.Private"};
+    for (bmcl::StringView str : builtin) {
+        _output.append("#include \"photon/");
+        _output.append(str);
+        _output.append(ext);
+        _output.append("\"\n");
+    }
+}
+
+bool Generator::generateDeviceFiles(const Project* project)
+{
+    std::unordered_map<Rc<const Ast>, std::vector<std::string>> srcsPaths;
+    for (const Ast* mod : project->package()->modules()) {
+        auto src = project->sourcesForModule(mod);
+        if (src.isNone()) {
+            continue;
+        }
+
+        std::string dest = _savePath;
+        joinPath(&dest, src->relativeDest);
+        std::size_t destSize = dest.size();
+
+        std::vector<std::string> paths;
+        for (const std::string& file : src->sources) {
+            bmcl::StringView fname = getFilePart(file);
+            joinPath(&dest, fname);
+            TRY(copyFile(file.c_str(), dest.c_str()));
+            dest.resize(destSize);
+            paths.push_back(joinPath(src->relativeDest, fname));
+        }
+        srcsPaths.emplace(mod, std::move(paths));
+    }
+
+    auto appendBundledSources = [this, &srcsPaths](const Project::Device* dev, bmcl::StringView ext) {
+        for (const Rc<Ast>& module : dev->modules) {
+            auto it = srcsPaths.find(module);
+            if (it == srcsPaths.end()) {
+                continue;
+            }
+            for (const std::string& path : it->second) {
+                if (!bmcl::StringView(path).endsWith(ext)) {
+                    continue;
+                }
+                _output.append("#include \"");
+                _output.append(path);
+                _output.append("\"\n");
+            }
+        }
+    };
+
+    IncludeCollector coll;
+    for (const Project::Device* dev : project->devices()) {
+        std::unordered_set<std::string> types;
+        for (const Rc<Ast>& module : dev->modules) {
+            coll.collect(module.get(), &types);
+        }
+
+        //header
+        if (dev == project->master()) {
+            _output.append("#define PHOTON_IS_MASTER\n\n");
+        }
+        for (const Rc<Ast>& module : dev->modules) {
+            _output.append("#define PHOTON_HAS_MODULE_");
+            _output.appendUpper(module->moduleInfo()->moduleName());
+            _output.appendEol();
+        }
+        _output.appendEol();
+
+        _output.append("#include \"photon/Config.h\"\n\n");
+
+        for (const std::string& inc : types) {
+            _output.appendTypeInclude(inc, ".h");
+        }
+        _output.appendEol();
+
+        for (const Rc<Ast>& module : dev->modules) {
+            if (module->component().isSome()) {
+                _output.appendComponentInclude(module->moduleInfo()->moduleName(), ".h");
+            }
+        }
+        _output.appendEol();
+
+        appendBuiltinSources(".h");
+        _output.appendEol();
+
+        appendBundledSources(dev, ".h");
+
+        SrcBuilder path;
+        path.append(_savePath);
+        path.append("/");
+        path.appendWithFirstUpper(dev->name);
+        path.appendWithFirstUpper(".h");
+        TRY(saveOutput(path.result().c_str(), &_output));
+        _output.clear();
+
+
+        //src
+        _output.append("#include \"");
+        _output.appendWithFirstUpper(dev->name);
+        _output.append(".h\"\n\n");
+        for (const std::string& inc : types) {
+            _output.appendTypeInclude(inc, ".gen.c");
+        }
+        _output.appendEol();
+
+        for (const Rc<Ast>& module : dev->modules) {
+            if (module->component().isSome()) {
+                _output.appendComponentInclude(module->moduleInfo()->moduleName(), ".c");
+            }
+        }
+        _output.appendEol();
+
+        appendBuiltinSources(".c");
+        _output.appendEol();
+
+        appendBundledSources(dev, ".c");
+
+        path.result().back() = 'c';
+        TRY(saveOutput(path.result().c_str(), &_output));
+        _output.clear();
+    }
+    return true;
+}
+
+bool Generator::generateConfig(const Project* project)
+{
+    _photonPath.append('/');
+
+    _output.append("#include \"photon/core/Config.h\"");
+
+    TRY(dump("Config", ".h", &_photonPath));
+    _output.clear();
+
+    _photonPath.removeFromBack(1);
+    return true;
+}
+
 bool Generator::generateProject(const Project* project)
 {
     _photonPath.append(_savePath);
@@ -215,17 +437,14 @@ bool Generator::generateProject(const Project* project)
         }
     }
 
+    TRY(generateConfig(project));
     TRY(generateSlices());
-
     TRY(generateTmPrivate(package));
     TRY(generateSerializedPackage(project));
     TRY(generateStatusMessages(package));
     TRY(generateCommands(package));
+    TRY(generateDeviceFiles(project));
 
-    std::string mainPath = _savePath + "Photon.c";
-    TRY(saveOutput(mainPath.c_str(), &_main));
-
-    _main.resize(0);
     _output.resize(0);
     _hgen.reset();
     _sgen.reset();
@@ -245,17 +464,11 @@ bool Generator::generateSlices()
 
     for (const auto& it : _slices) {
         _hgen->genSliceHeader(it.second.get());
-        TRY(dump(it.first, ".h", &_photonPath));
+        TRY(dumpIfNotEmpty(it.first, ".h", &_photonPath));
         _output.clear();
 
         _sgen->genTypeSource(it.second.get());
-        TRY(dump(it.first, GEN_PREFIX ".c", &_photonPath));
-
-        if (!_output.result().empty()) {
-            _main.append("#include \"photon/_slices_/");
-            _main.appendWithFirstUpper(it.first);
-            _main.append(GEN_PREFIX ".c\"\n");
-        }
+        TRY(dumpIfNotEmpty(it.first, GEN_PREFIX ".c", &_photonPath));
         _output.clear();
     }
 
@@ -267,14 +480,13 @@ bool Generator::generateStatusMessages(const Package* package)
 {
     StatusEncoderGen gen(_reprGen.get(), &_output);
     gen.generateHeader(package->statusMsgs());
-    TRY(dump("StatusEncoder.Private", ".h", &_photonPath));
+    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_photonPath));
     _output.clear();
 
     gen.generateSource(package->statusMsgs());
-    TRY(dump("StatusEncoder.Private", ".c", &_photonPath));
+    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".c", &_photonPath));
     _output.clear();
 
-    _main.append("#include \"photon/StatusEncoder.Private.c\"\n");
     return true;
 }
 
@@ -282,37 +494,39 @@ bool Generator::generateCommands(const Package* package)
 {
     CmdDecoderGen decGen(_reprGen.get(), &_output);
     decGen.generateHeader(package->components());
-    TRY(dump("CmdDecoder.Private", ".h", &_photonPath));
+    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".h", &_photonPath));
     _output.clear();
 
     decGen.generateSource(package->components());
-    TRY(dump("CmdDecoder.Private", ".c", &_photonPath));
+    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".c", &_photonPath));
     _output.clear();
-
-    _main.append("#include \"photon/CmdDecoder.Private.c\"\n");
 
     CmdEncoderGen encGen(_reprGen.get(), &_output);
     encGen.generateHeader(package->components());
-    TRY(dump("CmdEncoder.Private", ".h", &_photonPath));
+    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".h", &_photonPath));
     _output.clear();
 
     encGen.generateSource(package->components());
-    TRY(dump("CmdEncoder.Private", ".c", &_photonPath));
+    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".c", &_photonPath));
     _output.clear();
 
-    _main.append("#include \"photon/CmdEncoder.Private.c\"\n");
+    return true;
+}
 
+bool Generator::dumpIfNotEmpty(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath)
+{
+    if (!_output.result().empty()) {
+        TRY(dump(name, ext, currentPath));
+    }
     return true;
 }
 
 bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath)
 {
-    if (!_output.result().empty()) {
-        currentPath->appendWithFirstUpper(name);
-        currentPath->append(ext);
-        TRY(saveOutput(currentPath->result().c_str(), &_output));
-        currentPath->removeFromBack(name.size() + ext.size());
-    }
+    currentPath->appendWithFirstUpper(name);
+    currentPath->append(ext);
+    TRY(saveOutput(currentPath->result().c_str(), &_output));
+    currentPath->removeFromBack(name.size() + ext.size());
     return true;
 }
 
@@ -343,14 +557,6 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         _sgen->genTypeSource(type);
         TRY(dump(type->name(), GEN_PREFIX ".c", &_photonPath));
 
-        if (!_output.result().empty()) {
-            _main.append("#include \"photon/");
-            _main.append(type->moduleName());
-            _main.append("/");
-            _main.appendWithFirstUpper(type->name());
-            _main.append(GEN_PREFIX ".c\"\n");
-        }
-
         _output.clear();
     }
 
@@ -359,7 +565,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         coll.collectUniqueSlices(comp.unwrap(), &_slices);
 
         _hgen->genComponentHeader(_currentAst.get(), comp.unwrap());
-        TRY(dump(comp->moduleName(), ".Component.h", &_photonPath));
+        TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_photonPath));
         _output.clear();
 
         _output.append("#include \"photon/");
@@ -374,14 +580,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
             _output.appendWithFirstUpper(comp->moduleName());
             _output.append(';');
         }
-        TRY(dump(comp->moduleName(), ".Component.c", &_photonPath));
-        _main.appendModIfdef(ast->moduleInfo()->moduleName());
-        _main.append("#include \"photon/");
-        _main.append(comp->moduleName());
-        _main.append("/");
-        _main.appendWithFirstUpper(comp->moduleName());
-        _main.append(".Component.c\"\n");
-        _main.appendEndif();
+        TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.c", &_photonPath));
         _output.clear();
 
         //sgen->genTypeSource(type);
@@ -400,7 +599,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         }
         _output.appendEol();
         _hgen->endIncludeGuard();
-        TRY(dump(ast->moduleInfo()->moduleName(), ".Constants.h", &_photonPath));
+        TRY(dumpIfNotEmpty(ast->moduleInfo()->moduleName(), ".Constants.h", &_photonPath));
         _output.clear();
     }
 
