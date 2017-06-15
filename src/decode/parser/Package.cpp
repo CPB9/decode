@@ -11,6 +11,7 @@
 #include "decode/core/Configuration.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
+#include "decode/core/Utils.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Decl.h"
@@ -195,39 +196,19 @@ PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, c
     Parser p(diag);
 
     while (!reader.isEmpty()) {
-        if (reader.readableSize() < 1) {
+        auto fname = deserializeString(&reader);
+        if (fname.isErr()) {
             //TODO: report error
             return PackageResult();
         }
 
-        std::uint8_t fnameSize = reader.readUint8();
-        if (reader.readableSize() < fnameSize) {
+        auto contents = deserializeString(&reader);
+        if (contents.isErr()) {
             //TODO: report error
             return PackageResult();
         }
 
-        const char* begin = (const char*)reader.current();
-        const char* end = begin + fnameSize;
-        std::string fname(begin, end);
-        reader.skip(fnameSize);
-
-        uint64_t contentsSize;
-        if (!reader.readVarUint(&contentsSize)) {
-            //TODO: report error
-            return PackageResult();
-        }
-
-        if (reader.readableSize() < contentsSize) {
-            //TODO: report error
-            return PackageResult();
-        }
-
-        begin = (const char*)reader.current();
-        end = begin + contentsSize;
-        std::string contents(begin, end);
-        reader.skip(contentsSize);
-
-        Rc<FileInfo> finfo = new FileInfo(std::move(fname), std::move(contents));
+        Rc<FileInfo> finfo = new FileInfo(fname.unwrap().toStdString(), contents.unwrap().toStdString());
 
         ParseResult ast = p.parseFile(finfo.get());
         if (ast.isErr()) {
@@ -248,18 +229,9 @@ PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, c
 void Package::encode(bmcl::Buffer* dest) const
 {
     for (const Ast* it : modules()) {
-        Rc<const FileInfo> finfo = it->moduleInfo()->fileInfo();
-
-        const std::string& fname = finfo->fileName();
-        assert(fname.size() <= std::numeric_limits<std::uint8_t>::max());
-        dest->writeUint8(fname.size());
-        dest->write((const void*)fname.data(), fname.size());
-
-        const std::string& contents = finfo->contents();
-
-        assert(contents.size() <= std::numeric_limits<std::uint32_t>::max());
-        dest->writeVarUint(contents.size());
-        dest->write((const void*)contents.data(), contents.size());
+        const FileInfo* finfo = it->moduleInfo()->fileInfo();
+        serializeString(finfo->fileName(), dest);
+        serializeString(finfo->contents(), dest);
     }
 }
 

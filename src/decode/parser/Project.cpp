@@ -17,6 +17,7 @@
 #include "decode/parser/Component.h"
 #include "decode/generator/Generator.h"
 #include "decode/core/Zpaq.h"
+#include "decode/core/Utils.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/StringView.h>
@@ -394,19 +395,11 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
         return ProjectResult();
     }
     for (uint64_t i = 0; i < numOptions; i++) {
-        uint64_t keySize;
-        if (!reader.readVarUint(&keySize)) {
+        auto key = deserializeString(&reader);
+        if (key.isErr()) {
             //TODO: report error
             return ProjectResult();
         }
-
-        if (reader.readableSize() < keySize) {
-            //TODO: report error
-            return ProjectResult();
-        }
-
-        bmcl::StringView key((const char*)reader.current(), keySize);
-        reader.skip(keySize);
 
         if (reader.readableSize() < 1) {
             //TODO: report error
@@ -415,26 +408,31 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
 
         bool hasValue = reader.readUint8();
         if (hasValue) {
-            uint64_t valueSize;
-            if (!reader.readVarUint(&valueSize)) {
+            auto value = deserializeString(&reader);
+            if (value.isErr()) {
                 //TODO: report error
                 return ProjectResult();
             }
 
-            if (reader.readableSize() < valueSize) {
-                //TODO: report error
-                return ProjectResult();
-            }
-
-            bmcl::StringView value((const char*)reader.current(), keySize);
-            reader.skip(valueSize);
-            cfg->setCfgOption(key, value);
+            cfg->setCfgOption(key.unwrap(), value.unwrap());
         } else {
-            cfg->setCfgOption(key);
+            cfg->setCfgOption(key.unwrap());
         }
     }
 
     if (reader.readableSize() < 4) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    uint64_t mccId;
+    if (!reader.readVarUint(&mccId)) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    auto name = deserializeString(&reader);
+    if (name.isErr()) {
         //TODO: report error
         return ProjectResult();
     }
@@ -447,9 +445,102 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
         //TODO: report error
         return ProjectResult();
     }
+    reader.skip(packageSize);
+
+    uint64_t devNum;
+    if (!reader.readVarUint(&devNum)) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    std::vector<Rc<Device>> devices;
+    for (uint64_t i = 0; i < devNum; i++) {
+        Rc<Device> dev = new Device;
+        if (!reader.readVarUint(&dev->id)) {
+            //TODO: report error
+            return ProjectResult();
+        }
+
+        auto name = deserializeString(&reader);
+        if (name.isErr()) {
+            //TODO: report error
+            return ProjectResult();
+        }
+        dev->name = name.unwrap().toStdString();
+
+        uint64_t modNum;
+        if (!reader.readVarUint(&modNum)) {
+            //TODO: report error
+            return ProjectResult();
+        }
+
+        for (uint64_t j = 0; j < modNum; j++) {
+            auto modName = deserializeString(&reader);
+            if (name.isErr()) {
+                //TODO: report error
+                return ProjectResult();
+            }
+            auto mod = package.unwrap()->moduleWithName(modName.unwrap());
+            if (mod.isNone()) {
+                //TODO: report error
+                return ProjectResult();
+            }
+            dev->modules.emplace_back(mod.unwrap());
+        }
+        devices.push_back(std::move(dev));
+    }
+
+    for (uint64_t i = 0; i < devNum; i++) {
+        uint64_t deviceIndex;
+        if (!reader.readVarUint(&deviceIndex)) {
+            //TODO: report error
+            return ProjectResult();
+        }
+        if (deviceIndex >= devices.size()) {
+            //TODO: report error
+            return ProjectResult();
+        }
+        Rc<Device> current = devices[deviceIndex];
+
+        auto updateRefs = [&reader, &devices](std::vector<Rc<Device>>* target) -> bool {
+            uint64_t num;
+            if (!reader.readVarUint(&num)) {
+                //TODO: report error
+                return false;
+            }
+
+            for (uint64_t j = 0; j < num; j++) {
+                uint64_t index;
+                if (!reader.readVarUint(&index)) {
+                    //TODO: report error
+                    return false;
+                }
+                if (index >= devices.size()) {
+                    //TODO: report error
+                    return false;
+                }
+                target->push_back(devices[index]);
+            }
+            return true;
+        };
+        if (!updateRefs(&current->tmSources)) {
+            return ProjectResult();
+        }
+
+        if (!updateRefs(&current->cmdTargets)) {
+            return ProjectResult();
+        }
+    }
+
+    if (reader.current() != reader.end()) {
+        //TODO: report error
+        return ProjectResult();
+    }
 
     Rc<Project> proj = new Project(cfg.get(), diag);
     proj->_package = package.take();
+    proj->_mccId = mccId;
+    proj->_name = name.unwrap().toStdString();
     return proj;
 }
 
@@ -474,6 +565,9 @@ bmcl::Buffer Project::encode() const
         }
     }
 
+    dest.writeVarUint(_mccId);
+    serializeString(_name, &dest);
+
     std::size_t sizeOffset = dest.size();
     dest.writeUint32(0);
     _package->encode(&dest);
@@ -481,7 +575,34 @@ bmcl::Buffer Project::encode() const
     std::size_t packageSize = dest.size() - sizeOffset - 4;
     le32enc(dest.data() + sizeOffset, packageSize);
 
-    //TODO: encode devices
+    dest.writeVarUint(_devices.size());
+    for (const Rc<Device>& dev : _devices) {
+        dest.writeVarUint(dev->id);
+        serializeString(dev->name, &dest);
+        dest.writeVarUint(dev->modules.size());
+        for (const Rc<Ast>& module : dev->modules) {
+            serializeString(module->moduleInfo()->moduleName(), &dest);
+        }
+    }
+
+    for (std::size_t i = 0; i < _devices.size(); i++) {
+        const Rc<Device>& dev = _devices[i];
+        dest.writeVarUint(i);
+        dest.writeVarUint(dev->tmSources.size());
+        //TODO: refact
+        for (const Rc<Device>& tmSrc : dev->tmSources) {
+            auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
+            assert(it != _devices.end());
+            dest.writeVarUint(_devices.end() - it - 1);
+        }
+
+        dest.writeVarUint(dev->cmdTargets.size());
+        for (const Rc<Device>& tmSrc : dev->cmdTargets) {
+            auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
+            assert(it != _devices.end());
+            dest.writeVarUint(_devices.end() - it - 1);
+        }
+    }
 
     ZpaqResult compressed = zpaqCompress(dest.data(), dest.size(), _cfg->compressionLevel());
     assert(compressed.isOk());
