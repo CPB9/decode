@@ -20,7 +20,7 @@ class Scheduler;
 class Exchange;
 class GcFwtState;
 class GcTmState;
-class Package;
+class Project;
 class Model;
 class ModelEventHandler;
 
@@ -40,13 +40,13 @@ private:
     friend class GcFwtState;
     friend class GcTmState;
 
-    void updatePackage(const Package* package);
+    void updateProject(const Project* project);
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
     Rc<Exchange> _exc;
     Rc<GcFwtState> _fwt;
     Rc<GcTmState> _tm;
-    Rc<const Package> _package;
+    Rc<const Project> _project;
     Rc<ModelEventHandler> _handler;
     Rc<Model> _model;
 };

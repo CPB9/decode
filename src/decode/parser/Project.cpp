@@ -21,6 +21,7 @@
 #include <bmcl/Result.h>
 #include <bmcl/StringView.h>
 #include <bmcl/Logging.h>
+#include <bmcl/MemReader.h>
 #include <bmcl/FileUtils.h>
 
 #include <toml11/toml.hpp>
@@ -357,12 +358,132 @@ const Package* Project::package() const
     return _package.get();
 }
 
+typedef std::array<std::uint8_t, 4> MagicType;
+const MagicType magic = {{0x7a, 0x70, 0x61, 0x71}};
+
+ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size)
+{
+    ZpaqResult rv = zpaqDecompress(src, size);
+    if (rv.isErr()) {
+        BMCL_CRITICAL() << "error decompressing project from memory";
+        return ProjectResult();
+    }
+
+    bmcl::MemReader reader(rv.unwrap().data(), rv.unwrap().size());
+    if (reader.readableSize() < (magic.size() + 2)) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    MagicType m;
+    reader.read(m.data(), m.size());
+
+    if (m != magic) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    Rc<Configuration> cfg = new Configuration;
+
+    cfg->setDebugLevel(reader.readUint8());
+    cfg->setCompressionLevel(reader.readUint8());
+
+    uint64_t numOptions;
+    if (!reader.readVarUint(&numOptions)) {
+        //TODO: report error
+        return ProjectResult();
+    }
+    for (uint64_t i = 0; i < numOptions; i++) {
+        uint64_t keySize;
+        if (!reader.readVarUint(&keySize)) {
+            //TODO: report error
+            return ProjectResult();
+        }
+
+        if (reader.readableSize() < keySize) {
+            //TODO: report error
+            return ProjectResult();
+        }
+
+        bmcl::StringView key((const char*)reader.current(), keySize);
+        reader.skip(keySize);
+
+        if (reader.readableSize() < 1) {
+            //TODO: report error
+            return ProjectResult();
+        }
+
+        bool hasValue = reader.readUint8();
+        if (hasValue) {
+            uint64_t valueSize;
+            if (!reader.readVarUint(&valueSize)) {
+                //TODO: report error
+                return ProjectResult();
+            }
+
+            if (reader.readableSize() < valueSize) {
+                //TODO: report error
+                return ProjectResult();
+            }
+
+            bmcl::StringView value((const char*)reader.current(), keySize);
+            reader.skip(valueSize);
+            cfg->setCfgOption(key, value);
+        } else {
+            cfg->setCfgOption(key);
+        }
+    }
+
+    if (reader.readableSize() < 4) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    uint32_t packageSize = reader.readUint32Le();
+
+    PackageResult package = Package::decodeFromMemory(cfg.get(), diag, reader.current(), packageSize);
+
+    if (package.isErr()) {
+        //TODO: report error
+        return ProjectResult();
+    }
+
+    Rc<Project> proj = new Project(cfg.get(), diag);
+    proj->_package = package.take();
+    return proj;
+}
+
 bmcl::Buffer Project::encode() const
 {
-    bmcl::Buffer buf;
-    _package->encode(&buf);
+    bmcl::Buffer dest;
+    dest.write(magic.data(), magic.size());
 
-    ZpaqResult compressed = zpaqCompress(buf.data(), buf.size(), _cfg->compressionLevel());
+    dest.writeUint8(_cfg->debugLevel());
+    dest.writeUint8(_cfg->compressionLevel());
+
+    dest.writeVarUint(_cfg->numOptions());
+    for (const auto& it : _cfg->optionsRange()) {
+        dest.writeVarUint(it.first.size());
+        dest.write(it.first.data(), it.first.size());
+        if (it.second.isSome()) {
+            dest.writeUint8(1);
+            dest.writeVarUint(it.second->size());
+            dest.write(it.second->data(), it.second->size());
+        } else {
+            dest.writeUint8(0);
+        }
+    }
+
+    std::size_t sizeOffset = dest.size();
+    dest.writeUint32(0);
+    _package->encode(&dest);
+
+    std::size_t packageSize = dest.size() - sizeOffset - 4;
+    le32enc(dest.data() + sizeOffset, packageSize);
+
+    //TODO: encode devices
+
+    ZpaqResult compressed = zpaqCompress(dest.data(), dest.size(), _cfg->compressionLevel());
     assert(compressed.isOk());
 
     return compressed.take();

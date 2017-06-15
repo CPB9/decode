@@ -220,7 +220,7 @@ void FwtState::checkIntervals(Sender* parent)
 
 void FwtState::readFirmware()
 {
-    updatePackage(_desc);
+    updateProject(_desc);
 }
 
 void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)

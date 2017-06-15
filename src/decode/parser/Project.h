@@ -48,6 +48,7 @@ public:
     using DeviceVec = RcVec<Device>;
 
     static ProjectResult fromFile(Configuration* cfg, Diagnostics* diag, const char* projectFilePath);
+    static ProjectResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
     ~Project();
 
     bool generate(const char* destDir);

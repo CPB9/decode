@@ -45,7 +45,7 @@ public:
     using AstMap = RcSecondMap<bmcl::StringView, Ast, StringViewComparator>;
 
     static PackageResult readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> files);
-    static PackageResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
+    static PackageResult decodeFromMemory(Configuration* cfg, Diagnostics* diag, const void* src, std::size_t size);
 
     ~Package();
 
