@@ -11,10 +11,12 @@
 #include "decode/core/Configuration.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
+#include "decode/core/PathUtils.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Component.h"
 #include "decode/generator/Generator.h"
+#include "decode/core/Zpaq.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/StringView.h>
@@ -48,95 +50,11 @@ struct DeviceDesc {
 struct ModuleDesc {
     std::string name;
     std::uint64_t id;
-    std::vector<std::string> sources;
-    std::string relativeDest;
+    Project::SourcesToCopy sources;
 };
 
 using DeviceDescMap = std::unordered_map<std::string, DeviceDesc>;
 using ModuleDescMap = std::unordered_map<std::string, ModuleDesc>;
-
-#if defined(__linux__)
-static constexpr char sep = '/';
-#elif defined(_MSC_VER) || defined(__MINGW32__)
-static constexpr char sep = '\\';
-static constexpr char altsep = '/';
-#endif
-
-static void normalizePath(std::string* dest)
-{
-#if defined(__linux__)
-    (void)dest;
-#elif defined(_MSC_VER) || defined(__MINGW32__)
-    for (char& c : *dest) {
-        if (c == altsep) {
-            c = sep;
-        }
-    }
-#endif
-}
-
-static void joinPath(std::string* left, const std::string& right)
-{
-    if (left->empty()) {
-        *left = right;
-        return;
-    }
-    if (left->back() == sep) {
-        *left += right;
-        return;
-    }
-    left->push_back(sep);
-    left->append(right);
-}
-
-static std::string joinPath(const std::string& left, const std::string& right)
-{
-    if (left.empty()) {
-        return right;
-    }
-    if (left.back() == sep) {
-        return left + right;
-    }
-    return left + sep + right;
-}
-
-static void removeFilePart(std::string* dest)
-{
-    if (dest->empty()) {
-        return;
-    }
-    if (dest->back() == sep) {
-        return;
-    }
-
-    std::size_t n = dest->rfind(sep);
-    if (n == std::string::npos) {
-        dest->resize(0);
-    } else {
-        dest->resize(n + 1);
-    }
-}
-
-static bool isAbsPath(const std::string& path)
-{
-#if defined(__linux__)
-    if (!path.empty() && path.front() == sep) {
-        return true;
-    }
-#elif defined(_MSC_VER) || defined(__MINGW32__)
-    if (path.size() < 2) {
-        return false;
-    }
-    if (path[1] == ':') {
-        return true;
-    }
-    if (path[0] == sep && path[1] == sep) {
-        return true;
-    }
-#endif
-    return false;
-}
-
 
 Project::Project(Configuration* cfg, Diagnostics* diag)
     : _cfg(cfg)
@@ -277,57 +195,46 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
     std::string projectDir = projectFilePath;
     removeFilePart(&projectDir);
-    for (const std::string& modDir : moduleDirs) {
+    for (const std::string& relativeModDir : moduleDirs) {
         std::string dirPath;
-        if (!isAbsPath(modDir)) {
+        if (!isAbsPath(relativeModDir)) {
             dirPath = projectDir;
-            joinPath(&dirPath, modDir);
+            joinPath(&dirPath, relativeModDir);
         } else {
-            dirPath = modDir;
+            dirPath = relativeModDir;
         }
-        std::string dirTomlPath = dirPath;
-        joinPath(&dirTomlPath, "dir.toml");
-        BMCL_DEBUG() << "reading mod dir: " << dirTomlPath;
-        TableResult dirToml = readToml(dirTomlPath);
-        if (dirToml.isErr()) {
+        std::set<uint64_t> moduleIds;
+        ModuleDesc mod;
+        std::string modTomlPath = dirPath;
+        joinPath(&modTomlPath, "mod.toml");
+        BMCL_DEBUG() << "reading module root: " << modTomlPath;
+        TableResult modToml = readToml(modTomlPath);
+        if (modToml.isErr()) {
             return ProjectResult();
         }
-        std::vector<std::string> modules = maybeGetArrayFromTable<std::string>(dirToml.unwrap(), "modules");
-        std::set<uint64_t> moduleIds;
-        for (const std::string& moduleName : modules) {
-            ModuleDesc mod;
-            mod.name = moduleName;
-            std::string modTomlPath = dirPath;
-            joinPath(&modTomlPath, moduleName);
-            std::string moduleDir = modTomlPath;
-            joinPath(&modTomlPath, "mod.toml");
-            BMCL_DEBUG() << "reading module root: " << modTomlPath;
-            TableResult modToml = readToml(modTomlPath);
-            if (modToml.isErr()) {
-                return ProjectResult();
-            }
-            int64_t id = getValueFromTable<int64_t>(modToml.unwrap(), "id");
-            if (id < 0) {
-                BMCL_CRITICAL() << "module id cannot be negative: " << id;
-                return ProjectResult();
-            }
-            auto idsPair = moduleIds.insert(id);
-            if (!idsPair.second) {
-                BMCL_CRITICAL() << "found modules with conflicting ids";
-                return ProjectResult();
-            }
-            mod.id = id;
-            mod.relativeDest = getValueFromTable<std::string>(modToml.unwrap(), "dest");
-            decodeFiles.push_back(joinPath(moduleDir, getValueFromTable<std::string>(modToml.unwrap(), "decode")));
-            mod.sources = maybeGetArrayFromTable<std::string>(modToml.unwrap(), "sources");
-            for (std::string& src : mod.sources) {
-                src = joinPath(moduleDir, src);
-            }
-            auto modPair = moduleDescMap.emplace(moduleName, std::move(mod));
-            if (!modPair.second) {
-                BMCL_CRITICAL() << "module with name " << mod.name << " already exists";
-                return ProjectResult();
-            }
+        int64_t id = getValueFromTable<int64_t>(modToml.unwrap(), "id");
+        if (id < 0) {
+            BMCL_CRITICAL() << "module id cannot be negative: " << id;
+            return ProjectResult();
+        }
+        auto idsPair = moduleIds.insert(id);
+        if (!idsPair.second) {
+            BMCL_CRITICAL() << "found modules with conflicting ids";
+            return ProjectResult();
+        }
+        mod.name = getValueFromTable<std::string>(modToml.unwrap(), "name");
+        mod.id = id;
+        mod.sources.relativeDest = getValueFromTable<std::string>(modToml.unwrap(), "dest");
+        std::string decodePath = getValueFromTable<std::string>(modToml.unwrap(), "decode");
+        decodeFiles.push_back(joinPath(dirPath, decodePath));
+        mod.sources.sources = maybeGetArrayFromTable<std::string>(modToml.unwrap(), "sources");
+        for (std::string& src : mod.sources.sources) {
+            src = joinPath(dirPath, src);
+        }
+        auto modPair = moduleDescMap.emplace(mod.name, std::move(mod));
+        if (!modPair.second) {
+            BMCL_CRITICAL() << "module with name " << mod.name << " already exists";
+            return ProjectResult();
         }
     }
 
@@ -353,6 +260,15 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         }
     }
 
+    for (auto& it : moduleDescMap) {
+        bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName(it.second.name);
+        if (mod.isNone()) {
+            BMCL_CRITICAL() << "module " << it.second.name << " does not exist";
+            return ProjectResult();
+        }
+        proj->_sourcesMap.emplace(mod.unwrap(), std::move(it.second.sources));
+    }
+
     for (auto& it : deviceDescMap) {
         Rc<Device> dev = new Device;
         dev->id = it.second.id;
@@ -360,7 +276,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         dev->modules = commonModules;
 
         for (const std::string& modName : it.second.modules) {
-            bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName((modName));
+            bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName(modName);
             if (mod.isNone()) {
                 BMCL_CRITICAL() << "module " << modName << " does not exist";
                 return ProjectResult();
@@ -370,6 +286,9 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
         it.second.device = dev;
         proj->_devices.push_back(dev);
+        if (it.first == master) {
+            proj->_master = dev;
+        }
     }
 
     for (auto& it : deviceDescMap) {
@@ -405,7 +324,6 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
             dev->cmdTargets.push_back(*jt);
         }
     }
-
     return proj;
 }
 
@@ -441,6 +359,41 @@ const Package* Project::package() const
 
 bmcl::Buffer Project::encode() const
 {
-    return bmcl::Buffer();
+    bmcl::Buffer buf;
+    _package->encode(&buf);
+
+    ZpaqResult compressed = zpaqCompress(buf.data(), buf.size(), _cfg->compressionLevel());
+    assert(compressed.isOk());
+
+    return compressed.take();
+}
+
+Project::DeviceVec::ConstIterator Project::devicesBegin() const
+{
+    return _devices.begin();
+}
+
+Project::DeviceVec::ConstIterator Project::devicesEnd() const
+{
+    return _devices.end();
+}
+
+Project::DeviceVec::ConstRange Project::devices() const
+{
+    return _devices;
+}
+
+const Project::Device* Project::master() const
+{
+    return _master.get();
+}
+
+bmcl::Option<const Project::SourcesToCopy&> Project::sourcesForModule(const Ast* module) const
+{
+    auto it = _sourcesMap.find(module);
+    if (it == _sourcesMap.end()) {
+        return bmcl::None;
+    }
+    return it->second;
 }
 }

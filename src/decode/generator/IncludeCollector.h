@@ -27,6 +27,7 @@ public:
     void collect(const StatusMsg* msg, std::unordered_set<std::string>* dest);
     void collect(const Component* comp, std::unordered_set<std::string>* dest);
     void collect(const Function* func, std::unordered_set<std::string>* dest);
+    void collect(const Ast* ast, std::unordered_set<std::string>* dest);
 
     bool visitEnumType(const EnumType* enumeration);
     bool visitStructType(const StructType* str);

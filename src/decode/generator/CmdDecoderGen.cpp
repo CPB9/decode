@@ -32,6 +32,7 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->appendLocalIncludePath("core/Error");
     _output->appendLocalIncludePath("core/Reader");
     _output->appendLocalIncludePath("core/Writer");
+    _output->appendLocalIncludePath("core/Try");
     _output->appendEol();
 
     _output->startCppGuard();

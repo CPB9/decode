@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
     TCLAP::ValueArg<std::string> inPathArg("i", "in", "Input directory", true, "./project.toml", "path");
     TCLAP::ValueArg<std::string> outPathArg("o", "out", "Output directory", true, "./", "path");
     TCLAP::ValueArg<unsigned> debugLevelArg("d", "debug-level", "Generated code debug level", false, 0, "0-5");
-    TCLAP::ValueArg<unsigned> compLevelArg("C", "compression-level", "Package compression level", false, 5, "0-5");
+    TCLAP::ValueArg<unsigned> compLevelArg("C", "compression-level", "Package compression level", false, 4, "0-5");
 
     cmdLine.add(&inPathArg);
     cmdLine.add(&outPathArg);
