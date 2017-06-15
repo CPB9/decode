@@ -14,6 +14,7 @@
 #include "decode/model/ModelEventHandler.h"
 #include "decode/model/Model.h"
 #include "decode/parser/Package.h"
+#include "decode/parser/Project.h"
 #include "decode/core/Diagnostics.h"
 
 #include <bmcl/Logging.h>
@@ -29,17 +30,17 @@ public:
     {
     }
 
-    void updatePackage(bmcl::Bytes data) override
+    void updateProject(bmcl::Bytes data) override
     {
         auto diag = new Diagnostics();
-        auto package = Package::decodeFromMemory(diag, data.data(), data.size());
-        if (package.isErr()) {
+        auto project = Project::decodeFromMemory(diag, data.data(), data.size());
+        if (project.isErr()) {
             //TODO: restart download
             //TODO: print errors
             return;
         }
         BMCL_DEBUG() << "fwt firmware loaded";
-        _parent->updatePackage(package.unwrap().get());
+        _parent->updateProject(project.unwrap().get());
     }
 
 private:
@@ -77,10 +78,10 @@ GroundControl::~GroundControl()
 {
 }
 
-void GroundControl::updatePackage(const Package* package)
+void GroundControl::updateProject(const Project* project)
 {
-    _package.reset(package);
-    Rc<Model> m = new Model(package, _handler.get());
+    _project.reset(project);
+    Rc<Model> m = new Model(project, _handler.get());
     _model = m;
     updateModel(m.get());
 }

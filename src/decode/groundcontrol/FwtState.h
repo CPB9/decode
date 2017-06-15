@@ -25,7 +25,7 @@ namespace decode {
 
 class Sender;
 class Scheduler;
-class Package;
+class Project;
 struct StartCmdRndGen;
 
 class FwtState : public Client {
@@ -36,7 +36,7 @@ public:
     void acceptData(Sender* parent, bmcl::Bytes packet) override;
     void start(Sender* parent) override;
 
-    virtual void updatePackage(bmcl::Bytes package) = 0;
+    virtual void updateProject(bmcl::Bytes project) = 0;
 
 private:
     void handleHashAction(const Rc<Sender>& parent);

@@ -21,6 +21,7 @@
 namespace decode {
 
 class Package;
+class Project;
 class StatusDecoder;
 class Component;
 class FieldsNode;
@@ -64,7 +65,7 @@ private:
 
 class Model : public Node {
 public:
-    Model(const Package* package, ModelEventHandler* handler);
+    Model(const Project* project, ModelEventHandler* handler);
     ~Model();
 
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
@@ -77,7 +78,7 @@ public:
     bmcl::StringView fieldName() const override;
 
 public:
-    Rc<const Package> _package;
+    Rc<const Project> _project;
     Rc<ValueInfoCache> _cache;
     Rc<ModelEventHandler> _handler;
     Rc<PackageTmNode> _tmNode;

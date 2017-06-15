@@ -9,6 +9,7 @@
 #include "decode/model/Model.h"
 #include "decode/core/Try.h"
 #include "decode/parser/Package.h"
+#include "decode/parser/Project.h"
 #include "decode/model/Decoder.h"
 #include "decode/model/FieldsNode.h"
 #include "decode/model/ValueInfoCache.h"
@@ -123,13 +124,13 @@ bmcl::StringView PackageCmdsNode::fieldName() const
     return "cmds";
 }
 
-Model::Model(const Package* package, ModelEventHandler* handler)
+Model::Model(const Project* project, ModelEventHandler* handler)
     : Node(bmcl::None)
-    , _package(package)
+    , _project(project)
     , _cache(new ValueInfoCache)
     , _handler(handler)
-    , _tmNode(new PackageTmNode(package, _cache.get(), handler, this))
-    , _cmdsNode(new PackageCmdsNode(package, _cache.get(), handler, this))
+    , _tmNode(new PackageTmNode(project->package(), _cache.get(), handler, this))
+    , _cmdsNode(new PackageCmdsNode(project->package(), _cache.get(), handler, this))
 {
     _nodes.emplace_back(_tmNode.get());
     _nodes.emplace_back(_cmdsNode.get());

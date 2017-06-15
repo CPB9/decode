@@ -187,78 +187,11 @@ PackageResult Package::readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl
     return std::move(package);
 }
 
-typedef std::array<std::uint8_t, 4> MagicType;
-const MagicType magic = {{0x7a, 0x70, 0x61, 0x71}};
-
-PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size)
+PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, const void* src, std::size_t size)
 {
     bmcl::MemReader reader(src, size);
 
-    if (reader.readableSize() < (magic.size() + 2)) {
-        //TODO: report error
-        return PackageResult();
-    }
-
-    MagicType m;
-    reader.read(m.data(), m.size());
-
-    if (m != magic) {
-        //TODO: report error
-        return PackageResult();
-    }
-
-    Rc<Configuration> cfg = new Configuration;
-
-    cfg->setDebugLevel(reader.readUint8());
-    cfg->setCompressionLevel(reader.readUint8());
-
-    uint64_t numOptions;
-    if (!reader.readVarUint(&numOptions)) {
-        //TODO: report error
-        return PackageResult();
-    }
-    for (uint64_t i = 0; i < numOptions; i++) {
-        uint64_t keySize;
-        if (!reader.readVarUint(&keySize)) {
-            //TODO: report error
-            return PackageResult();
-        }
-
-        if (reader.readableSize() < keySize) {
-            //TODO: report error
-            return PackageResult();
-        }
-
-        bmcl::StringView key((const char*)reader.current(), keySize);
-        reader.skip(keySize);
-
-        if (reader.readableSize() < 1) {
-            //TODO: report error
-            return PackageResult();
-        }
-
-        bool hasValue = reader.readUint8();
-        if (hasValue) {
-            uint64_t valueSize;
-            if (!reader.readVarUint(&valueSize)) {
-                //TODO: report error
-                return PackageResult();
-            }
-
-            if (reader.readableSize() < valueSize) {
-                //TODO: report error
-                return PackageResult();
-            }
-
-            bmcl::StringView value((const char*)reader.current(), keySize);
-            reader.skip(valueSize);
-            cfg->setCfgOption(key, value);
-        } else {
-            cfg->setCfgOption(key);
-        }
-    }
-
-    Rc<Package> package = new Package(cfg.get(), diag);
+    Rc<Package> package = new Package(cfg, diag);
     Parser p(diag);
 
     while (!reader.isEmpty()) {
@@ -314,24 +247,6 @@ PackageResult Package::decodeFromMemory(Diagnostics* diag, const void* src, std:
 
 void Package::encode(bmcl::Buffer* dest) const
 {
-    dest->write(magic.data(), magic.size());
-
-    dest->writeUint8(_cfg->debugLevel());
-    dest->writeUint8(_cfg->compressionLevel());
-
-    dest->writeVarUint(_cfg->numOptions());
-    for (const auto& it : _cfg->optionsRange()) {
-        dest->writeVarUint(it.first.size());
-        dest->write(it.first.data(), it.first.size());
-        if (it.second.isSome()) {
-            dest->writeUint8(1);
-            dest->writeVarUint(it.second->size());
-            dest->write(it.second->data(), it.second->size());
-        } else {
-            dest->writeUint8(0);
-        }
-    }
-
     for (const Ast* it : modules()) {
         Rc<const FileInfo> finfo = it->moduleInfo()->fileInfo();
 
