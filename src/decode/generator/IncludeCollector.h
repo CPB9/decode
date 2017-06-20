@@ -10,6 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/parser/AstVisitor.h"
+#include "decode/parser/Component.h"
 
 #include <string>
 #include <unordered_set>
@@ -25,6 +26,8 @@ class IncludeCollector : public ConstAstVisitor<IncludeCollector> {
 public:
     void collect(const Type* type, std::unordered_set<std::string>* dest);
     void collect(const StatusMsg* msg, std::unordered_set<std::string>* dest);
+    void collect(Component::Cmds::Range cmds, std::unordered_set<std::string>* dest);
+    void collect(Component::Params::Range cmds, std::unordered_set<std::string>* dest);
     void collect(const Component* comp, std::unordered_set<std::string>* dest);
     void collect(const Function* func, std::unordered_set<std::string>* dest);
     void collect(const Ast* ast, std::unordered_set<std::string>* dest);

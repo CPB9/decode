@@ -339,6 +339,26 @@ bool Generator::generateDeviceFiles(const Project* project)
         for (const Rc<Ast>& module : dev->modules) {
             coll.collect(module.get(), &types);
         }
+        std::unordered_set<Rc<Ast>> targetMods;
+
+        for (const Rc<Project::Device>& dep : dev->cmdTargets) {
+            for (const Rc<Ast>& module : dep->modules) {
+                targetMods.emplace(module);
+                if (module->component().isNone()) {
+                    continue;
+                }
+                coll.collect(module->component()->cmdsRange(), &types);
+            }
+        }
+
+        for (const Rc<Project::Device>& dep : dev->tmSources) {
+            for (const Rc<Ast>& module : dep->modules) {
+                if (module->component().isNone()) {
+                    continue;
+                }
+                coll.collect(module->component()->paramsRange(), &types);
+            }
+        }
 
         //header
         if (dev == project->master()) {
@@ -346,6 +366,11 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
         for (const Rc<Ast>& module : dev->modules) {
             _output.append("#define PHOTON_HAS_MODULE_");
+            _output.appendUpper(module->moduleInfo()->moduleName());
+            _output.appendEol();
+        }
+        for (const Rc<Ast>& module : targetMods) {
+            _output.append("#define PHOTON_HAS_CMD_TARGET_");
             _output.appendUpper(module->moduleInfo()->moduleName());
             _output.appendEol();
         }

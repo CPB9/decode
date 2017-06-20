@@ -12,8 +12,6 @@
 #include "decode/parser/Type.h"
 #include "decode/parser/Component.h"
 
-#include <bmcl/Logging.h>
-
 namespace decode {
 
 inline bool IncludeCollector::visitEnumType(const EnumType* enumeration)
@@ -144,6 +142,24 @@ void IncludeCollector::collect(const Ast* ast, std::unordered_set<std::string>* 
     _currentType = nullptr;
     for (const Type* t : ast->typesRange()) {
         traverseType(t);
+    }
+}
+
+void IncludeCollector::collect(Component::Cmds::Range cmds, std::unordered_set<std::string>* dest)
+{
+    _dest = dest;
+    for (const Function* func : cmds) {
+        _currentType = func->type();
+        traverseType(_currentType);
+    }
+}
+
+void IncludeCollector::collect(Component::Params::Range params, std::unordered_set<std::string>* dest)
+{
+    _dest = dest;
+    _currentType = nullptr;
+    for (const Field* param : params) {
+        traverseType(param->type());
     }
 }
 }

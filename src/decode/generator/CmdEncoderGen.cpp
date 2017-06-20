@@ -44,30 +44,43 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     std::unordered_set<std::string> includes;
     IncludeCollector col;
 
-    includes.emplace("core/Error");
-    includes.emplace("core/Reader");
-    includes.emplace("core/Writer");
-    includes.emplace("core/Try");
+    for (const char* path : {"core/Error", "core/Reader", "core/Writer", "core/Try"}) {
+        _output->appendLocalIncludePath(path);
+    }
+    _output->appendEol();
 
     for (const Component* it : comps) {
         for (const Function* jt : it->cmdsRange()) {
             col.collect(jt, &includes);
         }
+        if (includes.empty()) {
+            continue;
+        }
+        _output->appendCmdTargetIfdef(it->moduleName());
+        for (const std::string& path : includes) {
+            _output->appendLocalIncludePath(path);
+        }
+        _output->appendEndif();
+
+        includes.clear();
     }
 
-    for (const std::string& path : includes) {
-        _output->appendLocalIncludePath(path);
-    }
+
 
     _output->appendEol();
 
     _output->startCppGuard();
 
     for (const Component* it : comps) {
+        if (!it->hasCmds()) {
+            continue;
+        }
+        _output->appendCmdTargetIfdef(it->moduleName());
         for (const Function* jt : it->cmdsRange()) {
             appendEncoderPrototype(it, jt);
             _output->append(";\n");
         }
+        _output->appendEndif();
     }
 
     _output->appendEol();
@@ -82,7 +95,13 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
     _output->append("\n");
 
     for (const Component* it : comps) {
+        if (!it->hasCmds()) {
+            continue;
+        }
+
         std::size_t funcNum = 0;
+        _output->appendCmdTargetIfdef(it->moduleName());
+        _output->appendEol();
         for (const Function* jt : it->cmdsRange()) {
             InlineSerContext ctx;
 
@@ -104,6 +123,8 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
             _output->append("    return PhotonError_Ok;\n}\n\n");
             funcNum++;
         }
+        _output->appendEndif();
+        _output->appendEol();
     }
 }
 }
