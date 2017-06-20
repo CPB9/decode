@@ -59,25 +59,30 @@ void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
     IncludeCollector coll;
     std::unordered_set<std::string> includes;
     std::unordered_set<Rc<Component>> comps;
-    includes.emplace("core/Writer");
-    includes.emplace("core/Error");
+
+    for (const char* inc : {"core/Writer", "core/Error", "core/Try"}) {
+        _output->appendLocalIncludePath(inc);
+    }
     for (const ComponentAndMsg& msg : messages) {
-        coll.collect(msg.msg.get(), &includes);
         //TODO: remove duplicates
         comps.insert(msg.component);
 
     }
-    for (const std::string& inc : includes) {
-        _output->appendLocalIncludePath(inc);
-    }
     for (const Rc<Component>& comp : comps) {
+        coll.collectStatuses(comp->statusesRange(), &includes);
+
         _output->appendModIfdef(comp->moduleName());
+        for (const std::string& inc : includes) {
+            _output->appendLocalIncludePath(inc);
+        }
         _output->append("#include \"photon/");
         _output->append(comp->moduleName());
         _output->append('/');
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append(".Component.h\"\n");
         _output->appendEndif();
+
+        includes.clear();
     }
     _output->appendEol();
 

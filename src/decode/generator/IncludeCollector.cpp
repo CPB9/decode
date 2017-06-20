@@ -145,7 +145,7 @@ void IncludeCollector::collect(const Ast* ast, std::unordered_set<std::string>* 
     }
 }
 
-void IncludeCollector::collect(Component::Cmds::Range cmds, std::unordered_set<std::string>* dest)
+void IncludeCollector::collectCmds(Component::Cmds::ConstRange cmds, std::unordered_set<std::string>* dest)
 {
     _dest = dest;
     for (const Function* func : cmds) {
@@ -154,12 +154,19 @@ void IncludeCollector::collect(Component::Cmds::Range cmds, std::unordered_set<s
     }
 }
 
-void IncludeCollector::collect(Component::Params::Range params, std::unordered_set<std::string>* dest)
+void IncludeCollector::collectParams(Component::Params::ConstRange params, std::unordered_set<std::string>* dest)
 {
     _dest = dest;
     _currentType = nullptr;
     for (const Field* param : params) {
         traverseType(param->type());
+    }
+}
+
+void IncludeCollector::collectStatuses(Component::Statuses::ConstRange statuses, std::unordered_set<std::string>* dest)
+{
+    for (const StatusMsg* msg : statuses) {
+        collect(msg, dest);
     }
 }
 }

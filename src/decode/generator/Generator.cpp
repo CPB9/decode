@@ -336,6 +336,10 @@ bool Generator::generateDeviceFiles(const Project* project)
     IncludeCollector coll;
     for (const Project::Device* dev : project->devices()) {
         std::unordered_set<std::string> types;
+        types.insert("core/Reader");
+        types.insert("core/Writer");
+        types.insert("core/Error");
+
         for (const Rc<Ast>& module : dev->modules) {
             coll.collect(module.get(), &types);
         }
@@ -347,7 +351,7 @@ bool Generator::generateDeviceFiles(const Project* project)
                 if (module->component().isNone()) {
                     continue;
                 }
-                coll.collect(module->component()->cmdsRange(), &types);
+                coll.collectCmds(module->component()->cmdsRange(), &types);
             }
         }
 
@@ -356,7 +360,7 @@ bool Generator::generateDeviceFiles(const Project* project)
                 if (module->component().isNone()) {
                     continue;
                 }
-                coll.collect(module->component()->paramsRange(), &types);
+                coll.collectParams(module->component()->paramsRange(), &types);
             }
         }
 
