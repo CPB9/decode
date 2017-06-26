@@ -254,11 +254,11 @@ bool Generator::generateTmPrivate(const Package* package)
     return true;
 }
 
-bool Generator::generateSerializedPackage(const Project* package)
+bool Generator::generateSerializedPackage(const Project* project)
 {
     _output.clear();
 
-    bmcl::Buffer encoded = package->encode();
+    bmcl::Buffer encoded = project->encode();
 
     _output.appendNumericValueDefine("_PHOTON_PACKAGE_SIZE", encoded.size());
     _output.appendEol();

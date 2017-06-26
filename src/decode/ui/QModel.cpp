@@ -80,6 +80,11 @@ static QVariant qvariantFromValue(const Value& value)
         v.setValue(value.asUnsigned());
         return v;
     }
+    case ValueKind::Double: {
+        QVariant v;
+        v.setValue(value.asDouble());
+        return v;
+    }
     case ValueKind::String:
         return QString::fromStdString(value.asString());
     case ValueKind::StringView: {
@@ -101,6 +106,8 @@ static QString qstringFromValue(const Value& value)
         return QString::number(value.asSigned());
     case ValueKind::Unsigned:
         return QString::number(value.asUnsigned());
+    case ValueKind::Double:
+        return QString::number(value.asDouble());
     case ValueKind::String:
         return QString::fromStdString(value.asString());
     case ValueKind::StringView: {
@@ -113,14 +120,13 @@ static QString qstringFromValue(const Value& value)
 
 static Value valueFromQvariant(const QVariant& variant, ValueKind kind)
 {
-    //TODO: add bool, double, char, date, time
+    //TODO: add bool, char, date, time
     //case QVariant::Invalid:
     //case QVariant::Bool:
     //case QVariant::Int:
     //case QVariant::LongLong:
     //case QVariant::UInt:
     //case QVariant::ULongLong:
-    //case QVariant::Double:
     //case QVariant::Char:
     //case QVariant::String:
     //case QVariant::Date:
@@ -143,6 +149,13 @@ static Value valueFromQvariant(const QVariant& variant, ValueKind kind)
         qulonglong s = variant.toULongLong(&isOk);
         if (isOk) {
             return Value::makeUnsigned(s);
+        }
+        break;
+    }
+    case ValueKind::Double: {
+        double s = variant.toDouble(&isOk);
+        if (isOk) {
+            return Value::makeDouble(s);
         }
         break;
     }

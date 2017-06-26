@@ -45,7 +45,7 @@ public:
     void endIncludeGuard();
     void endCppGuard();
     void appendModIfdef(bmcl::StringView name);
-    void appendCmdTargetIfdef(bmcl::StringView name);
+    void appendTargetModIfdef(bmcl::StringView name);
     void appendEndif();
 
     template <typename T>
@@ -77,9 +77,9 @@ inline void SrcBuilder::appendModIfdef(bmcl::StringView name)
     append("\n");
 }
 
-inline void SrcBuilder::appendCmdTargetIfdef(bmcl::StringView name)
+inline void SrcBuilder::appendTargetModIfdef(bmcl::StringView name)
 {
-    append("#ifdef PHOTON_HAS_CMD_TARGET_");
+    append("#ifdef PHOTON_HAS_TARGET_MODULE_");
     appendUpper(name);
     append("\n");
 }

@@ -216,6 +216,12 @@ bool InlineTypeInspector<B>::visitBuiltinType(const BuiltinType* type)
     case BuiltinTypeKind::I64:
         base().genSizedSer("sizeof(uint64_t)", "U64Le");
         break;
+    case BuiltinTypeKind::F32:
+        base().genSizedSer("sizeof(float)", "F32Le");
+        break;
+    case BuiltinTypeKind::F64:
+        base().genSizedSer("sizeof(double)", "F64Le");
+        break;
     case BuiltinTypeKind::Bool:
         base().genSizedSer("sizeof(uint8_t)", "U8");
         break;

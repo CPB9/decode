@@ -64,6 +64,12 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         case BuiltinTypeKind::I64:
             dest->append( "i64");
             return;
+        case BuiltinTypeKind::F32:
+            dest->append( "f32");
+            return;
+        case BuiltinTypeKind::F64:
+            dest->append( "f64");
+            return;
         case BuiltinTypeKind::Bool:
             dest->append( "bool");
             return;

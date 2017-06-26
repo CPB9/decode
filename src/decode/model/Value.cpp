@@ -39,6 +39,9 @@ void Value::construct(const Value& other)
     case ValueKind::Unsigned:
         *as<uint64_t>() = other.asUnsigned();
         return;
+    case ValueKind::Double:
+        *as<double>() = other.asDouble();
+        return;
     case ValueKind::String:
         *as<std::string>() = other.asString();
         return;
@@ -61,6 +64,9 @@ void Value::construct(Value&& other)
     case ValueKind::Unsigned:
         *as<uint64_t>() = other.asUnsigned();
         return;
+    case ValueKind::Double:
+        *as<double>() = other.asDouble();
+        return;
     case ValueKind::String:
         *as<std::string>() = std::move(other.asString());
         return;
@@ -77,6 +83,7 @@ void Value::destruct()
     case ValueKind::Uninitialized:
     case ValueKind::Signed:
     case ValueKind::Unsigned:
+    case ValueKind::Double:
         return;
     case ValueKind::String:
         as<std::string>()->~basic_string<char>();

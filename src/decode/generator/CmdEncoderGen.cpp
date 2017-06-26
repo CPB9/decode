@@ -56,7 +56,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
         if (includes.empty()) {
             continue;
         }
-        _output->appendCmdTargetIfdef(it->moduleName());
+        _output->appendTargetModIfdef(it->moduleName());
         for (const std::string& path : includes) {
             _output->appendLocalIncludePath(path);
         }
@@ -75,7 +75,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
         if (!it->hasCmds()) {
             continue;
         }
-        _output->appendCmdTargetIfdef(it->moduleName());
+        _output->appendTargetModIfdef(it->moduleName());
         for (const Function* jt : it->cmdsRange()) {
             appendEncoderPrototype(it, jt);
             _output->append(";\n");
@@ -100,7 +100,7 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
         }
 
         std::size_t funcNum = 0;
-        _output->appendCmdTargetIfdef(it->moduleName());
+        _output->appendTargetModIfdef(it->moduleName());
         _output->appendEol();
         for (const Function* jt : it->cmdsRange()) {
             InlineSerContext ctx;

@@ -28,6 +28,7 @@ public:
     static Value makeUninitialized();
     static Value makeSigned(int64_t value);
     static Value makeUnsigned(uint64_t value);
+    static Value makeDouble(double value);
     static Value makeStringView(bmcl::StringView value);
     static Value makeString(const std::string& value);
 
@@ -38,6 +39,7 @@ public:
 
     int64_t asSigned() const;
     uint64_t asUnsigned() const;
+    double asDouble() const;
     const std::string& asString() const;
     std::string& asString();
     bmcl::StringView asStringView() const;
@@ -83,6 +85,11 @@ inline Value Value::makeSigned(int64_t value)
 inline Value Value::makeUnsigned(uint64_t value)
 {
     return Value(value, ValueKind::Unsigned);
+}
+
+inline Value Value::makeDouble(double value)
+{
+    return Value(value, ValueKind::Double);
 }
 
 inline Value Value::makeStringView(bmcl::StringView value)
@@ -148,6 +155,11 @@ inline int64_t Value::asSigned() const
 inline uint64_t Value::asUnsigned() const
 {
     return *as<uint64_t>();
+}
+
+inline double Value::asDouble() const
+{
+    return *as<double>();
 }
 
 inline const std::string& Value::asString() const

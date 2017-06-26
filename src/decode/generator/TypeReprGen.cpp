@@ -50,6 +50,10 @@ static bmcl::StringView builtinToC(const BuiltinType* type)
         return "uint64_t";
     case BuiltinTypeKind::I64:
         return "int64_t";
+    case BuiltinTypeKind::F32:
+        return "float";
+    case BuiltinTypeKind::F64:
+        return "double";
     case BuiltinTypeKind::Bool:
         return "bool";
     case BuiltinTypeKind::Void:

@@ -240,6 +240,7 @@ public:
 private:
     bool emplace(int64_t value);
     bool emplace(uint64_t value);
+    bool emplace(double value);
 
     bmcl::Option<T> _value;
 };
@@ -252,6 +253,8 @@ extern template class NumericValueNode<std::uint32_t>;
 extern template class NumericValueNode<std::int32_t>;
 extern template class NumericValueNode<std::uint64_t>;
 extern template class NumericValueNode<std::int64_t>;
+extern template class NumericValueNode<float>;
+extern template class NumericValueNode<double>;
 
 class VarintValueNode : public BuiltinValueNode {
 public:

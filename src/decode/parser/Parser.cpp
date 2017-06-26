@@ -60,6 +60,8 @@ Parser::Parser(Diagnostics* diag)
     ADD_BUILTIN(i32Type, I32, "i32");
     ADD_BUILTIN(u64Type, U64, "u64");
     ADD_BUILTIN(i64Type, I64, "i64");
+    ADD_BUILTIN(i64Type, F32, "f32");
+    ADD_BUILTIN(i64Type, F64, "f64");
     ADD_BUILTIN(boolType, Bool, "bool");
     ADD_BUILTIN(voidType, Void, "void");
 }

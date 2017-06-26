@@ -45,6 +45,10 @@ static bmcl::StringView builtinToName(const BuiltinType* type)
         return "U64";
     case BuiltinTypeKind::I64:
         return "I64";
+    case BuiltinTypeKind::F32:
+        return "F32";
+    case BuiltinTypeKind::F64:
+        return "F64";
     case BuiltinTypeKind::Bool:
         return "Bool";
     case BuiltinTypeKind::Void:

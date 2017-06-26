@@ -52,6 +52,8 @@ enum class BuiltinTypeKind {
     I32,
     U64,
     I64,
+    F32,
+    F64,
     Bool,
     Void,
 };

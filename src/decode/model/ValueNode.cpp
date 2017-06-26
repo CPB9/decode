@@ -19,6 +19,36 @@
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
 
+namespace bmcl {
+#ifdef BMCL_LITTLE_ENDIAN
+template <>
+inline float htole(float value)
+{
+    return value;
+}
+
+template <>
+inline float letoh(float value)
+{
+    return value;
+}
+
+template <>
+inline double htole(double value)
+{
+    return value;
+}
+
+template <>
+inline double letoh(double value)
+{
+    return value;
+}
+#else
+# error TODO: implement for big endian
+#endif
+}
+
 namespace decode {
 
 template <typename T>
@@ -83,6 +113,10 @@ static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const V
         return new NumericValueNode<std::uint64_t>(type, cache, parent);
     case BuiltinTypeKind::I64:
         return new NumericValueNode<std::int64_t>(type, cache, parent);
+    case BuiltinTypeKind::F32:
+        return new NumericValueNode<float>(type, cache, parent);
+    case BuiltinTypeKind::F64:
+        return new NumericValueNode<double>(type, cache, parent);
     case BuiltinTypeKind::Bool:
         //TODO: make bool value
         return new NumericValueNode<std::uint8_t>(type, cache, parent);
@@ -637,7 +671,9 @@ decode::Value NumericValueNode<T>::value() const
     if (_value.isNone()) {
         return Value::makeUninitialized();
     }
-    if (std::is_signed<T>::value) {
+    if (std::is_floating_point<T>::value) {
+        return Value::makeDouble(_value.unwrap());
+    } else if (std::is_signed<T>::value) {
         return Value::makeSigned(_value.unwrap());
     } else {
         return Value::makeUnsigned(_value.unwrap());
@@ -653,7 +689,9 @@ bool NumericValueNode<T>::isInitialized() const
 template <typename T>
 ValueKind NumericValueNode<T>::valueKind() const
 {
-    if (std::is_signed<T>::value) {
+    if (std::is_floating_point<T>::value) {
+        return ValueKind::Double;
+    } else if (std::is_signed<T>::value) {
         return ValueKind::Signed;
     }
     return ValueKind::Unsigned;
@@ -662,18 +700,9 @@ ValueKind NumericValueNode<T>::valueKind() const
 template <typename T>
 bool NumericValueNode<T>::emplace(int64_t value)
 {
-    if (std::is_signed<T>::value) {
-        if (value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max()) {
-            _value.emplace(value);
-            return true;
-        }
-        return false;
-    } else {
-        if (value >= 0 && uint64_t(value) <= std::numeric_limits<T>::max()) {
-            _value.emplace(value);
-            return true;
-        }
-        return false;
+    if (value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max()) {
+        _value.emplace(value);
+        return true;
     }
     return false;
 }
@@ -689,9 +718,21 @@ bool NumericValueNode<T>::emplace(uint64_t value)
 }
 
 template <typename T>
+bool NumericValueNode<T>::emplace(double value)
+{
+    if (value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max()) {
+        _value.emplace(value);
+        return true;
+    }
+    return false;
+}
+
+template <typename T>
 bool NumericValueNode<T>::setValue(const Value& value)
 {
-    if (value.isA(ValueKind::Signed)) {
+    if (value.isA(ValueKind::Double)) {
+        return emplace(value.asDouble());
+    } else if (value.isA(ValueKind::Signed)) {
         return emplace(value.asSigned());
     } else if (value.isA(ValueKind::Unsigned)) {
         return emplace(value.asUnsigned());
@@ -707,6 +748,8 @@ template class NumericValueNode<std::uint32_t>;
 template class NumericValueNode<std::int32_t>;
 template class NumericValueNode<std::uint64_t>;
 template class NumericValueNode<std::int64_t>;
+template class NumericValueNode<float>;
+template class NumericValueNode<double>;
 
 VarintValueNode::VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : BuiltinValueNode(type, cache, parent)
