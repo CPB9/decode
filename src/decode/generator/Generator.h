@@ -47,6 +47,7 @@ private:
     bool generateSerializedPackage(const Project* project);
     bool generateDeviceFiles(const Project* project);
     bool generateConfig(const Project* project);
+    bool generateInit(const Project* project);
 
     bool makeDirectory(const char* path);
 
