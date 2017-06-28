@@ -36,7 +36,7 @@ public:
 
     void setName(bmcl::StringView name);
 
-    bool encodeFields(ModelEventHandler* handler, bmcl::MemWriter* dest) const;
+    bool encodeFields(bmcl::MemWriter* dest) const;
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;

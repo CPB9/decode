@@ -63,15 +63,42 @@ private:
     GroundControl* _parent;
 };
 
-GroundControl::GroundControl(Sink* sink, Scheduler* sched, ModelEventHandler* handler)
-    : _exc(new Exchange(sink))
+GroundControl::GroundControl(DataStream* stream, Scheduler* sched, ModelEventHandler* handler)
+    : _exc(new Exchange(stream))
     , _fwt(new GcFwtState(this, sched))
     , _tm(new GcTmState(this))
     , _handler(handler)
+    , _sched(sched)
+    , _stream(stream)
 {
     _exc->registerClient(_fwt.get());
     _exc->registerClient(_tm.get());
+}
+
+void GroundControl::scheduleTick()
+{
+    auto readTimeout = std::chrono::milliseconds(100);
+    _sched->scheduleAction(std::bind(&GroundControl::tick, Rc<GroundControl>(this)), readTimeout);
+}
+
+void GroundControl::start()
+{
+    scheduleTick();
     _fwt->start(_exc.get());
+}
+
+void GroundControl::tick()
+{
+    uint8_t tmp[1024 * 2]; //TEMP
+    auto rv = _stream->readData(tmp, sizeof(tmp));
+    scheduleTick();
+    if (rv == 0) {
+        BMCL_DEBUG() << "no data";
+        return;
+    } else {
+        BMCL_DEBUG() << "recieved " << rv;
+    }
+    acceptData(bmcl::Bytes(tmp, rv));
 }
 
 GroundControl::~GroundControl()
@@ -83,7 +110,7 @@ void GroundControl::updateProject(const Project* project)
     _project.reset(project);
     Rc<Model> m = new Model(project, _handler.get());
     _model = m;
-    updateModel(m.get());
+    _handler->modelUpdatedEvent(m.get());
 }
 
 void GroundControl::sendPacket(bmcl::Bytes data)

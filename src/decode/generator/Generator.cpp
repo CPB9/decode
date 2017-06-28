@@ -407,7 +407,6 @@ bool Generator::generateDeviceFiles(const Project* project)
         TRY(saveOutput(path.result().c_str(), &_output));
         _output.clear();
 
-
         //src
         _output.append("#include \"");
         _output.appendWithFirstUpper(dev->name);

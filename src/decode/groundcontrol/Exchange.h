@@ -33,9 +33,17 @@ public:
     std::size_t dataSize;
 };
 
-class Sink : public RefCountable {
+class DataSink : public virtual RefCountable {
 public:
     virtual void sendData(bmcl::Bytes packet) = 0;
+};
+
+class DataSource : public virtual RefCountable {
+public:
+    virtual int64_t readData(void* dest, std::size_t size) = 0;
+};
+
+class DataStream : public DataSink, public DataSource {
 };
 
 class Sender : public RefCountable {
@@ -45,7 +53,7 @@ public:
 
 class Exchange : public Sender {
 public:
-    Exchange(Sink* sink);
+    Exchange(DataStream* stream);
     ~Exchange();
 
     static SearchResult findPacket(const void* data, std::size_t size);
@@ -63,6 +71,6 @@ private:
 
     std::unordered_map<uint8_t, Rc<Client>> _clients;
     bmcl::Buffer _incoming;
-    Rc<Sink> _sink;
+    Rc<DataStream> _stream;
 };
 }

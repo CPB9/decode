@@ -62,11 +62,11 @@ void FieldsNode::setName(bmcl::StringView name)
     _name = name;
 }
 
-bool FieldsNode::encodeFields(ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool FieldsNode::encodeFields(bmcl::MemWriter* dest) const
 {
     for (std::size_t i = 0; i < _nodes.size(); i++) {
         const ValueNode* node = _nodes[i].get();
-        if (!node->encode(i, handler, dest)) {
+        if (!node->encode(dest)) {
             //TODO: report error
             return false;
         }

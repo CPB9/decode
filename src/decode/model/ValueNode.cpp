@@ -189,11 +189,10 @@ bool ContainerValueNode::isInitialized() const
     return true;
 }
 
-bool ContainerValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool ContainerValueNode::encode(bmcl::MemWriter* dest) const
 {
-    (void)nodeIndex;
     for (std::size_t i = 0; i < _values.size(); i++) {
-        TRY(_values[i]->encode(i, handler, dest));
+        TRY(_values[i]->encode(dest));
     }
     return true;
 }
@@ -259,13 +258,13 @@ SliceValueNode::~SliceValueNode()
 {
 }
 
-bool SliceValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool SliceValueNode::encode(bmcl::MemWriter* dest) const
 {
     if (!dest->writeVarUint(_values.size())) {
         //TODO: report error
         return false;
     }
-    return ContainerValueNode::encode(nodeIndex, handler, dest);
+    return ContainerValueNode::encode(dest);
 }
 
 bool SliceValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
@@ -356,14 +355,14 @@ Value VariantValueNode::value() const
     return Value::makeUninitialized();
 }
 
-bool VariantValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool VariantValueNode::encode(bmcl::MemWriter* dest) const
 {
     if (_currentId.isNone()) {
         //TODO: report error
         return false;
     }
     TRY(dest->writeVarUint(_currentId.unwrap()));
-    return ContainerValueNode::encode(nodeIndex, handler, dest);
+    return ContainerValueNode::encode(dest);
 }
 
 bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
@@ -455,10 +454,8 @@ AddressValueNode::~AddressValueNode()
 {
 }
 
-bool AddressValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool AddressValueNode::encode(bmcl::MemWriter* dest) const
 {
-    (void)nodeIndex;
-    (void)handler;
     //TODO: get target word size
     if (_address.isNone()) {
         //TODO: report error
@@ -551,10 +548,8 @@ EnumValueNode::~EnumValueNode()
 {
 }
 
-bool EnumValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool EnumValueNode::encode(bmcl::MemWriter* dest) const
 {
-    (void)nodeIndex;
-    (void)handler;
     if (_currentId.isSome()) {
         TRY(dest->writeVarUint(_currentId.unwrap()));
         return true;
@@ -637,10 +632,8 @@ NumericValueNode<T>::~NumericValueNode()
 }
 
 template <typename T>
-bool NumericValueNode<T>::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool NumericValueNode<T>::encode(bmcl::MemWriter* dest) const
 {
-    (void)nodeIndex;
-    (void)handler;
     if (_value.isNone()) {
         //TODO: report error
         return false;
@@ -760,10 +753,8 @@ VarintValueNode::~VarintValueNode()
 {
 }
 
-bool VarintValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool VarintValueNode::encode(bmcl::MemWriter* dest) const
 {
-    (void)nodeIndex;
-    (void)handler;
     if (_value.isNone()) {
         //TODO: report error
         return false;
@@ -816,10 +807,8 @@ VaruintValueNode::~VaruintValueNode()
 {
 }
 
-bool VaruintValueNode::encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool VaruintValueNode::encode(bmcl::MemWriter* dest) const
 {
-    (void)handler;
-    (void)nodeIndex;
     if (_value.isNone()) {
         //TODO: report error
         return false;

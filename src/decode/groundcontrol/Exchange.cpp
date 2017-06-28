@@ -19,8 +19,8 @@
 
 namespace decode {
 
-Exchange::Exchange(Sink* sink)
-    : _sink(sink)
+Exchange::Exchange(DataStream* stream)
+    : _stream(stream)
 {
 }
 
@@ -116,7 +116,7 @@ void Exchange::sendPacket(Client* self, bmcl::Bytes payload)
     Crc16 crc;
     crc.update(packWriter.writenData().sliceFrom(2));
     packWriter.writeUint16Le(crc.get());
-    _sink->sendData(packWriter.writenData()); //TODO: check rv
+    _stream->sendData(packWriter.writenData()); //TODO: check rv
 }
 
 SearchResult Exchange::findPacket(bmcl::Bytes data)

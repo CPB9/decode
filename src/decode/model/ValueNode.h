@@ -33,7 +33,7 @@ public:
 
     static Rc<ValueNode> fromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
-    virtual bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const = 0;
+    virtual bool encode(bmcl::MemWriter* dest) const = 0;
     virtual bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) = 0;
 
     virtual bool isContainerValue() const = 0;
@@ -61,7 +61,7 @@ class ContainerValueNode : public ValueNode {
 public:
     ~ContainerValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
 
     bool isContainerValue() const override;
@@ -100,7 +100,7 @@ public:
     SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~SliceValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
 
     const Type* type() const override;
@@ -128,7 +128,7 @@ public:
     VariantValueNode(const VariantType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VariantValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
 
     const Type* type() const override;
@@ -155,7 +155,7 @@ public:
     AddressValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~AddressValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
 
     bool isInitialized() const override;
@@ -193,7 +193,7 @@ public:
     EnumValueNode(const EnumType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~EnumValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
     decode::Value value() const override;
 
@@ -228,7 +228,7 @@ public:
     NumericValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~NumericValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
     decode::Value value() const override;
 
@@ -261,7 +261,7 @@ public:
     VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VarintValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
     Value value() const override;
 
@@ -279,7 +279,7 @@ public:
     VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VaruintValueNode();
 
-    bool encode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemWriter* dest) const override;
+    bool encode(bmcl::MemWriter* dest) const override;
     bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
     Value value() const override;
 

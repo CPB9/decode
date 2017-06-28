@@ -12,6 +12,8 @@
 #include "decode/core/Rc.h"
 #include "decode/model/ModelEventHandler.h"
 
+#include <bmcl/Bytes.h>
+
 #include <QObject>
 
 namespace decode {
@@ -24,14 +26,18 @@ class QModelEventHandler : public QObject, public ModelEventHandler {
 public:
     ~QModelEventHandler();
 
+    void packetQueuedEvent(bmcl::Bytes packet) override;
+    void modelUpdatedEvent(Model* model) override;
     void nodeValueUpdatedEvent(const Node* node, std::size_t nodeIndex) override;
     void nodesInsertedEvent(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex) override;
     void nodesRemovedEvent(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex) override;
 
 signals:
+    void modelUpdated(const Rc<Model>& model);
+    //FIXME: pass Rc for queued connections
+    void packetQueued(bmcl::Bytes packet);
     void nodeValueUpdated(const Node* node, std::size_t nodeIndex);
     void nodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
     void nodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
 };
 }
-

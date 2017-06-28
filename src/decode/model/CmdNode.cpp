@@ -30,7 +30,7 @@ CmdNode::~CmdNode()
 {
 }
 
-bool CmdNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool CmdNode::encode(bmcl::MemWriter* dest) const
 {
     TRY(dest->writeVarUint(_comp->number()));
     auto it = std::find(_comp->cmdsBegin(), _comp->cmdsEnd(), _func.get());
@@ -40,7 +40,7 @@ bool CmdNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const
     }
 
     TRY(dest->writeVarUint(std::distance(_comp->cmdsBegin(), it)));
-    return encodeFields(handler, dest);
+    return encodeFields(dest);
 }
 
 std::size_t CmdNode::numChildren() const
@@ -109,10 +109,10 @@ void CmdContainerNode::addCmdNode(CmdNode* node)
     _nodes.emplace_back(node);
 }
 
-bool CmdContainerNode::encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const
+bool CmdContainerNode::encode(bmcl::MemWriter* dest) const
 {
     for (const CmdNode* node : RcVec<CmdNode>::ConstRange(_nodes)) {
-        TRY(node->encode(handler, dest));
+        TRY(node->encode(dest));
     }
     return true;
 }

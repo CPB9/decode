@@ -25,7 +25,7 @@ public:
     CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs = true);
     ~CmdNode();
 
-    bool encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const;
+    bool encode(bmcl::MemWriter* dest) const;
     std::size_t numChildren() const override;
     bool canHaveChildren() const override;
 
@@ -50,7 +50,7 @@ public:
 
     void addCmdNode(CmdNode* node);
 
-    bool encode(ModelEventHandler* handler, bmcl::MemWriter* dest) const;
+    bool encode(bmcl::MemWriter* dest) const;
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;

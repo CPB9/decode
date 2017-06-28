@@ -8,11 +8,22 @@
 
 #include "decode/ui/QModelEventHandler.h"
 #include "decode/ui/QModel.h"
+#include "decode/model/Model.h"
 
 namespace decode {
 
 QModelEventHandler::~QModelEventHandler()
 {
+}
+
+void QModelEventHandler::modelUpdatedEvent(Model* model)
+{
+    emit modelUpdated(Rc<Model>(model));
+}
+
+void QModelEventHandler::packetQueuedEvent(bmcl::Bytes packet)
+{
+    emit packetQueued(packet);
 }
 
 void QModelEventHandler::nodeValueUpdatedEvent(const Node* node, std::size_t nodeIndex)

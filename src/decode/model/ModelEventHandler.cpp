@@ -8,7 +8,21 @@
 
 #include "decode/model/ModelEventHandler.h"
 
+#include <bmcl/Bytes.h>
+
 namespace decode {
+
+ModelEventHandler::~ModelEventHandler()
+{
+}
+
+void ModelEventHandler::packetQueuedEvent(bmcl::Bytes)
+{
+}
+
+void ModelEventHandler::modelUpdatedEvent(Model*)
+{
+}
 
 void ModelEventHandler::nodeValueUpdatedEvent(const Node*, std::size_t)
 {
