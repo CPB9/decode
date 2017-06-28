@@ -401,14 +401,14 @@ bool Generator::generateDeviceFiles(const Project* project)
 
         SrcBuilder path;
         path.append(_savePath);
-        path.append("/");
+        path.append("/Photon");
         path.appendWithFirstUpper(dev->name);
         path.appendWithFirstUpper(".h");
         TRY(saveOutput(path.result().c_str(), &_output));
         _output.clear();
 
         //src
-        _output.append("#include \"");
+        _output.append("#include \"Photon");
         _output.appendWithFirstUpper(dev->name);
         _output.append(".h\"\n\n");
         for (const std::string& inc : types) {
