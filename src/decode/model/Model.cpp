@@ -9,6 +9,7 @@
 #include "decode/model/Model.h"
 #include "decode/core/Try.h"
 #include "decode/parser/Package.h"
+#include "decode/parser/Ast.h"
 #include "decode/parser/Project.h"
 #include "decode/model/Decoder.h"
 #include "decode/model/FieldsNode.h"
@@ -25,11 +26,17 @@
 
 namespace decode {
 
-PackageTmNode::PackageTmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
+PackageTmNode::PackageTmNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
     : Node(parent)
     , _handler(handler)
 {
-    for (const Component* it : package->components()) {
+    for (const Rc<Ast>& ast : dev->modules) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+
+        const Component* it = ast->component().unwrap();
+
         if (!it->hasParams()) {
             continue;
         }
@@ -50,7 +57,6 @@ PackageTmNode::PackageTmNode(const Package* package, const ValueInfoCache* cache
 PackageTmNode::~PackageTmNode()
 {
 }
-
 
 void  PackageTmNode::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
 {
@@ -86,11 +92,17 @@ bmcl::StringView PackageTmNode::fieldName() const
     return "tm";
 }
 
-PackageCmdsNode::PackageCmdsNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
+PackageCmdsNode::PackageCmdsNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
     : Node(parent)
     , _handler(handler)
 {
-    for (const Component* it : package->components()) {
+    for (const Rc<Ast>& ast : dev->modules) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+
+        const Component* it = ast->component().unwrap();
+
         if (!it->hasCmds()) {
             continue;
         }
@@ -124,14 +136,20 @@ bmcl::StringView PackageCmdsNode::fieldName() const
     return "cmds";
 }
 
-Model::Model(const Project* project, ModelEventHandler* handler)
+Model::Model(const Project* project, ModelEventHandler* handler, bmcl::StringView deviceName)
     : Node(bmcl::None)
     , _project(project)
     , _cache(new ValueInfoCache)
     , _handler(handler)
-    , _tmNode(new PackageTmNode(project->package(), _cache.get(), handler, this))
-    , _cmdsNode(new PackageCmdsNode(project->package(), _cache.get(), handler, this))
 {
+    for (auto it : project->devices()) {
+        BMCL_DEBUG() << it->name;
+    }
+    auto dev = project->deviceWithName(deviceName);
+    assert(dev.isSome());
+
+    _tmNode = new PackageTmNode(dev.unwrap(), _cache.get(), handler, this);
+    _cmdsNode = new PackageCmdsNode(dev.unwrap(), _cache.get(), handler, this);
     _nodes.emplace_back(_tmNode.get());
     _nodes.emplace_back(_cmdsNode.get());
 }

@@ -274,6 +274,18 @@ bool Generator::generateSerializedPackage(const Project* project)
     _output.appendByteArrayDefinition("static const", "_packageHash", hash);
     _output.appendEol();
 
+    for (const Device* dev : project->devices()) {
+        _output.appendDeviceIfDef(dev->name);
+        _output.appendEol();
+        bmcl::Bytes name = bmcl::StringView(dev->name).asBytes();
+        _output.appendNumericValueDefine("_PHOTON_DEVICE_NAME_SIZE", name.size());
+        _output.appendEol();
+        _output.appendByteArrayDefinition("static const", "_deviceName", name);
+        _output.appendEol();
+        _output.appendEndif();
+        _output.appendEol();
+    }
+
     std::string packageDetailPath = _savePath + "/photon/Package.Private.inc.c";
     TRY(saveOutput(packageDetailPath.c_str(), &_output));
     _output.clear();
@@ -316,7 +328,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         srcsPaths.emplace(mod, std::move(paths));
     }
 
-    auto appendBundledSources = [this, &srcsPaths](const Project::Device* dev, bmcl::StringView ext) {
+    auto appendBundledSources = [this, &srcsPaths](const Device* dev, bmcl::StringView ext) {
         for (const Rc<Ast>& module : dev->modules) {
             auto it = srcsPaths.find(module);
             if (it == srcsPaths.end()) {
@@ -334,7 +346,7 @@ bool Generator::generateDeviceFiles(const Project* project)
     };
 
     IncludeCollector coll;
-    for (const Project::Device* dev : project->devices()) {
+    for (const Device* dev : project->devices()) {
         std::unordered_set<std::string> types;
         types.insert("core/Reader");
         types.insert("core/Writer");
@@ -345,7 +357,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
         std::unordered_set<Rc<Ast>> targetMods;
 
-        for (const Rc<Project::Device>& dep : dev->cmdTargets) {
+        for (const Rc<Device>& dep : dev->cmdTargets) {
             for (const Rc<Ast>& module : dep->modules) {
                 targetMods.emplace(module);
                 if (module->component().isNone()) {
@@ -355,7 +367,7 @@ bool Generator::generateDeviceFiles(const Project* project)
             }
         }
 
-        for (const Rc<Project::Device>& dep : dev->tmSources) {
+        for (const Rc<Device>& dep : dev->tmSources) {
             for (const Rc<Ast>& module : dep->modules) {
                 if (module->component().isNone()) {
                     continue;
@@ -368,6 +380,9 @@ bool Generator::generateDeviceFiles(const Project* project)
         if (dev == project->master()) {
             _output.append("#define PHOTON_IS_MASTER\n\n");
         }
+        _output.append("#define PHOTON_DEVICE_");
+        _output.appendUpper(dev->name);
+        _output.append("\n\n");
         for (const Rc<Ast>& module : dev->modules) {
             _output.append("#define PHOTON_HAS_MODULE_");
             _output.appendUpper(module->moduleInfo()->moduleName());

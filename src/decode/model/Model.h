@@ -27,10 +27,11 @@ class Component;
 class FieldsNode;
 class ValueInfoCache;
 class ModelEventHandler;
+struct Device;
 
 class PackageTmNode : public Node {
 public:
-    PackageTmNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
+    PackageTmNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
     ~PackageTmNode();
 
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
@@ -50,7 +51,7 @@ class CmdContainerNode;
 
 class PackageCmdsNode : public Node {
 public:
-    PackageCmdsNode(const Package* package, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
+    PackageCmdsNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
     ~PackageCmdsNode();
 
     std::size_t numChildren() const override;
@@ -65,7 +66,7 @@ private:
 
 class Model : public Node {
 public:
-    Model(const Project* project, ModelEventHandler* handler);
+    Model(const Project* project, ModelEventHandler* handler, bmcl::StringView deviceName);
     ~Model();
 
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);

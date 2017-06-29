@@ -30,7 +30,7 @@ public:
     {
     }
 
-    void updateProject(bmcl::Bytes data) override
+    void updateProject(bmcl::Bytes data, bmcl::StringView deviceName) override
     {
         auto diag = new Diagnostics();
         auto project = Project::decodeFromMemory(diag, data.data(), data.size());
@@ -40,7 +40,7 @@ public:
             return;
         }
         BMCL_DEBUG() << "fwt firmware loaded";
-        _parent->updateProject(project.unwrap().get());
+        _parent->updateProject(project.unwrap().get(), deviceName);
     }
 
 private:
@@ -105,10 +105,10 @@ GroundControl::~GroundControl()
 {
 }
 
-void GroundControl::updateProject(const Project* project)
+void GroundControl::updateProject(const Project* project, bmcl::StringView deviceName)
 {
     _project.reset(project);
-    Rc<Model> m = new Model(project, _handler.get());
+    Rc<Model> m = new Model(project, _handler.get(), deviceName);
     _model = m;
     _handler->modelUpdatedEvent(m.get());
 }

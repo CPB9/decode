@@ -45,6 +45,7 @@ public:
     void endIncludeGuard();
     void endCppGuard();
     void appendModIfdef(bmcl::StringView name);
+    void appendDeviceIfDef(bmcl::StringView name);
     void appendTargetModIfdef(bmcl::StringView name);
     void appendEndif();
 
@@ -73,6 +74,13 @@ inline bmcl::StringView SrcBuilder::modName() const
 inline void SrcBuilder::appendModIfdef(bmcl::StringView name)
 {
     append("#ifdef PHOTON_HAS_MODULE_");
+    appendUpper(name);
+    append("\n");
+}
+
+inline void SrcBuilder::appendDeviceIfDef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_DEVICE_");
     appendUpper(name);
     append("\n");
 }

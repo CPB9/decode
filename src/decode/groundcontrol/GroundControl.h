@@ -42,7 +42,7 @@ private:
     friend class GcFwtState;
     friend class GcTmState;
 
-    void updateProject(const Project* project);
+    void updateProject(const Project* project, bmcl::StringView deviceName);
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
     Rc<Exchange> _exc;

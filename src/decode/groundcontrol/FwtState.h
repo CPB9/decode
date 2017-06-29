@@ -36,7 +36,7 @@ public:
     void acceptData(Sender* parent, bmcl::Bytes packet) override;
     void start(Sender* parent) override;
 
-    virtual void updateProject(bmcl::Bytes project) = 0;
+    virtual void updateProject(bmcl::Bytes project, bmcl::StringView deviceName) = 0;
 
 private:
     void handleHashAction(const Rc<Sender>& parent);
@@ -67,6 +67,7 @@ private:
 
     MemIntervalSet _acceptedChunks;
     bmcl::Buffer _desc;
+    std::string _deviceName;
 
     bool _hasStartCommandPassed;
     bool _hasDownloaded;

@@ -46,7 +46,7 @@ struct DeviceDesc {
     std::vector<std::string> cmdTargets;
     std::string name;
     std::uint64_t id;
-    Rc<Project::Device> device;
+    Rc<Device> device;
 };
 
 struct ModuleDesc {
@@ -273,6 +273,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
     for (auto& it : deviceDescMap) {
         Rc<Device> dev = new Device;
+        dev->package = proj->_package;
         dev->id = it.second.id;
         dev->name = std::move(it.second.name);
         dev->modules = commonModules;
@@ -456,6 +457,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     std::vector<Rc<Device>> devices;
     for (uint64_t i = 0; i < devNum; i++) {
         Rc<Device> dev = new Device;
+        dev->package = package.unwrap();
         if (!reader.readVarUint(&dev->id)) {
             //TODO: report error
             return ProjectResult();
@@ -538,6 +540,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     }
 
     Rc<Project> proj = new Project(cfg.get(), diag);
+    proj->_devices = std::move(devices);
     proj->_package = package.take();
     proj->_mccId = mccId;
     proj->_name = name.unwrap().toStdString();
@@ -604,28 +607,32 @@ bmcl::Buffer Project::encode() const
         }
     }
 
+    BMCL_DEBUG() << "uncompressed project size: " << dest.size();
+
     ZpaqResult compressed = zpaqCompress(dest.data(), dest.size(), _cfg->compressionLevel());
     assert(compressed.isOk());
+
+    BMCL_DEBUG() << "compressed project size: " << compressed.unwrap().size();
 
     return compressed.take();
 }
 
-Project::DeviceVec::ConstIterator Project::devicesBegin() const
+DeviceVec::ConstIterator Project::devicesBegin() const
 {
     return _devices.begin();
 }
 
-Project::DeviceVec::ConstIterator Project::devicesEnd() const
+DeviceVec::ConstIterator Project::devicesEnd() const
 {
     return _devices.end();
 }
 
-Project::DeviceVec::ConstRange Project::devices() const
+DeviceVec::ConstRange Project::devices() const
 {
     return _devices;
 }
 
-const Project::Device* Project::master() const
+const Device* Project::master() const
 {
     return _master.get();
 }
@@ -637,5 +644,16 @@ bmcl::Option<const Project::SourcesToCopy&> Project::sourcesForModule(const Ast*
         return bmcl::None;
     }
     return it->second;
+}
+
+bmcl::OptionPtr<Device> Project::deviceWithName(bmcl::StringView name) const
+{
+    auto it = std::find_if(_devices.begin(), _devices.end(), [&name](const Rc<Device>& dev) {
+        return dev->name == name;
+    });
+    if (it == _devices.end()) {
+        return bmcl::None;
+    }
+    return it->get();
 }
 }

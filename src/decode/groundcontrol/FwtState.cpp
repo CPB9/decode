@@ -10,6 +10,7 @@
 #include "decode/groundcontrol/Exchange.h"
 #include "decode/groundcontrol/MemIntervalSet.h"
 #include "decode/groundcontrol/Scheduler.h"
+#include "decode/core/Utils.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
@@ -220,7 +221,7 @@ void FwtState::checkIntervals(Sender* parent)
 
 void FwtState::readFirmware()
 {
-    updateProject(_desc);
+    updateProject(_desc, _deviceName);
 }
 
 void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)
@@ -237,6 +238,15 @@ void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)
         scheduleHash(parent);
         return;
     }
+
+    bmcl::Result<bmcl::StringView, void> name = deserializeString(src);
+    BMCL_DEBUG() << name.unwrap().toStdString();
+    if (name.isErr()) {
+        //TODO: report error
+        return;
+    }
+    _deviceName = name.unwrap().toStdString();
+
     //TODO: check descSize for overflow
     if (src->readableSize() != 64) {
         //TODO: report error

@@ -27,25 +27,27 @@ class Configuration;
 class Project;
 class Package;
 class Ast;
+struct Device;
 
 using ProjectResult = bmcl::Result<Rc<Project>, void>;
 
+using DeviceVec = RcVec<Device>;
+
+struct Device : public RefCountable {
+    std::vector<Rc<Ast>> modules;
+    DeviceVec tmSources;
+    DeviceVec cmdTargets;
+    std::string name;
+    uint64_t id;
+    Rc<Package> package;
+};
+
 class Project : public RefCountable {
 public:
-    struct Device : public RefCountable {
-        std::vector<Rc<Ast>> modules;
-        std::vector<Rc<Device>> tmSources;
-        std::vector<Rc<Device>> cmdTargets;
-        std::string name;
-        uint64_t id;
-    };
-
     struct SourcesToCopy {
         std::vector<std::string> sources;
         std::string relativeDest;
     };
-
-    using DeviceVec = RcVec<Device>;
 
     static ProjectResult fromFile(Configuration* cfg, Diagnostics* diag, const char* projectFilePath);
     static ProjectResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
@@ -63,6 +65,7 @@ public:
 
     bmcl::Buffer encode() const;
     bmcl::Option<const SourcesToCopy&> sourcesForModule(const Ast* module) const;
+    bmcl::OptionPtr<Device> deviceWithName(bmcl::StringView name) const;
 
 private:
     Project(Configuration* cfg, Diagnostics* diag);
