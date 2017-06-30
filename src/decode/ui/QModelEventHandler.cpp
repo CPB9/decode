@@ -15,29 +15,4 @@ namespace decode {
 QModelEventHandler::~QModelEventHandler()
 {
 }
-
-void QModelEventHandler::modelUpdatedEvent(Model* model)
-{
-    emit modelUpdated(Rc<Model>(model));
-}
-
-void QModelEventHandler::packetQueuedEvent(bmcl::Bytes packet)
-{
-    emit packetQueued(packet);
-}
-
-void QModelEventHandler::nodeValueUpdatedEvent(const Node* node, std::size_t nodeIndex)
-{
-    emit nodeValueUpdated(node, nodeIndex);
-}
-
-void QModelEventHandler::nodesInsertedEvent(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex)
-{
-    emit nodesInserted(node, nodeIndex, firstIndex, lastIndex);
-}
-
-void QModelEventHandler::nodesRemovedEvent(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex)
-{
-    emit nodesRemoved(node, nodeIndex, firstIndex, lastIndex);
-}
 }

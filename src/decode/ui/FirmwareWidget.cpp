@@ -37,7 +37,7 @@ FirmwareWidget::FirmwareWidget(ModelEventHandler* handler)
         uint8_t prefix[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         dest.write(prefix, sizeof(prefix));
         if (_cmdCont->encode(&dest)) {
-            _handler->packetQueuedEvent(dest.writenData());
+            _handler->packetQueued(dest.writenData());
         } else {
             BMCL_DEBUG() << "error encoding";
             QMessageBox::warning(this, "UiTest", "Error while encoding cmd. Args may be empty", QMessageBox::Ok);

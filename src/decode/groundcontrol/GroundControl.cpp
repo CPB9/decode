@@ -24,8 +24,8 @@ namespace decode {
 
 class GcFwtState : public FwtState {
 public:
-    GcFwtState(GroundControl* parent, Scheduler* sched)
-        : FwtState(sched)
+    GcFwtState(GroundControl* parent, Scheduler* sched, ModelEventHandler* handler)
+        : FwtState(sched, handler)
         , _parent(parent)
     {
     }
@@ -65,7 +65,7 @@ private:
 
 GroundControl::GroundControl(DataStream* stream, Scheduler* sched, ModelEventHandler* handler)
     : _exc(new Exchange(stream))
-    , _fwt(new GcFwtState(this, sched))
+    , _fwt(new GcFwtState(this, sched, handler))
     , _tm(new GcTmState(this))
     , _handler(handler)
     , _sched(sched)
@@ -110,7 +110,7 @@ void GroundControl::updateProject(const Project* project, bmcl::StringView devic
     _project.reset(project);
     Rc<Model> m = new Model(project, _handler.get(), deviceName);
     _model = m;
-    _handler->modelUpdatedEvent(m.get());
+    _handler->modelUpdated(m.get());
 }
 
 void GroundControl::sendPacket(bmcl::Bytes data)

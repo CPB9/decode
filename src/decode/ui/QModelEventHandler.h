@@ -26,18 +26,20 @@ class QModelEventHandler : public QObject, public ModelEventHandler {
 public:
     ~QModelEventHandler();
 
-    void packetQueuedEvent(bmcl::Bytes packet) override;
-    void modelUpdatedEvent(Model* model) override;
-    void nodeValueUpdatedEvent(const Node* node, std::size_t nodeIndex) override;
-    void nodesInsertedEvent(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex) override;
-    void nodesRemovedEvent(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex) override;
-
 signals:
-    void modelUpdated(const Rc<Model>& model);
+    void beginHashDownload() override;
+    void endHashDownload(const std::string& deviceName, bmcl::Bytes firmwareHash) override;
+    void beginFirmwareStartCommand() override;
+    void endFirmwareStartCommand() override;
+    void beginFirmwareDownload(std::size_t firmwareSize) override;
+    void firmwareDownloadProgress(std::size_t sizeDownloaded) override;
+    void firmwareError(const std::string& errorMsg) override;
+    void endFirmwareDownload() override;
+    void modelUpdated(const Rc<Model>& model) override;
     //FIXME: pass Rc for queued connections
-    void packetQueued(bmcl::Bytes packet);
-    void nodeValueUpdated(const Node* node, std::size_t nodeIndex);
-    void nodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
-    void nodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
+    void packetQueued(bmcl::Bytes packet) override;
+    void nodeValueUpdated(const Node* node, std::size_t nodeIndex) override;
+    void nodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex) override;
+    void nodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex) override;
 };
 }

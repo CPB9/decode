@@ -16,23 +16,56 @@ ModelEventHandler::~ModelEventHandler()
 {
 }
 
-void ModelEventHandler::packetQueuedEvent(bmcl::Bytes)
+void ModelEventHandler::beginHashDownload()
 {
 }
 
-void ModelEventHandler::modelUpdatedEvent(Model*)
+void ModelEventHandler::endHashDownload(const std::string&, bmcl::Bytes)
 {
 }
 
-void ModelEventHandler::nodeValueUpdatedEvent(const Node*, std::size_t)
+void ModelEventHandler::beginFirmwareStartCommand()
 {
 }
 
-void ModelEventHandler::nodesInsertedEvent(const Node*, std::size_t, std::size_t, std::size_t)
+void ModelEventHandler::endFirmwareStartCommand()
 {
 }
 
-void ModelEventHandler::nodesRemovedEvent(const Node*, std::size_t, std::size_t, std::size_t)
+
+void ModelEventHandler::beginFirmwareDownload(std::size_t)
+{
+}
+
+void ModelEventHandler::firmwareDownloadProgress(std::size_t)
+{
+}
+
+void ModelEventHandler::firmwareError(const std::string&)
+{
+}
+
+void ModelEventHandler::endFirmwareDownload()
+{
+}
+
+void ModelEventHandler::packetQueued(bmcl::Bytes)
+{
+}
+
+void ModelEventHandler::modelUpdated(const Rc<Model>&)
+{
+}
+
+void ModelEventHandler::nodeValueUpdated(const Node*, std::size_t)
+{
+}
+
+void ModelEventHandler::nodesInserted(const Node*, std::size_t, std::size_t, std::size_t)
+{
+}
+
+void ModelEventHandler::nodesRemoved(const Node*, std::size_t, std::size_t, std::size_t)
 {
 }
 }

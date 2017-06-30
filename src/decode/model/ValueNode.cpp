@@ -57,7 +57,7 @@ inline void updateOptionalValue(bmcl::Option<T>* value, T newValue, ModelEventHa
     if (value->isSome()) {
         if (value->unwrap() != newValue) {
             value->unwrap() = newValue;
-            handler->nodeValueUpdatedEvent(node, nodeIndex);
+            handler->nodeValueUpdated(node, nodeIndex);
         }
     } else {
         value->emplace(newValue);
@@ -293,10 +293,10 @@ void SliceValueNode::resize(std::size_t size, std::size_t nodeIndex, ModelEventH
             node->setFieldName(_cache->arrayIndex(currentSize + i));
             _values.push_back(node);
         }
-        handler->nodesInsertedEvent(this, nodeIndex, currentSize, size - 1);
+        handler->nodesInserted(this, nodeIndex, currentSize, size - 1);
     } else if (size < currentSize) {
         _values.resize(size);
-        handler->nodesRemovedEvent(this, nodeIndex, size, currentSize - 1);
+        handler->nodesRemoved(this, nodeIndex, size, currentSize - 1);
     }
     assert(values().size() == size);
 }
@@ -385,10 +385,10 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
         std::size_t size = tField->typesRange().size();
         if (size < currentSize) {
             _values.resize(size);
-            handler->nodesRemovedEvent(this, nodeIndex, size, currentSize - 1);
+            handler->nodesRemoved(this, nodeIndex, size, currentSize - 1);
         } else if (size > currentSize) {
             _values.resize(size);
-            handler->nodesInsertedEvent(this, nodeIndex, currentSize, size - 1);
+            handler->nodesInserted(this, nodeIndex, currentSize, size - 1);
         }
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(tField->typesBegin()[i], _cache.get(), this);
@@ -402,10 +402,10 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
         std::size_t size = sField->fieldsRange().size();
         if (size < currentSize) {
             _values.resize(size);
-            handler->nodesRemovedEvent(this, nodeIndex, size, currentSize - 1);
+            handler->nodesRemoved(this, nodeIndex, size, currentSize - 1);
         } else if (size > currentSize) {
             _values.resize(size);
-            handler->nodesInsertedEvent(this, nodeIndex, currentSize, size - 1);
+            handler->nodesInserted(this, nodeIndex, currentSize, size - 1);
         }
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(sField->fieldsBegin()[i]->type(), _cache.get(), this);

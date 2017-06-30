@@ -74,6 +74,7 @@ public:
     void add(MemInterval chunk);
     void clear();
     std::size_t size() const;
+    std::size_t dataSize() const;
     MemInterval at(std::size_t index) const;
 
     const std::vector<MemInterval>& intervals() const;
@@ -100,6 +101,16 @@ inline void MemIntervalSet::clear()
 inline std::size_t MemIntervalSet::size() const
 {
     return _intervals.size();
+}
+
+//TODO: calculate on addition
+inline std::size_t MemIntervalSet::dataSize() const
+{
+    std::size_t s = 0;
+    for (const MemInterval& i : _intervals) {
+        s += i.size();
+    }
+    return s;
 }
 
 inline MemInterval MemIntervalSet::at(std::size_t index) const

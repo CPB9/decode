@@ -85,5 +85,6 @@ public:
     Rc<PackageTmNode> _tmNode;
     Rc<PackageCmdsNode> _cmdsNode;
     std::vector<Rc<Node>> _nodes;
+    bmcl::StringView _name;
 };
 }

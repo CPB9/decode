@@ -142,11 +142,9 @@ Model::Model(const Project* project, ModelEventHandler* handler, bmcl::StringVie
     , _cache(new ValueInfoCache)
     , _handler(handler)
 {
-    for (auto it : project->devices()) {
-        BMCL_DEBUG() << it->name;
-    }
     auto dev = project->deviceWithName(deviceName);
     assert(dev.isSome());
+    _name = dev->name;
 
     _tmNode = new PackageTmNode(dev.unwrap(), _cache.get(), handler, this);
     _cmdsNode = new PackageCmdsNode(dev.unwrap(), _cache.get(), handler, this);
@@ -175,7 +173,7 @@ bmcl::OptionPtr<Node> Model::childAt(std::size_t idx)
 
 bmcl::StringView Model::fieldName() const
 {
-    return "photon";
+    return _name;
 }
 
 PackageTmNode* Model::tmNode()

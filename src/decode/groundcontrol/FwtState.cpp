@@ -10,6 +10,7 @@
 #include "decode/groundcontrol/Exchange.h"
 #include "decode/groundcontrol/MemIntervalSet.h"
 #include "decode/groundcontrol/Scheduler.h"
+#include "decode/model/ModelEventHandler.h"
 #include "decode/core/Utils.h"
 
 #include <bmcl/MemWriter.h>
@@ -42,12 +43,13 @@ struct StartCmdRndGen {
     uint64_t last;
 };
 
-FwtState::FwtState(Scheduler* sched)
+FwtState::FwtState(Scheduler* sched, ModelEventHandler* handler)
     : Client(0)
     ,_hasStartCommandPassed(false)
     , _hasDownloaded(false)
     , _startCmdState(new StartCmdRndGen)
     , _sched(sched)
+    , _handler(handler)
 {
 }
 
@@ -94,7 +96,7 @@ void FwtState::handleHashAction(const Rc<Sender>& parent)
     if (_hash.isSome()) {
         return;
     }
-    BMCL_DEBUG() << "hash timer";
+    _handler->beginHashDownload();
     packAndSendPacket(parent.get(), &FwtState::genHashCmd);
     scheduleHash(parent.get());
 }
@@ -104,7 +106,7 @@ void FwtState::handleStartAction(const Rc<Sender>& parent)
     if (_hasStartCommandPassed) {
         return;
     }
-    BMCL_DEBUG() << "start timer";
+    _handler->beginFirmwareStartCommand();
     packAndSendPacket(parent.get(), &FwtState::genStartCmd);
     scheduleStart(parent.get());
 }
@@ -114,7 +116,7 @@ void FwtState::handleCheckAction(const Rc<Sender>& parent)
     if (_hasDownloaded) {
         return;
     }
-    BMCL_DEBUG() << "check timer";
+    //TODO: handle event
     checkIntervals(parent.get());
 }
 
@@ -123,11 +125,10 @@ void FwtState::handleCheckAction(const Rc<Sender>& parent)
 
 void FwtState::acceptData(Sender* parent, bmcl::Bytes packet)
 {
-    BMCL_DEBUG() << "fwt accepting data";
     bmcl::MemReader reader(packet.begin(), packet.size());
     int64_t answerType;
     if (!reader.readVarInt(&answerType)) {
-        //TODO: report error
+        _handler->firmwareError("Recieved firmware chunk with invalid size");
         return;
     }
 
@@ -145,26 +146,22 @@ void FwtState::acceptData(Sender* parent, bmcl::Bytes packet)
         acceptStopResponse(parent, &reader);
         return;
     default:
-        //TODO: report error
+        _handler->firmwareError("Recieved invalid fwt response: " + std::to_string(answerType));
         return;
     }
 }
 
 void FwtState::acceptChunkResponse(Sender* parent, bmcl::MemReader* src)
 {
+    (void)parent;
     if (_hash.isNone()) {
-        //TODO: report error, recieved chunk earlier then hash
-        return;
-    }
-
-    if (!_hasStartCommandPassed) {
-        //TODO: report error
+        _handler->firmwareError("Recieved firmware chunk before recieving hash");
         return;
     }
 
     uint64_t start;
     if (!src->readVarUint(&start)) {
-        //TODO: report error
+        _handler->firmwareError("Recieved firmware chunk with invalid start offset");
         return;
     }
 
@@ -172,18 +169,19 @@ void FwtState::acceptChunkResponse(Sender* parent, bmcl::MemReader* src)
     MemInterval os(start, start + src->sizeLeft());
 
     if (os.start() > _desc.size()) {
-        //TODO: report error
+        _handler->firmwareError("Recieved firmware chunk with start offset > firmware size");
         return;
     }
 
     if (os.end() > _desc.size()) {
-        //TODO: report error
+        _handler->firmwareError("Recieved firmware chunk with end offset > firmware end");
         return;
     }
 
     src->read(_desc.data() + os.start(), os.size());
 
     _acceptedChunks.add(os);
+    _handler->firmwareDownloadProgress(_acceptedChunks.dataSize());
 }
 
 void FwtState::checkIntervals(Sender* parent)
@@ -221,36 +219,34 @@ void FwtState::checkIntervals(Sender* parent)
 
 void FwtState::readFirmware()
 {
+    _handler->endFirmwareDownload();
     updateProject(_desc, _deviceName);
 }
 
 void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)
 {
     if (_hash.isSome()) {
-        //TODO: log
+        _handler->firmwareError("Recieved additional hash response");
         return;
     }
 
     uint64_t descSize;
     if (!src->readVarUint(&descSize)) {
-        BMCL_DEBUG() << "invalid desc size";
-        //TODO: report error
+        _handler->firmwareError("Recieved hash responce with invalid firmware size");
         scheduleHash(parent);
         return;
     }
 
     bmcl::Result<bmcl::StringView, void> name = deserializeString(src);
-    BMCL_DEBUG() << name.unwrap().toStdString();
     if (name.isErr()) {
-        //TODO: report error
+        _handler->firmwareError("Recieved hash responce with invalid device name");
         return;
     }
     _deviceName = name.unwrap().toStdString();
 
     //TODO: check descSize for overflow
     if (src->readableSize() != 64) {
-        //TODO: report error
-        BMCL_DEBUG() << "invalid hash size " << src->readableSize();
+        _handler->firmwareError("Recieved hash responce with invalid hash size: " + std::to_string(src->readableSize()));
         scheduleHash(parent);
         return;
     }
@@ -264,29 +260,34 @@ void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)
 
     packAndSendPacket(parent, &FwtState::genStartCmd);
 
-    BMCL_DEBUG() << "recieved hash";
+    _handler->endHashDownload(name.unwrap().toStdString(), _hash.unwrap());
     scheduleStart(parent);
 }
 
 void FwtState::acceptStartResponse(Sender* parent, bmcl::MemReader* src)
 {
     if (_hasStartCommandPassed) {
-        //TODO: log
+        _handler->firmwareError("Recieved duplicate start command responce");
         return;
     }
 
     uint64_t startRandomId;
     if (!src->readVarUint(&startRandomId)) {
-        //TODO: report error
+        _handler->firmwareError("Recieved invalid start command random id");
         scheduleStart(parent);
         return;
     }
     if (startRandomId != _startCmdState->last) {
-        //TODO: report error
+        _handler->firmwareError("Recieved invalid start command random id: expected " +
+                                std::to_string(_startCmdState->last) +
+                                " got " +
+                                std::to_string(startRandomId));
         scheduleStart(parent);
         return;
     }
     _hasStartCommandPassed = true;
+    _handler->endFirmwareStartCommand();
+    _handler->beginFirmwareDownload(_desc.size());
     scheduleCheck(parent);
 }
 

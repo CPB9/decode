@@ -26,11 +26,12 @@ namespace decode {
 class Sender;
 class Scheduler;
 class Project;
+class ModelEventHandler;
 struct StartCmdRndGen;
 
 class FwtState : public Client {
 public:
-    FwtState(Scheduler* sched);
+    FwtState(Scheduler* sched, ModelEventHandler* handler);
     ~FwtState();
 
     void acceptData(Sender* parent, bmcl::Bytes packet) override;
@@ -74,5 +75,6 @@ private:
     std::unique_ptr<StartCmdRndGen> _startCmdState;
     uint8_t _temp[20];
     Rc<Scheduler> _sched;
+    Rc<ModelEventHandler> _handler;
 };
 }
