@@ -18,8 +18,9 @@
 
 namespace decode {
 
-FirmwareWidget::FirmwareWidget(ModelEventHandler* handler)
-    : _handler(handler)
+FirmwareWidget::FirmwareWidget(ModelEventHandler* handler, QWidget* parent)
+    : QWidget(parent)
+    , _handler(handler)
 {
     _qmodel = bmcl::makeUnique<QModel>(new Node(bmcl::None));
 

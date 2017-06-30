@@ -17,7 +17,7 @@ class Model;
 class FirmwareWidget : public QWidget {
     Q_OBJECT
 public:
-    FirmwareWidget(ModelEventHandler* handler);
+    FirmwareWidget(ModelEventHandler* handler, QWidget* parent = nullptr);
     ~FirmwareWidget();
 
     QModel* qmodel();

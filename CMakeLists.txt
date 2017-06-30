@@ -58,6 +58,7 @@ set(DECODE_UI_SRC)
 if(Qt5Widgets_FOUND)
     set(DECODE_UI_HEADERS
         src/decode/ui/FirmwareWidget.h
+        src/decode/ui/FirmwareStatusWidget.h
         src/decode/ui/QCmdModel.h
         src/decode/ui/QModel.h
         src/decode/ui/QModelEventHandler.h
@@ -67,6 +68,7 @@ if(Qt5Widgets_FOUND)
     )
     set(DECODE_UI_SRC
         src/decode/ui/FirmwareWidget.cpp
+        src/decode/ui/FirmwareStatusWidget.cpp
         src/decode/ui/QCmdModel.cpp
         src/decode/ui/QModel.cpp
         src/decode/ui/QModelEventHandler.cpp
