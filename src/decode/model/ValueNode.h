@@ -26,7 +26,6 @@ class ValueInfoCache;
 class ModelEventHandler;
 class Function;
 
-
 class ValueNode : public Node {
 public:
     ~ValueNode();
@@ -49,6 +48,7 @@ public:
     }
 
 protected:
+
     explicit ValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     Rc<const ValueInfoCache> _cache;

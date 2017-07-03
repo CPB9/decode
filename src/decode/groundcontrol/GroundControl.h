@@ -15,7 +15,7 @@
 
 namespace decode {
 
-class DataStream;
+class DataSink;
 class Scheduler;
 class Exchange;
 class GcFwtState;
@@ -26,19 +26,17 @@ class ModelEventHandler;
 
 class GroundControl : public RefCountable {
 public:
-    GroundControl(DataStream* stream, Scheduler* sched, ModelEventHandler* handler);
+    GroundControl(DataSink* sink, Scheduler* sched, ModelEventHandler* handler);
     ~GroundControl();
 
     void sendPacket(bmcl::Bytes data);
+    void acceptData(bmcl::Bytes data);
 
     void start();
 
     ModelEventHandler* handler();
 
 private:
-    void acceptData(bmcl::Bytes data);
-    void tick();
-    void scheduleTick();
     friend class GcFwtState;
     friend class GcTmState;
 
@@ -52,6 +50,6 @@ private:
     Rc<ModelEventHandler> _handler;
     Rc<Model> _model;
     Rc<Scheduler> _sched;
-    Rc<DataStream> _stream;
+    Rc<DataSink> _sink;
 };
 }
