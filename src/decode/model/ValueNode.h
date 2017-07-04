@@ -41,10 +41,16 @@ public:
 
     bmcl::StringView typeName() const override;
     bmcl::StringView fieldName() const override;
+    bmcl::StringView shortDescription() const override;
 
     void setFieldName(bmcl::StringView name)
     {
         _fieldName = name;
+    }
+
+    void setShortDesc(bmcl::StringView desc)
+    {
+        _shortDesc = desc;
     }
 
 protected:
@@ -55,6 +61,7 @@ protected:
 
 private:
     bmcl::StringView _fieldName;
+    bmcl::StringView _shortDesc;
 };
 
 class ContainerValueNode : public ValueNode {

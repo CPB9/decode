@@ -15,6 +15,7 @@
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Field.h"
 #include "decode/parser/Containers.h"
+#include "decode/parser/DocBlock.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/OptionPtr.h>
@@ -80,7 +81,7 @@ class VariantType;
 class EnumType;
 class ReferenceType;
 
-class Type : public RefCountable {
+class Type : public RefCountable, public DocBlockMixin {
 public:
     const ArrayType* asArray() const;
     const SliceType* asSlice() const;
@@ -508,7 +509,7 @@ private:
     RcSecondUnorderedMap<bmcl::StringView, Field> _nameToFieldMap;
 };
 
-class EnumConstant : public NamedRc {
+class EnumConstant : public NamedRc, public DocBlockMixin {
 public:
     EnumConstant(bmcl::StringView name, std::int64_t value, bool isUserSet)
         : NamedRc(name)

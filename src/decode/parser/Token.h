@@ -21,7 +21,7 @@ namespace decode {
 enum class TokenKind {
     Invalid = 0,
     DocComment,
-    RawComment,
+//   RawComment,
     Blank,
     Comma,
     Colon,

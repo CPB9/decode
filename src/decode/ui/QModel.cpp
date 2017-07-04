@@ -26,6 +26,7 @@ enum ColumnDesc {
     ColumnName = 0,
     ColumnTypeName = 1,
     ColumnValue = 2,
+    ColumnInfo = 3,
 };
 
 QModel::QModel(Node* node)
@@ -59,6 +60,15 @@ static QVariant typeNameFromNode(const Node* node)
     bmcl::StringView name = node->typeName();
     if (!name.isEmpty()) {
         return QString::fromUtf8(name.data(), name.size());
+    }
+    return QVariant();
+}
+
+static QVariant shortDescFromNode(const Node* node)
+{
+    bmcl::StringView desc = node->shortDescription();
+    if (!desc.isEmpty()) {
+        return QString::fromUtf8(desc.data(), desc.size());
     }
     return QVariant();
 }
@@ -195,6 +205,10 @@ QVariant QModel::data(const QModelIndex& index, int role) const
         if (index.column() == ColumnDesc::ColumnTypeName) {
             return typeNameFromNode(node);
         }
+
+        if (index.column() == ColumnDesc::ColumnInfo) {
+            return shortDescFromNode(node);
+        }
     }
 
     if (index.column() == ColumnDesc::ColumnValue) {
@@ -228,6 +242,8 @@ QVariant QModel::headerData(int section, Qt::Orientation orientation, int role) 
             return "Type Name";
         case ColumnDesc::ColumnValue:
             return "Value";
+        case ColumnDesc::ColumnInfo:
+            return "Description";
         default:
             return "UNKNOWN";
         };
@@ -347,6 +363,9 @@ QMap<int, QVariant> QModel::itemData(const QModelIndex& index) const
         roles.insert(Qt::BackgroundRole, backgroundFromValue(value));
         return roles;
     }
+    case ColumnDesc::ColumnInfo:
+        roles.insert(Qt::DisplayRole, shortDescFromNode(node));
+        return roles;
     };
     return roles;
 }
@@ -373,7 +392,7 @@ int QModel::rowCount(const QModelIndex& parent) const
 int QModel::columnCount(const QModelIndex& parent) const
 {
     (void)parent;
-    return 3;
+    return 4;
 }
 
 static QVector<int> allRoles = {Qt::DisplayRole, Qt::BackgroundRole};

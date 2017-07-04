@@ -13,6 +13,7 @@
 #include "decode/core/Iterator.h"
 #include "decode/core/NamedRc.h"
 #include "decode/parser/Containers.h"
+#include "decode/parser/DocBlock.h"
 
 #include <bmcl/StringView.h>
 
@@ -28,7 +29,7 @@ enum class VariantFieldKind {
     Struct
 };
 
-class Field : public NamedRc {
+class Field : public NamedRc, public DocBlockMixin {
 public:
     Field(bmcl::StringView name, Type* type)
         : NamedRc(name)
@@ -50,7 +51,7 @@ private:
     Rc<Type> _type;
 };
 
-class VariantField : public NamedRc {
+class VariantField : public NamedRc, public DocBlockMixin {
 public:
     VariantField(VariantFieldKind kind, bmcl::StringView name)
         : NamedRc(name)

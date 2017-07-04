@@ -11,12 +11,14 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/FileInfo.h"
+#include "decode/parser/DocBlock.h" //TODO: move to core
 
 #include <bmcl/StringView.h>
+#include <bmcl/OptionPtr.h>
 
 namespace decode {
 
-class ModuleInfo : public RefCountable {
+class ModuleInfo : public RefCountable, public DocBlockMixin {
 public:
     ModuleInfo(bmcl::StringView name, const FileInfo* fileInfo);
 

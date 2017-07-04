@@ -36,6 +36,7 @@ public:
     virtual bmcl::OptionPtr<Node> childAt(std::size_t idx);
     virtual bmcl::StringView fieldName() const;
     virtual bmcl::StringView typeName() const;
+    virtual bmcl::StringView shortDescription() const;
     virtual Value value() const;
     virtual ValueKind valueKind() const;
     virtual bool canSetValue() const;

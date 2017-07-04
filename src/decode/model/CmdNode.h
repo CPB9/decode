@@ -30,6 +30,8 @@ public:
     bool canHaveChildren() const override;
 
     bmcl::StringView typeName() const override;
+    bmcl::StringView fieldName() const override;
+    bmcl::StringView shortDescription() const override;
 
     Rc<CmdNode> clone(bmcl::OptionPtr<Node> parent);
 

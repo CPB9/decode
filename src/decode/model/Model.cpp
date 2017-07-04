@@ -26,6 +26,28 @@
 
 namespace decode {
 
+class ComponentParamsNode : public FieldsNode {
+public:
+    ComponentParamsNode(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+        : FieldsNode(comp->paramsRange(), cache, parent)
+        , _comp(comp)
+    {
+    }
+
+    bmcl::StringView fieldName() const override
+    {
+        return _comp->name();
+    }
+
+    bmcl::StringView shortDescription() const override
+    {
+        return _comp->moduleInfo()->shortDescription();
+    }
+
+private:
+    Rc<const Component> _comp;
+};
+
 PackageTmNode::PackageTmNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
     : Node(parent)
     , _handler(handler)
@@ -41,8 +63,7 @@ PackageTmNode::PackageTmNode(const Device* dev, const ValueInfoCache* cache, Mod
             continue;
         }
 
-        Rc<FieldsNode> node = new FieldsNode(it->paramsRange(), cache, this);
-        node->setName(it->name());
+        Rc<ComponentParamsNode> node = new ComponentParamsNode(it, cache, this);
         _nodes.emplace_back(node);
 
         if (!it->hasStatuses()) {

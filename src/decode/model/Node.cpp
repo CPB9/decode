@@ -67,4 +67,9 @@ bool Node::setValue(const Value& value)
     (void)value;
     return false;
 }
+
+bmcl::StringView Node::shortDescription() const
+{
+    return bmcl::StringView::empty();
+}
 }

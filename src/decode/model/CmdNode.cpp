@@ -23,7 +23,6 @@ CmdNode::CmdNode(const Component* comp, const Function* func, const ValueInfoCac
     , _cache(cache)
     , _expandArgs(expandArgs)
 {
-    setName(func->name());
 }
 
 CmdNode::~CmdNode()
@@ -63,6 +62,16 @@ Rc<CmdNode> CmdNode::clone(bmcl::OptionPtr<Node> parent)
 bmcl::StringView CmdNode::typeName() const
 {
     return _cache->nameForType(_func->type());
+}
+
+bmcl::StringView CmdNode::fieldName() const
+{
+    return _func->name();
+}
+
+bmcl::StringView CmdNode::shortDescription() const
+{
+    return _func->shortDescription();
 }
 
 CmdContainerNode::CmdContainerNode(bmcl::OptionPtr<Node> parent)

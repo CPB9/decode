@@ -18,6 +18,7 @@ FieldsNode::FieldsNode(FieldVec::ConstRange params, const ValueInfoCache* cache,
 {
     for (const Field* field : params) {
         Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, this);
+        node->setShortDesc(field->shortDescription());
         node->setFieldName(field->name());
         _nameToNodeMap.emplace(field->name(), node);
         _nodes.emplace_back(node);
@@ -26,11 +27,6 @@ FieldsNode::FieldsNode(FieldVec::ConstRange params, const ValueInfoCache* cache,
 
 FieldsNode::~FieldsNode()
 {
-}
-
-bmcl::StringView FieldsNode::fieldName() const
-{
-    return _name;
 }
 
 bmcl::OptionPtr<ValueNode> FieldsNode::nodeWithName(bmcl::StringView name)
@@ -55,11 +51,6 @@ bmcl::Option<std::size_t> FieldsNode::childIndex(const Node* node) const
 bmcl::OptionPtr<Node> FieldsNode::childAt(std::size_t idx)
 {
     return childAtGeneric(_nodes, idx);
-}
-
-void FieldsNode::setName(bmcl::StringView name)
-{
-    _name = name;
 }
 
 bool FieldsNode::encodeFields(bmcl::MemWriter* dest) const

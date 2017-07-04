@@ -24,7 +24,7 @@ namespace decode {
 class ImplBlock;
 class FunctionType;
 
-class Function : public NamedRc {
+class Function : public NamedRc, public DocBlockMixin {
 public:
     Function(bmcl::StringView name, FunctionType* type)
         : NamedRc(name)
@@ -428,6 +428,11 @@ public:
     bmcl::StringView moduleName() const
     {
         return _modInfo->moduleName();
+    }
+
+    const ModuleInfo* moduleInfo() const
+    {
+        return _modInfo.get();
     }
 
     bmcl::StringView name() const

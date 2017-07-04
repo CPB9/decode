@@ -12,6 +12,7 @@
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
 #include "decode/parser/Token.h"
+#include "decode/core/Iterator.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/ResultFwd.h>
@@ -50,6 +51,7 @@ class Ast;
 class Constant;
 class CfgOption;
 class Function;
+class DocBlock;
 
 enum class BuiltinTypeKind;
 
@@ -169,10 +171,12 @@ private:
     template <typename T>
     void endType(const Rc<T>& type);
 
-
     bool currentTokenIs(TokenKind kind);
 
     void finishSplittingLines();
+
+    Rc<DocBlock> createDocsFromComments();
+    void clearUnusedDocComments();
 
     Rc<Report> reportCurrentTokenError(const char* msg);
 
@@ -188,5 +192,6 @@ private:
     Rc<AllBuiltinTypes> _builtinTypes;
 
     const char* _lastLineStart;
+    std::vector<bmcl::StringView> _docComments;
 };
 }

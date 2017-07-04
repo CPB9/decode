@@ -84,6 +84,11 @@ bmcl::StringView ValueNode::fieldName() const
     return _fieldName;
 }
 
+bmcl::StringView ValueNode::shortDescription() const
+{
+    return _shortDesc;
+}
+
 static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     switch (type->builtinTypeKind()) {
@@ -309,6 +314,7 @@ StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* c
     for (const Field* field : type->fieldsRange()) {
         Rc<ValueNode> node = ValueNode::fromType(field->type(), _cache.get(), this);
         node->setFieldName(field->name());
+        node->setShortDesc(field->shortDescription());
         _values.push_back(node);
     }
 }

@@ -129,11 +129,8 @@ template <typename... A>
 struct Comment
         : pegtl::disable<pegtl::seq<A..., pegtl::until<pegtl::at<pegtl::eolf>>>> {};
 
-struct RawComment
-        : Comment<Slash, Slash> {};
-
 struct DocComment
-        : Comment<Slash, Slash, Exclamation> {};
+        : Comment<Slash, Slash, Slash> {};
 
 // numbers
 
@@ -148,7 +145,6 @@ struct Helper
 
 struct Grammar
         : Helper<DocComment,
-                 RawComment,
                  Blank,
                  Eol,
                  Comma,
@@ -208,7 +204,7 @@ struct Action<grammar::name> {\
 };
 
 RULE_TO_TOKEN(DocComment);
-RULE_TO_TOKEN(RawComment);
+//RULE_TO_TOKEN(RawComment);
 RULE_TO_TOKEN(Comma);
 RULE_TO_TOKEN(DoubleColon);
 RULE_TO_TOKEN(Colon);

@@ -12,6 +12,7 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/CfgOption.h"
 #include "decode/parser/Decl.h"
+#include "decode/parser/DocBlock.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Token.h"
 #include "decode/parser/Decl.h"
@@ -140,10 +141,11 @@ bool Parser::skipCommentsAndSpace()
             consume();
             _lastLineStart = _currentToken.begin();
             break;
-        case TokenKind::RawComment:
-            consume();
-            break;
+//         case TokenKind::RawComment:
+//             consume();
+//             break;
         case TokenKind::DocComment:
+            _docComments.push_back(_currentToken.value().trim());
             consume();
             break;
         case TokenKind::Eof:
@@ -270,8 +272,7 @@ Rc<Report> Parser::reportCurrentTokenError(const char* msg)
 
 bool Parser::parseModuleDecl()
 {
-    TRY(skipCommentsAndSpace());
-
+    Rc<DocBlock> docs = createDocsFromComments();
     Location start = _currentToken.location();
     TRY(expectCurrentToken(TokenKind::Module, "Every module must begin with module declaration"));
     consume();
@@ -283,12 +284,19 @@ bool Parser::parseModuleDecl()
 
     bmcl::StringView modName = _currentToken.value();
     _moduleInfo = new ModuleInfo(modName, _fileInfo.get());
+    _moduleInfo->setDocs(docs.get());
 
     Rc<ModuleDecl> modDecl = new ModuleDecl(_moduleInfo.get(), start, _currentToken.location());
     _ast->setModuleDecl(modDecl.get());
     consume();
 
+    clearUnusedDocComments();
     return true;
+}
+
+void Parser::clearUnusedDocComments()
+{
+    _docComments.clear();
 }
 
 bool Parser::parseImports()
@@ -337,6 +345,7 @@ bool Parser::parseImports()
         _ast->addImportDecl(import.get());
     }
 
+    clearUnusedDocComments();
     return true;
 }
 
@@ -416,6 +425,7 @@ bool Parser::parseConstant()
 
     _ast->addConstant(new Constant(name, value, type.get()));
 
+    clearUnusedDocComments();
     return true;
 }
 
@@ -592,12 +602,16 @@ bool Parser::parseImplBlock()
     block->_name = _currentToken.value();
     consumeAndSkipBlanks();
 
+    clearUnusedDocComments();
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
+        Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction();
+        fn->setDocs(docs.get());
         if (!fn) {
             return false;
         }
         block->addFunction(fn.get());
+        clearUnusedDocComments();
         return true;
     }));
 
@@ -610,6 +624,7 @@ bool Parser::parseImplBlock()
 
     _ast->addImplBlock(block.get());
 
+    clearUnusedDocComments();
     return true;
 }
 
@@ -641,6 +656,7 @@ bool Parser::parseAlias()
 
     _ast->addTopLevelType(type.get());
 
+    clearUnusedDocComments();
     return true;
 }
 
@@ -893,10 +909,22 @@ Rc<Field> Parser::parseField()
     return field;
 }
 
+Rc<DocBlock> Parser::createDocsFromComments()
+{
+    if (_docComments.empty()) {
+        return nullptr;
+    }
+    Rc<DocBlock> docs = new DocBlock(_docComments);
+    _docComments.clear();
+    return docs;
+}
+
 template <typename T>
 bool Parser::parseRecordField(T* parent)
 {
+    Rc<DocBlock> docs = createDocsFromComments();
     Rc<Field> decl = parseField();
+    decl->setDocs(docs.get());
     if (!decl) {
         return false;
     }
@@ -907,6 +935,7 @@ bool Parser::parseRecordField(T* parent)
 bool Parser::parseEnumConstant(EnumType* parent)
 {
     TRY(skipCommentsAndSpace());
+    Rc<DocBlock> docs = createDocsFromComments();
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
     consumeAndSkipBlanks();
@@ -917,6 +946,7 @@ bool Parser::parseEnumConstant(EnumType* parent)
         TRY(parseSignedInteger(&value));
         //TODO: check value
         Rc<EnumConstant> constant = new EnumConstant(name, value, true);
+        constant->setDocs(docs.get());
         if (!parent->addConstant(constant.get())) {
             BMCL_CRITICAL() << "enum constant redefinition";
             return false;
@@ -931,6 +961,8 @@ bool Parser::parseEnumConstant(EnumType* parent)
 
 bool Parser::parseVariantField(VariantType* parent)
 {
+    TRY(skipCommentsAndSpace());
+    Rc<DocBlock> docs = createDocsFromComments();
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
     consumeAndSkipBlanks();
@@ -938,15 +970,18 @@ bool Parser::parseVariantField(VariantType* parent)
 
     if (currentTokenIs(TokenKind::Comma)) {
         Rc<ConstantVariantField> field = new ConstantVariantField(name);
+        field->setDocs(docs.get());
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LBrace)) {
         Rc<StructVariantField> field = new StructVariantField(name);
+        field->setDocs(docs.get());
         TRY(parseBraceList(field.get(), [this](StructVariantField* dest) {
             return parseRecordField(dest);
         }));
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LParen)) {
         Rc<TupleVariantField> field = new TupleVariantField(name);
+        field->setDocs(docs.get());
         TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, field, [this](const Rc<TupleVariantField>& field) {
             skipBlanks();
             Rc<Type> type = parseType();
@@ -962,6 +997,7 @@ bool Parser::parseVariantField(VariantType* parent)
         return false;
     }
 
+    clearUnusedDocComments();
     return true;
 }
 
@@ -1027,15 +1063,18 @@ template <typename T, bool genericAllowed, typename F>
 bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
 {
     TRY(skipCommentsAndSpace());
+    Rc<DocBlock> docs = createDocsFromComments();
     TRY(expectCurrentToken(startToken));
 
     consume();
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Identifier));
     Rc<T> type = new T(_currentToken.value(), _moduleInfo.get());
+    type->setDocs(docs.get());
     consumeAndSkipBlanks();
 
     TRY(parseBraceList(type.get(), std::forward<F>(fieldParser)));
+    clearUnusedDocComments();
 
     _ast->addTopLevelType(type.get());
     return true;
@@ -1078,13 +1117,17 @@ bool Parser::parseCommands(Component* parent)
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Commands, TokenKind::Eol, parent, [this](Component* comp) {
+        Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction(false);
+        fn->setDocs(docs.get());
         if (!fn) {
             return false;
         }
         comp->addCommand(fn.get());
+        clearUnusedDocComments();
         return true;
     }));
+    clearUnusedDocComments();
     return true;
 }
 
@@ -1096,14 +1139,18 @@ bool Parser::parseComponentImpl(Component* parent)
     }
     Rc<ImplBlock> impl = new ImplBlock;
     TRY(parseNamelessTag(TokenKind::Impl, TokenKind::Eol, impl.get(), [this](ImplBlock* impl) {
+        Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction(false);
+        fn->setDocs(docs.get());
         if (!fn) {
             return false;
         }
         impl->addFunction(fn.get());
+        clearUnusedDocComments();
         return true;
     }));
     parent->setImplBlock(impl.get());
+    clearUnusedDocComments();
     return true;
 }
 
@@ -1114,13 +1161,18 @@ bool Parser::parseParameters(Component* parent)
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
+        Rc<DocBlock> docs = createDocsFromComments();
         Rc<Field> field = parseField();
+        field->setDocs(docs.get());
+        clearUnusedDocComments();
         if (!field) {
             return false;
         }
         comp->addParam(field.get());
         return true;
     }));
+
+    clearUnusedDocComments();
     return true;
 }
 
@@ -1232,6 +1284,7 @@ bool Parser::parseStatuses(Component* parent)
         }
         return true;
     }));
+    clearUnusedDocComments();
     return true;
 }
 
@@ -1293,6 +1346,7 @@ bool Parser::parseOneFile(FileInfo* finfo)
     _ast = new Ast;
 
     _lexer->consumeNextToken(&_currentToken);
+    TRY(skipCommentsAndSpace());
     TRY(parseModuleDecl());
     TRY(parseImports());
     TRY(parseTopLevelDecls());
@@ -1302,6 +1356,7 @@ bool Parser::parseOneFile(FileInfo* finfo)
 
 void Parser::cleanup()
 {
+    _docComments.clear();
     _lexer = nullptr;
     _fileInfo = nullptr;
     _moduleInfo = nullptr;
