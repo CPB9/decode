@@ -13,9 +13,6 @@
 [submodule "thirdparty/tclap"]
 	path = thirdparty/tclap
 	url = https://github.com/eile/tclap.git
-[submodule "thirdparty/cpptoml"]
-	path = thirdparty/cpptoml
-	url = https://github.com/skystrife/cpptoml.git
 [submodule "thirdparty/toml11"]
 	path = thirdparty/toml11
 	url = https://github.com/ToruNiina/toml11.git
