@@ -74,10 +74,11 @@ if(Qt5Widgets_FOUND)
         src/decode/ui/QModelEventHandler.cpp
         ${DECODE_UI_MOC}
     )
+    source_group("ui" FILES ${DECODE_UI_SRC})
+    source_group("ui_moc" FILES ${DECODE_UI_MOC})
 endif()
 
-add_library(decode
-    src/decode/Config.h
+set(DECODE_CORE_SRC
     src/decode/core/CfgOption.cpp
     src/decode/core/CfgOption.h
     src/decode/core/Configuration.cpp
@@ -92,6 +93,10 @@ add_library(decode
     src/decode/core/PathUtils.h
     src/decode/core/Zpaq.cpp
     src/decode/core/Zpaq.h
+)
+source_group("core" FILES ${DECODE_CORE_SRC})
+
+set(DECODE_GENERATOR_SRC
     src/decode/generator/CmdDecoderGen.cpp
     src/decode/generator/CmdDecoderGen.h
     src/decode/generator/CmdEncoderGen.cpp
@@ -122,6 +127,10 @@ add_library(decode
     src/decode/generator/TypeReprGen.cpp
     src/decode/generator/TypeReprGen.h
     src/decode/generator/TypeReprGen.h
+)
+source_group("generator" FILES ${DECODE_GENERATOR_SRC})
+
+set(DECODE_GROUNDCONTROL_SRC
     src/decode/groundcontrol/Crc.cpp
     src/decode/groundcontrol/Crc.h
     src/decode/groundcontrol/Exchange.cpp
@@ -134,6 +143,10 @@ add_library(decode
     src/decode/groundcontrol/MemIntervalSet.h
     src/decode/groundcontrol/TmState.cpp
     src/decode/groundcontrol/TmState.h
+)
+source_group("groundcontrol" FILES ${DECODE_GROUNDCONTROL_SRC})
+
+set(DECODE_MODEL_SRC
     src/decode/model/CmdNode.cpp
     src/decode/model/CmdNode.h
     src/decode/model/Decoder.cpp
@@ -153,6 +166,10 @@ add_library(decode
     src/decode/model/ValueKind.h
     src/decode/model/ValueNode.cpp
     src/decode/model/ValueNode.h
+)
+source_group("model" FILES ${DECODE_MODEL_SRC})
+
+set(DECODE_PARSER_SRC
     src/decode/parser/Ast.cpp
     src/decode/parser/Ast.h
     src/decode/parser/Containers.cpp
@@ -169,6 +186,16 @@ add_library(decode
     src/decode/parser/Span.h
     src/decode/parser/Token.h
     src/decode/parser/Token.h
+)
+source_group("parser" FILES ${DECODE_PARSER_SRC})
+
+add_library(decode
+    src/decode/Config.h
+    ${DECODE_CORE_SRC}
+    ${DECODE_GENERATOR_SRC}
+    ${DECODE_GROUNDCONTROL_SRC}
+    ${DECODE_MODEL_SRC}
+    ${DECODE_PARSER_SRC}
     ${DECODE_UI_SRC}
 )
 
