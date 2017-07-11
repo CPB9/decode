@@ -158,7 +158,7 @@ bmcl::StringView PackageCmdsNode::fieldName() const
 }
 
 Model::Model(const Project* project, ModelEventHandler* handler, bmcl::StringView deviceName)
-    : Node(bmcl::None)
+    : LockableNode(bmcl::None)
     , _project(project)
     , _cache(new ValueInfoCache)
     , _handler(handler)
@@ -204,6 +204,8 @@ PackageTmNode* Model::tmNode()
 
 void Model::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
 {
+    lock();
     _tmNode->acceptTmMsg(compNum, msgNum, payload);
+    unlock();
 }
 }

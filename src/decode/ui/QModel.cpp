@@ -7,6 +7,7 @@
  */
 
 #include "decode/ui/QModel.h"
+#include "decode/model/LockableNode.h"
 #include "decode/model/Node.h"
 #include "decode/model/Value.h"
 
@@ -20,6 +21,8 @@
 #include <QMimeData>
 #include <QColor>
 
+#include <mutex>
+
 namespace decode {
 
 enum ColumnDesc {
@@ -29,48 +32,31 @@ enum ColumnDesc {
     ColumnInfo = 3,
 };
 
-QModel::QModel(Node* node)
-    : _root(node)
-    , _isEditable(false)
-{
-}
-
-QModel::~QModel()
-{
-}
-
-void QModel::setRoot(Node* node)
-{
-    beginResetModel();
-    _root.reset(node);
-    endResetModel();
-}
-
-static QVariant fieldNameFromNode(const Node* node)
+static QString fieldNameFromNode(const Node* node)
 {
     bmcl::StringView name = node->fieldName();
     if (!name.isEmpty()) {
         return QString::fromUtf8(name.data(), name.size());
     }
-    return QVariant();
+    return QString();
 }
 
-static QVariant typeNameFromNode(const Node* node)
+static QString typeNameFromNode(const Node* node)
 {
     bmcl::StringView name = node->typeName();
     if (!name.isEmpty()) {
         return QString::fromUtf8(name.data(), name.size());
     }
-    return QVariant();
+    return QString();
 }
 
-static QVariant shortDescFromNode(const Node* node)
+static QString shortDescFromNode(const Node* node)
 {
     bmcl::StringView desc = node->shortDescription();
     if (!desc.isEmpty()) {
         return QString::fromUtf8(desc.data(), desc.size());
     }
-    return QVariant();
+    return QString();
 }
 
 static QVariant qvariantFromValue(const Value& value)
@@ -130,18 +116,6 @@ static QString qstringFromValue(const Value& value)
 
 static Value valueFromQvariant(const QVariant& variant, ValueKind kind)
 {
-    //TODO: add bool, char, date, time
-    //case QVariant::Invalid:
-    //case QVariant::Bool:
-    //case QVariant::Int:
-    //case QVariant::LongLong:
-    //case QVariant::UInt:
-    //case QVariant::ULongLong:
-    //case QVariant::Char:
-    //case QVariant::String:
-    //case QVariant::Date:
-    //case QVariant::Time:
-    //case QVariant::DateTime:
     bool isOk = false;
     switch (kind) {
     case ValueKind::None:
@@ -178,16 +152,106 @@ static Value valueFromQvariant(const QVariant& variant, ValueKind kind)
     return Value::makeUninitialized();
 }
 
-QVariant backgroundFromValue(const Value& value)
+Rc<QModelData> QModelData::fromNode(Node* node, std::size_t nodeIndex, bmcl::OptionPtr<QModelData> parent)
 {
-    switch (value.kind()) {
-    case ValueKind::None:
-        return QVariant();
-    case ValueKind::Uninitialized:
-        return QColor(Qt::red);
-    default:
-        return QVariant();
+    Rc<QModelData> data = new QModelData;
+    data->name = fieldNameFromNode(node);
+    data->typeName = typeNameFromNode(node);
+    auto value = node->value();
+    data->value = qvariantFromValue(value);
+    if (value.isA(ValueKind::Uninitialized)) {
+        data->background = QColor(Qt::red);
     }
+    data->shortDescription = shortDescFromNode(node);
+    data->parent = parent;
+    data->node.reset(node);
+    data->indexInParent = nodeIndex;
+    data->isEditable = node->canSetValue();
+    data->canHaveChildren = node->canHaveChildren();
+    return data;
+}
+
+void QModelData::update(NodeToDataMap* map)
+{
+    auto value = node->value();
+    this->value = qvariantFromValue(value);
+    if (value.isA(ValueKind::Uninitialized)) {
+        this->background = QColor(Qt::red);
+    } else {
+        this->background = QVariant();
+    }
+
+    std::size_t newSize = node->numChildren();
+    std::size_t oldSize = children.size();
+    if (newSize == oldSize) {
+        return;
+    } else if (newSize < oldSize) {
+        for (std::size_t i = newSize; i < oldSize; i++) {
+            map->erase(children[i]->node.get());
+        }
+        children.resize(newSize);
+    } else { // >
+        children.reserve(newSize);
+        for (std::size_t i = oldSize; i < newSize; i++) {
+            bmcl::OptionPtr<Node> childNode = node->childAt(i);
+            assert(childNode.isSome());
+            Rc<QModelData> childData = QModelData::fromNode(childNode.unwrap(), i, this);
+            map->emplace(childNode.unwrap(), childData);
+            children.push_back(childData);
+        }
+    }
+}
+
+void QModelData::createChildren(NodeToDataMap* map)
+{
+    std::size_t nodeSize = node->numChildren();
+    children.reserve(nodeSize);
+    for (std::size_t i = 0; i < nodeSize; i++) {
+        bmcl::OptionPtr<Node> childNode = node->childAt(i);
+        assert(childNode.isSome());
+        Rc<QModelData> childData = QModelData::fromNode(childNode.unwrap(), i, this);
+        map->emplace(childNode.unwrap(), childData);
+        children.push_back(childData);
+    }
+    for (const Rc<QModelData>& child : children) {
+        child->createChildren(map);
+    }
+}
+
+QModel::QModel(Node* node)
+    : _isEditable(false)
+{
+    setRoot(node);
+}
+
+QModel::~QModel()
+{
+}
+
+void QModel::lock()
+{
+}
+
+void QModel::unlock()
+{
+}
+
+void QModel::setRoot(Node* node)
+{
+    beginResetModel();
+    _nodeToData.clear();
+    lock();
+    _rootNode.reset(node);
+    _rootData = QModelData::fromNode(node);
+    _nodeToData.emplace(node, _rootData);
+    _rootData->createChildren(&_nodeToData);
+    unlock();
+    endResetModel();
+}
+
+void QModel::reset()
+{
+    setRoot(_rootNode.get());
 }
 
 QVariant QModel::data(const QModelIndex& index, int role) const
@@ -196,37 +260,38 @@ QVariant QModel::data(const QModelIndex& index, int role) const
         return QVariant();
     }
 
-    Node* node = (Node*)index.internalPointer();
+    QModelData* node = (QModelData*)index.internalPointer();
     if (role == Qt::DisplayRole) {
         if (index.column() == ColumnDesc::ColumnName) {
-            return fieldNameFromNode(node);
+            return node->name;
         }
 
         if (index.column() == ColumnDesc::ColumnTypeName) {
-            return typeNameFromNode(node);
+            return node->typeName;
         }
 
         if (index.column() == ColumnDesc::ColumnInfo) {
-            return shortDescFromNode(node);
+            return node->shortDescription;
         }
     }
 
     if (index.column() == ColumnDesc::ColumnValue) {
         if (role == Qt::DisplayRole) {
-            return qstringFromValue(node->value());
+            return node->value;
         }
 
         if (role == Qt::EditRole) {
-            return qstringFromValue(node->value());
+            return node->value;
         }
 
         if (role == Qt::BackgroundRole) {
-            return backgroundFromValue(node->value());
+            return node->background;
         }
     }
 
     return QVariant();
 }
+
 
 QVariant QModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
@@ -255,15 +320,15 @@ QVariant QModel::headerData(int section, Qt::Orientation orientation, int role) 
 QModelIndex QModel::index(int row, int column, const QModelIndex& parentIndex) const
 {
     if (!parentIndex.isValid()) {
-        return createIndex(row, column, _root.get());
+        return createIndex(row, column, _rootData.get());
     }
 
-    Node* parent = (Node*)parentIndex.internalPointer();
-    bmcl::OptionPtr<Node> child = parent->childAt(row);
-    if (child.isNone()) {
+    QModelData* parent = (QModelData*)parentIndex.internalPointer();
+    if (row >= parent->children.size()) {
         return QModelIndex();
     }
-    return createIndex(row, column, child.unwrap());
+    QModelData* child = parent->children[row].get();
+    return createIndex(row, column, child);
 }
 
 QModelIndex QModel::parent(const QModelIndex& modelIndex) const
@@ -272,31 +337,28 @@ QModelIndex QModel::parent(const QModelIndex& modelIndex) const
         return QModelIndex();
     }
 
-    Node* node = (Node*)modelIndex.internalPointer();
-    if (node == _root) {
+    QModelData* node = (QModelData*)modelIndex.internalPointer();
+    if (node == _rootData) {
         return QModelIndex();
     }
 
-    bmcl::OptionPtr<Node> parent = node->parent();
+    bmcl::OptionPtr<QModelData> parent = node->parent;
     if (parent.isNone()) {
         return QModelIndex();
     }
 
-    if (parent.data() == _root.get()) {
+    if (parent.data() == _rootData.get()) {
         return createIndex(0, 0, parent.unwrap());
     }
 
-    bmcl::OptionPtr<Node> parentParent = parent->parent();
+    bmcl::OptionPtr<QModelData> parentParent = parent->parent;
     if (parentParent.isNone()) {
         return QModelIndex();
     }
 
-    bmcl::Option<std::size_t> childIdx = parentParent->childIndex(parent.unwrap());
-    if (childIdx.isNone()) {
-        return QModelIndex();
-    }
+    std::size_t childIdx = parentParent->indexInParent;
 
-    return createIndex(childIdx.unwrap(), 0, parent.unwrap());
+    return createIndex(childIdx, 0, parent.unwrap());
 }
 
 Qt::ItemFlags QModel::flags(const QModelIndex& index) const
@@ -307,14 +369,14 @@ Qt::ItemFlags QModel::flags(const QModelIndex& index) const
         return f;
     }
 
-    Node* node = (Node*)index.internalPointer();
+    QModelData* node = (QModelData*)index.internalPointer();
     if (index.column() == ColumnDesc::ColumnValue) {
-        if (_isEditable && node->canSetValue()) {
+        if (_isEditable && node->isEditable) {
             f |= Qt::ItemIsEditable;
         }
     }
 
-    if (!node->canHaveChildren()) {
+    if (!node->canHaveChildren) {
         return f | Qt::ItemNeverHasChildren;
     }
     return f;
@@ -326,45 +388,47 @@ bool QModel::setData(const QModelIndex& index, const QVariant& value, int role)
         return false;
     }
 
-    Node* node = (Node*)index.internalPointer();
-    if (!node->canSetValue()) {
+    QModelData* node = (QModelData*)index.internalPointer();
+    if (!node->isEditable) {
         return false;
     }
 
-    Value v = valueFromQvariant(value, node->valueKind());
+    lock();
+    Value v = valueFromQvariant(value, node->node->valueKind());
     if (v.isA(ValueKind::Uninitialized)) {
+        unlock();
         return false;
     }
-    return node->setValue(v);
+    bool isSet = node->node->setValue(v);
+    unlock();
+    return isSet;
 }
 
 QMap<int, QVariant> QModel::itemData(const QModelIndex& index) const
 {
     QMap<int, QVariant> roles;
-    Node* node;
+    QModelData* node;
     if (index.isValid()) {
-        node = (Node*)index.internalPointer();
+        node = (QModelData*)index.internalPointer();
     } else {
         return roles;
     }
 
     switch (index.column())
     case ColumnDesc::ColumnName: {
-        roles.insert(Qt::DisplayRole, fieldNameFromNode(node));
+        roles.insert(Qt::DisplayRole, node->name);
         return roles;
     case ColumnDesc::ColumnTypeName:
-        roles.insert(Qt::DisplayRole, typeNameFromNode(node));
+        roles.insert(Qt::DisplayRole, node->typeName);
         return roles;
     case ColumnDesc::ColumnValue: {
-        Value value = node->value();
-        QString s = qstringFromValue(value);
-        roles.insert(Qt::DisplayRole, s);
-        roles.insert(Qt::EditRole, s);
-        roles.insert(Qt::BackgroundRole, backgroundFromValue(value));
+        roles.insert(Qt::DisplayRole, node->value);
+        roles.insert(Qt::EditRole, node->value);
+        roles.insert(Qt::BackgroundRole, node->background);
         return roles;
     }
     case ColumnDesc::ColumnInfo:
-        roles.insert(Qt::DisplayRole, shortDescFromNode(node));
+        roles.insert(Qt::DisplayRole, node->shortDescription);
         return roles;
     };
     return roles;
@@ -372,10 +436,10 @@ QMap<int, QVariant> QModel::itemData(const QModelIndex& index) const
 
 bool QModel::hasChildren(const QModelIndex& parent) const
 {
-    Node* node;
+    QModelData* node;
     if (parent.isValid()) {
-        node = (Node*)parent.internalPointer();
-        return node->canHaveChildren() != 0;
+        node = (QModelData*)parent.internalPointer();
+        return node->children.size() != 0;
     }
     return true;
 }
@@ -385,36 +449,14 @@ int QModel::rowCount(const QModelIndex& parent) const
     if (!parent.isValid()) {
         return 1;
     }
-    Node* node = (Node*)parent.internalPointer();
-    return node->numChildren();
+    QModelData* node = (QModelData*)parent.internalPointer();
+    return node->children.size();
 }
 
 int QModel::columnCount(const QModelIndex& parent) const
 {
     (void)parent;
     return 4;
-}
-
-static QVector<int> allRoles = {Qt::DisplayRole, Qt::BackgroundRole};
-
-void QModel::notifyValueUpdate(const Node* node, std::size_t index)
-{
-    QModelIndex modelIndex = createIndex(index, ColumnDesc::ColumnValue, (Node*)node);
-    emit dataChanged(modelIndex, modelIndex, allRoles);
-}
-
-void QModel::notifyNodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex)
-{
-    QModelIndex modelIndex = createIndex(nodeIndex, 0, (Node*)node);
-    beginInsertRows(modelIndex, firstIndex, lastIndex);
-    endInsertRows();
-}
-
-void QModel::notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex)
-{
-    QModelIndex modelIndex = createIndex(nodeIndex, 0, (Node*)node);
-    beginRemoveRows(modelIndex, firstIndex, lastIndex);
-    endRemoveRows();
 }
 
 void QModel::setEditable(bool isEditable)
@@ -428,6 +470,15 @@ const QString& QModel::qmodelMimeStr()
 {
     return _mimeStr;
 }
+
+void QModel::signalDataChanged(QModelData* data)
+{
+    static QVector<int> roles = {Qt::DisplayRole, Qt::BackgroundRole};
+    QModelIndex index = createIndex(data->indexInParent, ColumnDesc::ColumnValue, data);
+    emit dataChanged(index, index, roles);
+}
+
+//TODO: make mime data thread safe
 
 QMimeData* QModel::packMimeData(const QModelIndexList& indexes, const QString& mimeTypeStr)
 {

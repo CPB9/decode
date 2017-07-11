@@ -30,7 +30,7 @@ FirmwareWidget::FirmwareWidget(ModelEventHandler* handler, QWidget* parent)
     : QWidget(parent)
     , _handler(handler)
 {
-    _qmodel = bmcl::makeUnique<QModel>(new Node(bmcl::None));
+    _qmodel = bmcl::makeUnique<QThreadSafeModel>(new LockableNode(bmcl::None));
 
     auto buttonLayout = new QVBoxLayout;
     auto sendButton = new QPushButton("send");

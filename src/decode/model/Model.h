@@ -10,7 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/model/Node.h"
+#include "decode/model/LockableNode.h"
 
 #include <bmcl/Fwd.h>
 
@@ -64,7 +64,7 @@ private:
     std::vector<Rc<CmdContainerNode>> _nodes;
 };
 
-class Model : public Node {
+class Model : public LockableNode {
 public:
     Model(const Project* project, ModelEventHandler* handler, bmcl::StringView deviceName);
     ~Model();
