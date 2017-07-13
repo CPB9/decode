@@ -16,3 +16,6 @@
 [submodule "thirdparty/toml11"]
 	path = thirdparty/toml11
 	url = https://github.com/ToruNiina/toml11.git
+[submodule "thirdparty/caf"]
+	path = thirdparty/caf
+	url = https://github.com/actor-framework/actor-framework.git

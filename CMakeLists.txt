@@ -53,6 +53,35 @@ add_library(zpaq STATIC
 
 find_package(Qt5Widgets)
 
+# caf
+
+set(CAF_NO_EXAMPLES 1)
+set(CAF_NO_BENCHMARKS 1)
+set(CAF_NO_PYTHON 1)
+set(CAF_NO_OPENCL 1)
+set(CAF_NO_TOOLS 1)
+set(CAF_NO_UNIT_TESTS 1)
+set(CAF_LOG_LEVEL 0)
+if (UNIX)
+    set(CAF_CORE_LIBRARIES libcaf_core_shared)
+    set(CAF_IO_LIBRARIES libcaf_io_shared)
+else()
+    set(CAF_CORE_LIBRARIES libcaf_core_static)
+    set(CAF_IO_LIBRARIES libcaf_io_static)
+endif()
+if (NOT MSVC)
+    set(_TMP_FLAGS ${CMAKE_CXX_FLAGS})
+    set(CMAKE_CXX_FLAGS "")
+endif()
+add_subdirectory(thirdparty/caf)
+if (NOT MSVC)
+    set(CMAKE_CXX_FLAGS ${_TMP_FLAGS})
+endif()
+target_include_directories(${CAF_CORE_LIBRARIES} SYSTEM INTERFACE thirdparty/caf/libcaf_core)
+target_include_directories(${CAF_IO_LIBRARIES} SYSTEM INTERFACE thirdparty/caf/libcaf_io)
+
+#caf
+
 set(DECODE_UI_SRC)
 
 if(Qt5Widgets_FOUND)
@@ -199,7 +228,7 @@ add_library(decode
     ${DECODE_UI_SRC}
 )
 
-target_link_libraries(decode zpaq)
+target_link_libraries(decode zpaq ${CAF_CORE_LIBRARIES})
 
 add_executable(decode_gen
     src/decode/Main.cpp

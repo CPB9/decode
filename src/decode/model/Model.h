@@ -29,10 +29,10 @@ class ValueInfoCache;
 class ModelEventHandler;
 struct Device;
 
-class PackageTmNode : public Node {
+class TmModel : public Node {
 public:
-    PackageTmNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
-    ~PackageTmNode();
+    TmModel(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
+    ~TmModel();
 
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
@@ -71,7 +71,7 @@ public:
 
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
-    PackageTmNode* tmNode();
+    TmModel* tmNode();
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
@@ -82,7 +82,7 @@ public:
     Rc<const Project> _project;
     Rc<ValueInfoCache> _cache;
     Rc<ModelEventHandler> _handler;
-    Rc<PackageTmNode> _tmNode;
+    Rc<TmModel> _tmNode;
     Rc<PackageCmdsNode> _cmdsNode;
     std::vector<Rc<Node>> _nodes;
     bmcl::StringView _name;

@@ -7,14 +7,19 @@
  */
 
 #include "decode/groundcontrol/TmState.h"
+#include "decode/groundcontrol/Atoms.h"
+
+#include "decode/parser/Project.h"
+#include "decode/model/Model.h"
 
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
+#include <bmcl/SharedBytes.h>
 
 namespace decode {
 
-TmState::TmState()
-    : Client(2)
+TmState::TmState(caf::actor_config& cfg)
+    : caf::event_based_actor(cfg)
 {
 }
 
@@ -22,8 +27,18 @@ TmState::~TmState()
 {
 }
 
+caf::behavior TmState::make_behavior()
+{
+    return caf::behavior{
+        [this](UpdateProjectAtom, const Rc<const Project>& proj, const std::string& name) {
+        },
+        [this](RecvUserPacketAtom, const bmcl::SharedBytes& data) {
+            acceptData(data.view());
+        },
+    };
+}
 
-void TmState::acceptData(Sender*, bmcl::Bytes packet)
+void TmState::acceptData(bmcl::Bytes packet)
 {
     bmcl::MemReader src(packet);
     src.skip(11);
@@ -59,8 +74,7 @@ void TmState::acceptData(Sender*, bmcl::Bytes packet)
     }
 }
 
-void TmState::start(Sender*)
+void TmState::acceptTmMsg(uint64_t compNum, uint64_t msgNum, bmcl::Bytes payload)
 {
 }
 }
-

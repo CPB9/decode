@@ -11,35 +11,53 @@
 #include "decode/groundcontrol/FwtState.h"
 #include <decode/core/Diagnostics.h>
 #include <decode/parser/Package.h>
+#include <decode/groundcontrol/Atoms.h>
 
 #include <bmcl/Logging.h>
 #include <bmcl/MemWriter.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/Result.h>
+#include <bmcl/SharedBytes.h>
+
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 
 namespace decode {
 
-Exchange::Exchange(DataSink* sink)
-    : _sink(sink)
+Exchange::Exchange(caf::actor_config& cfg, caf::actor dataSink)
+    : caf::event_based_actor(cfg)
+    , _sink(dataSink)
 {
 }
 
 Exchange::~Exchange()
 {
 }
-/*
-void Broker::updatePackage(bmcl::Bytes data)
+
+caf::behavior Exchange::make_behavior()
 {
-    auto diag = new Diagnostics();
-    auto package = Package::decodeFromMemory(diag, data.data(), data.size());
-    if (package.isErr()) {
-        //TODO: restart download
-        //TODO: print errors
-        return;
-    }
-    BMCL_DEBUG() << "fwt firmware loaded";
-    _package = package.unwrap();
-}*/
+    return caf::behavior{
+        [this](RecvDataAtom, const bmcl::SharedBytes& data) {
+            acceptData(data.view());
+        },
+        [this](SendUserPacketAtom, uint64_t id, const bmcl::SharedBytes& data) {
+            sendPacket(id, data.view());
+        },
+        [this](RegisterClientAtom, uint64_t id, const caf::actor& client) {
+            registerClient(id, client);
+        },
+    };
+}
+
+const char* Exchange::name() const
+{
+    return "Exchange";
+}
+
+void Exchange::on_exit()
+{
+    destroy(_sink);
+    _clients.clear();
+}
 
 void Exchange::acceptData(bmcl::Bytes data)
 {
@@ -101,22 +119,22 @@ void Exchange::handlePayload(bmcl::Bytes data)
         return;
     }
 
-
-    it->second->acceptData(this, data.slice(1, data.size()));
+    bmcl::Bytes userPacket = data.slice(1, data.size());
+    send(it->second, RecvUserPacketAtom::value, bmcl::SharedBytes::create(userPacket));
 }
 
-void Exchange::sendPacket(Client* self, bmcl::Bytes payload)
+void Exchange::sendPacket(uint64_t dataId, bmcl::Bytes payload)
 {
-    bmcl::Buffer packet(2 + 2 + 1 + payload.size() + 2);
-    bmcl::MemWriter packWriter = packet.dataWriter();
+    bmcl::SharedBytes packet = bmcl::SharedBytes::create(2 + 2 + 1 + payload.size() + 2);
+    bmcl::MemWriter packWriter(packet.data(), packet.size());
     packWriter.writeUint16Be(0x9c3e);
     packWriter.writeUint16Le(3 + payload.size()); //HACK: data type
-    packWriter.writeVarUint(self->dataType());
+    packWriter.writeVarUint(dataId);
     packWriter.write(payload);
     Crc16 crc;
     crc.update(packWriter.writenData().sliceFrom(2));
     packWriter.writeUint16Le(crc.get());
-    _sink->sendData(packWriter.writenData()); //TODO: check rv
+    send(_sink, SendDataAtom::value, bmcl::SharedBytes::create(packWriter.writenData()));
 }
 
 SearchResult Exchange::findPacket(bmcl::Bytes data)
@@ -154,7 +172,7 @@ SearchResult Exchange::findPacket(const void* data, std::size_t size)
         return SearchResult(junkSize, 0);
     }
 
-    const uint8_t* packetBegin = it;
+    //const uint8_t* packetBegin = it;
 
     uint16_t expectedSize = le16dec(it);
     if (it > end - expectedSize - 2) {
@@ -163,8 +181,8 @@ SearchResult Exchange::findPacket(const void* data, std::size_t size)
     return SearchResult(junkSize + 2, 2 + expectedSize);
 }
 
-void Exchange::registerClient(Client* client)
+void Exchange::registerClient(uint64_t id, const caf::actor& client)
 {
-    _clients.emplace(client->dataType(), client);
+    _clients.emplace(id, client);
 }
 }

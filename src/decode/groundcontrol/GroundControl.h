@@ -12,11 +12,15 @@
 #include "decode/core/Rc.h"
 
 #include <bmcl/Bytes.h>
+#include <bmcl/Fwd.h>
+
+#include <caf/event_based_actor.hpp>
+
+#include <string>
 
 namespace decode {
 
 class DataSink;
-class Scheduler;
 class Exchange;
 class GcFwtState;
 class GcTmState;
@@ -24,32 +28,27 @@ class Project;
 class Model;
 class ModelEventHandler;
 
-class GroundControl : public RefCountable {
+class GroundControl : public caf::event_based_actor {
 public:
-    GroundControl(DataSink* sink, Scheduler* sched, ModelEventHandler* handler);
+    GroundControl(caf::actor_config& cfg, caf::actor sink, caf::actor eventHandler);
     ~GroundControl();
 
-    void sendPacket(bmcl::Bytes data);
-    void acceptData(bmcl::Bytes data);
-
-    void start();
-
-    ModelEventHandler* handler();
+    caf::behavior make_behavior() override;
+    const char* name() const override;
+    void on_exit() override;
 
 private:
-    friend class GcFwtState;
-    friend class GcTmState;
+    void sendPacket(uint64_t destId, const bmcl::SharedBytes& packet);
+    void acceptData(const bmcl::SharedBytes& data);
 
-    void updateProject(const Project* project, bmcl::StringView deviceName);
+    void updateProject(const Project* project, const std::string& deviceName);
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
-    Rc<Exchange> _exc;
-    Rc<GcFwtState> _fwt;
-    Rc<GcTmState> _tm;
+    caf::actor _sink;
+    caf::actor _handler;
+    caf::actor _exc;
+    caf::actor _tm;
+    caf::actor _fwt;
     Rc<const Project> _project;
-    Rc<ModelEventHandler> _handler;
-    Rc<Model> _model;
-    Rc<Scheduler> _sched;
-    Rc<DataSink> _sink;
 };
 }

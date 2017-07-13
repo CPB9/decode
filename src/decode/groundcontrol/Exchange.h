@@ -14,6 +14,8 @@
 #include <bmcl/Fwd.h>
 #include <bmcl/Buffer.h>
 
+#include <caf/event_based_actor.hpp>
+
 #include <unordered_map>
 
 namespace decode {
@@ -33,36 +35,28 @@ public:
     std::size_t dataSize;
 };
 
-class DataSink : public RefCountable {
+class Exchange : public caf::event_based_actor {
 public:
-    virtual void sendData(bmcl::Bytes packet) = 0;
-};
-
-class Sender : public RefCountable {
-public:
-    virtual void sendPacket(Client* self, bmcl::Bytes packet) = 0;
-};
-
-class Exchange : public Sender {
-public:
-    Exchange(DataSink* sink);
+    Exchange(caf::actor_config& cfg, caf::actor dataSink);
     ~Exchange();
+
+    caf::behavior make_behavior() override;
+    const char* name() const override;
+    void on_exit() override;
 
     static SearchResult findPacket(const void* data, std::size_t size);
     static SearchResult findPacket(bmcl::Bytes data);
 
-    void registerClient(Client* client);
-
-    void acceptData(bmcl::Bytes data);
-
-    void sendPacket(Client* self, bmcl::Bytes packet) override;
-
 private:
+    void registerClient(uint64_t id, const caf::actor& client);
+    void acceptData(bmcl::Bytes data);
+    void sendPacket(uint64_t destId, bmcl::Bytes packet);
+
     bool acceptPacket(bmcl::Bytes packet);
     void handlePayload(bmcl::Bytes data);
 
-    std::unordered_map<uint8_t, Rc<Client>> _clients;
     bmcl::Buffer _incoming;
-    Rc<DataSink> _sink;
+    std::unordered_map<uint64_t, caf::actor> _clients;
+    caf::actor _sink;
 };
 }

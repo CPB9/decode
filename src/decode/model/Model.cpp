@@ -48,7 +48,7 @@ private:
     Rc<const Component> _comp;
 };
 
-PackageTmNode::PackageTmNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
+TmModel::TmModel(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
     : Node(parent)
     , _handler(handler)
 {
@@ -75,11 +75,11 @@ PackageTmNode::PackageTmNode(const Device* dev, const ValueInfoCache* cache, Mod
     }
 }
 
-PackageTmNode::~PackageTmNode()
+TmModel::~TmModel()
 {
 }
 
-void  PackageTmNode::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
+void  TmModel::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
 {
     auto it = _decoders.find(compNum);
     if (it == _decoders.end()) {
@@ -93,22 +93,22 @@ void  PackageTmNode::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes pa
     }
 }
 
-std::size_t PackageTmNode::numChildren() const
+std::size_t TmModel::numChildren() const
 {
     return _nodes.size();
 }
 
-bmcl::Option<std::size_t> PackageTmNode::childIndex(const Node* node) const
+bmcl::Option<std::size_t> TmModel::childIndex(const Node* node) const
 {
     return childIndexGeneric(_nodes, node);
 }
 
-bmcl::OptionPtr<Node> PackageTmNode::childAt(std::size_t idx)
+bmcl::OptionPtr<Node> TmModel::childAt(std::size_t idx)
 {
     return childAtGeneric(_nodes, idx);
 }
 
-bmcl::StringView PackageTmNode::fieldName() const
+bmcl::StringView TmModel::fieldName() const
 {
     return "tm";
 }
@@ -167,7 +167,7 @@ Model::Model(const Project* project, ModelEventHandler* handler, bmcl::StringVie
     assert(dev.isSome());
     _name = dev->name;
 
-    _tmNode = new PackageTmNode(dev.unwrap(), _cache.get(), handler, this);
+    _tmNode = new TmModel(dev.unwrap(), _cache.get(), handler, this);
     _cmdsNode = new PackageCmdsNode(dev.unwrap(), _cache.get(), handler, this);
     _nodes.emplace_back(_tmNode.get());
     _nodes.emplace_back(_cmdsNode.get());
@@ -197,7 +197,7 @@ bmcl::StringView Model::fieldName() const
     return _name;
 }
 
-PackageTmNode* Model::tmNode()
+TmModel* Model::tmNode()
 {
     return _tmNode.get();
 }

@@ -11,15 +11,24 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/groundcontrol/MemIntervalSet.h"
-#include "decode/groundcontrol/Client.h"
 
 #include <bmcl/ArrayView.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/Option.h>
 #include <bmcl/Fwd.h>
 
+#include <caf/event_based_actor.hpp>
+
 #include <array>
 #include <chrono>
+#include <cstring>
+
+#define DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(...)                                  \
+  namespace caf {                                                              \
+  template <>                                                                  \
+  struct allowed_unsafe_message_type<__VA_ARGS__> : std::true_type {};         \
+  }
+
 
 namespace decode {
 
@@ -29,40 +38,42 @@ class Project;
 class ModelEventHandler;
 struct StartCmdRndGen;
 
-class FwtState : public Client {
+class FwtState : public caf::event_based_actor {
 public:
-    FwtState(Scheduler* sched, ModelEventHandler* handler);
+    FwtState(caf::actor_config& cfg, caf::actor gc, caf::actor exchange, caf::actor eventHandler);
     ~FwtState();
 
-    void acceptData(Sender* parent, bmcl::Bytes packet) override;
-    void start(Sender* parent) override;
-
-    virtual void updateProject(bmcl::Bytes project, bmcl::StringView deviceName) = 0;
+    caf::behavior make_behavior() override;
+    const char* name() const override;
+    void on_exit() override;
 
 private:
-    void handleHashAction(const Rc<Sender>& parent);
-    void handleStartAction(const Rc<Sender>& parent);
-    void handleCheckAction(const Rc<Sender>& parent);
+    void acceptData(bmcl::Bytes packet);
+    void handleHashAction();
+    void handleStartAction();
+    void handleCheckAction(std::size_t id);
 
     template <typename C, typename... A>
-    void packAndSendPacket(Sender* parent, C&& enc, A&&... args);
+    void packAndSendPacket(C&& enc, A&&... args);
 
-    void acceptChunkResponse(Sender* parent, bmcl::MemReader* src);
-    void acceptHashResponse(Sender* parent, bmcl::MemReader* src);
-    void acceptStartResponse(Sender* parent, bmcl::MemReader* src);
-    void acceptStopResponse(Sender* parent, bmcl::MemReader* src);
+    void acceptChunkResponse(bmcl::MemReader* src);
+    void acceptHashResponse(bmcl::MemReader* src);
+    void acceptStartResponse(bmcl::MemReader* src);
+    void acceptStopResponse(bmcl::MemReader* src);
 
     void genHashCmd(bmcl::MemWriter* dest);
     void genChunkCmd(bmcl::MemWriter* dest, MemInterval os);
     void genStartCmd(bmcl::MemWriter* dest);
     void genStopCmd(bmcl::MemWriter* dest);
 
-    void scheduleHash(Sender* parent);
-    void scheduleStart(Sender* parent);
-    void scheduleCheck(Sender* parent);
+    void scheduleHash();
+    void scheduleStart();
+    void scheduleCheck(std::size_t id);
 
-    void checkIntervals(Sender* parent);
+    void checkIntervals();
     void readFirmware();
+
+    void reportFirmwareError(const std::string& msg);
 
     bmcl::Option<std::array<uint8_t, 64>> _hash;
 
@@ -72,9 +83,11 @@ private:
 
     bool _hasStartCommandPassed;
     bool _hasDownloaded;
+    std::size_t _checkId;
     std::unique_ptr<StartCmdRndGen> _startCmdState;
     uint8_t _temp[20];
-    Rc<Scheduler> _sched;
-    Rc<ModelEventHandler> _handler;
+    caf::actor _gc;
+    caf::actor _exc;
+    caf::actor _handler;
 };
 }

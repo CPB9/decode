@@ -16,96 +16,77 @@
 #include "decode/parser/Package.h"
 #include "decode/parser/Project.h"
 #include "decode/core/Diagnostics.h"
+#include "decode/groundcontrol/Atoms.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Result.h>
+#include <bmcl/SharedBytes.h>
+
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
 
 namespace decode {
 
-class GcFwtState : public FwtState {
-public:
-    GcFwtState(GroundControl* parent, Scheduler* sched, ModelEventHandler* handler)
-        : FwtState(sched, handler)
-        , _parent(parent)
-    {
-    }
-
-    void updateProject(bmcl::Bytes data, bmcl::StringView deviceName) override
-    {
-        auto diag = new Diagnostics();
-        auto project = Project::decodeFromMemory(diag, data.data(), data.size());
-        if (project.isErr()) {
-            //TODO: restart download
-            //TODO: print errors
-            return;
-        }
-        BMCL_DEBUG() << "fwt firmware loaded";
-        _parent->updateProject(project.unwrap().get(), deviceName);
-    }
-
-private:
-    GroundControl* _parent;
-};
-
-class GcTmState : public TmState {
-public:
-    GcTmState(GroundControl* parent)
-        : _parent(parent)
-    {
-    }
-
-    void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload) override
-    {
-        _parent->acceptTmMsg(compNum, msgNum, payload);
-    }
-
-private:
-    GroundControl* _parent;
-};
-
-GroundControl::GroundControl(DataSink* sink, Scheduler* sched, ModelEventHandler* handler)
-    : _exc(new Exchange(sink))
-    , _fwt(new GcFwtState(this, sched, handler))
-    , _tm(new GcTmState(this))
-    , _handler(handler)
-    , _sched(sched)
+GroundControl::GroundControl(caf::actor_config& cfg, caf::actor sink, caf::actor eventHandler)
+    : caf::event_based_actor(cfg)
     , _sink(sink)
+    , _handler(eventHandler)
 {
-    _exc->registerClient(_fwt.get());
-    _exc->registerClient(_tm.get());
-}
-
-void GroundControl::start()
-{
-    _fwt->start(_exc.get());
+    _exc = spawn<Exchange, caf::linked>( sink);
+    _fwt = spawn<FwtState, caf::linked>(this, _exc, _handler);
+    send(_exc, RegisterClientAtom::value, uint64_t(0), _fwt);
 }
 
 GroundControl::~GroundControl()
 {
 }
 
-void GroundControl::updateProject(const Project* project, bmcl::StringView deviceName)
+caf::behavior GroundControl::make_behavior()
+{
+    return caf::behavior{
+        [this](UpdateProjectAtom, const Rc<const Project>& proj, const std::string& name) {
+            updateProject(proj.get(), name);
+        },
+        [this](RecvDataAtom, const bmcl::SharedBytes& data) {
+            acceptData(data);
+        },
+        [this](SendCmdPacketAtom, const bmcl::SharedBytes& packet) {
+            sendPacket(1, packet);
+        },
+        [this](SendFwtPacketAtom, const bmcl::SharedBytes& packet) {
+            sendPacket(0, packet);
+        },
+    };
+}
+
+const char* GroundControl::name() const
+{
+    return "GroundControl";
+}
+
+void GroundControl::on_exit()
+{
+    destroy(_sink);
+    destroy(_handler);
+    destroy(_exc);
+    destroy(_tm);
+    destroy(_fwt);
+}
+
+void GroundControl::updateProject(const Project* project, const std::string& deviceName)
 {
     _project.reset(project);
-    Rc<Model> m = new Model(project, _handler.get(), deviceName);
-    _model = m;
-    _handler->modelUpdated(m.get());
+    send(_tm, UpdateProjectAtom::value, Rc<const Project>(project), deviceName);
+    send(_handler, UpdateProjectAtom::value, Rc<const Project>(project), deviceName);
 }
 
-void GroundControl::sendPacket(bmcl::Bytes data)
+void GroundControl::sendPacket(uint64_t destId, const bmcl::SharedBytes& packet)
 {
-    _exc->sendPacket(_tm.get(), data);
+    send(_exc, SendUserPacketAtom::value, destId, packet);
 }
 
-void GroundControl::acceptData(bmcl::Bytes data)
+void GroundControl::acceptData(const bmcl::SharedBytes& data)
 {
-    _exc->acceptData(data);
-}
-
-void GroundControl::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
-{
-    if (_model) {
-        _model->acceptTmMsg(compNum, msgNum, payload);
-    }
+    send(_exc, RecvDataAtom::value, data);
 }
 }

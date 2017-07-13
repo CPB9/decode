@@ -10,21 +10,27 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/groundcontrol/Client.h"
+
+#include <bmcl/Bytes.h>
+
+#include <caf/event_based_actor.hpp>
 
 namespace decode {
 
-class TmState : public Client {
+class TmModel;
+
+class TmState : public caf::event_based_actor {
 public:
-    TmState();
+    TmState(caf::actor_config& cfg);
     ~TmState();
 
-    void acceptData(Sender* parent, bmcl::Bytes packet) override;
-    void start(Sender* parent) override;
+    caf::behavior make_behavior() override;
 
 protected:
-    virtual void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload) = 0;
+    void acceptData(bmcl::Bytes packet);
+    void acceptTmMsg(uint64_t compNum, uint64_t msgNum, bmcl::Bytes payload);
 
 private:
+    Rc<TmModel> _model;
 };
 }

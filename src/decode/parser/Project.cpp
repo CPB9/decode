@@ -596,14 +596,14 @@ bmcl::Buffer Project::encode() const
         for (const Rc<Device>& tmSrc : dev->tmSources) {
             auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
             assert(it != _devices.end());
-            dest.writeVarUint(_devices.end() - it - 1);
+            dest.writeVarUint(it - _devices.begin());
         }
 
         dest.writeVarUint(dev->cmdTargets.size());
         for (const Rc<Device>& tmSrc : dev->cmdTargets) {
             auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
             assert(it != _devices.end());
-            dest.writeVarUint(_devices.end() - it - 1);
+            dest.writeVarUint(it - _devices.begin());
         }
     }
 

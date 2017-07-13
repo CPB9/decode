@@ -11,15 +11,25 @@
 #include "decode/groundcontrol/MemIntervalSet.h"
 #include "decode/groundcontrol/Scheduler.h"
 #include "decode/model/ModelEventHandler.h"
+#include "decode/core/Diagnostics.h"
+#include "decode/parser/Project.h"
 #include "decode/core/Utils.h"
+#include "decode/groundcontrol/Atoms.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
 #include <bmcl/Result.h>
+#include <bmcl/SharedBytes.h>
 
 #include <chrono>
 #include <random>
+
+#include <caf/atom.hpp>
+
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(std::string);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
 
 namespace decode {
 
@@ -43,125 +53,167 @@ struct StartCmdRndGen {
     uint64_t last;
 };
 
-FwtState::FwtState(Scheduler* sched, ModelEventHandler* handler)
-    : Client(0)
-    ,_hasStartCommandPassed(false)
+FwtState::FwtState(caf::actor_config& cfg, caf::actor gc, caf::actor exchange, caf::actor eventHandler)
+    : caf::event_based_actor(cfg)
+    , _hasStartCommandPassed(false)
     , _hasDownloaded(false)
     , _startCmdState(new StartCmdRndGen)
-    , _sched(sched)
-    , _handler(handler)
+    , _gc(gc)
+    , _exc(exchange)
+    , _handler(eventHandler)
+    , _checkId(0)
 {
 }
 
 FwtState::~FwtState()
 {
-}
-
-void FwtState::start(Sender* parent)
-{
     _hash = bmcl::None;
     _hasStartCommandPassed = false;
     _hasDownloaded = false;
-    scheduleHash(parent);
+}
+
+caf::behavior FwtState::make_behavior()
+{
+    send(this, FwtHashAtom::value);
+    return caf::behavior{
+        [this](RecvUserPacketAtom, const bmcl::SharedBytes& packet) {
+            acceptData(packet.view());
+        },
+        [this](FwtHashAtom) {
+            handleHashAction();
+        },
+        [this](FwtStartAtom) {
+            handleStartAction();
+        },
+        [this](FwtCheckAtom, std::size_t id) {
+            handleCheckAction(id);
+        },
+    };
+}
+
+void FwtState::on_exit()
+{
+    destroy(_gc);
+    destroy(_exc);
+    destroy(_handler);
+}
+
+const char* FwtState::name() const
+{
+    return "FwtState";
 }
 
 template <typename C, typename... A>
-inline void FwtState::packAndSendPacket(Sender* parent, C&& enc, A&&... args)
+inline void FwtState::packAndSendPacket(C&& enc, A&&... args)
 {
     bmcl::MemWriter writer(_temp, sizeof(_temp));
     (this->*enc)(&writer, std::forward<A>(args)...);
-    parent->sendPacket(this, writer.writenData());
+    send(_gc, SendUserPacketAtom::value, bmcl::SharedBytes::create(writer.writenData()));
 }
 
-void FwtState::scheduleHash(Sender* parent)
+void FwtState::scheduleHash()
 {
-    auto hashTimeout = std::chrono::milliseconds(1000);
-    _sched->scheduleAction(std::bind(&FwtState::handleHashAction, Rc<FwtState>(this), Rc<Sender>(parent)), hashTimeout);
+    auto hashTimeout = std::chrono::milliseconds(100);
+    delayed_send(this, hashTimeout, FwtHashAtom::value);
 }
 
-void FwtState::scheduleStart(Sender* parent)
+void FwtState::scheduleStart()
 {
-    auto startTimeout = std::chrono::milliseconds(1000);
-    _sched->scheduleAction(std::bind(&FwtState::handleStartAction, Rc<FwtState>(this), Rc<Sender>(parent)), startTimeout);
+    auto startTimeout = std::chrono::milliseconds(100);
+    delayed_send(this, startTimeout, FwtStartAtom::value);
 }
 
-void FwtState::scheduleCheck(Sender* parent)
+void FwtState::scheduleCheck(std::size_t id)
 {
-    auto checkTimeout = std::chrono::milliseconds(1000);
-    _sched->scheduleAction(std::bind(&FwtState::handleCheckAction, Rc<FwtState>(this), Rc<Sender>(parent)), checkTimeout);
+    auto checkTimeout = std::chrono::milliseconds(100);
+    delayed_send(this, checkTimeout, FwtCheckAtom::value, id);
 }
 
-void FwtState::handleHashAction(const Rc<Sender>& parent)
+void FwtState::handleHashAction()
 {
     if (_hash.isSome()) {
         return;
     }
-    _handler->beginHashDownload();
-    packAndSendPacket(parent.get(), &FwtState::genHashCmd);
-    scheduleHash(parent.get());
+    send(_handler, FirmwareDownloadStartedEventAtom::value);
+    packAndSendPacket(&FwtState::genHashCmd);
+    scheduleHash();
 }
 
-void FwtState::handleStartAction(const Rc<Sender>& parent)
+void FwtState::handleStartAction()
 {
     if (_hasStartCommandPassed) {
         return;
     }
-    _handler->beginFirmwareStartCommand();
-    packAndSendPacket(parent.get(), &FwtState::genStartCmd);
-    scheduleStart(parent.get());
+    send(_handler, FirmwareStartCmdSentEventAtom::value);
+    packAndSendPacket(&FwtState::genStartCmd);
+    scheduleStart();
 }
 
-void FwtState::handleCheckAction(const Rc<Sender>& parent)
+void FwtState::handleCheckAction(std::size_t id)
 {
     if (_hasDownloaded) {
         return;
     }
+    if (id != _checkId) {
+        return;
+    }
     //TODO: handle event
-    checkIntervals(parent.get());
+    checkIntervals();
+    _checkId++;
+    scheduleCheck(_checkId);
+}
+
+void FwtState::reportFirmwareError(const std::string& msg)
+{
+    send(_handler, FirmwareErrorEventAtom::value, msg);
 }
 
 //Hash = 0
 //Chunk = 1
 
-void FwtState::acceptData(Sender* parent, bmcl::Bytes packet)
+void FwtState::acceptData(bmcl::Bytes packet)
 {
+    //BMCL_DEBUG() << "accepted response";
     bmcl::MemReader reader(packet.begin(), packet.size());
     int64_t answerType;
     if (!reader.readVarInt(&answerType)) {
-        _handler->firmwareError("Recieved firmware chunk with invalid size");
+        reportFirmwareError("Recieved firmware chunk with invalid size");
         return;
     }
 
     switch (answerType) {
     case 0:
-        acceptHashResponse(parent, &reader);
+        //BMCL_DEBUG() << "accepted hash response";
+        acceptHashResponse(&reader);
         return;
     case 1:
-        acceptChunkResponse(parent, &reader);
+        //BMCL_DEBUG() << "accepted chunk response";
+        acceptChunkResponse(&reader);
         return;
     case 2:
-        acceptStartResponse(parent, &reader);
+        //BMCL_DEBUG() << "accepted start response";
+        acceptStartResponse(&reader);
         return;
     case 3:
-        acceptStopResponse(parent, &reader);
+        //BMCL_DEBUG() << "accepted stop response";
+        acceptStopResponse(&reader);
         return;
     default:
-        _handler->firmwareError("Recieved invalid fwt response: " + std::to_string(answerType));
+        reportFirmwareError("Recieved invalid fwt response: " + std::to_string(answerType));
         return;
     }
 }
 
-void FwtState::acceptChunkResponse(Sender* parent, bmcl::MemReader* src)
+void FwtState::acceptChunkResponse(bmcl::MemReader* src)
 {
-    (void)parent;
     if (_hash.isNone()) {
-        _handler->firmwareError("Recieved firmware chunk before recieving hash");
+        reportFirmwareError("Recieved firmware chunk before recieving hash");
         return;
     }
 
     uint64_t start;
     if (!src->readVarUint(&start)) {
-        _handler->firmwareError("Recieved firmware chunk with invalid start offset");
+        reportFirmwareError("Recieved firmware chunk with invalid start offset");
         return;
     }
 
@@ -169,26 +221,28 @@ void FwtState::acceptChunkResponse(Sender* parent, bmcl::MemReader* src)
     MemInterval os(start, start + src->sizeLeft());
 
     if (os.start() > _desc.size()) {
-        _handler->firmwareError("Recieved firmware chunk with start offset > firmware size");
+        reportFirmwareError("Recieved firmware chunk with start offset > firmware size");
         return;
     }
 
     if (os.end() > _desc.size()) {
-        _handler->firmwareError("Recieved firmware chunk with end offset > firmware end");
+        reportFirmwareError("Recieved firmware chunk with end offset > firmware end");
         return;
     }
 
     src->read(_desc.data() + os.start(), os.size());
 
     _acceptedChunks.add(os);
-    _handler->firmwareDownloadProgress(_acceptedChunks.dataSize());
+    send(_handler, FirmwareProgressEventAtom::value, std::size_t(_acceptedChunks.dataSize()));
+    checkIntervals();
+    _checkId++;
+    scheduleCheck(_checkId);
 }
 
-void FwtState::checkIntervals(Sender* parent)
+void FwtState::checkIntervals()
 {
     if (_acceptedChunks.size() == 0) {
-        packAndSendPacket(parent, &FwtState::genChunkCmd, MemInterval(0, _desc.size()));
-        scheduleCheck(parent);
+        packAndSendPacket(&FwtState::genChunkCmd, MemInterval(0, _desc.size()));
         return;
     }
     if (_acceptedChunks.size() == 1) {
@@ -199,55 +253,62 @@ void FwtState::checkIntervals(Sender* parent)
                 readFirmware();
                 return;
             }
-            scheduleCheck(parent);
+            packAndSendPacket(&FwtState::genChunkCmd, MemInterval(chunk.end(), _desc.size()));
             return;
         }
-        packAndSendPacket(parent, &FwtState::genChunkCmd, MemInterval(0, chunk.start()));
-        scheduleCheck(parent);
+        packAndSendPacket(&FwtState::genChunkCmd, MemInterval(0, chunk.start()));
         return;
     }
     MemInterval chunk1 = _acceptedChunks.at(0);
     MemInterval chunk2 = _acceptedChunks.at(1);
     if (chunk1.start() == 0) {
-        packAndSendPacket(parent, &FwtState::genChunkCmd, MemInterval(chunk1.end(), chunk2.start()));
-        scheduleCheck(parent);
+        packAndSendPacket(&FwtState::genChunkCmd, MemInterval(chunk1.end(), chunk2.start()));
         return;
     }
-    packAndSendPacket(parent, &FwtState::genChunkCmd, MemInterval(0, chunk1.start()));
-    scheduleCheck(parent);
+    packAndSendPacket(&FwtState::genChunkCmd, MemInterval(0, chunk1.start()));
 }
 
 void FwtState::readFirmware()
 {
-    _handler->endFirmwareDownload();
-    updateProject(_desc, _deviceName);
+    _checkId = 0;
+    send(_handler, FirmwareDownloadFinishedEventAtom::value);
+
+    Rc<Diagnostics> diag = new Diagnostics();
+    auto project = Project::decodeFromMemory(diag.get(), _desc.data(), _desc.size());
+    if (project.isErr()) {
+        //TODO: restart download
+        //TODO: print errors
+        return;
+    }
+
+    send(_gc, UpdateProjectAtom::value, Rc<const Project>(project.take()), _deviceName);
 }
 
-void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)
+void FwtState::acceptHashResponse(bmcl::MemReader* src)
 {
     if (_hash.isSome()) {
-        _handler->firmwareError("Recieved additional hash response");
+        //reportFirmwareError("Recieved additional hash response");
         return;
     }
 
     uint64_t descSize;
     if (!src->readVarUint(&descSize)) {
-        _handler->firmwareError("Recieved hash responce with invalid firmware size");
-        scheduleHash(parent);
+        reportFirmwareError("Recieved hash responce with invalid firmware size");
+        scheduleHash();
         return;
     }
 
     bmcl::Result<bmcl::StringView, void> name = deserializeString(src);
     if (name.isErr()) {
-        _handler->firmwareError("Recieved hash responce with invalid device name");
+        reportFirmwareError("Recieved hash responce with invalid device name");
         return;
     }
     _deviceName = name.unwrap().toStdString();
 
     //TODO: check descSize for overflow
     if (src->readableSize() != 64) {
-        _handler->firmwareError("Recieved hash responce with invalid hash size: " + std::to_string(src->readableSize()));
-        scheduleHash(parent);
+        reportFirmwareError("Recieved hash responce with invalid hash size: " + std::to_string(src->readableSize()));
+        scheduleHash();
         return;
     }
 
@@ -258,40 +319,40 @@ void FwtState::acceptHashResponse(Sender* parent, bmcl::MemReader* src)
     _acceptedChunks.clear();
     _startCmdState->generate();
 
-    packAndSendPacket(parent, &FwtState::genStartCmd);
+    packAndSendPacket(&FwtState::genStartCmd);
 
-    _handler->endHashDownload(name.unwrap().toStdString(), _hash.unwrap());
-    scheduleStart(parent);
+    send(_handler, FirmwareSizeRecievedEventAtom::value, std::size_t(_desc.size()));
+    send(_handler, FirmwareHashDownloadedEventAtom::value, name.unwrap().toStdString(), bmcl::SharedBytes::create(_hash.unwrap()));
+    scheduleStart();
 }
 
-void FwtState::acceptStartResponse(Sender* parent, bmcl::MemReader* src)
+void FwtState::acceptStartResponse(bmcl::MemReader* src)
 {
     if (_hasStartCommandPassed) {
-        _handler->firmwareError("Recieved duplicate start command responce");
+        //reportFirmwareError("Recieved duplicate start command responce");
         return;
     }
 
     uint64_t startRandomId;
     if (!src->readVarUint(&startRandomId)) {
-        _handler->firmwareError("Recieved invalid start command random id");
-        scheduleStart(parent);
+        reportFirmwareError("Recieved invalid start command random id");
+        scheduleStart();
         return;
     }
     if (startRandomId != _startCmdState->last) {
-        _handler->firmwareError("Recieved invalid start command random id: expected " +
+        reportFirmwareError("Recieved invalid start command random id: expected " +
                                 std::to_string(_startCmdState->last) +
                                 " got " +
                                 std::to_string(startRandomId));
-        scheduleStart(parent);
+        scheduleStart();
         return;
     }
     _hasStartCommandPassed = true;
-    _handler->endFirmwareStartCommand();
-    _handler->beginFirmwareDownload(_desc.size());
-    scheduleCheck(parent);
+    send(_handler, FirmwareStartCmdPassedEventAtom::value);
+    scheduleCheck(_checkId);
 }
 
-void FwtState::acceptStopResponse(Sender* parent, bmcl::MemReader* src)
+void FwtState::acceptStopResponse(bmcl::MemReader* src)
 {
 }
 

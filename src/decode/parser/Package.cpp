@@ -395,7 +395,7 @@ bool Package::resolveAll()
 {
     bool isOk = true;
     for (Ast* modifiedAst : modules()) {
-        BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
+        //BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
         TRY(mapComponent(modifiedAst));
         isOk &= resolveTypes(modifiedAst);
         isOk &= resolveStatuses(modifiedAst);
