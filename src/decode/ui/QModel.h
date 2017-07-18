@@ -10,42 +10,14 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/model/LockableNode.h"
 
 #include <bmcl/Fwd.h>
-#include <bmcl/OptionPtr.h>
 
 #include <QAbstractItemModel>
-
-#include <unordered_map>
 
 namespace decode {
 
 class Node;
-class LockableNode;
-struct QModelData;
-
-using NodeToDataMap = std::unordered_map<Node*, Rc<QModelData>>;
-
-struct QModelData : public RefCountable {
-public:
-    static Rc<QModelData> fromNode(Node* node, std::size_t nodeIndex = 0, bmcl::OptionPtr<QModelData> parent = bmcl::None);
-
-    void update(NodeToDataMap* map);
-    void createChildren(NodeToDataMap* map);
-
-    QString name;
-    QString typeName;
-    QVariant value;
-    QString shortDescription;
-    std::vector<Rc<QModelData>> children;
-    bmcl::OptionPtr<QModelData> parent;
-    Rc<Node> node;
-    QVariant background;
-    std::size_t indexInParent;
-    bool isEditable;
-    bool canHaveChildren;
-};
 
 class QModel : public QAbstractItemModel {
     Q_OBJECT
@@ -80,59 +52,18 @@ public:
 
     void setRoot(Node* node);
 
-    void reset();
-
-    template <typename T>
-    void handleUpdates(const T& updates)
-    {
-        lock();
-        for (const Rc<Node>& update : updates) {
-            auto it = _nodeToData.find(update.get());
-            if (it == _nodeToData.end()) {
-                continue;
-            }
-            it->second->update(&_nodeToData);
-            signalDataChanged(it->second.get());
-        }
-        unlock();
-    }
+public slots:
+    void notifyValueUpdate(const Node* node, std::size_t index);
+    void notifyNodesInserted(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
+    void notifyNodesRemoved(const Node* node, std::size_t nodeIndex, std::size_t firstIndex, std::size_t lastIndex);
 
 protected:
-    virtual void lock();
-    virtual void unlock();
     static bmcl::OptionPtr<Node> unpackMimeData(const QMimeData* data, const QString& mimeTypeStr);
     static QMimeData* packMimeData(const QModelIndexList& indexes, const QString& mimeTypeStr);
     static const QString& qmodelMimeStr();
 
 private:
-    void signalDataChanged(QModelData* data);
-
-    Rc<QModelData> _rootData;
-    Rc<Node> _rootNode;
-    NodeToDataMap _nodeToData;
+    Rc<Node> _root;
     bool _isEditable;
-};
-
-class QThreadSafeModel : public QModel {
-    Q_OBJECT
-public:
-    QThreadSafeModel(LockableNode* node)
-        : QModel(node)
-        , _node(node)
-    {
-    }
-
-    void lock() override
-    {
-        _node->lock();
-    }
-
-    void unlock() override
-    {
-        _node->unlock();
-    }
-
-private:
-    Rc<LockableNode> _node;
 };
 }

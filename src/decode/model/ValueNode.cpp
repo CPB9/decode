@@ -61,7 +61,6 @@ inline void updateOptionalValue(bmcl::Option<T>* value, T newValue, ModelEventHa
         }
     } else {
         value->emplace(newValue);
-        handler->nodeValueUpdated(node, nodeIndex);
     }
 }
 
