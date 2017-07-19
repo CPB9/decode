@@ -33,7 +33,7 @@ public:
     static Rc<ValueNode> fromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     virtual bool encode(bmcl::MemWriter* dest) const = 0;
-    virtual bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) = 0;
+    virtual bool decode(bmcl::MemReader* src) = 0;
 
     virtual bool isContainerValue() const = 0;
     virtual bool isInitialized() const = 0;
@@ -69,7 +69,7 @@ public:
     ~ContainerValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
 
     bool isContainerValue() const override;
     bool isInitialized() const override;
@@ -83,7 +83,7 @@ public:
         return _values[index].get();
     }
 
-    const std::vector<Rc<ValueNode>> values() const;
+    const std::vector<Rc<ValueNode>> values();
 
 protected:
     explicit ContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
@@ -107,15 +107,19 @@ public:
     SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~SliceValueNode();
 
+    void collectUpdates(std::vector<NodeViewUpdate>* dest) override;
+
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
 
     const Type* type() const override;
 
-    void resize(std::size_t size, std::size_t nodeIndex, ModelEventHandler* handler);
+    void resize(std::size_t size);
 
 private:
     Rc<const SliceType> _type;
+    std::size_t _minSizeSinceUpdate;
+    std::size_t _lastUpdateSize;
 };
 
 class StructValueNode : public ContainerValueNode {
@@ -130,20 +134,44 @@ private:
     Rc<const StructType> _type;
 };
 
+template <typename T>
+struct ValuePair {
+    ValuePair(const T& value)
+        : current(value)
+        , lastSinceUpdate(value)
+    {
+    }
+
+    void updateLast()
+    {
+        lastSinceUpdate = current;
+    }
+
+    bool hasChanged() const
+    {
+        return current != lastSinceUpdate;
+    }
+
+    T current;
+    T lastSinceUpdate;
+};
+
 class VariantValueNode : public ContainerValueNode {
 public:
     VariantValueNode(const VariantType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VariantValueNode();
 
+    void collectUpdates(std::vector<NodeViewUpdate>* dest) override;
+
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
 
     const Type* type() const override;
     Value value() const override;
 
 private:
     Rc<const VariantType> _type;
-    bmcl::Option<std::uint64_t> _currentId;
+    bmcl::Option<ValuePair<std::uint64_t>> _currentId;
 };
 
 class NonContainerValueNode : public ValueNode {
@@ -163,7 +191,7 @@ public:
     ~AddressValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
 
     bool isInitialized() const override;
     Value value() const override;
@@ -201,7 +229,7 @@ public:
     ~EnumValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
     decode::Value value() const override;
 
     bool isInitialized() const override;
@@ -236,7 +264,7 @@ public:
     ~NumericValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
     decode::Value value() const override;
 
     bool isInitialized() const override;
@@ -269,7 +297,7 @@ public:
     ~VarintValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
     Value value() const override;
 
     bool isInitialized() const override;
@@ -287,7 +315,7 @@ public:
     ~VaruintValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
-    bool decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src) override;
+    bool decode(bmcl::MemReader* src) override;
     Value value() const override;
 
     bool isInitialized() const override;

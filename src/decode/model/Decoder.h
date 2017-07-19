@@ -40,7 +40,7 @@ public:
     StatusMsgDecoder(const StatusMsg* msg, FieldsNode* node);
     ~StatusMsgDecoder();
 
-    bool decode(ModelEventHandler* handler, bmcl::MemReader* src);
+    bool decode(bmcl::MemReader* src);
 
 private:
     std::vector<ChainElement> _chain;
@@ -60,7 +60,7 @@ public:
 
     ~StatusDecoder();
 
-    bool decode(ModelEventHandler* handler, uint8_t msgId, bmcl::Bytes payload);
+    bool decode(uint8_t msgId, bmcl::Bytes payload);
 
 private:
     std::unordered_map<uint64_t, StatusMsgDecoder> _decoders;

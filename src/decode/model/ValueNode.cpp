@@ -15,6 +15,8 @@
 #include "decode/parser/Component.h"
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/ModelEventHandler.h"
+#include "decode/model/NodeViewUpdate.h"
+#include "decode/model/NodeView.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
@@ -52,16 +54,31 @@ inline double letoh(double value)
 namespace decode {
 
 template <typename T>
-inline void updateOptionalValue(bmcl::Option<T>* value, T newValue, ModelEventHandler* handler, Node* node, std::size_t nodeIndex)
+inline bool updateOptionalValue(bmcl::Option<T>* value, T newValue)
 {
     if (value->isSome()) {
         if (value->unwrap() != newValue) {
             value->unwrap() = newValue;
-            handler->nodeValueUpdated(node, nodeIndex);
+            return true;
         }
-    } else {
-        value->emplace(newValue);
+        return false;
     }
+    value->emplace(newValue);
+    return true;
+}
+
+template <typename T>
+inline bool updateOptionalValuePair(bmcl::Option<ValuePair<T>>* value, T newValue)
+{
+    if (value->isSome()) {
+        if (value->unwrap().current != newValue) {
+            value->unwrap().current = newValue;
+            return true;
+        }
+        return false;
+    }
+    value->emplace(newValue);
+    return true;
 }
 
 ValueNode::ValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
@@ -202,16 +219,15 @@ bool ContainerValueNode::encode(bmcl::MemWriter* dest) const
     return true;
 }
 
-bool ContainerValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool ContainerValueNode::decode(bmcl::MemReader* src)
 {
-    (void)nodeIndex;
     for (std::size_t i = 0; i < _values.size(); i++) {
-        TRY(_values[i]->decode(i, handler, src));
+        TRY(_values[i]->decode(src));
     }
     return true;
 }
 
-const std::vector<Rc<ValueNode>> ContainerValueNode::values() const
+const std::vector<Rc<ValueNode>> ContainerValueNode::values()
 {
     return _values;
 }
@@ -256,11 +272,33 @@ const Type* ArrayValueNode::type() const
 SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
+    , _minSizeSinceUpdate(0)
+    , _lastUpdateSize(0)
 {
 }
 
 SliceValueNode::~SliceValueNode()
 {
+}
+
+void SliceValueNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
+{
+    if (_minSizeSinceUpdate < _lastUpdateSize) {
+        //shrink
+        dest->emplace_back(_minSizeSinceUpdate, this);
+    }
+    if (_values.size() > _minSizeSinceUpdate) {
+        //extend
+        NodeViewVec vec;
+        vec.reserve(_values.size() - _minSizeSinceUpdate);
+        for (std::size_t i = _minSizeSinceUpdate; i < _values.size(); i++) {
+            vec.emplace_back(new NodeView(_values[i].get()));
+        }
+        dest->emplace_back(std::move(vec), this);
+    }
+
+    _minSizeSinceUpdate = _values.size();
+    _lastUpdateSize = _minSizeSinceUpdate;
 }
 
 bool SliceValueNode::encode(bmcl::MemWriter* dest) const
@@ -272,15 +310,15 @@ bool SliceValueNode::encode(bmcl::MemWriter* dest) const
     return ContainerValueNode::encode(dest);
 }
 
-bool SliceValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool SliceValueNode::decode(bmcl::MemReader* src)
 {
     uint64_t size;
     if (!src->readVarUint(&size)) {
         //TODO: report error
         return false;
     }
-    resize(size, nodeIndex, handler);
-    return ContainerValueNode::decode(nodeIndex, handler, src);
+    resize(size);
+    return ContainerValueNode::decode(src);
 }
 
 const Type* SliceValueNode::type() const
@@ -288,8 +326,9 @@ const Type* SliceValueNode::type() const
     return _type.get();
 }
 
-void SliceValueNode::resize(std::size_t size, std::size_t nodeIndex, ModelEventHandler* handler)
+void SliceValueNode::resize(std::size_t size)
 {
+    _minSizeSinceUpdate = std::min(_minSizeSinceUpdate, size);
     std::size_t currentSize = _values.size();
     if (size > currentSize) {
         _values.reserve(size);
@@ -298,10 +337,8 @@ void SliceValueNode::resize(std::size_t size, std::size_t nodeIndex, ModelEventH
             node->setFieldName(_cache->arrayIndex(currentSize + i));
             _values.push_back(node);
         }
-        handler->nodesInserted(this, nodeIndex, currentSize, size - 1);
     } else if (size < currentSize) {
         _values.resize(size);
-        handler->nodesRemoved(this, nodeIndex, size, currentSize - 1);
     }
     assert(values().size() == size);
 }
@@ -356,9 +393,29 @@ VariantValueNode::~VariantValueNode()
 Value VariantValueNode::value() const
 {
     if (_currentId.isSome()) {
-        return Value::makeStringView(_type->fieldsBegin()[_currentId.unwrap()]->name());
+        return Value::makeStringView(_type->fieldsBegin()[_currentId.unwrap().current]->name());
     }
     return Value::makeUninitialized();
+}
+
+void VariantValueNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
+{
+    if (_currentId.isNone()) {
+        return;
+    }
+
+    if (!_currentId.unwrap().hasChanged()) {
+        return;
+    }
+
+    dest->emplace_back(std::size_t(0), this);
+    NodeViewVec vec;
+    vec.reserve(_values.size());
+    for (const Rc<ValueNode>& node : _values) {
+        vec.emplace_back(new NodeView(node.get()));
+    }
+    dest->emplace_back(std::move(vec), this);
+    _currentId.unwrap().updateLast();
 }
 
 bool VariantValueNode::encode(bmcl::MemWriter* dest) const
@@ -367,11 +424,11 @@ bool VariantValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    TRY(dest->writeVarUint(_currentId.unwrap()));
+    TRY(dest->writeVarUint(_currentId.unwrap().current));
     return ContainerValueNode::encode(dest);
 }
 
-bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool VariantValueNode::decode(bmcl::MemReader* src)
 {
     uint64_t id;
     TRY(src->readVarUint(&id));
@@ -379,7 +436,7 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
         //TODO: report error
         return false;
     }
-    updateOptionalValue(&_currentId, id, handler, this, nodeIndex);
+    updateOptionalValuePair(&_currentId, id);
     //TODO: do not resize if type doesn't change
     const VariantField* field = _type->fieldsBegin()[id];
     switch (field->variantFieldKind()) {
@@ -391,15 +448,13 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
         std::size_t size = tField->typesRange().size();
         if (size < currentSize) {
             _values.resize(size);
-            handler->nodesRemoved(this, nodeIndex, size, currentSize - 1);
         } else if (size > currentSize) {
             _values.resize(size);
-            handler->nodesInserted(this, nodeIndex, currentSize, size - 1);
         }
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(tField->typesBegin()[i], _cache.get(), this);
         }
-        TRY(ContainerValueNode::decode(nodeIndex, handler, src));
+        TRY(ContainerValueNode::decode(src));
         break;
     }
     case VariantFieldKind::Struct: {
@@ -408,15 +463,13 @@ bool VariantValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
         std::size_t size = sField->fieldsRange().size();
         if (size < currentSize) {
             _values.resize(size);
-            handler->nodesRemoved(this, nodeIndex, size, currentSize - 1);
         } else if (size > currentSize) {
             _values.resize(size);
-            handler->nodesInserted(this, nodeIndex, currentSize, size - 1);
         }
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(sField->fieldsBegin()[i]->type(), _cache.get(), this);
         }
-        TRY(ContainerValueNode::decode(nodeIndex, handler, src));
+        TRY(ContainerValueNode::decode(src));
         break;
     }
     default:
@@ -474,7 +527,7 @@ bool AddressValueNode::encode(bmcl::MemWriter* dest) const
     return true;
 }
 
-bool AddressValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool AddressValueNode::decode(bmcl::MemReader* src)
 {
     //TODO: get target word size
     if (src->readableSize() < 8) {
@@ -482,7 +535,7 @@ bool AddressValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler,
         return false;
     }
     uint64_t value = src->readUint64Le();
-    updateOptionalValue(&_address, value, handler, this, nodeIndex);
+    updateOptionalValue(&_address, value);
     return true;
 }
 
@@ -564,7 +617,7 @@ bool EnumValueNode::encode(bmcl::MemWriter* dest) const
     return false;
 }
 
-bool EnumValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool EnumValueNode::decode(bmcl::MemReader* src)
 {
     int64_t value;
     if (!src->readVarInt(&value)) {
@@ -578,7 +631,7 @@ bool EnumValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bm
         //TODO: report error
         return false;
     }
-    updateOptionalValue(&_currentId, value, handler, this, nodeIndex);
+    updateOptionalValue(&_currentId, value);
     return true;
 }
 
@@ -653,14 +706,14 @@ bool NumericValueNode<T>::encode(bmcl::MemWriter* dest) const
 }
 
 template <typename T>
-bool NumericValueNode<T>::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool NumericValueNode<T>::decode(bmcl::MemReader* src)
 {
     if (src->readableSize() < sizeof(T)) {
         //TODO: report error
         return false;
     }
     T value = bmcl::letoh<T>(src->readType<T>());
-    updateOptionalValue(&_value, value, handler, this, nodeIndex);
+    updateOptionalValue(&_value, value);
     return true;
 }
 
@@ -768,12 +821,12 @@ bool VarintValueNode::encode(bmcl::MemWriter* dest) const
     return dest->writeVarInt(_value.unwrap());
 }
 
-bool VarintValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool VarintValueNode::decode(bmcl::MemReader* src)
 {
     int64_t value;
     //TODO: report error
     TRY(src->readVarInt(&value));
-    updateOptionalValue(&_value, value, handler, this, nodeIndex);
+    updateOptionalValue(&_value, value);
     return true;
 }
 
@@ -822,12 +875,12 @@ bool VaruintValueNode::encode(bmcl::MemWriter* dest) const
     return dest->writeVarUint(_value.unwrap());
 }
 
-bool VaruintValueNode::decode(std::size_t nodeIndex, ModelEventHandler* handler, bmcl::MemReader* src)
+bool VaruintValueNode::decode(bmcl::MemReader* src)
 {
     uint64_t value;
     //TODO: report error
     TRY(src->readVarUint(&value));
-    updateOptionalValue(&_value, value, handler, this, nodeIndex);
+    updateOptionalValue(&_value, value);
     return true;
 }
 

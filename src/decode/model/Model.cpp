@@ -87,7 +87,7 @@ void  TmModel::acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload)
         return;
     }
 
-    if (!it->second->decode(_handler.get(), msgNum, payload)) {
+    if (!it->second->decode(msgNum, payload)) {
         //TODO: report error
         return;
     }

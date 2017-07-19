@@ -72,4 +72,9 @@ bmcl::StringView Node::shortDescription() const
 {
     return bmcl::StringView::empty();
 }
+
+void Node::collectUpdates(std::vector<NodeViewUpdate>* dest)
+{
+    (void)dest;
+}
 }

@@ -36,12 +36,14 @@ public:
 
     bool encodeFields(bmcl::MemWriter* dest) const;
 
+    void collectUpdates(std::vector<NodeViewUpdate>* dest) override;
+
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
 
 public:
-    std::unordered_map<bmcl::StringView, Rc<ValueNode>> _nameToNodeMap;
+    std::unordered_map<bmcl::StringView, Rc<ValueNode>> _nameToNodeMap; //TODO: remove
     std::vector<Rc<ValueNode>> _nodes;
 };
 

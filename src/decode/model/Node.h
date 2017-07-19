@@ -19,6 +19,8 @@
 namespace decode {
 
 class Value;
+class NodeView;
+class NodeViewUpdate;
 
 class Node : public RefCountable {
 public:
@@ -29,6 +31,8 @@ public:
     bool hasParent() const;
     bmcl::OptionPtr<const Node> parent() const;
     bmcl::OptionPtr<Node> parent();
+
+    virtual void collectUpdates(std::vector<NodeViewUpdate>* dest);
 
     virtual bool canHaveChildren() const;
     virtual std::size_t numChildren() const;
@@ -61,6 +65,15 @@ protected:
         }
         return cont[idx].get();
     }
+
+    template <typename C>
+    static void collectUpdatesGeneric(const C& cont, std::vector<NodeViewUpdate>* dest)
+    {
+        for (const auto& node : cont) {
+            node->collectUpdates(dest);
+        }
+    }
+
 
 private:
     bmcl::OptionPtr<Node> _parent; // not owned
