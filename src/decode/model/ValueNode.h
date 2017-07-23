@@ -146,25 +146,40 @@ private:
 };
 
 template <typename T>
-struct ValuePair {
-    ValuePair(const T& value)
-        : current(value)
-        , lastSinceUpdate(value)
+class ValuePair {
+public:
+    ValuePair(T value)
+        : _current(value)
+        , _previous(value)
+        , _neverCollected(true)
     {
     }
 
-    void updateLast()
+    void updateState()
     {
-        lastSinceUpdate = current;
+        _neverCollected = false;
+        _previous = _current;
     }
 
     bool hasChanged() const
     {
-        return current != lastSinceUpdate;
+        return _neverCollected || (_previous != _current);
     }
 
-    T current;
-    T lastSinceUpdate;
+    void setValue(T value)
+    {
+        _current = value;
+    }
+
+    T value() const
+    {
+        return _current;
+    }
+
+private:
+    T _current;
+    T _previous;
+    bool _neverCollected;
 };
 
 class VariantValueNode : public ContainerValueNode {

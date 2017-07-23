@@ -71,23 +71,23 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     rightLayout->addWidget(cmdWidget);
     rightLayout->addLayout(buttonLayout);
 
-    auto mainView = new QTreeView;
-    mainView->setAcceptDrops(true);
-    mainView->setAlternatingRowColors(true);
-    mainView->setSelectionMode(QAbstractItemView::SingleSelection);
-    mainView->setSelectionBehavior(QAbstractItemView::SelectRows);
-    mainView->setDragEnabled(true);
-    mainView->setDragDropMode(QAbstractItemView::DragDrop);
-    mainView->setDropIndicatorShown(true);
-    mainView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    mainView->header()->setStretchLastSection(false);
-    mainView->setModel(_qmodel.get());
+    _mainView = new QTreeView;
+    _mainView->setAcceptDrops(true);
+    _mainView->setAlternatingRowColors(true);
+    _mainView->setSelectionMode(QAbstractItemView::SingleSelection);
+    _mainView->setSelectionBehavior(QAbstractItemView::SelectRows);
+    _mainView->setDragEnabled(true);
+    _mainView->setDragDropMode(QAbstractItemView::DragDrop);
+    _mainView->setDropIndicatorShown(true);
+    _mainView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    _mainView->header()->setStretchLastSection(false);
+    _mainView->setModel(_qmodel.get());
 
     QObject::connect(cmdWidget, &QTreeView::expanded, cmdWidget, [cmdWidget]() { cmdWidget->resizeColumnToContents(0); });
-    QObject::connect(mainView, &QTreeView::expanded, mainView, [mainView]() { mainView->resizeColumnToContents(0); });
+    QObject::connect(_mainView, &QTreeView::expanded, _mainView, [this]() { _mainView->resizeColumnToContents(0); });
 
     auto centralLayout = new QHBoxLayout;
-    centralLayout->addWidget(mainView);
+    centralLayout->addWidget(_mainView);
     centralLayout->addLayout(rightLayout);
     setLayout(centralLayout);
 }
@@ -104,5 +104,6 @@ void FirmwareWidget::setRootTmNode(NodeView* root)
 void FirmwareWidget::applyTmUpdates(NodeViewUpdater* updater)
 {
     _qmodel->applyUpdates(updater);
+    _mainView->viewport()->update();
 }
 }

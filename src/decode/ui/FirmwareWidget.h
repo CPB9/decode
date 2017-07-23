@@ -17,6 +17,8 @@
 
 #include <memory>
 
+class QTreeView;
+
 namespace decode {
 
 class ModelEventHandler;
@@ -40,6 +42,7 @@ signals:
     void packetQueued(bmcl::Bytes packet);
 
 private:
+    QTreeView* _mainView;
     Rc<CmdContainerNode> _cmdCont;
     std::unique_ptr<QNodeViewModel> _qmodel;
     std::unique_ptr<QNodeModel> _cmdModel;

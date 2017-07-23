@@ -54,13 +54,6 @@ public:
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
     int columnCount(const QModelIndex& parent = QModelIndex()) const override;
 
-    void setRoot(T* node)
-    {
-        beginResetModel();
-        _root = node;
-        endResetModel();
-    }
-
 protected:
     static QVariant fieldNameFromNode(const T* node);
     static QVariant typeNameFromNode(const T* node);

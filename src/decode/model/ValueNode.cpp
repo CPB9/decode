@@ -72,8 +72,8 @@ template <typename T>
 inline bool updateOptionalValuePair(bmcl::Option<ValuePair<T>>* value, T newValue)
 {
     if (value->isSome()) {
-        if (value->unwrap().current != newValue) {
-            value->unwrap().current = newValue;
+        if (value->unwrap().value() != newValue) {
+            value->unwrap().setValue(newValue);
             return true;
         }
         return false;
@@ -427,7 +427,7 @@ VariantValueNode::~VariantValueNode()
 Value VariantValueNode::value() const
 {
     if (_currentId.isSome()) {
-        return Value::makeStringView(_type->fieldsBegin()[_currentId.unwrap().current]->name());
+        return Value::makeStringView(_type->fieldsBegin()[_currentId.unwrap().value()]->name());
     }
     return Value::makeUninitialized();
 }
@@ -449,7 +449,7 @@ void VariantValueNode::collectUpdates(NodeViewUpdater* dest)
         vec.emplace_back(new NodeView(node.get()));
     }
     dest->addExtendUpdate(std::move(vec), this);
-    _currentId.unwrap().updateLast();
+    _currentId.unwrap().updateState();
 }
 
 bool VariantValueNode::encode(bmcl::MemWriter* dest) const
@@ -458,7 +458,7 @@ bool VariantValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    TRY(dest->writeVarUint(_currentId.unwrap().current));
+    TRY(dest->writeVarUint(_currentId.unwrap().value()));
     return ContainerValueNode::encode(dest);
 }
 
@@ -557,9 +557,9 @@ void AddressValueNode::collectUpdates(NodeViewUpdater* dest)
         return;
     }
 
-    dest->addValueUpdate(Value::makeUnsigned(_address.unwrap().current), this);
+    dest->addValueUpdate(Value::makeUnsigned(_address.unwrap().value()), this);
 
-    _address.unwrap().updateLast();
+    _address.unwrap().updateState();
 }
 
 bool AddressValueNode::encode(bmcl::MemWriter* dest) const
@@ -572,7 +572,7 @@ bool AddressValueNode::encode(bmcl::MemWriter* dest) const
     if (dest->writableSize() < 8) {
         return false;
     }
-    dest->writeUint64Le(_address.unwrap().current);
+    dest->writeUint64Le(_address.unwrap().value());
     return true;
 }
 
@@ -596,7 +596,7 @@ bool AddressValueNode::isInitialized() const
 Value AddressValueNode::value() const
 {
     if (_address.isSome()) {
-        return Value::makeUnsigned(_address.unwrap().current);
+        return Value::makeUnsigned(_address.unwrap().value());
     }
     return Value::makeUninitialized();
 }
@@ -665,15 +665,15 @@ void EnumValueNode::collectUpdates(NodeViewUpdater* dest)
         return;
     }
 
-    dest->addValueUpdate(Value::makeSigned(_currentId.unwrap().current), this);
+    dest->addValueUpdate(Value::makeSigned(_currentId.unwrap().value()), this);
 
-    _currentId.unwrap().updateLast();
+    _currentId.unwrap().updateState();
 }
 
 bool EnumValueNode::encode(bmcl::MemWriter* dest) const
 {
     if (_currentId.isSome()) {
-        TRY(dest->writeVarUint(_currentId.unwrap().current));
+        TRY(dest->writeVarUint(_currentId.unwrap().value()));
         return true;
     }
     //TODO: report error
@@ -702,7 +702,7 @@ decode::Value EnumValueNode::value() const
 {
     if (_currentId.isSome()) {
             auto it = _type->constantsRange().findIf([this](const EnumConstant* c) {
-                return c->value() == _currentId.unwrap().current;
+                return c->value() == _currentId.unwrap().value();
             });
         assert(it != _type->constantsEnd());
         return Value::makeStringView(it->name());
@@ -765,14 +765,14 @@ void NumericValueNode<T>::collectUpdates(NodeViewUpdater* dest)
     }
 
     if (std::is_floating_point<T>::value) {
-        dest->addValueUpdate(Value::makeDouble(_value.unwrap().current), this);
+        dest->addValueUpdate(Value::makeDouble(_value.unwrap().value()), this);
     } else if (std::is_signed<T>::value) {
-        dest->addValueUpdate(Value::makeSigned(_value.unwrap().current), this);
+        dest->addValueUpdate(Value::makeSigned(_value.unwrap().value()), this);
     } else {
-        dest->addValueUpdate(Value::makeUnsigned(_value.unwrap().current), this);
+        dest->addValueUpdate(Value::makeUnsigned(_value.unwrap().value()), this);
     }
 
-    _value.unwrap().updateLast();
+    _value.unwrap().updateState();
 }
 
 template <typename T>
@@ -786,7 +786,7 @@ bool NumericValueNode<T>::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    dest->writeType<T>(bmcl::htole<T>(_value.unwrap().current));
+    dest->writeType<T>(bmcl::htole<T>(_value.unwrap().value()));
     return true;
 }
 
@@ -809,11 +809,11 @@ decode::Value NumericValueNode<T>::value() const
         return Value::makeUninitialized();
     }
     if (std::is_floating_point<T>::value) {
-        return Value::makeDouble(_value.unwrap().current);
+        return Value::makeDouble(_value.unwrap().value());
     } else if (std::is_signed<T>::value) {
-        return Value::makeSigned(_value.unwrap().current);
+        return Value::makeSigned(_value.unwrap().value());
     } else {
-        return Value::makeUnsigned(_value.unwrap().current);
+        return Value::makeUnsigned(_value.unwrap().value());
     }
 }
 
@@ -903,7 +903,7 @@ bool VarintValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    return dest->writeVarInt(_value.unwrap().current);
+    return dest->writeVarInt(_value.unwrap().value());
 }
 
 bool VarintValueNode::decode(bmcl::MemReader* src)
@@ -930,7 +930,7 @@ bool VaruintValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    return dest->writeVarUint(_value.unwrap().current);
+    return dest->writeVarUint(_value.unwrap().value());
 }
 
 bool VaruintValueNode::decode(bmcl::MemReader* src)

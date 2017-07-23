@@ -19,6 +19,13 @@ public:
         registerNodes(_root.get());
     }
 
+    void setRoot(NodeView* view)
+    {
+        _map.clear();
+        _root.reset(view);
+        registerNodes(view);
+    }
+
     bool apply(NodeViewUpdate* update)
     {
         auto it = _map.find(update->id());

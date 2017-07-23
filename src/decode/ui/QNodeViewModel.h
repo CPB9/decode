@@ -41,6 +41,14 @@ public:
         updater->apply(&_store);
     }
 
+    void setRoot(NodeView* node)
+    {
+        beginResetModel();
+        _root = node;
+        _store.setRoot(node);
+        endResetModel();
+    }
+
 private:
     NodeViewStore _store;
 };
