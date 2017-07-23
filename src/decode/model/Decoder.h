@@ -60,7 +60,7 @@ public:
 
     ~StatusDecoder();
 
-    bool decode(uint8_t msgId, bmcl::Bytes payload);
+    bool decode(uint64_t msgId, bmcl::Bytes payload);
 
 private:
     std::unordered_map<uint64_t, StatusMsgDecoder> _decoders;

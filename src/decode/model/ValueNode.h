@@ -12,6 +12,7 @@
 #include "decode/core/Rc.h"
 #include "decode/parser/Type.h"
 #include "decode/model/Node.h"
+#include "decode/model/ValueInfoCache.h"
 
 #include <bmcl/Option.h>
 #include <bmcl/OptionPtr.h>
@@ -25,6 +26,7 @@ namespace decode {
 class ValueInfoCache;
 class ModelEventHandler;
 class Function;
+class NodeViewUpdater;
 
 class ValueNode : public Node {
 public:
@@ -96,10 +98,14 @@ public:
     ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~ArrayValueNode();
 
+    void collectUpdates(NodeViewUpdater* dest) override;
+    bool decode(bmcl::MemReader* src) override;
     const Type* type() const override;
 
 private:
     Rc<const ArrayType> _type;
+    StrIndexCache _indexCache; //TODO: share
+    bool _changedSinceUpdate;
 };
 
 class SliceValueNode : public ContainerValueNode {
@@ -107,7 +113,7 @@ public:
     SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~SliceValueNode();
 
-    void collectUpdates(std::vector<NodeViewUpdate>* dest) override;
+    void collectUpdates(NodeViewUpdater* dest) override;
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
@@ -118,6 +124,7 @@ public:
 
 private:
     Rc<const SliceType> _type;
+    StrIndexCache _indexCache; //TODO: share
     std::size_t _minSizeSinceUpdate;
     std::size_t _lastUpdateSize;
 };
@@ -127,11 +134,15 @@ public:
     StructValueNode(const StructType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~StructValueNode();
 
+    void collectUpdates(NodeViewUpdater* dest) override;
+    bool decode(bmcl::MemReader* src) override;
+
     const Type* type() const override;
     bmcl::OptionPtr<ValueNode> nodeWithName(bmcl::StringView name);
 
 private:
     Rc<const StructType> _type;
+    bool _changedSinceUpdate;
 };
 
 template <typename T>
@@ -161,7 +172,7 @@ public:
     VariantValueNode(const VariantType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VariantValueNode();
 
-    void collectUpdates(std::vector<NodeViewUpdate>* dest) override;
+    void collectUpdates(NodeViewUpdater* dest) override;
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
@@ -190,6 +201,8 @@ public:
     AddressValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~AddressValueNode();
 
+    void collectUpdates(NodeViewUpdater* dest) override;
+
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
 
@@ -200,7 +213,7 @@ public:
     bool setValue(const Value& value) override;
 
 protected:
-    bmcl::Option<uint64_t> _address;
+    bmcl::Option<ValuePair<uint64_t>> _address;
 };
 
 class ReferenceValueNode : public AddressValueNode {
@@ -228,6 +241,8 @@ public:
     EnumValueNode(const EnumType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~EnumValueNode();
 
+    void collectUpdates(NodeViewUpdater* dest) override;
+
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
     decode::Value value() const override;
@@ -241,7 +256,7 @@ public:
 
 private:
     Rc<const EnumType> _type;
-    bmcl::Option<int64_t> _currentId;
+    bmcl::Option<ValuePair<int64_t>> _currentId;
 };
 
 class BuiltinValueNode : public NonContainerValueNode {
@@ -263,6 +278,8 @@ public:
     NumericValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~NumericValueNode();
 
+    void collectUpdates(NodeViewUpdater* dest) override;
+
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
     decode::Value value() const override;
@@ -272,12 +289,12 @@ public:
     ValueKind valueKind() const override;
     bool setValue(const Value& value) override;
 
-private:
+protected:
     bool emplace(int64_t value);
     bool emplace(uint64_t value);
     bool emplace(double value);
 
-    bmcl::Option<T> _value;
+    bmcl::Option<ValuePair<T>> _value;
 };
 
 extern template class NumericValueNode<std::uint8_t>;
@@ -291,40 +308,21 @@ extern template class NumericValueNode<std::int64_t>;
 extern template class NumericValueNode<float>;
 extern template class NumericValueNode<double>;
 
-class VarintValueNode : public BuiltinValueNode {
+class VarintValueNode : public NumericValueNode<std::int64_t> {
 public:
     VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VarintValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
-    Value value() const override;
-
-    bool isInitialized() const override;
-
-    ValueKind valueKind() const override;
-    bool setValue(const Value& value) override;
-
-private:
-    bmcl::Option<int64_t> _value;
 };
 
-class VaruintValueNode : public BuiltinValueNode {
+class VaruintValueNode : public NumericValueNode<std::uint64_t> {
 public:
     VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VaruintValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
-    Value value() const override;
-
-    bool isInitialized() const override;
-
-    ValueKind valueKind() const override;
-    bool setValue(const Value& value) override;
-
-private:
-    bmcl::Option<uint64_t> _value;
 };
-
 }

@@ -26,6 +26,7 @@ class Component;
 class ValueNode;
 class ValueInfoCache;
 class ModelEventHandler;
+class NodeViewUpdater;
 
 class FieldsNode : public Node {
 public:
@@ -36,7 +37,7 @@ public:
 
     bool encodeFields(bmcl::MemWriter* dest) const;
 
-    void collectUpdates(std::vector<NodeViewUpdate>* dest) override;
+    void collectUpdates(NodeViewUpdater* dest) override;
 
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;

@@ -633,7 +633,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
     _photonPath.append('/');
 
     SliceCollector coll;
-    for (const NamedType* type : ast->typesRange()) {
+    for (const NamedType* type : ast->namedTypesRange()) {
         coll.collectUniqueSlices(type, &_slices);
         if (type->typeKind() == TypeKind::Imported) {
             continue;

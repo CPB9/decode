@@ -35,7 +35,8 @@ class Constant;
 
 class Ast : public RefCountable {
 public:
-    using Types = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
+    using Types = RcVec<Type>;
+    using NamedTypes = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
     using Imports = RcVec<TypeImport>;
     using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
@@ -45,15 +46,30 @@ public:
 
     Types::ConstIterator typesBegin() const
     {
-        return _typeNameToType.cbegin();
+        return _types.cbegin();
     }
 
     Types::ConstIterator typesEnd() const
     {
-        return _typeNameToType.cend();
+        return _types.cend();
     }
 
     Types::ConstRange typesRange() const
+    {
+        return _types;
+    }
+
+    NamedTypes::ConstIterator namedTypesBegin() const
+    {
+        return _typeNameToType.cbegin();
+    }
+
+    NamedTypes::ConstIterator namedTypesEnd() const
+    {
+        return _typeNameToType.cend();
+    }
+
+    NamedTypes::ConstRange namedTypesRange() const
     {
         return _typeNameToType;
     }
@@ -134,10 +150,16 @@ public:
         _moduleInfo.reset(decl->moduleInfo());
     }
 
+    void addType(Type* type)
+    {
+        _types.emplace_back(type);
+    }
+
     void addTopLevelType(NamedType* type)
     {
         auto it = _typeNameToType.emplace(type->name(), type);
         assert(it.second); //TODO: check for top level type name conflicts
+        _types.emplace_back(type);
     }
 
     void addImplBlock(ImplBlock* block)
@@ -174,7 +196,8 @@ private:
 
     Rc<Component> _component;
 
-    Types _typeNameToType;
+    NamedTypes _typeNameToType;
+    Types _types;
     ImplBlocks _typeNameToImplBlock;
     Constants _constants;
     //std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;

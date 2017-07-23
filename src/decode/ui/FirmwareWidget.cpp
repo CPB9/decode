@@ -10,7 +10,8 @@
 #include "decode/model/CmdNode.h"
 #include "decode/model/Model.h"
 #include "decode/ui/QCmdModel.h"
-#include "decode/ui/QModel.h"
+#include "decode/ui/QNodeModel.h"
+#include "decode/ui/QNodeViewModel.h"
 #include "decode/model/ModelEventHandler.h"
 
 #include <QWidget>
@@ -26,11 +27,11 @@
 
 namespace decode {
 
-FirmwareWidget::FirmwareWidget(ModelEventHandler* handler, QWidget* parent)
+FirmwareWidget::FirmwareWidget(QWidget* parent)
     : QWidget(parent)
-    , _handler(handler)
 {
-    _qmodel = bmcl::makeUnique<QModel>(new Node(bmcl::None));
+    Rc<Node> emptyNode = new Node(bmcl::None);
+    _qmodel = bmcl::makeUnique<QNodeViewModel>(new NodeView(emptyNode.get()));
 
     auto buttonLayout = new QVBoxLayout;
     auto sendButton = new QPushButton("send");
@@ -46,7 +47,7 @@ FirmwareWidget::FirmwareWidget(ModelEventHandler* handler, QWidget* parent)
         uint8_t prefix[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         dest.write(prefix, sizeof(prefix));
         if (_cmdCont->encode(&dest)) {
-            _handler->packetQueued(dest.writenData());
+            emit packetQueued(dest.writenData());
         } else {
             BMCL_DEBUG() << "error encoding";
             QMessageBox::warning(this, "UiTest", "Error while encoding cmd. Args may be empty", QMessageBox::Ok);
@@ -89,21 +90,19 @@ FirmwareWidget::FirmwareWidget(ModelEventHandler* handler, QWidget* parent)
     centralLayout->addWidget(mainView);
     centralLayout->addLayout(rightLayout);
     setLayout(centralLayout);
-
-    _qmodel->setEditable(true);
 }
 
 FirmwareWidget::~FirmwareWidget()
 {
 }
 
-QModel* FirmwareWidget::qmodel()
+void FirmwareWidget::setRootTmNode(NodeView* root)
 {
-    return _qmodel.get();
+    _qmodel->setRoot(root);
 }
 
-void FirmwareWidget::setModel(Model* model)
+void FirmwareWidget::applyTmUpdates(NodeViewUpdater* updater)
 {
-    _qmodel->setRoot(model);
+    _qmodel->applyUpdates(updater);
 }
 }

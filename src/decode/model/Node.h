@@ -20,7 +20,7 @@ namespace decode {
 
 class Value;
 class NodeView;
-class NodeViewUpdate;
+class NodeViewUpdater;
 
 class Node : public RefCountable {
 public:
@@ -32,7 +32,7 @@ public:
     bmcl::OptionPtr<const Node> parent() const;
     bmcl::OptionPtr<Node> parent();
 
-    virtual void collectUpdates(std::vector<NodeViewUpdate>* dest);
+    virtual void collectUpdates(NodeViewUpdater* dest);
 
     virtual bool canHaveChildren() const;
     virtual std::size_t numChildren() const;
@@ -45,6 +45,15 @@ public:
     virtual ValueKind valueKind() const;
     virtual bool canSetValue() const;
     virtual bool setValue(const Value& value);
+
+    bmcl::Option<std::size_t> indexInParent() const
+    {
+        if (_parent.isNone()) {
+            return bmcl::None;
+        }
+
+        return _parent->childIndex(this);
+    }
 
 protected:
     template <typename C>
@@ -67,7 +76,7 @@ protected:
     }
 
     template <typename C>
-    static void collectUpdatesGeneric(const C& cont, std::vector<NodeViewUpdate>* dest)
+    static void collectUpdatesGeneric(const C& cont, NodeViewUpdater* dest)
     {
         for (const auto& node : cont) {
             node->collectUpdates(dest);

@@ -60,6 +60,7 @@ public:
 protected:
     void ascendTypeOnce(typename P<Type>::type type);
 
+    bool visitType(typename P<Type>::type type);
     bool visitBuiltinType(typename P<BuiltinType>::type builtin);
     bool visitArrayType(typename P<ArrayType>::type array);
     bool visitSliceType(typename P<SliceType>::type slice);
@@ -87,6 +88,13 @@ template <typename B, template <typename> class P>
 constexpr bool AstVisitorBase<B, P>::shouldFollowImportedType() const
 {
     return false;
+}
+
+template <typename B, template <typename> class P>
+inline bool AstVisitorBase<B, P>::visitType(typename P<Type>::type type)
+{
+    (void)type;
+    return true;
 }
 
 template <typename B, template <typename> class P>
@@ -403,6 +411,9 @@ void AstVisitorBase<B, P>::traverseAliasType(typename P<AliasType>::type alias)
 template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
 {
+    if (!base().visitType(type)) {
+        return;
+    }
     switch (type->typeKind()) {
     case TypeKind::Builtin: {
         typename P<BuiltinType>::type builtin = ptrCast<P, BuiltinType>(type);

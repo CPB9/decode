@@ -17,6 +17,7 @@
 #include "decode/model/ModelEventHandler.h"
 #include "decode/model/NodeViewUpdate.h"
 #include "decode/model/NodeView.h"
+#include "decode/model/NodeViewUpdater.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
@@ -250,18 +251,33 @@ bmcl::OptionPtr<Node> ContainerValueNode::childAt(std::size_t idx)
 ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
+    , _changedSinceUpdate(false)
 {
     std::size_t count = type->elementCount();
     _values.reserve(count);
     for (std::size_t i = 0; i < count; i++) {
         Rc<ValueNode> node = ValueNode::fromType(type->elementType(), _cache.get(), this);
-        node->setFieldName(_cache->arrayIndex(i));
+        node->setFieldName(_indexCache.arrayIndex(i));
         _values.push_back(node);
     }
 }
 
 ArrayValueNode::~ArrayValueNode()
 {
+}
+
+void ArrayValueNode::collectUpdates(NodeViewUpdater* dest)
+{
+    for (const Rc<ValueNode>& node : _values) {
+        node->collectUpdates(dest);
+    }
+    _changedSinceUpdate = false;
+}
+
+bool ArrayValueNode::decode(bmcl::MemReader* src)
+{
+    _changedSinceUpdate = true;
+    return ContainerValueNode::decode(src);
 }
 
 const Type* ArrayValueNode::type() const
@@ -281,11 +297,14 @@ SliceValueNode::~SliceValueNode()
 {
 }
 
-void SliceValueNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
+void SliceValueNode::collectUpdates(NodeViewUpdater* dest)
 {
+    for (std::size_t i = 0; i < _minSizeSinceUpdate; i++) {
+        _values[0]->collectUpdates(dest);
+    }
     if (_minSizeSinceUpdate < _lastUpdateSize) {
         //shrink
-        dest->emplace_back(_minSizeSinceUpdate, this);
+        dest->addShrinkUpdate(_minSizeSinceUpdate, this);
     }
     if (_values.size() > _minSizeSinceUpdate) {
         //extend
@@ -294,7 +313,7 @@ void SliceValueNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
         for (std::size_t i = _minSizeSinceUpdate; i < _values.size(); i++) {
             vec.emplace_back(new NodeView(_values[i].get()));
         }
-        dest->emplace_back(std::move(vec), this);
+        dest->addExtendUpdate(std::move(vec), this);
     }
 
     _minSizeSinceUpdate = _values.size();
@@ -334,7 +353,7 @@ void SliceValueNode::resize(std::size_t size)
         _values.reserve(size);
         for (std::size_t i = 0; i < (size - currentSize); i++) {
             Rc<ValueNode> node = ValueNode::fromType(_type->elementType(), _cache.get(), this);
-            node->setFieldName(_cache->arrayIndex(currentSize + i));
+            node->setFieldName(_indexCache.arrayIndex(currentSize + i));
             _values.push_back(node);
         }
     } else if (size < currentSize) {
@@ -346,6 +365,7 @@ void SliceValueNode::resize(std::size_t size)
 StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
+    , _changedSinceUpdate(false)
 {
     _values.reserve(type->fieldsRange().size());
     for (const Field* field : type->fieldsRange()) {
@@ -358,6 +378,20 @@ StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* c
 
 StructValueNode::~StructValueNode()
 {
+}
+
+void StructValueNode::collectUpdates(NodeViewUpdater* dest)
+{
+    for (const Rc<ValueNode>& node : _values) {
+        node->collectUpdates(dest);
+    }
+    _changedSinceUpdate = false;
+}
+
+bool StructValueNode::decode(bmcl::MemReader* src)
+{
+    _changedSinceUpdate = true;
+    return ContainerValueNode::decode(src);
 }
 
 const Type* StructValueNode::type() const
@@ -398,7 +432,7 @@ Value VariantValueNode::value() const
     return Value::makeUninitialized();
 }
 
-void VariantValueNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
+void VariantValueNode::collectUpdates(NodeViewUpdater* dest)
 {
     if (_currentId.isNone()) {
         return;
@@ -408,13 +442,13 @@ void VariantValueNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
         return;
     }
 
-    dest->emplace_back(std::size_t(0), this);
+    dest->addShrinkUpdate(std::size_t(0), this);
     NodeViewVec vec;
     vec.reserve(_values.size());
     for (const Rc<ValueNode>& node : _values) {
         vec.emplace_back(new NodeView(node.get()));
     }
-    dest->emplace_back(std::move(vec), this);
+    dest->addExtendUpdate(std::move(vec), this);
     _currentId.unwrap().updateLast();
 }
 
@@ -513,6 +547,21 @@ AddressValueNode::~AddressValueNode()
 {
 }
 
+void AddressValueNode::collectUpdates(NodeViewUpdater* dest)
+{
+    if (_address.isNone()) {
+        return;
+    }
+
+    if (!_address.unwrap().hasChanged()) {
+        return;
+    }
+
+    dest->addValueUpdate(Value::makeUnsigned(_address.unwrap().current), this);
+
+    _address.unwrap().updateLast();
+}
+
 bool AddressValueNode::encode(bmcl::MemWriter* dest) const
 {
     //TODO: get target word size
@@ -523,7 +572,7 @@ bool AddressValueNode::encode(bmcl::MemWriter* dest) const
     if (dest->writableSize() < 8) {
         return false;
     }
-    dest->writeUint64Le(_address.unwrap());
+    dest->writeUint64Le(_address.unwrap().current);
     return true;
 }
 
@@ -535,7 +584,7 @@ bool AddressValueNode::decode(bmcl::MemReader* src)
         return false;
     }
     uint64_t value = src->readUint64Le();
-    updateOptionalValue(&_address, value);
+    updateOptionalValuePair(&_address, value);
     return true;
 }
 
@@ -547,7 +596,7 @@ bool AddressValueNode::isInitialized() const
 Value AddressValueNode::value() const
 {
     if (_address.isSome()) {
-        return Value::makeUnsigned(_address.unwrap());
+        return Value::makeUnsigned(_address.unwrap().current);
     }
     return Value::makeUninitialized();
 }
@@ -606,11 +655,25 @@ EnumValueNode::EnumValueNode(const EnumType* type, const ValueInfoCache* cache, 
 EnumValueNode::~EnumValueNode()
 {
 }
+void EnumValueNode::collectUpdates(NodeViewUpdater* dest)
+{
+    if (_currentId.isNone()) {
+        return;
+    }
+
+    if (!_currentId.unwrap().hasChanged()) {
+        return;
+    }
+
+    dest->addValueUpdate(Value::makeSigned(_currentId.unwrap().current), this);
+
+    _currentId.unwrap().updateLast();
+}
 
 bool EnumValueNode::encode(bmcl::MemWriter* dest) const
 {
     if (_currentId.isSome()) {
-        TRY(dest->writeVarUint(_currentId.unwrap()));
+        TRY(dest->writeVarUint(_currentId.unwrap().current));
         return true;
     }
     //TODO: report error
@@ -631,7 +694,7 @@ bool EnumValueNode::decode(bmcl::MemReader* src)
         //TODO: report error
         return false;
     }
-    updateOptionalValue(&_currentId, value);
+    updateOptionalValuePair(&_currentId, value);
     return true;
 }
 
@@ -639,7 +702,7 @@ decode::Value EnumValueNode::value() const
 {
     if (_currentId.isSome()) {
             auto it = _type->constantsRange().findIf([this](const EnumConstant* c) {
-                return c->value() == _currentId.unwrap();
+                return c->value() == _currentId.unwrap().current;
             });
         assert(it != _type->constantsEnd());
         return Value::makeStringView(it->name());
@@ -691,6 +754,28 @@ NumericValueNode<T>::~NumericValueNode()
 }
 
 template <typename T>
+void NumericValueNode<T>::collectUpdates(NodeViewUpdater* dest)
+{
+    if (_value.isNone()) {
+        return;
+    }
+
+    if (!_value.unwrap().hasChanged()) {
+        return;
+    }
+
+    if (std::is_floating_point<T>::value) {
+        dest->addValueUpdate(Value::makeDouble(_value.unwrap().current), this);
+    } else if (std::is_signed<T>::value) {
+        dest->addValueUpdate(Value::makeSigned(_value.unwrap().current), this);
+    } else {
+        dest->addValueUpdate(Value::makeUnsigned(_value.unwrap().current), this);
+    }
+
+    _value.unwrap().updateLast();
+}
+
+template <typename T>
 bool NumericValueNode<T>::encode(bmcl::MemWriter* dest) const
 {
     if (_value.isNone()) {
@@ -701,7 +786,7 @@ bool NumericValueNode<T>::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    dest->writeType<T>(bmcl::htole<T>(_value.unwrap()));
+    dest->writeType<T>(bmcl::htole<T>(_value.unwrap().current));
     return true;
 }
 
@@ -713,7 +798,7 @@ bool NumericValueNode<T>::decode(bmcl::MemReader* src)
         return false;
     }
     T value = bmcl::letoh<T>(src->readType<T>());
-    updateOptionalValue(&_value, value);
+    updateOptionalValuePair(&_value, value);
     return true;
 }
 
@@ -724,11 +809,11 @@ decode::Value NumericValueNode<T>::value() const
         return Value::makeUninitialized();
     }
     if (std::is_floating_point<T>::value) {
-        return Value::makeDouble(_value.unwrap());
+        return Value::makeDouble(_value.unwrap().current);
     } else if (std::is_signed<T>::value) {
-        return Value::makeSigned(_value.unwrap());
+        return Value::makeSigned(_value.unwrap().current);
     } else {
-        return Value::makeUnsigned(_value.unwrap());
+        return Value::makeUnsigned(_value.unwrap().current);
     }
 }
 
@@ -804,7 +889,7 @@ template class NumericValueNode<float>;
 template class NumericValueNode<double>;
 
 VarintValueNode::VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
-    : BuiltinValueNode(type, cache, parent)
+    : NumericValueNode<int64_t>(type, cache, parent)
 {
 }
 
@@ -818,7 +903,7 @@ bool VarintValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    return dest->writeVarInt(_value.unwrap());
+    return dest->writeVarInt(_value.unwrap().current);
 }
 
 bool VarintValueNode::decode(bmcl::MemReader* src)
@@ -826,39 +911,12 @@ bool VarintValueNode::decode(bmcl::MemReader* src)
     int64_t value;
     //TODO: report error
     TRY(src->readVarInt(&value));
-    updateOptionalValue(&_value, value);
+    updateOptionalValuePair(&_value, value);
     return true;
 }
 
-Value VarintValueNode::value() const
-{
-    if (_value.isSome()) {
-        return Value::makeSigned(_value.unwrap());
-    }
-    return Value::makeUninitialized();
-}
-
-bool VarintValueNode::isInitialized() const
-{
-    return _value.isSome();
-}
-
-ValueKind VarintValueNode::valueKind() const
-{
-    return ValueKind::Signed;
-}
-
-bool VarintValueNode::setValue(const Value& value)
-{
-    if (value.isA(ValueKind::Signed)) {
-        _value.emplace(value.asSigned());
-        return true;
-    }
-    return false;
-}
-
 VaruintValueNode::VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
-    : BuiltinValueNode(type, cache, parent)
+    : NumericValueNode<uint64_t>(type, cache, parent)
 {
 }
 
@@ -872,7 +930,7 @@ bool VaruintValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    return dest->writeVarUint(_value.unwrap());
+    return dest->writeVarUint(_value.unwrap().current);
 }
 
 bool VaruintValueNode::decode(bmcl::MemReader* src)
@@ -880,34 +938,7 @@ bool VaruintValueNode::decode(bmcl::MemReader* src)
     uint64_t value;
     //TODO: report error
     TRY(src->readVarUint(&value));
-    updateOptionalValue(&_value, value);
+    updateOptionalValuePair(&_value, value);
     return true;
-}
-
-Value VaruintValueNode::value() const
-{
-    if (_value.isSome()) {
-        return Value::makeUnsigned(_value.unwrap());
-    }
-    return Value::makeUninitialized();
-}
-
-bool VaruintValueNode::isInitialized() const
-{
-    return _value.isSome();
-}
-
-ValueKind VaruintValueNode::valueKind() const
-{
-    return ValueKind::Unsigned;
-}
-
-bool VaruintValueNode::setValue(const Value& value)
-{
-    if (value.isA(ValueKind::Unsigned)) {
-        _value.emplace(value.asUnsigned());
-        return true;
-    }
-    return false;
 }
 }

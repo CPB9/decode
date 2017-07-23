@@ -11,6 +11,8 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
+#include <bmcl/Bytes.h>
+
 #include <QWidget>
 
 #include <memory>
@@ -19,25 +21,28 @@ namespace decode {
 
 class ModelEventHandler;
 class CmdContainerNode;
-class QModel;
+class QNodeModel;
+class QNodeViewModel;
 class Model;
+class NodeView;
+class NodeViewUpdater;
 
 class FirmwareWidget : public QWidget {
     Q_OBJECT
 public:
-    FirmwareWidget(ModelEventHandler* handler, QWidget* parent = nullptr);
+    FirmwareWidget(QWidget* parent = nullptr);
     ~FirmwareWidget();
 
-    QModel* qmodel();
+    void setRootTmNode(NodeView* root);
+    void applyTmUpdates(NodeViewUpdater* updater);
 
-public slots:
-    void setModel(Model* model);
+signals:
+    void packetQueued(bmcl::Bytes packet);
 
 private:
-    Rc<ModelEventHandler> _handler;
     Rc<CmdContainerNode> _cmdCont;
-    std::unique_ptr<QModel> _qmodel;
-    std::unique_ptr<QModel> _cmdModel;
+    std::unique_ptr<QNodeViewModel> _qmodel;
+    std::unique_ptr<QNodeModel> _cmdModel;
 };
 
 }

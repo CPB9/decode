@@ -10,16 +10,24 @@
 #include "decode/groundcontrol/Atoms.h"
 
 #include "decode/parser/Project.h"
-#include "decode/model/Model.h"
+#include "decode/model/TmModel.h"
+#include "decode/model/NodeView.h"
+#include "decode/model/NodeViewUpdater.h"
+#include "decode/model/ValueInfoCache.h"
+#include "decode/groundcontrol/AloowUnsafeMessageType.h"
 
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
 #include <bmcl/SharedBytes.h>
 
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<decode::NodeView>);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<decode::NodeViewUpdater>);
+
 namespace decode {
 
-TmState::TmState(caf::actor_config& cfg)
+TmState::TmState(caf::actor_config& cfg, caf::actor handler)
     : caf::event_based_actor(cfg)
+    , _handler(handler)
 {
 }
 
@@ -27,19 +35,38 @@ TmState::~TmState()
 {
 }
 
+void TmState::on_exit()
+{
+    destroy(_handler);
+}
+
 caf::behavior TmState::make_behavior()
 {
     return caf::behavior{
-        [this](UpdateProjectAtom, const Rc<const Project>& proj, const std::string& name) {
+        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
+            _model = new TmModel(dev.get(), new ValueInfoCache(proj->package()));
+            Rc<NodeView> view = new NodeView(_model.get());
+            send(_handler, SetTmViewAtom::value, view);
+            delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
         },
         [this](RecvUserPacketAtom, const bmcl::SharedBytes& data) {
             acceptData(data.view());
+        },
+        [this](PushTmUpdatesAtom) {
+            Rc<NodeViewUpdater> updater = new NodeViewUpdater;
+            _model->collectUpdates(updater.get());
+            send(_handler, UpdateTmViewAtom::value, updater);
+            delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
         },
     };
 }
 
 void TmState::acceptData(bmcl::Bytes packet)
 {
+    if (!_model) {
+        return;
+    }
+
     bmcl::MemReader src(packet);
     src.skip(11);
 
@@ -70,11 +97,7 @@ void TmState::acceptData(bmcl::Bytes packet)
             return;
         }
 
-        acceptTmMsg(compNum, msgNum, bmcl::Bytes(msg.current(), msg.sizeLeft()));
+        _model->acceptTmMsg(compNum, msgNum, bmcl::Bytes(msg.current(), msg.sizeLeft()));
     }
-}
-
-void TmState::acceptTmMsg(uint64_t compNum, uint64_t msgNum, bmcl::Bytes payload)
-{
 }
 }

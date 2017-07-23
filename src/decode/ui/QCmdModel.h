@@ -9,14 +9,14 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/ui/QModel.h"
+#include "decode/ui/QNodeModel.h"
 
 namespace decode {
 
 class CmdContainerNode;
 class CmdNode;
 
-class QCmdModel : public QModel {
+class QCmdModel : public QNodeModel {
     Q_OBJECT
 public:
     QCmdModel(CmdContainerNode* node);

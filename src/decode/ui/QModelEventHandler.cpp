@@ -7,7 +7,7 @@
  */
 
 #include "decode/ui/QModelEventHandler.h"
-#include "decode/ui/QModel.h"
+#include "decode/ui/QNodeModel.h"
 #include "decode/model/Model.h"
 
 namespace decode {

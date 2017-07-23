@@ -65,7 +65,7 @@ bool FieldsNode::encodeFields(bmcl::MemWriter* dest) const
     return true;
 }
 
-void FieldsNode::collectUpdates(std::vector<NodeViewUpdate>* dest)
+void FieldsNode::collectUpdates(NodeViewUpdater* dest)
 {
     return collectUpdatesGeneric(_nodes, dest);
 }

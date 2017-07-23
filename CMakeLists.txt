@@ -88,8 +88,10 @@ if(Qt5Widgets_FOUND)
     set(DECODE_UI_HEADERS
         src/decode/ui/FirmwareWidget.h
         src/decode/ui/FirmwareStatusWidget.h
+        src/decode/ui/QModelBase.h
         src/decode/ui/QCmdModel.h
-        src/decode/ui/QModel.h
+        src/decode/ui/QNodeModel.h
+        src/decode/ui/QNodeViewModel.h
         src/decode/ui/QModelEventHandler.h
     )
     qt5_wrap_cpp(DECODE_UI_MOC
@@ -99,7 +101,8 @@ if(Qt5Widgets_FOUND)
         src/decode/ui/FirmwareWidget.cpp
         src/decode/ui/FirmwareStatusWidget.cpp
         src/decode/ui/QCmdModel.cpp
-        src/decode/ui/QModel.cpp
+        src/decode/ui/QNodeModel.cpp
+        src/decode/ui/QNodeViewModel.cpp
         src/decode/ui/QModelEventHandler.cpp
         ${DECODE_UI_MOC}
     )
@@ -182,10 +185,12 @@ set(DECODE_MODEL_SRC
     src/decode/model/Decoder.h
     src/decode/model/FieldsNode.cpp
     src/decode/model/FieldsNode.h
-    src/decode/model/Model.cpp
     src/decode/model/ModelEventHandler.cpp
     src/decode/model/ModelEventHandler.h
+    src/decode/model/Model.cpp
     src/decode/model/Model.h
+    src/decode/model/TmModel.cpp
+    src/decode/model/TmModel.h
     src/decode/model/Node.cpp
     src/decode/model/Node.h
     src/decode/model/Value.cpp

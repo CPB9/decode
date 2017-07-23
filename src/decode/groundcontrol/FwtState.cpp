@@ -13,6 +13,7 @@
 #include "decode/model/ModelEventHandler.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/parser/Project.h"
+#include "decode/groundcontrol/AloowUnsafeMessageType.h"
 #include "decode/core/Utils.h"
 #include "decode/groundcontrol/Atoms.h"
 
@@ -30,6 +31,7 @@
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(std::string);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Device>);
 
 namespace decode {
 
@@ -57,11 +59,11 @@ FwtState::FwtState(caf::actor_config& cfg, caf::actor gc, caf::actor exchange, c
     : caf::event_based_actor(cfg)
     , _hasStartCommandPassed(false)
     , _hasDownloaded(false)
+    , _checkId(0)
     , _startCmdState(new StartCmdRndGen)
     , _gc(gc)
     , _exc(exchange)
     , _handler(eventHandler)
-    , _checkId(0)
 {
 }
 
@@ -74,6 +76,7 @@ FwtState::~FwtState()
 
 caf::behavior FwtState::make_behavior()
 {
+    send(_handler, FirmwareDownloadStartedEventAtom::value);
     send(this, FwtHashAtom::value);
     return caf::behavior{
         [this](RecvUserPacketAtom, const bmcl::SharedBytes& packet) {
@@ -113,19 +116,19 @@ inline void FwtState::packAndSendPacket(C&& enc, A&&... args)
 
 void FwtState::scheduleHash()
 {
-    auto hashTimeout = std::chrono::milliseconds(100);
+    auto hashTimeout = std::chrono::milliseconds(500);
     delayed_send(this, hashTimeout, FwtHashAtom::value);
 }
 
 void FwtState::scheduleStart()
 {
-    auto startTimeout = std::chrono::milliseconds(100);
+    auto startTimeout = std::chrono::milliseconds(500);
     delayed_send(this, startTimeout, FwtStartAtom::value);
 }
 
 void FwtState::scheduleCheck(std::size_t id)
 {
-    auto checkTimeout = std::chrono::milliseconds(100);
+    auto checkTimeout = std::chrono::milliseconds(500);
     delayed_send(this, checkTimeout, FwtCheckAtom::value, id);
 }
 
@@ -134,7 +137,6 @@ void FwtState::handleHashAction()
     if (_hash.isSome()) {
         return;
     }
-    send(_handler, FirmwareDownloadStartedEventAtom::value);
     packAndSendPacket(&FwtState::genHashCmd);
     scheduleHash();
 }
@@ -249,8 +251,8 @@ void FwtState::checkIntervals()
         MemInterval chunk = _acceptedChunks.at(0);
         if (chunk.start() == 0) {
             if (chunk.size() == _desc.size()) {
-                _hasDownloaded = true;
                 readFirmware();
+                _hasDownloaded = true;
                 return;
             }
             packAndSendPacket(&FwtState::genChunkCmd, MemInterval(chunk.end(), _desc.size()));
@@ -270,6 +272,9 @@ void FwtState::checkIntervals()
 
 void FwtState::readFirmware()
 {
+    if (_hasDownloaded) {
+        return;
+    }
     _checkId = 0;
     send(_handler, FirmwareDownloadFinishedEventAtom::value);
 
@@ -281,7 +286,13 @@ void FwtState::readFirmware()
         return;
     }
 
-    send(_gc, UpdateProjectAtom::value, Rc<const Project>(project.take()), _deviceName);
+    auto dev = project.unwrap()->deviceWithName(_deviceName);
+    if (dev.isNone()) {
+        //TODO: restart download
+        //TODO: print errors
+    }
+
+    send(_gc, SetProjectAtom::value, Rc<const Project>(project.take()), Rc<const Device>(dev.unwrap()));
 }
 
 void FwtState::acceptHashResponse(bmcl::MemReader* src)

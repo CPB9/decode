@@ -691,7 +691,9 @@ Rc<Type> Parser::parseReferenceType()
         return nullptr;
     }
 
-    return new ReferenceType(ReferenceKind::Reference, isMutable, pointee.get());
+    Rc<ReferenceType> type = new ReferenceType(ReferenceKind::Reference, isMutable, pointee.get());
+    _ast->addType(type.get());
+    return type;
 }
 
 Rc<Type> Parser::parsePointerType()
@@ -721,7 +723,9 @@ Rc<Type> Parser::parsePointerType()
     }
 
     if (pointee) {
-        return new ReferenceType(ReferenceKind::Pointer, isMutable, pointee.get());
+        Rc<ReferenceType> type = new ReferenceType(ReferenceKind::Pointer, isMutable, pointee.get());
+        _ast->addType(type.get());
+        return type;
     }
 
     return nullptr;
@@ -788,6 +792,7 @@ Rc<Type> Parser::parseFunctionPointer()
         fn->setReturnValue(rType.get());
     }
 
+    _ast->addType(fn.get());
     return fn;
 }
 
@@ -806,7 +811,9 @@ Rc<Type> Parser::parseSliceType()
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
 
-    return new SliceType(_moduleInfo.get(), innerType.get());
+    Rc<SliceType> type = new SliceType(_moduleInfo.get(), innerType.get());
+    _ast->addType(type.get());
+    return type;
 }
 
 Rc<Type> Parser::parseArrayType()
@@ -831,7 +838,9 @@ Rc<Type> Parser::parseArrayType()
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
 
-    return new ArrayType(elementCount, innerType.get());
+    Rc<ArrayType> type = new ArrayType(elementCount, innerType.get());
+    _ast->addType(type.get());
+    return type;
 }
 
 bool Parser::parseUnsignedInteger(std::uintmax_t* dest)

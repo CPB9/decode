@@ -29,24 +29,6 @@ class ValueInfoCache;
 class ModelEventHandler;
 struct Device;
 
-class TmModel : public Node {
-public:
-    TmModel(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
-    ~TmModel();
-
-    void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
-
-    std::size_t numChildren() const override;
-    bmcl::Option<std::size_t> childIndex(const Node* node) const override;
-    bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
-    bmcl::StringView fieldName() const override;
-
-private:
-    Rc<ModelEventHandler> _handler;
-    std::unordered_map<uint64_t, Rc<StatusDecoder>> _decoders;
-    std::vector<Rc<FieldsNode>> _nodes;
-};
-
 class CmdContainerNode;
 
 class PackageCmdsNode : public Node {
@@ -71,8 +53,6 @@ public:
 
     void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
-    TmModel* tmNode();
-
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
@@ -82,7 +62,6 @@ public:
     Rc<const Project> _project;
     Rc<ValueInfoCache> _cache;
     Rc<ModelEventHandler> _handler;
-    Rc<TmModel> _tmNode;
     Rc<PackageCmdsNode> _cmdsNode;
     std::vector<Rc<Node>> _nodes;
     bmcl::StringView _name;

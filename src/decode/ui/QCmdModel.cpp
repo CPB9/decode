@@ -16,7 +16,7 @@
 namespace decode {
 
 QCmdModel::QCmdModel(CmdContainerNode* node)
-    : QModel(node)
+    : QNodeModel(node)
     , _cmds(node)
 {
 }
@@ -39,7 +39,7 @@ QStringList QCmdModel::mimeTypes() const
 
 bmcl::OptionPtr<CmdNode> QCmdModel::decodeQModelDrop(const QMimeData* data)
 {
-    bmcl::OptionPtr<Node> node = QModel::unpackMimeData(data, qmodelMimeStr());
+    bmcl::OptionPtr<Node> node = QNodeModel::unpackMimeData(data, qmodelMimeStr());
     if (node.isNone()) {
         return bmcl::None;
     }

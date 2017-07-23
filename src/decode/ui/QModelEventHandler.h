@@ -18,7 +18,7 @@
 
 namespace decode {
 
-class QModel;
+class QNodeModel;
 class Node;
 
 class QModelEventHandler : public QObject, public ModelEventHandler {

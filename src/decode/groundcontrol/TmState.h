@@ -21,16 +21,17 @@ class TmModel;
 
 class TmState : public caf::event_based_actor {
 public:
-    TmState(caf::actor_config& cfg);
+    TmState(caf::actor_config& cfg, caf::actor handler);
     ~TmState();
 
     caf::behavior make_behavior() override;
+    void on_exit() override;
 
 protected:
     void acceptData(bmcl::Bytes packet);
-    void acceptTmMsg(uint64_t compNum, uint64_t msgNum, bmcl::Bytes payload);
 
 private:
     Rc<TmModel> _model;
+    caf::actor _handler;
 };
 }

@@ -8,12 +8,48 @@
 
 #include "decode/model/ValueInfoCache.h"
 #include "decode/parser/Type.h"
+#include "decode/parser/Package.h"
+#include "decode/parser/AstVisitor.h"
 #include "decode/generator/StringBuilder.h"
 #include "decode/core/Foreach.h"
 
 #include <bmcl/Logging.h>
 
 namespace decode {
+
+StrIndexCache::StrIndexCache()
+{
+}
+
+StrIndexCache::~StrIndexCache()
+{
+    for (bmcl::StringView view : _arrayIndexes) {
+        delete [] view.data();
+    }
+}
+
+// vector<string> when relocating copies strings instead of moving for some reason
+// using allocated const char* instead
+void StrIndexCache::updateIndexes(std::size_t newSize)
+{
+    _arrayIndexes.reserve(newSize);
+    for (std::size_t i = _arrayIndexes.size(); i < newSize; i++) {
+        char* buf = (char*)alloca(sizeof(std::size_t) * 4);
+        int stringSize = std::sprintf(buf, "%zu", i);
+        assert(stringSize > 0);
+        char* allocatedBuf  = new char[stringSize];
+        std::memcpy(allocatedBuf, buf, stringSize);
+        _arrayIndexes.push_back(bmcl::StringView(allocatedBuf, stringSize));
+    }
+}
+
+bmcl::StringView StrIndexCache::arrayIndex(std::size_t idx)
+{
+    if (idx >= _arrayIndexes.size()) {
+        updateIndexes(idx + 1);
+    }
+    return _arrayIndexes[idx];
+}
 
 static void buildNamedTypeName(const NamedType* type, StringBuilder* dest)
 {
@@ -152,48 +188,49 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
     assert(false);
 }
 
-ValueInfoCache::ValueInfoCache()
+class NameBuilder : public ConstAstVisitor<NameBuilder> {
+public:
+    void collectNames(const Package* package, ValueInfoCache::MapType* dest)
+    {
+        _dest = dest;
+        for (const Ast* ast : package->modules()) {
+            for (const Type* type : ast->typesRange()) {
+                traverseType(type);
+            }
+        }
+    }
+
+    bool visitType(const Type* type)
+    {
+        auto pair = _dest->emplace(type, std::string());
+        if (pair.second) {
+            StringBuilder b;
+            buildTypeName(type, &b);
+            pair.first->second = std::move(b.result());
+        }
+        return true;
+    }
+
+private:
+    ValueInfoCache::MapType* _dest;
+};
+
+ValueInfoCache::ValueInfoCache(const Package* package)
 {
+    NameBuilder b;
+    b.collectNames(package, &_names);
 }
 
 ValueInfoCache::~ValueInfoCache()
 {
-    for (bmcl::StringView view : _arrayIndexes) {
-        delete [] view.data();
-    }
-}
-
-// vector<string> when relocating copies strings instead of moving for some reason
-// using allocated const char* instead
-void ValueInfoCache::updateIndexes(std::size_t newSize) const
-{
-    _arrayIndexes.reserve(newSize);
-    for (std::size_t i = _arrayIndexes.size(); i < newSize; i++) {
-        char* buf = (char*)alloca(sizeof(std::size_t) * 4);
-        int stringSize = std::sprintf(buf, "%zu", i);
-        assert(stringSize > 0);
-        char* allocatedBuf  = new char[stringSize];
-        std::memcpy(allocatedBuf, buf, stringSize);
-        _arrayIndexes.push_back(bmcl::StringView(allocatedBuf, stringSize));
-    }
-}
-
-bmcl::StringView ValueInfoCache::arrayIndex(std::size_t idx) const
-{
-    if (idx >= _arrayIndexes.size()) {
-        updateIndexes(idx + 1);
-    }
-    return _arrayIndexes[idx];
 }
 
 bmcl::StringView ValueInfoCache::nameForType(const Type* type) const
 {
-    auto pair = _names.emplace(type, std::string());
-    if (pair.second) {
-        StringBuilder b;
-        buildTypeName(type, &b);
-        pair.first->second = std::move(b.result());
+    auto it = _names.find(type);
+    if (it == _names.end()) {
+        return bmcl::StringView("UNITIALIZED");
     }
-    return pair.first->second;
+    return it->second;
 }
 }
