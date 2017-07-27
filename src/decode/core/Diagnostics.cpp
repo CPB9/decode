@@ -15,8 +15,7 @@
 
 namespace decode {
 
-Report::Report(const FileInfo* fileInfo)
-    : _fileInfo(fileInfo)
+Report::Report()
 {
 }
 
@@ -29,9 +28,10 @@ void Report::setLevel(Report::Level level)
     _level = level;
 }
 
-void Report::setLocation(Location loc)
+void Report::setLocation(const FileInfo* finfo, Location loc)
 {
-    _location = loc;
+    _fileInfo.reset(finfo);
+    _location.emplace(loc);
 }
 
 void Report::setMessage(bmcl::StringView str)
@@ -45,9 +45,13 @@ void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) cons
         *colorStream << bmcl::ColorAttr::Reset;
         *colorStream << bmcl::ColorAttr::Bright;
     }
-    *out << _fileInfo->fileName();
-    if (_location.isSome()) {
-        *out << ':' << _location->line << ':' << _location->column << ": ";
+    if (_fileInfo) {
+        *out << _fileInfo->fileName();
+        if (_location.isSome()) {
+            *out << ':' << _location->line << ':' << _location->column << ": ";
+        } else {
+            *out << ": ";
+        }
     }
     if (_level.isSome()) {
         bmcl::ColorAttr inAttr = bmcl::ColorAttr::Normal;
@@ -111,9 +115,9 @@ void Report::print(std::ostream* out) const
     }
 }
 
-Rc<Report> Diagnostics::addReport(const FileInfo* fileInfo)
+Rc<Report> Diagnostics::addReport()
 {
-    _reports.emplace_back(new Report(fileInfo));
+    _reports.emplace_back(new Report);
     return _reports.back();
 }
 

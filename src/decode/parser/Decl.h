@@ -13,6 +13,7 @@
 #include "decode/core/Location.h"
 #include "decode/core/Hash.h"
 #include "decode/parser/Span.h"
+#include "decode/parser/Type.h"
 #include "decode/parser/ModuleInfo.h"
 #include "decode/parser/Field.h"
 
@@ -136,9 +137,16 @@ public:
         return _types;
     }
 
-    void addType(ImportedType* type)
+    bool addType(ImportedType* type)
     {
+        auto it = std::find_if(_types.begin(), _types.end(), [type](const Rc<ImportedType>& current) {
+            return current->name() == type->name();
+        });
+        if (it != _types.end()) {
+            return false;
+        }
         _types.emplace_back(type);
+        return true;
     }
 
 private:

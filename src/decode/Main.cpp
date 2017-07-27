@@ -57,8 +57,8 @@ int main(int argc, char* argv[])
     ProjectResult proj = Project::fromFile(cfg.get(), diag.get(), inPathArg.getValue().c_str());
 
     if (proj.isErr()) {
-        diag->printReports(&std::cout);
-        return 0;
+        diag->printReports(&std::cerr);
+        return -1;
     }
 
     proj.unwrap()->generate(outPathArg.getValue().c_str());

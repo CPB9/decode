@@ -64,112 +64,6 @@ Package::~Package()
 {
 }
 
-bool Package::addDir(const char* path, Package* package, Parser* p)
-{
-    std::size_t pathSize;
-    std::string spath = path;
-#if defined(__linux__)
-#define NEXT_FILE() continue
-    spath.push_back('/');
-
-    DIR* dir = opendir(path);
-    if (dir == NULL) {
-        //TODO: handle error;
-        return false;
-    }
-
-    struct dirent* ent;
-#elif defined(_MSC_VER) || defined(__MINGW32__)
-#define NEXT_FILE() goto nextFile
-    spath.push_back('\\');
-
-    std::string regexp = path;
-    if (regexp.empty()) {
-        //TODO: report error
-        return false;
-    }
-    if (regexp.back() != '\\') {
-        regexp.push_back('\\');
-    }
-    regexp.push_back('*');
-
-    WIN32_FIND_DATA currentFile;
-    HANDLE handle = FindFirstFile(regexp.c_str(), &currentFile);
-
-    //TODO: check ERROR_FILE_NOT_FOUND
-    if (handle == INVALID_HANDLE_VALUE) {
-        BMCL_CRITICAL() << "error opening directory";
-        goto error;
-    }
-#endif
-    pathSize = spath.size();
-
-    while (true) {
-#if defined(__linux__)
-        errno = 0;
-        ent = readdir(dir);
-        if (ent == NULL) {
-            if (errno == 0) {
-                closedir(dir);
-                break;
-            } else {
-                goto error;
-            }
-        }
-        const char* name = &ent->d_name[0];
-#elif defined(_MSC_VER) || defined(__MINGW32__)
-        const char* name = currentFile.cFileName;
-#endif
-        std::size_t nameSize;
-        if (name[0] == '.') {
-            if (name[1] == '\0') {
-                NEXT_FILE();
-            } else if (name[1] == '.') {
-                if (name[2] == '\0') {
-                    NEXT_FILE();
-                }
-            }
-        }
-
-        nameSize = std::strlen(name);
-        // length of .decode suffix
-        if (nameSize >= suffixSize) {
-            if (std::memcmp(name + nameSize - suffixSize, DECODE_SUFFIX, suffixSize) != 0) {
-                NEXT_FILE();
-            }
-        }
-        spath.append(name, nameSize);
-        if (!package->addFile(spath.c_str(), p)) {
-            goto error;
-        }
-        spath.resize(pathSize);
-
-#if defined(_MSC_VER) || defined(__MINGW32__)
-nextFile:
-        bool isOk = FindNextFile(handle, &currentFile);
-        if (!isOk) {
-            DWORD err = GetLastError();
-            if (err == ERROR_NO_MORE_FILES) {
-                FindClose(handle);
-                break;
-            } else {
-                goto error;
-            }
-        }
-#endif
-    }
-
-    return true;
-
-error:
-#if defined(__linux__)
-    closedir(dir);
-#elif defined(_MSC_VER) || defined(__MINGW32__)
-    FindClose(handle);
-#endif
-    return false;
-}
-
 PackageResult Package::readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl::ArrayView<std::string> files)
 {
     Rc<Package> package = new Package(cfg, diag);
@@ -188,6 +82,13 @@ PackageResult Package::readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl
     return std::move(package);
 }
 
+static void addDecodeError(Diagnostics* diag, const char* msg)
+{
+    Rc<Report> report = diag->addReport();
+    report->setLevel(Report::Error);
+    report->setMessage(msg);
+}
+
 PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, const void* src, std::size_t size)
 {
     bmcl::MemReader reader(src, size);
@@ -198,13 +99,13 @@ PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, c
     while (!reader.isEmpty()) {
         auto fname = deserializeString(&reader);
         if (fname.isErr()) {
-            //TODO: report error
+            addDecodeError(diag, "could not decode package from memory");
             return PackageResult();
         }
 
         auto contents = deserializeString(&reader);
         if (contents.isErr()) {
-            //TODO: report error
+            addDecodeError(diag, "could not decode package from memory");
             return PackageResult();
         }
 
@@ -212,7 +113,7 @@ PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, c
 
         ParseResult ast = p.parseFile(finfo.get());
         if (ast.isErr()) {
-            //TODO: report error
+            addDecodeError(diag, "could not decode package from memory");
             return PackageResult();
         }
 

@@ -35,14 +35,14 @@ public:
         Note,
     };
 
-    Report(const FileInfo* fileInfo);
+    Report();
     ~Report();
 
     void print(std::ostream* out) const;
 
     void setMessage(bmcl::StringView str);
     void setLevel(Level level);
-    void setLocation(Location loc);
+    void setLocation(const FileInfo* finfo, Location loc);
 
 private:
     void printReport(std::ostream* out, bmcl::ColorStream* color) const;
@@ -50,13 +50,12 @@ private:
     bmcl::Option<std::string> _message;
     bmcl::Option<Level> _level;
     bmcl::Option<Location> _location;
-
     Rc<const FileInfo> _fileInfo;
 };
 
 class Diagnostics : public RefCountable {
 public:
-    Rc<Report> addReport(const FileInfo* fileInfo);
+    Rc<Report> addReport();
 
     bool hasReports()
     {

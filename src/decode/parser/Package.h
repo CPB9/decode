@@ -63,7 +63,6 @@ public:
 private:
     Package(Configuration* cfg, Diagnostics* diag);
 
-    bool addDir(const char* path, Package* package, Parser* p);
     bool addFile(const char* path, Parser* p);
     void addAst(Ast* ast);
     bool resolveAll();

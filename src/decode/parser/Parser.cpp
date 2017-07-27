@@ -71,6 +71,102 @@ Parser::~Parser()
 {
 }
 
+static std::string tokenKindToString(TokenKind kind)
+{
+    switch (kind) {
+    case TokenKind::Invalid:
+        return "invalid token";
+    case TokenKind::DocComment:
+        return "'///'";
+    case TokenKind::Blank:
+        return "blank";
+    case TokenKind::Comma:
+        return "','";
+    case TokenKind::Colon:
+        return "':'";
+    case TokenKind::DoubleColon:
+        return "'::'";
+    case TokenKind::SemiColon:
+        return "';'";
+    case TokenKind::LBracket:
+        return "'['";
+    case TokenKind::RBracket:
+        return "']'";
+    case TokenKind::LBrace:
+        return "'{'";
+    case TokenKind::RBrace:
+        return "'}'";
+    case TokenKind::LParen:
+        return "'('";
+    case TokenKind::RParen:
+        return "')'";
+    case TokenKind::LessThen:
+        return "'<'";
+    case TokenKind::MoreThen:
+        return "'>'";
+    case TokenKind::Star:
+        return "'*'";
+    case TokenKind::Ampersand:
+        return "'&'";
+    case TokenKind::Hash:
+        return "'#'";
+    case TokenKind::Equality:
+        return "'='";
+    case TokenKind::Slash:
+        return "'/'";
+    case TokenKind::Exclamation:
+        return "'!'";
+    case TokenKind::RightArrow:
+        return "'->'";
+    case TokenKind::Dash:
+        return "'-'";
+    case TokenKind::Dot:
+        return "'.'";
+    case TokenKind::DoubleDot:
+        return "'..'";
+    case TokenKind::Identifier:
+        return "identifier";
+    case TokenKind::Impl:
+        return "'impl'";
+    case TokenKind::Number:
+        return "number";
+    case TokenKind::Module:
+        return "'module'";
+    case TokenKind::Import:
+        return "'import'";
+    case TokenKind::Struct:
+        return "'struct'";
+    case TokenKind::Enum:
+        return "'enum'";
+    case TokenKind::Variant:
+        return "'variant'";
+    case TokenKind::Type:
+        return "'type'";
+    case TokenKind::Component:
+        return "'component'";
+    case TokenKind::Parameters:
+        return "'parameters'";
+    case TokenKind::Statuses:
+        return "'statuses'";
+    case TokenKind::Commands:
+        return "'commands'";
+    case TokenKind::Fn:
+        return "'fn'";
+    case TokenKind::UpperFn:
+        return "'Fn'";
+    case TokenKind::Self:
+        return "'self'";
+    case TokenKind::Mut:
+        return "'mut'";
+    case TokenKind::Const:
+        return "'const'";
+    case TokenKind::Eol:
+        return "end of line";
+    case TokenKind::Eof:
+        return "end of file";
+    }
+}
+
 void Parser::finishSplittingLines()
 {
     const char* start = _lastLineStart;
@@ -91,20 +187,19 @@ void Parser::finishSplittingLines()
 
 void Parser::reportUnexpectedTokenError(TokenKind expected)
 {
-    reportCurrentTokenError("Unexpected token");
+    std::string msg = "expected " + tokenKindToString(expected);
+    reportCurrentTokenError(msg.c_str());
 }
 
 ParseResult Parser::parseFile(const char* fname)
 {
     bmcl::Result<std::string, int> rv = bmcl::readFileIntoString(fname);
     if (rv.isErr()) {
-        //TODO: report error
         return ParseResult();
     }
 
     Rc<FileInfo> finfo = new FileInfo(std::string(fname), rv.take());
     return parseFile(finfo.get());
-
 }
 
 ParseResult Parser::parseFile(FileInfo* finfo)
@@ -152,7 +247,7 @@ bool Parser::skipCommentsAndSpace()
             addLine();
             return true;
         case TokenKind::Invalid:
-            reportUnexpectedTokenError(TokenKind::Invalid);
+            reportCurrentTokenError("invalid token");
             return false;
         default:
             return true;
@@ -174,6 +269,12 @@ void Parser::consumeAndSkipBlanks()
     skipBlanks();
 }
 
+bool Parser::consumeAndExpectCurrentToken(TokenKind expected, const char* msg)
+{
+    _lexer->consumeNextToken(&_currentToken);
+    return expectCurrentToken(expected, msg);
+}
+
 bool Parser::consumeAndExpectCurrentToken(TokenKind expected)
 {
     _lexer->consumeNextToken(&_currentToken);
@@ -182,7 +283,8 @@ bool Parser::consumeAndExpectCurrentToken(TokenKind expected)
 
 bool Parser::expectCurrentToken(TokenKind expected)
 {
-    return expectCurrentToken(expected, "Unexpected token");
+    std::string msg = "expected " + tokenKindToString(expected);
+    return expectCurrentToken(expected, msg.c_str());
 }
 
 bool Parser::expectCurrentToken(TokenKind expected, const char* msg)
@@ -261,26 +363,31 @@ bool Parser::currentTokenIs(TokenKind kind)
     return _currentToken.kind() == kind;
 }
 
-Rc<Report> Parser::reportCurrentTokenError(const char* msg)
+Rc<Report> Parser::reportTokenError(Token* tok, const char* msg)
 {
-    Rc<Report> report = _diag->addReport(_fileInfo.get());
-    report->setLocation(_currentToken.location());
+    Rc<Report> report = _diag->addReport();
+    report->setLocation(_fileInfo.get(), tok->location());
     report->setLevel(Report::Error);
     report->setMessage(msg);
     return report;
+}
+
+Rc<Report> Parser::reportCurrentTokenError(const char* msg)
+{
+    return reportTokenError(&_currentToken, msg);
 }
 
 bool Parser::parseModuleDecl()
 {
     Rc<DocBlock> docs = createDocsFromComments();
     Location start = _currentToken.location();
-    TRY(expectCurrentToken(TokenKind::Module, "Every module must begin with module declaration"));
+    TRY(expectCurrentToken(TokenKind::Module, "every module must begin with module declaration"));
     consume();
 
-    TRY(expectCurrentToken(TokenKind::Blank, "Missing blanks after module keyword"));
+    TRY(expectCurrentToken(TokenKind::Blank, "missing blanks after module keyword"));
     consume();
 
-    TRY(expectCurrentToken(TokenKind::Identifier));
+    TRY(expectCurrentToken(TokenKind::Identifier, "module name must be an identifier"));
 
     bmcl::StringView modName = _currentToken.value();
     _moduleInfo = new ModuleInfo(modName, _fileInfo.get());
@@ -304,17 +411,20 @@ bool Parser::parseImports()
     while (true) {
         TRY(skipCommentsAndSpace());
         if (_currentToken.kind() != TokenKind::Import) {
-            return true;
+            goto end;
         }
-        TRY(consumeAndExpectCurrentToken(TokenKind::Blank));
-        TRY(consumeAndExpectCurrentToken(TokenKind::Identifier));
+        TRY(consumeAndExpectCurrentToken(TokenKind::Blank, "missing blanks after import declaration"));
+        TRY(consumeAndExpectCurrentToken(TokenKind::Identifier, "imported module name must be an identifier"));
         Rc<TypeImport> import = new TypeImport(_currentToken.value());
         TRY(consumeAndExpectCurrentToken(TokenKind::DoubleColon));
         consume();
 
         auto createImportedTypeFromCurrentToken = [this, import]() {
             Rc<ImportedType> type = new ImportedType(_currentToken.value(), import->path(), _moduleInfo.get());
-            import->addType(type.get());
+            if (!import->addType(type.get())) {
+                reportCurrentTokenError("duplicate import");
+                //TODO: add note - previous import
+            }
             consume();
         };
 
@@ -333,18 +443,19 @@ bool Parser::parseImports()
                     consume();
                     break;
                 } else {
-                    //TODO: report error
+                    reportCurrentTokenError("expected ',' or '}'");
                     return false;
                 }
             }
         } else {
-            //TODO: report error
+            reportCurrentTokenError("expected identifier or '{'");
             return false;
         }
 
-        _ast->addImportDecl(import.get());
+        _ast->addTypeImport(import.get());
     }
 
+end:
     clearUnusedDocComments();
     return true;
 }
@@ -384,8 +495,7 @@ bool Parser::parseTopLevelDecls()
             case TokenKind::Eof:
                 return true;
             default:
-                BMCL_CRITICAL() << "Unexpected top level decl token" << _currentToken.line();
-                //TODO: report error
+                reportCurrentTokenError("unexpected top level declaration");
                 return false;
         }
     }
@@ -395,7 +505,8 @@ bool Parser::parseTopLevelDecls()
 bool Parser::parseConstant()
 {
     TRY(expectCurrentToken(TokenKind::Const));
-    consumeAndSkipBlanks();
+    TRY(consumeAndExpectCurrentToken(TokenKind::Blank, "missing blanks after const declaration"));
+    skipBlanks();
 
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
@@ -404,12 +515,13 @@ bool Parser::parseConstant()
     TRY(expectCurrentToken(TokenKind::Colon));
     consumeAndSkipBlanks();
 
+    Token typeToken = _currentToken;
     Rc<Type> type = parseBuiltinOrResolveType();
     if (!type) {
         return false;
     }
     if (type->typeKind() != TypeKind::Builtin) {
-        BMCL_CRITICAL() << "Constant can only be of builtin type";
+        reportTokenError(&typeToken, "constant can only be of builtin type");
         return false;
     }
 
@@ -419,6 +531,7 @@ bool Parser::parseConstant()
 
     std::uintmax_t value;
     TRY(parseUnsignedInteger(&value));
+    skipBlanks();
 
     TRY(expectCurrentToken(TokenKind::SemiColon));
     consume();
@@ -438,7 +551,7 @@ bool Parser::parseAttribute()
     TRY(expectCurrentToken(TokenKind::LBracket));
     consumeAndSkipBlanks();
 
-    TRY(expectCurrentToken(TokenKind::Identifier));
+    TRY(expectCurrentToken(TokenKind::Identifier, "expected attribute identifier"));
 
     if (_currentToken.value() == "cfg") {
         consumeAndSkipBlanks();
@@ -454,7 +567,7 @@ bool Parser::parseAttribute()
         TRY(expectCurrentToken(TokenKind::RParen));
         consumeAndSkipBlanks();
     } else {
-        BMCL_CRITICAL() << "Only cfg attributes supported";
+        reportCurrentTokenError("only cfg attributes are supported");
         return false;
     }
 
@@ -514,7 +627,8 @@ Rc<CfgOption> Parser::parseCfgOption()
 Rc<Function> Parser::parseFunction(bool selfAllowed)
 {
     TRY(expectCurrentToken(TokenKind::Fn));
-    consumeAndSkipBlanks();
+    TRY(consumeAndExpectCurrentToken(TokenKind::Blank, "missing blanks after fn declaration"));
+    skipBlanks();
 
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
@@ -529,8 +643,11 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
                 bool isMut = false;
                 if (currentTokenIs(TokenKind::Mut)) {
                     isMut = true;
-                    consumeAndSkipBlanks();
+                    consume();
+                    TRY(expectCurrentToken(TokenKind::Blank, "expected blanks before 'self'"));
+                    skipBlanks();
                 }
+
                 if (currentTokenIs(TokenKind::Self)) {
                     if (isMut) {
                         func->setSelfArgument(SelfArgument::MutReference);
@@ -541,7 +658,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
                     selfAllowed = false;
                     return true;
                 } else {
-                    //TODO: report error
+                    reportCurrentTokenError("expected 'self'");
                     return false;
                 }
             }
@@ -554,7 +671,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
             }
         }
 
-        TRY(expectCurrentToken(TokenKind::Identifier));
+        TRY(expectCurrentToken(TokenKind::Identifier, "expected parameter name"));
         bmcl::StringView argName = _currentToken.value();
 
         consumeAndSkipBlanks();
@@ -585,6 +702,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
 
         fnType->setReturnValue(rType.get());
     }
+    //TODO: skip past end of line
 
     return new Function(name, fnType.get());
 }
@@ -597,7 +715,8 @@ bool Parser::parseImplBlock()
     Rc<ImplBlock> block = beginDecl<ImplBlock>();
     consumeAndSkipBlanks();
 
-    TRY(expectCurrentToken(TokenKind::Identifier));
+    Token typeNameToken = _currentToken;
+    TRY(expectCurrentToken(TokenKind::Identifier, "expected type name"));
 
     block->_name = _currentToken.value();
     consumeAndSkipBlanks();
@@ -610,6 +729,7 @@ bool Parser::parseImplBlock()
         if (!fn) {
             return false;
         }
+        //TODO: check conflicting names
         block->addFunction(fn.get());
         clearUnusedDocComments();
         return true;
@@ -617,11 +737,12 @@ bool Parser::parseImplBlock()
 
     bmcl::OptionPtr<NamedType> type = _ast->findTypeWithName(block->name());
     if (type.isNone()) {
-        //TODO: report error
-        BMCL_CRITICAL() << "No type found for impl block";
+        std::string msg = "no type with name " + typeNameToken.value().toStdString();
+        reportTokenError(&typeNameToken, msg.c_str());
         return false;
     }
 
+    //TODO: check conflicts
     _ast->addImplBlock(block.get());
 
     clearUnusedDocComments();
@@ -632,7 +753,9 @@ bool Parser::parseAlias()
 {
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Type));
-    consumeAndSkipBlanks();
+    consume();
+    TRY(expectCurrentToken(TokenKind::Blank, "missing blanks after module keyword"));
+    skipBlanks();
 
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
@@ -654,6 +777,7 @@ bool Parser::parseAlias()
     TRY(expectCurrentToken(TokenKind::SemiColon));
     consume();
 
+    //TODO: check conflicts
     _ast->addTopLevelType(type.get());
 
     clearUnusedDocComments();
@@ -673,7 +797,8 @@ Rc<Type> Parser::parseReferenceType()
     } else {
         isMutable = false;
     }
-    skipBlanks();
+    TRY(expectCurrentToken(TokenKind::Blank, "missing blanks after module keyword"));
+    consumeAndSkipBlanks();
 
     Rc<Type> pointee;
     if (_currentToken.kind() == TokenKind::LBracket) {
@@ -683,7 +808,7 @@ Rc<Type> Parser::parseReferenceType()
     } else if (_currentToken.kind() == TokenKind::Identifier) {
         pointee = parseBuiltinOrResolveType();
     } else {
-        reportUnexpectedTokenError(_currentToken.kind());
+        reportCurrentTokenError("expected identifier or '['");
         return nullptr;
     }
 
@@ -708,8 +833,7 @@ Rc<Type> Parser::parsePointerType()
     } else if (_currentToken.kind() == TokenKind::Const) {
         isMutable = false;
     } else {
-        //TODO: handle error
-        reportUnexpectedTokenError(_currentToken.kind());
+        reportCurrentTokenError("expected 'mut' or 'const'");
         return nullptr;
     }
     consumeAndSkipBlanks();
@@ -751,7 +875,7 @@ Rc<Type> Parser::parseType()
     case TokenKind::Identifier:
         return parseBuiltinOrResolveType();
     default:
-        //TODO: report error
+        reportCurrentTokenError("error parsing type");
         return nullptr;
     }
 
@@ -776,7 +900,6 @@ Rc<Type> Parser::parseFunctionPointer()
         }
         Field* field = new Field(bmcl::StringView::empty(), type.get());
         fn->addArgument(field);
-
         return true;
     }));
 
@@ -791,6 +914,7 @@ Rc<Type> Parser::parseFunctionPointer()
 
         fn->setReturnValue(rType.get());
     }
+    //TODO: skip past eol
 
     _ast->addType(fn.get());
     return fn;
@@ -831,7 +955,7 @@ Rc<Type> Parser::parseArrayType()
 
     TRY(expectCurrentToken(TokenKind::SemiColon));
     consumeAndSkipBlanks();
-    TRY(expectCurrentToken(TokenKind::Number));
+    TRY(expectCurrentToken(TokenKind::Number, "expected array size"));
     std::uintmax_t elementCount;
     TRY(parseUnsignedInteger(&elementCount));
     skipBlanks();
@@ -845,14 +969,12 @@ Rc<Type> Parser::parseArrayType()
 
 bool Parser::parseUnsignedInteger(std::uintmax_t* dest)
 {
-    TRY(expectCurrentToken(TokenKind::Number));
+    TRY(expectCurrentToken(TokenKind::Number, "error parsing unsigned integer"));
 
     unsigned long long int value = std::strtoull(_currentToken.begin(), 0, 10);
-    //TODO: check for target overflow
     if (errno == ERANGE) {
          errno = 0;
-         BMCL_CRITICAL() << "invalid number";
-         // TODO: report range error
+         reportCurrentTokenError("unsigned integer too big");
          return false;
     }
     *dest = value;
@@ -867,16 +989,15 @@ bool Parser::parseSignedInteger(std::intmax_t* dest)
     if (currentTokenIs(TokenKind::Dash)) {
         isNegative = true;
         consume();
+        TRY(expectCurrentToken(TokenKind::Number, "expected integer after sign"));
     }
-
-    TRY(expectCurrentToken(TokenKind::Number));
+    TRY(expectCurrentToken(TokenKind::Number, "expected integer"));
 
     long long int value = std::strtoll(start, 0, 10);
-    //TODO: check for target overflow
     if (errno == ERANGE) {
-         errno = 0;
-         // TODO: report range error
-         return false;
+        errno = 0;
+        reportCurrentTokenError("integer too big");
+        return false;
     }
     *dest = value;
     consume();
@@ -893,8 +1014,8 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
     }
     auto link = _ast->findTypeWithName(_currentToken.value());
     if (link.isNone()) {
-        //TODO: report error
-        BMCL_CRITICAL() << "unknown type " << _currentToken.value().toStdString();
+        std::string msg = "no type with name " + _currentToken.value().toStdString();
+        reportCurrentTokenError(msg.c_str());
         return nullptr;
     }
     consume();
@@ -903,10 +1024,10 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
 
 Rc<Field> Parser::parseField()
 {
-    expectCurrentToken(TokenKind::Identifier);
+    TRY(expectCurrentToken(TokenKind::Identifier, "expected identifier"));
     bmcl::StringView name = _currentToken.value();
     consumeAndSkipBlanks();
-    expectCurrentToken(TokenKind::Colon);
+    TRY(expectCurrentToken(TokenKind::Colon));
     consumeAndSkipBlanks();
 
     Rc<Type> type = parseType();
@@ -957,11 +1078,11 @@ bool Parser::parseEnumConstant(EnumType* parent)
         Rc<EnumConstant> constant = new EnumConstant(name, value, true);
         constant->setDocs(docs.get());
         if (!parent->addConstant(constant.get())) {
-            BMCL_CRITICAL() << "enum constant redefinition";
+            reportCurrentTokenError("enum constant redefinition");
             return false;
         }
     } else {
-        BMCL_CRITICAL() << "enum values MUST be user set";
+        reportCurrentTokenError("expected '='");
         return false;
     }
 
@@ -1002,7 +1123,7 @@ bool Parser::parseVariantField(VariantType* parent)
         }));
         parent->addField(field.get());
     } else {
-        reportUnexpectedTokenError(_currentToken.kind());
+        reportCurrentTokenError("expected ',' or '{' or '('");
         return false;
     }
 
@@ -1014,6 +1135,12 @@ bool Parser::parseComponentField(Component* parent)
 {
     return false;
 }
+/*
+static std::string tokKindToString(TokenKind kind)
+{
+    switch (kind) {
+    }
+}*/
 
 template <typename T, typename F>
 bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser)
@@ -1026,18 +1153,18 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
     while (true) {
         if (_currentToken.kind() == closeToken) {
             consume();
-            break;
+            return true;
         }
 
         if (!fieldParser(std::forward<T>(decl))) {
             return false;
         }
 
-        skipBlanks();
+        TRY(skipCommentsAndSpace());
         if (_currentToken.kind() == sep) {
             consume();
         }
-        skipCommentsAndSpace();
+        TRY(skipCommentsAndSpace());
     }
 
     return true;
@@ -1122,7 +1249,7 @@ bool Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, T* dest, F&& 
 bool Parser::parseCommands(Component* parent)
 {
     if(parent->hasCmds()) {
-        reportCurrentTokenError("Component can have only one commands declaration");
+        reportCurrentTokenError("component can have only one commands declaration");
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Commands, TokenKind::Eol, parent, [this](Component* comp) {
@@ -1143,7 +1270,7 @@ bool Parser::parseCommands(Component* parent)
 bool Parser::parseComponentImpl(Component* parent)
 {
     if(parent->implBlock().isSome()) {
-        reportCurrentTokenError("Component can have only one impl declaration");
+        reportCurrentTokenError("component can have only one impl declaration");
         return false;
     }
     Rc<ImplBlock> impl = new ImplBlock;
@@ -1166,7 +1293,7 @@ bool Parser::parseComponentImpl(Component* parent)
 bool Parser::parseParameters(Component* parent)
 {
     if(parent->hasParams()) {
-        reportCurrentTokenError("Component can have only one parameters declaration");
+        reportCurrentTokenError("component can have only one parameters declaration");
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
@@ -1188,13 +1315,14 @@ bool Parser::parseParameters(Component* parent)
 bool Parser::parseStatuses(Component* parent)
 {
     if(parent->hasStatuses()) {
-        reportCurrentTokenError("Component can have only one statuses declaration");
+        reportCurrentTokenError("component can have only one statuses declaration");
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Statuses, TokenKind::Comma, parent, [this](Component* comp) -> bool {
         TRY(expectCurrentToken(TokenKind::LBracket));
         consumeAndSkipBlanks();
 
+        Token numToken = _currentToken;
         uintmax_t num;
         TRY(parseUnsignedInteger(&num));
 
@@ -1217,7 +1345,7 @@ bool Parser::parseStatuses(Component* parent)
         } else if (_currentToken.value() == "true") {
             isEnabled = true;
         } else {
-            BMCL_DEBUG() << "invalid bool param";
+            reportCurrentTokenError("expected 'true' or 'false'");
             return false;
         }
 
@@ -1227,17 +1355,15 @@ bool Parser::parseStatuses(Component* parent)
         StatusMsg* msg = new StatusMsg(num, prio, isEnabled);
         bool isOk = comp->addStatus(num, msg);
         if (!isOk) {
-            BMCL_CRITICAL() << "redefinition of status param";
+            std::string msg =  "status with id " + std::to_string(num) + " already defined";
+            reportTokenError(&numToken, msg.c_str());
             return false;
         }
         consumeAndSkipBlanks();
         TRY(expectCurrentToken(TokenKind::Colon));
         consumeAndSkipBlanks();
         auto parseOneRegexp = [this, comp](StatusMsg* msg) -> bool {
-            if (!currentTokenIs(TokenKind::Identifier)) {
-                //TODO: report error
-                return false;
-            }
+            TRY(expectCurrentToken(TokenKind::Identifier, "regular expression must begin with an identifier"));
             Rc<StatusRegexp> re = new StatusRegexp;
 
             while (true) {
@@ -1302,6 +1428,12 @@ bool Parser::parseStatuses(Component* parent)
 bool Parser::parseComponent()
 {
     TRY(expectCurrentToken(TokenKind::Component));
+
+    if (_ast->component().isSome()) {
+        reportCurrentTokenError("only one component declaration is allowed");
+        return false;
+    }
+
     Rc<Component> comp = new Component(0, _moduleInfo.get()); //FIXME: make number user-set
     consumeAndSkipBlanks();
     //TRY(expectCurrentToken(TokenKind::Identifier));
@@ -1335,13 +1467,13 @@ bool Parser::parseComponent()
             consume();
             goto finish;
         default:
-            //TODO: report error
+            reportCurrentTokenError("invalid component level token");
             return false;
         }
     }
 
 finish:
-    //TODO: only one component allowed, add check
+
     _ast->setComponent(comp.get());
     return true;
 }

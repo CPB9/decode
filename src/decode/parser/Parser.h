@@ -92,6 +92,7 @@ private:
     bool expectCurrentToken(TokenKind expected);
     bool expectCurrentToken(TokenKind expected, const char* msg);
     bool consumeAndExpectCurrentToken(TokenKind expected);
+    bool consumeAndExpectCurrentToken(TokenKind expected, const char* msg);
     void reportUnexpectedTokenError(TokenKind expected);
 
     void addLine();
@@ -179,6 +180,7 @@ private:
     void clearUnusedDocComments();
 
     Rc<Report> reportCurrentTokenError(const char* msg);
+    Rc<Report> reportTokenError(Token* tok, const char* msg);
 
     Rc<Diagnostics> _diag;
 

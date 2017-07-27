@@ -167,7 +167,7 @@ public:
         _typeNameToImplBlock.emplace(block->name(), block);
     }
 
-    void addImportDecl(TypeImport* decl)
+    void addTypeImport(TypeImport* decl)
     {
         _importDecls.emplace_back(decl);
         for (ImportedType* type : decl->typesRange()) {
