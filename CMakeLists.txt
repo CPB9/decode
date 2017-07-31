@@ -227,13 +227,11 @@ add_library(decode
     src/decode/Config.h
     ${DECODE_CORE_SRC}
     ${DECODE_GENERATOR_SRC}
-    ${DECODE_GROUNDCONTROL_SRC}
     ${DECODE_MODEL_SRC}
     ${DECODE_PARSER_SRC}
-    ${DECODE_UI_SRC}
 )
 
-target_link_libraries(decode zpaq ${CAF_CORE_LIBRARIES})
+target_link_libraries(decode zpaq bmcl)
 
 add_executable(decode_gen
     src/decode/Main.cpp
@@ -246,10 +244,31 @@ set_target_properties(decode
     PREFIX "lib"
 )
 
-target_link_libraries(decode bmcl)
-
 if(Qt5Widgets_FOUND)
-    target_link_libraries(decode Qt5::Widgets)
+    add_library(decode-gc
+        src/decode/Config.h
+        ${DECODE_UI_SRC}
+        ${DECODE_GROUNDCONTROL_SRC}
+    )
+
+    target_link_libraries(decode-gc bmcl Qt5::Widgets ${CAF_CORE_LIBRARIES})
+    target_compile_definitions(decode-gc PRIVATE -DBUILDING_DECODE_GC)
+
+    set_target_properties(decode-gc
+        PROPERTIES
+        PREFIX "lib"
+    )
+
+    if (NOT MSVC)
+        target_compile_options(decode-gc PUBLIC -std=c++11)
+        target_compile_options(decode-gc PRIVATE -Wall -Wextra -Wno-unused-parameter)
+    endif()
+
+    target_include_directories(decode-gc
+        PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
+    )
 endif()
 
 target_compile_definitions(decode PRIVATE -DBUILDING_DECODE)
@@ -266,21 +285,20 @@ target_include_directories(decode
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
 )
 
-
 get_directory_property(HAS_PARENT_SCOPE PARENT_DIRECTORY)
 if(NOT HAS_PARENT_SCOPE)
     add_subdirectory(thirdparty/gtest EXCLUDE_FROM_ALL)
     add_subdirectory(tests)
 endif()
 
-set_target_properties(decode decode_gen
+set_target_properties(decode decode-gc decode_gen
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-install(TARGETS decode decode_gen
+install(TARGETS decode decode-gc decode_gen
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
