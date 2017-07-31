@@ -251,7 +251,7 @@ if(Qt5Widgets_FOUND)
         ${DECODE_GROUNDCONTROL_SRC}
     )
 
-    target_link_libraries(decode-gc bmcl Qt5::Widgets ${CAF_CORE_LIBRARIES})
+    target_link_libraries(decode-gc decode bmcl Qt5::Widgets ${CAF_CORE_LIBRARIES})
     target_compile_definitions(decode-gc PRIVATE -DBUILDING_DECODE_GC)
 
     set_target_properties(decode-gc
