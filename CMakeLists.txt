@@ -179,6 +179,8 @@ set(DECODE_GROUNDCONTROL_SRC
 source_group("groundcontrol" FILES ${DECODE_GROUNDCONTROL_SRC})
 
 set(DECODE_MODEL_SRC
+    src/decode/model/CmdModel.cpp
+    src/decode/model/CmdModel.h
     src/decode/model/CmdNode.cpp
     src/decode/model/CmdNode.h
     src/decode/model/Decoder.cpp

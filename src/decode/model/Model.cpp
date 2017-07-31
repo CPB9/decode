@@ -26,50 +26,6 @@
 
 namespace decode {
 
-PackageCmdsNode::PackageCmdsNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent)
-    : Node(parent)
-    , _handler(handler)
-{
-    for (const Rc<Ast>& ast : dev->modules) {
-        if (ast->component().isNone()) {
-            continue;
-        }
-
-        const Component* it = ast->component().unwrap();
-
-        if (!it->hasCmds()) {
-            continue;
-        }
-
-        Rc<CmdContainerNode> node = CmdContainerNode::withAllCmds(it, cache, this, false);
-        _nodes.emplace_back(node);
-    }
-}
-
-PackageCmdsNode::~PackageCmdsNode()
-{
-}
-
-std::size_t PackageCmdsNode::numChildren() const
-{
-    return _nodes.size();
-}
-
-bmcl::Option<std::size_t> PackageCmdsNode::childIndex(const Node* node) const
-{
-    return childIndexGeneric(_nodes, node);
-}
-
-bmcl::OptionPtr<Node> PackageCmdsNode::childAt(std::size_t idx)
-{
-    return childAtGeneric(_nodes, idx);
-}
-
-bmcl::StringView PackageCmdsNode::fieldName() const
-{
-    return "cmds";
-}
-
 Model::Model(const Project* project, ModelEventHandler* handler, bmcl::StringView deviceName)
     : Node(bmcl::None)
     , _project(project)
@@ -79,9 +35,6 @@ Model::Model(const Project* project, ModelEventHandler* handler, bmcl::StringVie
     auto dev = project->deviceWithName(deviceName);
     assert(dev.isSome());
     _name = dev->name;
-
-    _cmdsNode = new PackageCmdsNode(dev.unwrap(), _cache.get(), handler, this);
-    _nodes.emplace_back(_cmdsNode.get());
 }
 
 Model::~Model()

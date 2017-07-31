@@ -704,6 +704,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
     }
     //TODO: skip past end of line
 
+    _ast->addType(fnType.get());
     return new Function(name, fnType.get());
 }
 

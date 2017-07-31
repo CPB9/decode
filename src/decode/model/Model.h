@@ -31,21 +31,6 @@ struct Device;
 
 class CmdContainerNode;
 
-class PackageCmdsNode : public Node {
-public:
-    PackageCmdsNode(const Device* dev, const ValueInfoCache* cache, ModelEventHandler* handler, bmcl::OptionPtr<Node> parent);
-    ~PackageCmdsNode();
-
-    std::size_t numChildren() const override;
-    bmcl::Option<std::size_t> childIndex(const Node* node) const override;
-    bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
-    bmcl::StringView fieldName() const override;
-
-private:
-    Rc<ModelEventHandler> _handler;
-    std::vector<Rc<CmdContainerNode>> _nodes;
-};
-
 class Model : public Node {
 public:
     Model(const Project* project, ModelEventHandler* handler, bmcl::StringView deviceName);
@@ -62,7 +47,6 @@ public:
     Rc<const Project> _project;
     Rc<ValueInfoCache> _cache;
     Rc<ModelEventHandler> _handler;
-    Rc<PackageCmdsNode> _cmdsNode;
     std::vector<Rc<Node>> _nodes;
     bmcl::StringView _name;
 };

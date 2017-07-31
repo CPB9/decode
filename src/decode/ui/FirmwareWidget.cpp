@@ -31,22 +31,20 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     : QWidget(parent)
 {
     Rc<Node> emptyNode = new Node(bmcl::None);
-    _qmodel = bmcl::makeUnique<QNodeViewModel>(new NodeView(emptyNode.get()));
+    _paramViewModel = bmcl::makeUnique<QNodeViewModel>(new NodeView(emptyNode.get()));
 
     auto buttonLayout = new QVBoxLayout;
     auto sendButton = new QPushButton("send");
     buttonLayout->addWidget(sendButton);
     buttonLayout->addStretch();
 
-    auto rightLayout = new QHBoxLayout;
-    auto cmdWidget = new QTreeView;
-    _cmdCont.reset(new CmdContainerNode(bmcl::None));
-    QObject::connect(sendButton, &QPushButton::clicked, _qmodel.get(), [this]() {
+    _scriptNode.reset(new CmdContainerNode(bmcl::None));
+    QObject::connect(sendButton, &QPushButton::clicked, _paramViewModel.get(), [this]() {
         uint8_t tmp[2048]; //TODO: temp
         bmcl::MemWriter dest(tmp, sizeof(tmp));
         uint8_t prefix[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         dest.write(prefix, sizeof(prefix));
-        if (_cmdCont->encode(&dest)) {
+        if (_scriptNode->encode(&dest)) {
             emit packetQueued(dest.writenData());
         } else {
             BMCL_DEBUG() << "error encoding";
@@ -54,21 +52,40 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
         }
     });
 
-    _cmdModel = bmcl::makeUnique<QCmdModel>(_cmdCont.get());
-    _cmdModel->setEditable(true);
-    cmdWidget->setModel(_cmdModel.get());
-    cmdWidget->setAlternatingRowColors(true);
-    cmdWidget->setSelectionMode(QAbstractItemView::SingleSelection);
-    cmdWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    cmdWidget->setDropIndicatorShown(true);
-    cmdWidget->setDragEnabled(true);
-    cmdWidget->setDragDropMode(QAbstractItemView::DragDrop);
-    cmdWidget->viewport()->setAcceptDrops(true);
-    cmdWidget->setAcceptDrops(true);
-    cmdWidget->header()->setStretchLastSection(false);
-    cmdWidget->setRootIndex(_cmdModel->index(0, 0));
+    _scriptEditModel = bmcl::makeUnique<QCmdModel>(_scriptNode.get());
+    _scriptEditModel->setEditable(true);
+    auto scriptEditWidget = new QTreeView;
+    scriptEditWidget->setModel(_scriptEditModel.get());
+    scriptEditWidget->setAlternatingRowColors(true);
+    scriptEditWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    scriptEditWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    scriptEditWidget->setDropIndicatorShown(true);
+    scriptEditWidget->setDragEnabled(true);
+    scriptEditWidget->setDragDropMode(QAbstractItemView::DragDrop);
+    scriptEditWidget->viewport()->setAcceptDrops(true);
+    scriptEditWidget->setAcceptDrops(true);
+    scriptEditWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    scriptEditWidget->header()->setStretchLastSection(false);
+    scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
 
-    rightLayout->addWidget(cmdWidget);
+    _cmdViewModel = bmcl::makeUnique<QNodeModel>(emptyNode.get());
+    auto cmdViewWidget = new QTreeView;
+    cmdViewWidget->setModel(_cmdViewModel.get());
+    cmdViewWidget->setAlternatingRowColors(true);
+    cmdViewWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    cmdViewWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    cmdViewWidget->setDragEnabled(true);
+    cmdViewWidget->setDragDropMode(QAbstractItemView::DragDrop);
+    cmdViewWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    cmdViewWidget->header()->setStretchLastSection(false);
+    cmdViewWidget->setRootIndex(_cmdViewModel->index(0, 0));
+    cmdViewWidget->setColumnHidden(2, true);
+
+    auto rightLayout = new QHBoxLayout;
+    auto cmdLayout = new QVBoxLayout;
+    cmdLayout->addWidget(cmdViewWidget);
+    cmdLayout->addWidget(scriptEditWidget);
+    rightLayout->addLayout(cmdLayout);
     rightLayout->addLayout(buttonLayout);
 
     _mainView = new QTreeView;
@@ -81,9 +98,9 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     _mainView->setDropIndicatorShown(true);
     _mainView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     _mainView->header()->setStretchLastSection(false);
-    _mainView->setModel(_qmodel.get());
+    _mainView->setModel(_paramViewModel.get());
 
-    QObject::connect(cmdWidget, &QTreeView::expanded, cmdWidget, [cmdWidget]() { cmdWidget->resizeColumnToContents(0); });
+    QObject::connect(scriptEditWidget, &QTreeView::expanded, scriptEditWidget, [scriptEditWidget]() { scriptEditWidget->resizeColumnToContents(0); });
     QObject::connect(_mainView, &QTreeView::expanded, _mainView, [this]() { _mainView->resizeColumnToContents(0); });
 
     auto centralLayout = new QHBoxLayout;
@@ -98,12 +115,17 @@ FirmwareWidget::~FirmwareWidget()
 
 void FirmwareWidget::setRootTmNode(NodeView* root)
 {
-    _qmodel->setRoot(root);
+    _paramViewModel->setRoot(root);
+}
+
+void FirmwareWidget::setRootCmdNode(Node* root)
+{
+    _cmdViewModel->setRoot(root);
 }
 
 void FirmwareWidget::applyTmUpdates(NodeViewUpdater* updater)
 {
-    _qmodel->applyUpdates(updater);
+    _paramViewModel->applyUpdates(updater);
     _mainView->viewport()->update();
 }
 }

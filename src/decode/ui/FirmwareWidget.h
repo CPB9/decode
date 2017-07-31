@@ -25,6 +25,8 @@ class ModelEventHandler;
 class CmdContainerNode;
 class QNodeModel;
 class QNodeViewModel;
+class QCmdModel;
+class Node;
 class Model;
 class NodeView;
 class NodeViewUpdater;
@@ -38,14 +40,16 @@ public:
     void setRootTmNode(NodeView* root);
     void applyTmUpdates(NodeViewUpdater* updater);
 
+    void setRootCmdNode(Node* root);
+
 signals:
     void packetQueued(bmcl::Bytes packet);
 
 private:
     QTreeView* _mainView;
-    Rc<CmdContainerNode> _cmdCont;
-    std::unique_ptr<QNodeViewModel> _qmodel;
-    std::unique_ptr<QNodeModel> _cmdModel;
+    Rc<CmdContainerNode> _scriptNode;
+    std::unique_ptr<QNodeViewModel> _paramViewModel;
+    std::unique_ptr<QCmdModel> _scriptEditModel;
+    std::unique_ptr<QNodeModel> _cmdViewModel;
 };
-
 }

@@ -39,6 +39,13 @@ public:
 
     void setEditable(bool isEditable = true);
 
+    void setRoot(Node* node)
+    {
+        beginResetModel();
+        _root.reset(node);
+        endResetModel();
+    }
+
 protected:
     static bmcl::OptionPtr<Node> unpackMimeData(const QMimeData* data, const QString& mimeTypeStr);
     static QMimeData* packMimeData(const QModelIndexList& indexes, const QString& mimeTypeStr);

@@ -57,7 +57,7 @@ caf::behavior GroundControl::make_behavior()
             acceptData(data);
         },
         [this](SendCmdPacketAtom, const bmcl::SharedBytes& packet) {
-            sendPacket(1, packet);
+            sendPacket(2, packet);
         },
         [this](SendFwtPacketAtom, const bmcl::SharedBytes& packet) {
             sendPacket(0, packet);

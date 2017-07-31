@@ -35,6 +35,7 @@ class QModelBase : public QAbstractItemModel {
 public:
     QModelBase(T* node)
         : _root(node)
+        , _isEditable(false)
     {
     }
     ~QModelBase()
