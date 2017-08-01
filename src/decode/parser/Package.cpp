@@ -12,6 +12,7 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 #include "decode/core/Utils.h"
+#include "decode/core/ProgressPrinter.h"
 #include "decode/parser/Ast.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Decl.h"
@@ -144,7 +145,8 @@ void Package::addAst(Ast* ast)
 
 bool Package::addFile(const char* path, Parser* p)
 {
-    BMCL_DEBUG() << "reading file " << path;
+    ProgressPrinter printer(_cfg->verboseOutput());
+    printer.printActionProgress("Parsing", "file `" + std::string(path) + "`");
     ParseResult ast = p->parseFile(path);
     if (ast.isErr()) {
         return false;
@@ -152,7 +154,7 @@ bool Package::addFile(const char* path, Parser* p)
 
     addAst(ast.unwrap().get());
 
-    BMCL_DEBUG() << "finished " << ast.unwrap()->moduleInfo()->fileName();
+    //BMCL_DEBUG() << "finished " << ast.unwrap()->moduleInfo()->fileName();
     return true;
 }
 

@@ -44,8 +44,11 @@ public:
 
     bmcl::Option<bmcl::StringView> cfgOption(bmcl::StringView key) const;
 
-    void setDebugLevel(unsigned level);
-    unsigned debugLevel() const;
+    void setGeneratedCodeDebugLevel(unsigned level);
+    unsigned generatedCodeDebugLevel() const;
+
+    void setVerboseOutput(bool isVerbose);
+    bool verboseOutput() const;
 
     void setCompressionLevel(unsigned level);
     unsigned compressionLevel() const;
@@ -54,7 +57,8 @@ public:
 
 private:
     Options _values;
-    unsigned _debugLevel;
+    unsigned _codeDebugLevel;
     unsigned _compressionLevel;
+    bool _verboseOutput;
 };
 }

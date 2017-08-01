@@ -9,6 +9,7 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Configuration.h"
 #include "decode/core/Iterator.h"
+#include "decode/core/ProgressPrinter.h"
 #include "decode/parser/Parser.h"
 #include "decode/parser/Component.h"
 #include "decode/parser/Ast.h"
@@ -37,11 +38,13 @@ int main(int argc, char* argv[])
     TCLAP::ValueArg<std::string> inPathArg("p", "in", "Project file", true, "./project.toml", "path");
     TCLAP::ValueArg<std::string> outPathArg("o", "out", "Output directory", true, "./", "path");
     TCLAP::ValueArg<unsigned> debugLevelArg("d", "debug-level", "Generated code debug level", false, 0, "0-5");
+    TCLAP::SwitchArg verbLevelArg("v", "verbose", "Enable verbose output", false);
     TCLAP::ValueArg<unsigned> compLevelArg("c", "compression-level", "Package compression level", false, 4, "0-5");
 
     cmdLine.add(&inPathArg);
     cmdLine.add(&outPathArg);
     cmdLine.add(&debugLevelArg);
+    cmdLine.add(&verbLevelArg);
     cmdLine.add(&compLevelArg);
     cmdLine.parse(argc, argv);
 
@@ -49,9 +52,10 @@ int main(int argc, char* argv[])
     Rc<Configuration> cfg = new Configuration;
 
     unsigned debugLevel = std::min(5u, debugLevelArg.getValue());
-    cfg->setDebugLevel(debugLevel);
+    cfg->setGeneratedCodeDebugLevel(debugLevel);
     unsigned compLevel = std::min(5u, compLevelArg.getValue());
     cfg->setCompressionLevel(compLevel);
+    cfg->setVerboseOutput(verbLevelArg.getValue());
 
     Rc<Diagnostics> diag = new Diagnostics;
     ProjectResult proj = Project::fromFile(cfg.get(), diag.get(), inPathArg.getValue().c_str());
@@ -65,7 +69,9 @@ int main(int argc, char* argv[])
 
     auto end = std::chrono::steady_clock::now();
     auto delta = end - start;
-    BMCL_DEBUG() << "time (us):" << std::chrono::duration_cast<std::chrono::microseconds>(delta).count();
+    ProgressPrinter printer(cfg->verboseOutput());
+    double microseconds = std::chrono::duration_cast<std::chrono::microseconds>(delta).count();
+    printer.printActionProgress("Finished", "in " + std::to_string(microseconds / 1000000) + "s");
 
     diag->printReports(&std::cout);
 }

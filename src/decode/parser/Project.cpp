@@ -18,6 +18,7 @@
 #include "decode/generator/Generator.h"
 #include "decode/core/Zpaq.h"
 #include "decode/core/Utils.h"
+#include "decode/core/ProgressPrinter.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/StringView.h>
@@ -69,6 +70,28 @@ Project::~Project()
 }
 
 class ParseException {
+public:
+    ParseException()
+    {
+    }
+
+    ParseException(const std::string& err)
+        : _error(err)
+    {
+    }
+
+    ParseException(std::string&& err)
+        : _error(std::move(err))
+    {
+    }
+
+    const std::string& what() const
+    {
+        return _error;
+    }
+
+private:
+    std::string _error;
 };
 
 template <typename T>
@@ -78,13 +101,12 @@ const T& getValueFromTable(const toml::Table& table, const char* key)
         const toml::value& value = table.at(key);
         return value.cast<toml::detail::check_type<T>()>();
     } catch (const std::out_of_range& exc) {
-        BMCL_CRITICAL() << "invalid table key: " << key;
+        throw ParseException(std::string("invalid table key (") + key + ")");
     } catch (const toml::type_error& exc) {
-        BMCL_CRITICAL() << "invalid value type: " << key;
+        throw ParseException(std::string("invalid value type (") + key + ")");
     } catch (...) {
-        BMCL_CRITICAL() << "unknown toml error: " << key;
+        throw ParseException(std::string("unknown toml error (") + key + ")");
     }
-    throw ParseException();
 }
 
 template <typename T>
@@ -95,26 +117,41 @@ std::vector<T> maybeGetArrayFromTable(const toml::Table& table, const char* key)
     } catch (const std::out_of_range& exc) {
         return std::vector<T>();
     } catch (const toml::type_error& exc) {
-        BMCL_CRITICAL() << "invalid value type: " << key;
+        throw ParseException(std::string("invalid value type (") + key + ")");
     } catch (...) {
-        BMCL_CRITICAL() << "unknown toml error: " << key;
+        throw ParseException(std::string("unknown toml error (") + key + ")");
     }
-    return std::vector<T>();
 }
 
 using TableResult = bmcl::Result<toml::Table, void>;
 
-static TableResult readToml(const std::string& path)
+static void addError(bmcl::StringView msg, bmcl::StringView cause, Diagnostics* diag)
+{
+    Rc<Report> report = diag->addReport();
+    report->setLevel(Report::Error);
+    std::string errorMsg = msg.toStdString() + "\n\n" + "Reason:\n  ";
+    errorMsg.append(cause.begin(), cause.end());
+    report->setMessage(errorMsg);
+}
+
+static void addParseError(bmcl::StringView path, bmcl::StringView cause, Diagnostics* diag)
+{
+    std::string msg = "failed to parse file ";
+    msg.append(path.begin(), path.end());
+    addError(msg, cause, diag);
+}
+
+static TableResult readToml(const std::string& path, Diagnostics* diag)
 {
     auto file = bmcl::readFileIntoString(path.c_str());
     if (file.isErr()) {
-        BMCL_CRITICAL() << "error reading file: " << path;
+        addError("failed to read file " + path, std::strerror(file.unwrapErr()), diag);
         return TableResult();
     }
     try {
         return toml::parse_data::invoke(file.unwrap().begin(), file.unwrap().end());
     } catch (const toml::syntax_error& exc) {
-        BMCL_CRITICAL() << "error parsing " << path << ": " << exc.what();
+        addParseError(path, exc.what(), diag);
         return TableResult();
     }
     return TableResult();
@@ -126,8 +163,9 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
     normalizePath(&projectFilePath);
     Rc<Project> proj = new Project(cfg, diag);
 
-    BMCL_DEBUG() << "reading project file: " << projectFilePath;
-    TableResult projectFile = readToml(projectFilePath);
+    ProgressPrinter printer(cfg->verboseOutput());
+    printer.printActionProgress("Reading", "project file `" + projectFilePath + "`");
+    TableResult projectFile = readToml(projectFilePath, diag);
     if (projectFile.isErr()) {
         return ProjectResult();
     }
@@ -143,7 +181,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         master = getValueFromTable<std::string>(projectTable, "master");
         int64_t id = getValueFromTable<std::int64_t>(projectTable, "mcc_id");
         if (id < 0) {
-            BMCL_CRITICAL() << "mcc_id cannot be negative: " << id;
+            addParseError(path, "mcc_id cannot be negative (" + std::to_string(id) + ")", diag);
             return ProjectResult();
         }
         proj->_mccId = id;
@@ -158,7 +196,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         std::set<uint64_t> deviceIds;
         for (const toml::value& value : devicesArray) {
             if (value.type() != toml::value_t::Table) {
-                BMCL_CRITICAL() << "devices section must be a table";
+                addParseError(path, "devices section must be a table", diag);
                 return ProjectResult();
             }
             const toml::Table& tab = value.cast<toml::value_t::Table>();
@@ -166,16 +204,16 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
             dev.name = getValueFromTable<std::string>(tab, "name");
             int64_t id = getValueFromTable<int64_t>(tab, "id");
             if (id < 0) {
-                BMCL_CRITICAL() << "device id cannot be negative: " << id;
+                addParseError(path, "device id cannot be negative (" + std::to_string(id) + ")", diag);
                 return ProjectResult();
             }
             if (id == proj->_mccId) {
-                BMCL_CRITICAL() << "device id cannot be the same as mcc_id: " << id;
+                addParseError(path, "device id cannot be the same as mcc_id (" + std::to_string(id) + ")", diag);
                 return ProjectResult();
             }
             auto idsPair = deviceIds.insert(id);
             if (!idsPair.second) {
-                BMCL_CRITICAL() << "found devices with conflicting ids";
+                addParseError(path, "devices cannot have the same id (" + std::to_string(id) + ")", diag);
                 return ProjectResult();
             }
             dev.id = id;
@@ -184,7 +222,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
             dev.cmdTargets = maybeGetArrayFromTable<std::string>(tab, "cmd_targets");
             auto devPair = deviceDescMap.emplace(dev.name, std::move(dev));
             if (!devPair.second) {
-                BMCL_CRITICAL() << "device with name " << dev.name << " already exists";
+                addParseError(path, "device with name '" + dev.name + "' already exists", diag);
                 return ProjectResult();
             }
         }
@@ -209,19 +247,19 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         ModuleDesc mod;
         std::string modTomlPath = dirPath;
         joinPath(&modTomlPath, "mod.toml");
-        BMCL_DEBUG() << "reading module root: " << modTomlPath;
-        TableResult modToml = readToml(modTomlPath);
+        printer.printActionProgress("Reading", "module `" + modTomlPath + "`");
+        TableResult modToml = readToml(modTomlPath, diag);
         if (modToml.isErr()) {
             return ProjectResult();
         }
         int64_t id = getValueFromTable<int64_t>(modToml.unwrap(), "id");
         if (id < 0) {
-            BMCL_CRITICAL() << "module id cannot be negative: " << id;
+            addParseError(modTomlPath, "module id cannot be negative (" + std::to_string(id) + ")", diag);
             return ProjectResult();
         }
         auto idsPair = moduleIds.insert(id);
         if (!idsPair.second) {
-            BMCL_CRITICAL() << "found modules with conflicting ids";
+            addParseError(modTomlPath, "module with id '" + std::to_string(id) + "' already exists", diag);
             return ProjectResult();
         }
         mod.name = getValueFromTable<std::string>(modToml.unwrap(), "name");
@@ -235,12 +273,11 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         }
         auto modPair = moduleDescMap.emplace(mod.name, std::move(mod));
         if (!modPair.second) {
-            BMCL_CRITICAL() << "module with name " << mod.name << " already exists";
+            addParseError(modTomlPath, "module with name '" + mod.name + "' already exists", diag);
             return ProjectResult();
         }
     }
 
-    //parse package
     PackageResult package = Package::readFromFiles(cfg, diag, decodeFiles);
     if (package.isErr()) {
         return ProjectResult();
@@ -249,7 +286,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
     //check project
     if (deviceDescMap.find(master) == deviceDescMap.end()) {
-        BMCL_CRITICAL() << "device with name " << master << " marked as master does not exist";
+        addParseError(path, "device with name '" + master + "' marked as master does not exist", diag);
         return ProjectResult();
     }
     std::vector<Rc<Ast>> commonModules;
@@ -257,7 +294,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName((modName));
         commonModules.emplace_back(mod.unwrap());
         if (mod.isNone()) {
-            BMCL_CRITICAL() << "common module " << modName << " does not exist";
+            addParseError(path, "common module '" + modName + "' does not exist", diag);
             return ProjectResult();
         }
     }
@@ -265,7 +302,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
     for (auto& it : moduleDescMap) {
         bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName(it.second.name);
         if (mod.isNone()) {
-            BMCL_CRITICAL() << "module " << it.second.name << " does not exist";
+            addParseError(path, "module '" + it.second.name + "' does not exist", diag);
             return ProjectResult();
         }
         proj->_sourcesMap.emplace(mod.unwrap(), std::move(it.second.sources));
@@ -281,7 +318,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         for (const std::string& modName : it.second.modules) {
             bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName(modName);
             if (mod.isNone()) {
-                BMCL_CRITICAL() << "module " << modName << " does not exist";
+                addParseError(path, "module '" + it.second.name + "' does not exist", diag);
                 return ProjectResult();
             }
             dev->modules.emplace_back(mod.unwrap());
@@ -306,7 +343,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
                 return d->name == deviceName;
             });
             if (jt == proj->_devices.end()) {
-                BMCL_CRITICAL() << "unknown tm source: " << deviceName;
+                addParseError(path, "unknown tm source (" + deviceName + ")", diag);
                 return ProjectResult();
             }
             dev->tmSources.push_back(*jt);
@@ -321,7 +358,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
                 return d->name == deviceName;
             });
             if (jt == proj->_devices.end()) {
-                BMCL_CRITICAL() << "unknown cmd target: " << deviceName;
+                addParseError(path, "unknown cmd target (" + deviceName + ")", diag);
                 return ProjectResult();
             }
             dev->cmdTargets.push_back(*jt);
@@ -332,16 +369,17 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
 bool Project::generate(const char* destDir)
 {
-    BMCL_DEBUG() << "generating";
+    ProgressPrinter printer(_cfg->verboseOutput());
+    printer.printActionProgress("Generating", "sources");
 
     Rc<Generator> gen = new Generator(_diag.get());
     gen->setOutPath(destDir);
     bool genOk = gen->generateProject(this);
-    if (genOk) {
-        BMCL_DEBUG() << "generating complete";
-    } else {
-        BMCL_DEBUG() << "generating failed";
-    }
+    //if (genOk) {
+    //    BMCL_DEBUG() << "generating complete";
+    //} else {
+    //    BMCL_DEBUG() << "generating failed";
+    //}
     return genOk;
 }
 
@@ -367,13 +405,21 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
 {
     ZpaqResult rv = zpaqDecompress(src, size);
     if (rv.isErr()) {
-        BMCL_CRITICAL() << "error decompressing project from memory";
+        addError("error decompressing project from memory", rv.unwrapErr(), diag);
         return ProjectResult();
     }
 
+    auto addReadErr = [diag](bmcl::StringView cause) {
+        addError("error parsing project from memory", cause, diag);
+    };
+
+    auto addReadStrErr = [&addReadErr](bmcl::StringView cause, bmcl::StringView strCause) {
+        addReadErr(cause.toStdString() + "(" + strCause.toStdString() + ")");
+    };
+
     bmcl::MemReader reader(rv.unwrap().data(), rv.unwrap().size());
     if (reader.readableSize() < (magic.size() + 2)) {
-        //TODO: report error
+        addReadErr("Unexpected EOF reading magic");
         return ProjectResult();
     }
 
@@ -381,29 +427,30 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     reader.read(m.data(), m.size());
 
     if (m != magic) {
-        //TODO: report error
+        //TODO: print hex magic
+        addReadErr("Invalid magic");
         return ProjectResult();
     }
 
     Rc<Configuration> cfg = new Configuration;
 
-    cfg->setDebugLevel(reader.readUint8());
+    cfg->setGeneratedCodeDebugLevel(reader.readUint8());
     cfg->setCompressionLevel(reader.readUint8());
 
     uint64_t numOptions;
     if (!reader.readVarUint(&numOptions)) {
-        //TODO: report error
+        addReadErr("Error reading option number");
         return ProjectResult();
     }
     for (uint64_t i = 0; i < numOptions; i++) {
         auto key = deserializeString(&reader);
         if (key.isErr()) {
-            //TODO: report error
+            addReadStrErr("Error reading option key", key.unwrapErr());
             return ProjectResult();
         }
 
         if (reader.readableSize() < 1) {
-            //TODO: report error
+            addReadErr("Unexpected EOF reading project option");
             return ProjectResult();
         }
 
@@ -411,7 +458,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
         if (hasValue) {
             auto value = deserializeString(&reader);
             if (value.isErr()) {
-                //TODO: report error
+                addReadStrErr("Error reading option value", value.unwrapErr());
                 return ProjectResult();
             }
 
@@ -422,19 +469,19 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     }
 
     if (reader.readableSize() < 4) {
-        //TODO: report error
+        addReadErr("Unexpected EOF reading mcc_id");
         return ProjectResult();
     }
 
     uint64_t mccId;
     if (!reader.readVarUint(&mccId)) {
-        //TODO: report error
+        addReadErr("Error reading mcc_id");
         return ProjectResult();
     }
 
     auto name = deserializeString(&reader);
     if (name.isErr()) {
-        //TODO: report error
+        addReadStrErr("Error reading project name", name.unwrapErr());
         return ProjectResult();
     }
 
@@ -443,14 +490,13 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     PackageResult package = Package::decodeFromMemory(cfg.get(), diag, reader.current(), packageSize);
 
     if (package.isErr()) {
-        //TODO: report error
         return ProjectResult();
     }
     reader.skip(packageSize);
 
     uint64_t devNum;
     if (!reader.readVarUint(&devNum)) {
-        //TODO: report error
+        addReadErr("Error reading device number");
         return ProjectResult();
     }
 
@@ -459,32 +505,32 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
         Rc<Device> dev = new Device;
         dev->package = package.unwrap();
         if (!reader.readVarUint(&dev->id)) {
-            //TODO: report error
+            addReadErr("Error reading device id");
             return ProjectResult();
         }
 
         auto name = deserializeString(&reader);
         if (name.isErr()) {
-            //TODO: report error
+            addReadStrErr("Error reading device name", name.unwrapErr());
             return ProjectResult();
         }
         dev->name = name.unwrap().toStdString();
 
         uint64_t modNum;
         if (!reader.readVarUint(&modNum)) {
-            //TODO: report error
+            addReadErr("Error reading module number");
             return ProjectResult();
         }
 
         for (uint64_t j = 0; j < modNum; j++) {
             auto modName = deserializeString(&reader);
             if (name.isErr()) {
-                //TODO: report error
+                addReadStrErr("Error reading module name", modName.unwrapErr());
                 return ProjectResult();
             }
             auto mod = package.unwrap()->moduleWithName(modName.unwrap());
             if (mod.isNone()) {
-                //TODO: report error
+                addReadErr("Invalid module name reference");
                 return ProjectResult();
             }
             dev->modules.emplace_back(mod.unwrap());
@@ -495,30 +541,30 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     for (uint64_t i = 0; i < devNum; i++) {
         uint64_t deviceIndex;
         if (!reader.readVarUint(&deviceIndex)) {
-            //TODO: report error
+            addReadErr("Error reading device index");
             return ProjectResult();
         }
         if (deviceIndex >= devices.size()) {
-            //TODO: report error
+            addReadErr("Device index too big");
             return ProjectResult();
         }
         Rc<Device> current = devices[deviceIndex];
 
-        auto updateRefs = [&reader, &devices](std::vector<Rc<Device>>* target) -> bool {
+        auto updateRefs = [&reader, &devices, &addReadErr](std::vector<Rc<Device>>* target) -> bool {
             uint64_t num;
             if (!reader.readVarUint(&num)) {
-                //TODO: report error
+                addReadErr("Error reading device number");
                 return false;
             }
 
             for (uint64_t j = 0; j < num; j++) {
                 uint64_t index;
                 if (!reader.readVarUint(&index)) {
-                    //TODO: report error
+                    addReadErr("Error reading device index");
                     return false;
                 }
                 if (index >= devices.size()) {
-                    //TODO: report error
+                    addReadErr("Invalid device index");
                     return false;
                 }
                 target->push_back(devices[index]);
@@ -535,7 +581,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     }
 
     if (reader.current() != reader.end()) {
-        //TODO: report error
+        addReadErr("Expected EOF");
         return ProjectResult();
     }
 
@@ -552,7 +598,7 @@ bmcl::Buffer Project::encode() const
     bmcl::Buffer dest;
     dest.write(magic.data(), magic.size());
 
-    dest.writeUint8(_cfg->debugLevel());
+    dest.writeUint8(_cfg->generatedCodeDebugLevel());
     dest.writeUint8(_cfg->compressionLevel());
 
     dest.writeVarUint(_cfg->numOptions());
@@ -607,12 +653,12 @@ bmcl::Buffer Project::encode() const
         }
     }
 
-    BMCL_DEBUG() << "uncompressed project size: " << dest.size();
+    //BMCL_DEBUG() << "uncompressed project size: " << dest.size();
 
     ZpaqResult compressed = zpaqCompress(dest.data(), dest.size(), _cfg->compressionLevel());
     assert(compressed.isOk());
 
-    BMCL_DEBUG() << "compressed project size: " << compressed.unwrap().size();
+    //BMCL_DEBUG() << "compressed project size: " << compressed.unwrap().size();
 
     return compressed.take();
 }

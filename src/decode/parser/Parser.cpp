@@ -369,6 +369,7 @@ Rc<Report> Parser::reportTokenError(Token* tok, const char* msg)
     report->setLocation(_fileInfo.get(), tok->location());
     report->setLevel(Report::Error);
     report->setMessage(msg);
+    report->setHighlightMessage(true);
     return report;
 }
 

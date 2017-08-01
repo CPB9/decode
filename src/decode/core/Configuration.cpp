@@ -11,8 +11,9 @@
 namespace decode {
 
 Configuration::Configuration()
-    : _debugLevel(0)
+    : _codeDebugLevel(0)
     , _compressionLevel(5)
+    , _verboseOutput(false)
 {
     setCfgOption("target_pointer_width", "32");
 }
@@ -64,14 +65,14 @@ bmcl::Option<bmcl::StringView> Configuration::cfgOption(bmcl::StringView key) co
     return bmcl::None;
 }
 
-void Configuration::setDebugLevel(unsigned level)
+void Configuration::setGeneratedCodeDebugLevel(unsigned level)
 {
-    _debugLevel = level;
+    _codeDebugLevel = level;
 }
 
-unsigned Configuration::debugLevel() const
+unsigned Configuration::generatedCodeDebugLevel() const
 {
-    return _debugLevel;
+    return _codeDebugLevel;
 }
 
 void Configuration::setCompressionLevel(unsigned level)
@@ -102,5 +103,15 @@ Configuration::OptionsConstRange Configuration::optionsRange() const
 std::size_t Configuration::numOptions() const
 {
     return _values.size();
+}
+
+void Configuration::setVerboseOutput(bool isVerbose)
+{
+    _verboseOutput = isVerbose;
+}
+
+bool Configuration::verboseOutput() const
+{
+    return _verboseOutput;
 }
 }

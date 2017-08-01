@@ -16,6 +16,7 @@
 namespace decode {
 
 Report::Report()
+    : _highlightMessage(false)
 {
 }
 
@@ -37,6 +38,11 @@ void Report::setLocation(const FileInfo* finfo, Location loc)
 void Report::setMessage(bmcl::StringView str)
 {
     _message.emplace(str.begin(), str.end());
+}
+
+void Report::setHighlightMessage(bool flag)
+{
+    _highlightMessage = flag;
 }
 
 void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) const
@@ -80,11 +86,16 @@ void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) cons
     if (_message.isSome()) {
         if (colorStream) {
             *colorStream << bmcl::ColorAttr::Reset;
-            *colorStream << bmcl::ColorAttr::Bright;
+            if (_highlightMessage) {
+                *colorStream << bmcl::ColorAttr::Bright;
+            }
         }
-        *out << _message.unwrap() << std::endl;
+        *out << _message.unwrap();
     }
     if (_location.isSome()) {
+        if (_message.isSome()) {
+            *out << std::endl;
+        }
         if (colorStream) {
             *colorStream << bmcl::ColorAttr::Reset;
         }

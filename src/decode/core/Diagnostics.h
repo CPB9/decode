@@ -43,6 +43,7 @@ public:
     void setMessage(bmcl::StringView str);
     void setLevel(Level level);
     void setLocation(const FileInfo* finfo, Location loc);
+    void setHighlightMessage(bool flag = true);
 
 private:
     void printReport(std::ostream* out, bmcl::ColorStream* color) const;
@@ -51,6 +52,7 @@ private:
     bmcl::Option<Level> _level;
     bmcl::Option<Location> _location;
     Rc<const FileInfo> _fileInfo;
+    bool _highlightMessage;
 };
 
 class Diagnostics : public RefCountable {

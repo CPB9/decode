@@ -27,15 +27,14 @@ inline void serializeString(bmcl::StringView str, bmcl::Buffer* dest)
     dest->write((const void*)str.data(), str.size());
 }
 
-inline bmcl::Result<bmcl::StringView, void> deserializeString(bmcl::MemReader* src)
+inline bmcl::Result<bmcl::StringView, std::string> deserializeString(bmcl::MemReader* src)
 {
     std::uint64_t strSize;
     if (!src->readVarUint(&strSize)) {
-        return bmcl::Result<bmcl::StringView, void>();
+        return std::string("Invalid string size");
     }
     if (src->readableSize() < strSize) {
-        //TODO: report error
-        return bmcl::Result<bmcl::StringView, void>();
+        return std::string("Unexpected EOF reading string");
     }
 
     const char* begin = (const char*)src->current();
