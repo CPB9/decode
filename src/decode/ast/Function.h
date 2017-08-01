@@ -9,37 +9,28 @@
 #pragma once
 
 #include "decode/Config.h"
+#include "decode/core/Rc.h"
 #include "decode/core/NamedRc.h"
+#include "decode/ast/DocBlockMixin.h"
 
-#include <bmcl/StringView.h>
-
-#include <cstdint>
+#include <bmcl/Fwd.h>
 
 namespace decode {
 
+class ImplBlock;
+class FunctionType;
+class Field;
 class Type;
+class ModuleInfo;
 
-class Constant : public NamedRc {
+class Function : public NamedRc, public DocBlockMixin {
 public:
-    Constant(bmcl::StringView name, std::uintmax_t value, Type* type)
-        : NamedRc(name)
-        , _value(value)
-        , _type(type)
-    {
-    }
+    Function(bmcl::StringView name, FunctionType* type);
+    ~Function();
 
-    std::uintmax_t value() const
-    {
-        return _value;
-    }
-
-    const Rc<Type>& type() const
-    {
-        return _type;
-    }
+    const FunctionType* type() const;
 
 private:
-    std::uintmax_t _value;
-    Rc<Type> _type;
+    Rc<FunctionType> _type;
 };
 }

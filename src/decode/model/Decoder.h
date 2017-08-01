@@ -11,7 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
-#include <bmcl/Bytes.h>
+#include <bmcl/Fwd.h>
 
 #include <unordered_map>
 #include <vector>
@@ -24,7 +24,6 @@ class FieldsNode;
 class Statuses;
 class StatusMsg;
 class ValueNode;
-class ModelEventHandler;
 class DecoderAction;
 
 class StatusMsgDecoder {

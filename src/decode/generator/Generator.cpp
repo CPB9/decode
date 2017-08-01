@@ -13,12 +13,14 @@
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/generator/CmdDecoderGen.h"
 #include "decode/generator/CmdEncoderGen.h"
-#include "decode/parser/Ast.h"
+#include "decode/ast/Ast.h"
+#include "decode/ast/Function.h"
+#include "decode/ast/ModuleInfo.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Project.h"
-#include "decode/parser/Decl.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Constant.h"
+#include "decode/ast/Decl.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Constant.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 #include "decode/core/PathUtils.h"
@@ -49,6 +51,10 @@ namespace decode {
 
 Generator::Generator(Diagnostics* diag)
     : _diag(diag)
+{
+}
+
+Generator::~Generator()
 {
 }
 

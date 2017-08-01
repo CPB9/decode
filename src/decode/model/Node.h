@@ -12,7 +12,7 @@
 #include "decode/core/Rc.h"
 #include "decode/model/ValueKind.h"
 
-#include <bmcl/Option.h>
+#include <bmcl/Fwd.h>
 #include <bmcl/OptionPtr.h>
 #include <bmcl/StringView.h>
 
@@ -46,14 +46,7 @@ public:
     virtual bool canSetValue() const;
     virtual bool setValue(const Value& value);
 
-    bmcl::Option<std::size_t> indexInParent() const
-    {
-        if (_parent.isNone()) {
-            return bmcl::None;
-        }
-
-        return _parent->childIndex(this);
-    }
+    bmcl::Option<std::size_t> indexInParent() const;
 
 protected:
     template <typename C>
@@ -87,29 +80,4 @@ protected:
 private:
     bmcl::OptionPtr<Node> _parent; // not owned
 };
-
-inline Node::Node(bmcl::OptionPtr<Node> node)
-    : _parent(node)
-{
-}
-
-inline bool Node::hasParent() const
-{
-    return _parent.isSome();
-}
-
-inline bmcl::OptionPtr<const Node> Node::parent() const
-{
-    return _parent;
-}
-
-inline bmcl::OptionPtr<Node> Node::parent()
-{
-    return _parent;
-}
-
-inline void Node::setParent(Node* node)
-{
-    _parent = node;
-}
 }

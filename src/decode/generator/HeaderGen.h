@@ -73,9 +73,4 @@ inline SrcBuilder& HeaderGen::output()
 {
     return *_output;
 }
-
-inline void HeaderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
-{
-    _typeReprGen->genTypeRepr(type, fieldName);
-}
 }

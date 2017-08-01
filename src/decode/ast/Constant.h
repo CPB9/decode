@@ -9,30 +9,26 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/core/Rc.h"
+#include "decode/core/NamedRc.h"
 
-#include <bmcl/Bytes.h>
+#include <bmcl/StringView.h>
+
+#include <cstdint>
 
 namespace decode {
 
-class Sender;
+class Type;
 
-class Client : public RefCountable {
+class Constant : public NamedRc {
 public:
-    Client(uint8_t dataType)
-        : _dataType(dataType)
-    {
-    }
+    Constant(bmcl::StringView name, std::uintmax_t value, Type* type);
+    ~Constant();
 
-    virtual void start(Sender* parent) = 0;
-    virtual void acceptData(Sender* parent, bmcl::Bytes packet) = 0;
-
-    uint8_t dataType() const
-    {
-        return _dataType;
-    }
+    std::uintmax_t value() const;
+    const Type* type() const;
 
 private:
-    uint8_t _dataType;
+    std::uintmax_t _value;
+    Rc<Type> _type;
 };
 }

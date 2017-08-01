@@ -27,7 +27,6 @@ class GcTmState;
 class Project;
 class Model;
 struct Device;
-class ModelEventHandler;
 
 class GroundControl : public caf::event_based_actor {
 public:

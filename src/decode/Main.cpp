@@ -8,27 +8,14 @@
 
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Configuration.h"
-#include "decode/core/Iterator.h"
 #include "decode/core/ProgressPrinter.h"
-#include "decode/parser/Parser.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Ast.h"
-#include "decode/parser/Decl.h"
-#include "decode/parser/Package.h"
 #include "decode/parser/Project.h"
-#include "decode/generator/Generator.h"
 
-#include <bmcl/FileUtils.h>
 #include <bmcl/Result.h>
-#include <bmcl/Logging.h>
-#include <bmcl/Buffer.h>
 
 #include <tclap/CmdLine.h>
 
-#include <iostream>
 #include <chrono>
-#include <algorithm>
-#include <assert.h>
 
 using namespace decode;
 

@@ -9,11 +9,8 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/parser/AstVisitor.h"
-#include "decode/generator/SrcBuilder.h"
+#include "decode/ast/AstVisitor.h"
 #include "decode/generator/IncludeCollector.h"
-#include "decode/generator/TypeReprGen.h"
-#include "decode/generator/SerializationFuncPrototypeGen.h"
 
 #include <unordered_set>
 #include <string>
@@ -21,6 +18,8 @@
 namespace decode {
 
 class Component;
+class SrcBuilder;
+class TypeReprGen;
 
 class TypeDefGen : public ConstAstVisitor<TypeDefGen> {
 public:
@@ -51,35 +50,5 @@ private:
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
 };
-
-inline bool TypeDefGen::visitBuiltinType(const BuiltinType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitReferenceType(const ReferenceType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitArrayType(const ArrayType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitFunctionType(const FunctionType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitImportedType(const ImportedType* type)
-{
-    (void)type;
-    return false;
-}
 
 }

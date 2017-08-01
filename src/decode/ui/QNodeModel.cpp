@@ -130,4 +130,11 @@ Qt::DropActions QNodeModel::supportedDropActions() const
 {
     return Qt::IgnoreAction;
 }
+
+void QNodeModel::setRoot(Node* node)
+{
+    beginResetModel();
+    _root.reset(node);
+    endResetModel();
+}
 }

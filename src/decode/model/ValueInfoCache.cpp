@@ -7,9 +7,9 @@
  */
 
 #include "decode/model/ValueInfoCache.h"
-#include "decode/parser/Type.h"
+#include "decode/ast/Type.h"
 #include "decode/parser/Package.h"
-#include "decode/parser/AstVisitor.h"
+#include "decode/ast/AstVisitor.h"
 #include "decode/generator/StringBuilder.h"
 #include "decode/core/Foreach.h"
 

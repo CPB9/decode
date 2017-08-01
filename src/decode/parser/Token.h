@@ -10,7 +10,6 @@
 
 #include "decode/Config.h"
 #include "decode/core/Location.h"
-#include "decode/parser/Span.h"
 
 #include <bmcl/StringView.h>
 

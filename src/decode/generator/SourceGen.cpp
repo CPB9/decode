@@ -8,6 +8,9 @@
 
 #include "decode/generator/SourceGen.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/generator/TypeReprGen.h"
+#include "decode/generator/SrcBuilder.h"
+#include "decode/generator/IncludeCollector.h"
 
 namespace decode {
 
@@ -25,9 +28,56 @@ SourceGen::~SourceGen()
 {
 }
 
+inline SrcBuilder& SourceGen::output()
+{
+    return *_output;
+}
+
+inline void SourceGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
+{
+    _typeReprGen->genTypeRepr(type, fieldName);
+}
+
+inline bool SourceGen::visitBuiltinType(const BuiltinType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool SourceGen::visitReferenceType(const ReferenceType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool SourceGen::visitArrayType(const ArrayType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool SourceGen::visitFunctionType(const FunctionType* type)
+{
+    (void)type;
+    return false;
+}
+
+
+inline bool SourceGen::visitImportedType(const ImportedType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool SourceGen::visitAliasType(const AliasType* type)
+{
+    (void)type;
+    return false;
+}
+
 void SourceGen::appendIncludes(const NamedType* type)
 {
-    StringBuilder path = type->moduleName().toStdString();
+    StringBuilder path(type->moduleName().toStdString());
     path.append('/');
     path.append(type->name());
     _output->appendLocalIncludePath(path.view());

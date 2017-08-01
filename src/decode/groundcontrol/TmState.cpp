@@ -14,7 +14,7 @@
 #include "decode/model/NodeView.h"
 #include "decode/model/NodeViewUpdater.h"
 #include "decode/model/ValueInfoCache.h"
-#include "decode/groundcontrol/AloowUnsafeMessageType.h"
+#include "decode/groundcontrol/AllowUnsafeMessageType.h"
 
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>

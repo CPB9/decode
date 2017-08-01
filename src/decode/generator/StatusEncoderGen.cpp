@@ -9,7 +9,7 @@
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/IncludeCollector.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Component.h"
 
 #include <unordered_set>
 #include <string>
@@ -111,7 +111,7 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
     AccessorKind lastKind = AccessorKind::Field;
 
     InlineSerContext ctx;
-    StringBuilder currentField = "_photon";
+    StringBuilder currentField("_photon");
     currentField.appendWithFirstUpper(comp->moduleName());
     const Type* lastType;
     for (const Accessor* acc : part->accessorsRange()) {

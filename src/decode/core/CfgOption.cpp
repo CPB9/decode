@@ -22,6 +22,10 @@ SingleCfgOption::SingleCfgOption(bmcl::StringView key, bmcl::StringView value)
 {
 }
 
+SingleCfgOption::~SingleCfgOption()
+{
+}
+
 bool SingleCfgOption::matchesConfiguration(const Configuration* cfg) const
 {
     return cfg->isCfgOptionSet(_key, _value);

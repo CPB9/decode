@@ -17,6 +17,31 @@ Node::~Node()
 {
 }
 
+Node::Node(bmcl::OptionPtr<Node> node)
+    : _parent(node)
+{
+}
+
+bool Node::hasParent() const
+{
+    return _parent.isSome();
+}
+
+bmcl::OptionPtr<const Node> Node::parent() const
+{
+    return _parent;
+}
+
+bmcl::OptionPtr<Node> Node::parent()
+{
+    return _parent;
+}
+
+void Node::setParent(Node* node)
+{
+    _parent = node;
+}
+
 bool Node::canHaveChildren() const
 {
     return true;
@@ -77,4 +102,14 @@ void Node::collectUpdates(NodeViewUpdater* dest)
 {
     (void)dest;
 }
+
+bmcl::Option<std::size_t> Node::indexInParent() const
+{
+    if (_parent.isNone()) {
+        return bmcl::None;
+    }
+
+    return _parent->childIndex(this);
+}
+
 }

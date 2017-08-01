@@ -7,9 +7,9 @@
  */
 
 #include "decode/model/FieldsNode.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Component.h"
 #include "decode/model/ValueNode.h"
-#include "decode/parser/Decl.h" //HACK
+#include "decode/ast/Field.h"
 
 namespace decode {
 

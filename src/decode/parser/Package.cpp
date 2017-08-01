@@ -12,10 +12,14 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 #include "decode/core/Utils.h"
+#include "decode/core/FileInfo.h"
 #include "decode/core/ProgressPrinter.h"
-#include "decode/parser/Ast.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Decl.h"
+#include "decode/ast/Ast.h"
+#include "decode/ast/ModuleInfo.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Decl.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Field.h"
 #include "decode/parser/Lexer.h"
 #include "decode/parser/Parser.h"
 
@@ -38,18 +42,6 @@
 #endif
 
 namespace decode {
-
-//TODO: move to Component.c
-
-ComponentAndMsg::ComponentAndMsg(const Rc<Component>& component, const Rc<StatusMsg>& msg)
-    : component(component)
-    , msg(msg)
-{
-}
-
-ComponentAndMsg::~ComponentAndMsg()
-{
-}
 
 #define DECODE_SUFFIX ".decode"
 
@@ -312,5 +304,35 @@ bmcl::OptionPtr<Ast> Package::moduleWithName(bmcl::StringView name)
         return bmcl::None;
     }
     return it->second.get();
+}
+
+ComponentMap::ConstRange Package::components() const
+{
+    return _components;
+}
+
+Package::AstMap::ConstRange Package::modules() const
+{
+    return _modNameToAstMap;
+}
+
+Package::AstMap::Range Package::modules()
+{
+    return _modNameToAstMap;
+}
+
+const Diagnostics* Package::diagnostics() const
+{
+    return _diag.get();
+}
+
+Diagnostics* Package::diagnostics()
+{
+    return _diag.get();
+}
+
+CompAndMsgVecConstRange Package::statusMsgs() const
+{
+    return _statusMsgs;
 }
 }

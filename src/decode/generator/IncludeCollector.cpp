@@ -9,8 +9,9 @@
 #include "decode/generator/IncludeCollector.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeNameGen.h"
-#include "decode/parser/Type.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Function.h"
+#include "decode/ast/Component.h"
 
 namespace decode {
 

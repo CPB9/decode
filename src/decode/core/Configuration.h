@@ -11,15 +11,12 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Iterator.h"
-#include "decode/core/Hash.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/Option.h>
 
 #include <unordered_map>
-#include <unordered_set>
 #include <string>
-#include <vector>
 
 namespace decode {
 

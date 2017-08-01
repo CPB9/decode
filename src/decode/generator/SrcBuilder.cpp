@@ -10,10 +10,56 @@
 
 namespace decode {
 
+SrcBuilder::~SrcBuilder()
+{
+}
+
+void SrcBuilder::setModName(bmcl::StringView modName)
+{
+    _modName = modName;
+}
+
+bmcl::StringView SrcBuilder::modName() const
+{
+    return _modName;
+}
+
+void SrcBuilder::appendModIfdef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_HAS_MODULE_");
+    appendUpper(name);
+    append("\n");
+}
+
+void SrcBuilder::appendDeviceIfDef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_DEVICE_");
+    appendUpper(name);
+    append("\n");
+}
+
+void SrcBuilder::appendTargetModIfdef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_HAS_TARGET_MODULE_");
+    appendUpper(name);
+    append("\n");
+}
+
+void SrcBuilder::appendEndif()
+{
+    append("#endif\n");
+}
+
 void SrcBuilder::appendModPrefix()
 {
     append("Photon");
     appendWithFirstUpper(_modName);
+}
+
+void SrcBuilder::appendModPrefix(bmcl::StringView name)
+{
+    append("Photon");
+    appendWithFirstUpper(name);
 }
 
 void SrcBuilder::appendReadableSizeCheck(const InlineSerContext& ctx, bmcl::StringView sizeCheck)
@@ -68,6 +114,16 @@ void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, bmcl::StringView 
 void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)
 {
     appendLoopHeader(ctx, std::to_string(loopSize));
+}
+
+void SrcBuilder::appendIndent(std::size_t n)
+{
+    appendSeveral(n, "    ");
+}
+
+void SrcBuilder::appendIndent(const InlineSerContext& ctx)
+{
+    appendSeveral(ctx.indentLevel, "    ");
 }
 
 void SrcBuilder::appendWithTryMacro(const SrcGen& func)

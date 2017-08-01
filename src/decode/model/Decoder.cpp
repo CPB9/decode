@@ -8,13 +8,13 @@
 
 #include "decode/model/Decoder.h"
 #include "decode/core/Try.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Type.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Type.h"
 #include "decode/model/FieldsNode.h"
+#include "decode/ast/Field.h"
 #include "decode/model/ValueNode.h"
-#include "decode/model/ModelEventHandler.h"
-#include "decode/parser/Decl.h" //HACK
 
+#include <bmcl/Bytes.h>
 #include <bmcl/MemReader.h>
 
 namespace decode {

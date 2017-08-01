@@ -2,6 +2,7 @@
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/IncludeCollector.h"
+#include "decode/ast/Function.h"
 #include "decode/core/Foreach.h"
 
 namespace decode {

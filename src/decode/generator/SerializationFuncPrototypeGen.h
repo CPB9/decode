@@ -9,8 +9,8 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/parser/Type.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Component.h"
 
 namespace decode {
 

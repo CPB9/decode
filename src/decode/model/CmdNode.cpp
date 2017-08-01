@@ -8,8 +8,9 @@
 
 #include "decode/model/CmdNode.h"
 #include "decode/core/Try.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Type.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Function.h"
 #include "decode/model/ValueInfoCache.h"
 
 #include <bmcl/MemWriter.h>

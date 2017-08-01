@@ -28,7 +28,6 @@ namespace decode {
 class Sender;
 class Scheduler;
 class Project;
-class ModelEventHandler;
 struct StartCmdRndGen;
 
 class FwtState : public caf::event_based_actor {

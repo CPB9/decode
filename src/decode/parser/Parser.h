@@ -19,7 +19,6 @@
 
 #include <vector>
 #include <cstdint>
-#include <unordered_map>
 
 namespace decode {
 
@@ -57,23 +56,7 @@ enum class BuiltinTypeKind;
 
 using ParseResult = bmcl::Result<Rc<Ast>, void>;
 
-struct AllBuiltinTypes : public RefCountable {
-    Rc<BuiltinType> usizeType;
-    Rc<BuiltinType> isizeType;
-    Rc<BuiltinType> varuintType;
-    Rc<BuiltinType> varintType;
-    Rc<BuiltinType> u8Type;
-    Rc<BuiltinType> i8Type;
-    Rc<BuiltinType> u16Type;
-    Rc<BuiltinType> i16Type;
-    Rc<BuiltinType> u32Type;
-    Rc<BuiltinType> i32Type;
-    Rc<BuiltinType> u64Type;
-    Rc<BuiltinType> i64Type;
-    Rc<BuiltinType> boolType;
-    Rc<BuiltinType> voidType;
-    std::unordered_map<bmcl::StringView, Rc<BuiltinType>> btMap;
-};
+struct AllBuiltinTypes;
 
 class DECODE_EXPORT Parser {
 public:

@@ -8,7 +8,8 @@
 
 #include "decode/generator/HeaderGen.h"
 #include "decode/core/Foreach.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Function.h"
 #include "decode/generator/TypeNameGen.h"
 
 namespace decode {
@@ -334,5 +335,10 @@ void HeaderGen::appendCommonIncludePaths()
     _output->appendInclude("stddef.h");
     _output->appendInclude("stdint.h");
     _output->appendEol();
+}
+
+void HeaderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
+{
+    _typeReprGen->genTypeRepr(type, fieldName);
 }
 }

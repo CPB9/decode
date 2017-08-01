@@ -7,8 +7,8 @@
  */
 
 #include "decode/parser/Containers.h"
-#include "decode/parser/Field.h"
-#include "decode/parser/Type.h"
+#include "decode/ast/Field.h"
+#include "decode/ast/Type.h"
 
 #include <bmcl/OptionPtr.h>
 #include <bmcl/StringView.h>

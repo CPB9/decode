@@ -21,7 +21,6 @@ class QTreeView;
 
 namespace decode {
 
-class ModelEventHandler;
 class CmdContainerNode;
 class QNodeModel;
 class QNodeViewModel;

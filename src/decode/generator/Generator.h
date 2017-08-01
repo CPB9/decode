@@ -16,7 +16,6 @@
 #include <bmcl/StringView.h>
 
 #include <memory>
-#include <unordered_map>
 
 namespace decode {
 
@@ -33,6 +32,7 @@ class TypeReprGen;
 class Generator : public RefCountable {
 public:
     Generator(Diagnostics* diag);
+    ~Generator();
 
     void setOutPath(bmcl::StringView path);
 

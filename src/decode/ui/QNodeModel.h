@@ -39,12 +39,7 @@ public:
 
     void setEditable(bool isEditable = true);
 
-    void setRoot(Node* node)
-    {
-        beginResetModel();
-        _root.reset(node);
-        endResetModel();
-    }
+    void setRoot(Node* node);
 
 protected:
     static bmcl::OptionPtr<Node> unpackMimeData(const QMimeData* data, const QString& mimeTypeStr);

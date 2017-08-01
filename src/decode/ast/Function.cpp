@@ -6,13 +6,23 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#pragma once
-
-#include "decode/Config.h"
-
-#include <bmcl/StringView.h>
+#include "decode/ast/Function.h"
+#include "decode/ast/Type.h"
 
 namespace decode {
 
-typedef bmcl::StringView Span;
+Function::Function(bmcl::StringView name, FunctionType* type)
+    : NamedRc(name)
+    , _type(type)
+{
+}
+
+const FunctionType* Function::type() const
+{
+    return _type.get();
+}
+
+Function::~Function()
+{
+}
 }

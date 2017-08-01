@@ -8,15 +8,13 @@
 
 #include "decode/groundcontrol/GroundControl.h"
 #include "decode/groundcontrol/Exchange.h"
-#include "decode/groundcontrol/Scheduler.h"
 #include "decode/groundcontrol/FwtState.h"
 #include "decode/groundcontrol/TmState.h"
-#include "decode/model/Model.h"
 #include "decode/parser/Package.h"
 #include "decode/parser/Project.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/groundcontrol/Atoms.h"
-#include "decode/groundcontrol/AloowUnsafeMessageType.h"
+#include "decode/groundcontrol/AllowUnsafeMessageType.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Result.h>

@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) 2017 CPB9 team. See the COPYRIGHT file at the top-level directory.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+#pragma once
+
+#include "decode/Config.h"
+#include "decode/core/Rc.h"
+#include "decode/core/Hash.h"
+
+#include <bmcl/Fwd.h>
+#include <bmcl/StringView.h>
+
+#include <string>
+#include <unordered_map>
+#include <functional>
+
+namespace decode {
+
+class ModuleInfo;
+class ModuleDecl;
+class ImportDecl;
+class ImplBlock;
+class ImportedType;
+class Type;
+class NamedType;
+class TypeDecl;
+class Component;
+class Constant;
+
+class Ast : public RefCountable {
+public:
+    using Types = RcVec<Type>;
+    using NamedTypes = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
+    using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
+    using Imports = RcVec<ImportDecl>;
+    using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
+
+    Ast();
+    ~Ast();
+
+    Types::ConstIterator typesBegin() const;
+    Types::ConstIterator typesEnd() const;
+    Types::ConstRange typesRange() const;
+    NamedTypes::ConstIterator namedTypesBegin() const;
+    NamedTypes::ConstIterator namedTypesEnd() const;
+    NamedTypes::ConstRange namedTypesRange() const;
+    Imports::ConstIterator importsBegin() const;
+    Imports::ConstIterator importsEnd() const;
+    Imports::ConstRange importsRange() const;
+    Imports::Range importsRange();
+    Constants::ConstIterator constantsBegin() const;
+    Constants::ConstIterator constantsEnd() const;
+    Constants::ConstRange constantsRange() const;
+
+    bool hasConstants() const;
+    const std::string& fileName() const;
+    const ModuleInfo* moduleInfo() const;
+    bmcl::OptionPtr<const Component> component() const;
+    bmcl::OptionPtr<Component> component();
+    bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<NamedType> findTypeWithName(bmcl::StringView name);
+    bmcl::OptionPtr<const ImplBlock> findImplBlockWithName(bmcl::StringView name) const;
+
+    void setModuleDecl(ModuleDecl* decl);
+    void addType(Type* type);
+    void addTopLevelType(NamedType* type);
+    void addImplBlock(ImplBlock* block);
+    void addTypeImport(ImportDecl* decl);
+    void addConstant(Constant* constant);
+    void setComponent(Component* comp);
+
+private:
+    Imports _importDecls;
+
+    Rc<Component> _component;
+
+    NamedTypes _typeNameToType;
+    Types _types;
+    ImplBlocks _typeNameToImplBlock;
+    Constants _constants;
+    //std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
+    Rc<const ModuleInfo> _moduleInfo;
+    Rc<ModuleDecl> _moduleDecl;
+};
+
+}

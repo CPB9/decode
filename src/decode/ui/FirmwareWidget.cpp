@@ -8,11 +8,10 @@
 
 #include "decode/ui/FirmwareWidget.h"
 #include "decode/model/CmdNode.h"
-#include "decode/model/Model.h"
 #include "decode/ui/QCmdModel.h"
 #include "decode/ui/QNodeModel.h"
 #include "decode/ui/QNodeViewModel.h"
-#include "decode/model/ModelEventHandler.h"
+#include "decode/model/NodeView.h"
 
 #include <QWidget>
 

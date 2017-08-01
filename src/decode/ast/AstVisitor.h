@@ -8,9 +8,11 @@
 
 #pragma once
 
-#include "decode/parser/Decl.h"
-#include "decode/parser/Ast.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Decl.h"
+#include "decode/ast/Ast.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Field.h"
+#include "decode/ast/Component.h"
 
 namespace decode {
 

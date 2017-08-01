@@ -10,7 +10,6 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/parser/Type.h"
 #include "decode/model/Node.h"
 #include "decode/model/ValueInfoCache.h"
 
@@ -24,9 +23,18 @@ namespace bmcl { class MemReader; class MemWriter; }
 namespace decode {
 
 class ValueInfoCache;
-class ModelEventHandler;
 class Function;
 class NodeViewUpdater;
+class ArrayType;
+class SliceType;
+class StructType;
+class FunctionType;
+class BuiltinType;
+class AliasType;
+class ImportedType;
+class VariantType;
+class EnumType;
+class ReferenceType;
 
 class ValueNode : public Node {
 public:
@@ -45,15 +53,8 @@ public:
     bmcl::StringView fieldName() const override;
     bmcl::StringView shortDescription() const override;
 
-    void setFieldName(bmcl::StringView name)
-    {
-        _fieldName = name;
-    }
-
-    void setShortDesc(bmcl::StringView desc)
-    {
-        _shortDesc = desc;
-    }
+    void setFieldName(bmcl::StringView name);
+    void setShortDesc(bmcl::StringView desc);
 
 protected:
 
@@ -80,10 +81,7 @@ public:
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
 
-    ValueNode* nodeAt(std::size_t index)
-    {
-        return _values[index].get();
-    }
+    ValueNode* nodeAt(std::size_t index);
 
     const std::vector<Rc<ValueNode>> values();
 

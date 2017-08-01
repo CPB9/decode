@@ -8,13 +8,12 @@
 
 #include "decode/model/ValueNode.h"
 #include "decode/model/Value.h"
+#include "decode/ast/Field.h"
 #include "decode/core/Try.h"
 #include "decode/core/Foreach.h"
-#include "decode/generator/StringBuilder.h"
-#include "decode/parser/Type.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Component.h"
 #include "decode/model/ValueInfoCache.h"
-#include "decode/model/ModelEventHandler.h"
 #include "decode/model/NodeViewUpdate.h"
 #include "decode/model/NodeView.h"
 #include "decode/model/NodeViewUpdater.h"
@@ -105,6 +104,16 @@ bmcl::StringView ValueNode::fieldName() const
 bmcl::StringView ValueNode::shortDescription() const
 {
     return _shortDesc;
+}
+
+void ValueNode::setFieldName(bmcl::StringView name)
+{
+    _fieldName = name;
+}
+
+void ValueNode::setShortDesc(bmcl::StringView desc)
+{
+    _shortDesc = desc;
 }
 
 static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
@@ -246,6 +255,11 @@ bmcl::Option<std::size_t> ContainerValueNode::childIndex(const Node* node) const
 bmcl::OptionPtr<Node> ContainerValueNode::childAt(std::size_t idx)
 {
     return childAtGeneric(_values, idx);
+}
+
+ValueNode* ContainerValueNode::nodeAt(std::size_t index)
+{
+    return _values[index].get();
 }
 
 ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)

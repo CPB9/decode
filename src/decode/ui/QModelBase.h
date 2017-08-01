@@ -363,5 +363,11 @@ int QModelBase<T>::columnCount(const QModelIndex& parent) const
     (void)parent;
     return 4;
 }
+
+class Node;
+class NodeView;
+
+extern template class QModelBase<Node>;
+extern template class QModelBase<NodeView>;
 }
 

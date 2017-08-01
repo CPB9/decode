@@ -25,7 +25,6 @@ namespace decode {
 class Component;
 class ValueNode;
 class ValueInfoCache;
-class ModelEventHandler;
 class NodeViewUpdater;
 
 class FieldsNode : public Node {

@@ -1,13 +1,18 @@
+/*
+ * Copyright (c) 2017 CPB9 team. See the COPYRIGHT file at the top-level directory.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 #pragma once
 
-#include "decode/model/Node.h"
+#include "decode/Config.h"
 #include "decode/model/Value.h"
 #include "decode/model/NodeView.h"
 
-#include <bmcl/AlignedUnion.h>
 #include <bmcl/Variant.h>
-
-#include <unordered_map>
 
 namespace decode {
 
@@ -38,28 +43,12 @@ using NodeViewUpdateBase =
 
 class NodeViewUpdate : public NodeViewUpdateBase {
 public:
-    NodeViewUpdate(Value&& value, Node* parent)
-        : NodeViewUpdateBase(value)
-        , _id(uintptr_t(parent))
-    {
-    }
+    NodeViewUpdate(Value&& value, Node* parent);
+    NodeViewUpdate(NodeViewVec&& vec, Node* parent);
+    NodeViewUpdate(std::size_t size, Node* parent);
+    ~NodeViewUpdate();
 
-    NodeViewUpdate(NodeViewVec&& vec, Node* parent)
-        : NodeViewUpdateBase(vec)
-        , _id(uintptr_t(parent))
-    {
-    }
-
-    NodeViewUpdate(std::size_t size, Node* parent)
-        : NodeViewUpdateBase(size)
-        , _id(uintptr_t(parent))
-    {
-    }
-
-    uintptr_t id() const
-    {
-        return _id;
-    }
+    uintptr_t id() const;
 
 private:
     uintptr_t _id;

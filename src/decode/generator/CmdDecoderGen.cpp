@@ -7,6 +7,7 @@
  */
 
 #include "decode/generator/CmdDecoderGen.h"
+#include "decode/ast/Function.h"
 
 namespace decode {
 

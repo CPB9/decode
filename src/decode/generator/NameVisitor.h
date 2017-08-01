@@ -9,7 +9,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/parser/AstVisitor.h"
+#include "decode/ast/AstVisitor.h"
 #include "decode/generator/SrcBuilder.h"
 
 namespace decode {

@@ -7,8 +7,10 @@
  */
 
 #include "decode/generator/TypeDefGen.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/Component.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/generator/SrcBuilder.h"
+#include "decode/generator/TypeReprGen.h"
 
 namespace decode {
 
@@ -20,6 +22,36 @@ TypeDefGen::TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output)
 
 TypeDefGen::~TypeDefGen()
 {
+}
+
+inline bool TypeDefGen::visitBuiltinType(const BuiltinType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool TypeDefGen::visitReferenceType(const ReferenceType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool TypeDefGen::visitArrayType(const ArrayType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool TypeDefGen::visitFunctionType(const FunctionType* type)
+{
+    (void)type;
+    return false;
+}
+
+inline bool TypeDefGen::visitImportedType(const ImportedType* type)
+{
+    (void)type;
+    return false;
 }
 
 void TypeDefGen::genTypeDef(const Type* type)
@@ -203,7 +235,7 @@ bool TypeDefGen::visitAliasType(const AliasType* type)
     _output->append("typedef ");
     const Type* link = type->alias();
     if (link->isFunction()) {
-        StringBuilder typedefName = "Photon";
+        StringBuilder typedefName("Photon");
         typedefName.append(type->name());
         _typeReprGen->genTypeRepr(link, typedefName.result());
     } else {

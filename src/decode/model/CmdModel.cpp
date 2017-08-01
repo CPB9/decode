@@ -1,7 +1,15 @@
+/*
+ * Copyright (c) 2017 CPB9 team. See the COPYRIGHT file at the top-level directory.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 #include "decode/model/CmdModel.h"
 #include "decode/parser/Project.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Ast.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Ast.h"
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/CmdNode.h"
 

@@ -7,7 +7,8 @@
  */
 
 #include "decode/generator/TypeNameGen.h"
-#include "decode/parser/Decl.h"
+#include "decode/generator/StringBuilder.h"
+#include "decode/ast/Decl.h"
 
 #include <bmcl/StringView.h>
 
@@ -15,6 +16,10 @@ namespace decode {
 
 TypeNameGen::TypeNameGen(StringBuilder* dest)
     : _output(dest)
+{
+}
+
+TypeNameGen::~TypeNameGen()
 {
 }
 

@@ -16,9 +16,6 @@
 #include <bmcl/Fwd.h>
 #include <bmcl/Buffer.h>
 
-#include <unordered_map>
-#include <map>
-
 namespace decode {
 
 class Ast;
@@ -77,33 +74,4 @@ private:
     CompAndMsgVec _statusMsgs;
 };
 
-inline ComponentMap::ConstRange Package::components() const
-{
-    return _components;
-}
-
-inline Package::AstMap::ConstRange Package::modules() const
-{
-    return _modNameToAstMap;
-}
-
-inline Package::AstMap::Range Package::modules()
-{
-    return _modNameToAstMap;
-}
-
-inline const Diagnostics* Package::diagnostics() const
-{
-    return _diag.get();
-}
-
-inline Diagnostics* Package::diagnostics()
-{
-    return _diag.get();
-}
-
-inline CompAndMsgVecConstRange Package::statusMsgs() const
-{
-    return _statusMsgs;
-}
 }

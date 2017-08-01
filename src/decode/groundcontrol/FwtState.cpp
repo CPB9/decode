@@ -9,11 +9,9 @@
 #include "decode/groundcontrol/FwtState.h"
 #include "decode/groundcontrol/Exchange.h"
 #include "decode/groundcontrol/MemIntervalSet.h"
-#include "decode/groundcontrol/Scheduler.h"
-#include "decode/model/ModelEventHandler.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/parser/Project.h"
-#include "decode/groundcontrol/AloowUnsafeMessageType.h"
+#include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/core/Utils.h"
 #include "decode/groundcontrol/Atoms.h"
 
@@ -309,7 +307,7 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
         return;
     }
 
-    bmcl::Result<bmcl::StringView, void> name = deserializeString(src);
+    auto name = deserializeString(src);
     if (name.isErr()) {
         reportFirmwareError("Recieved hash responce with invalid device name");
         return;

@@ -9,8 +9,8 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/parser/AstVisitor.h"
-#include "decode/parser/Component.h"
+#include "decode/ast/AstVisitor.h"
+#include "decode/ast/Component.h"
 
 #include <string>
 #include <unordered_set>
@@ -42,7 +42,6 @@ public:
     bool visitFunctionType(const FunctionType* func);
 
 private:
-
     void addInclude(const NamedType* type);
 
     const Type* _currentType;

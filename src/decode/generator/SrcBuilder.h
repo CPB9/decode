@@ -8,8 +8,11 @@
 
 #pragma once
 
+#include "decode/Config.h"
 #include "decode/generator/StringBuilder.h"
 #include "decode/generator/InlineSerContext.h"
+
+#include <bmcl/StringView.h>
 
 #include <functional>
 
@@ -21,9 +24,14 @@ typedef std::function<void(SrcBuilder*)> SrcGen;
 
 class SrcBuilder : public StringBuilder {
 public:
+    template <typename... A>
+    SrcBuilder(A&&... args);
+    ~SrcBuilder();
+
     void setModName(bmcl::StringView modName);
 
     void appendModPrefix();
+    void appendModPrefix(bmcl::StringView name);
     void appendIndent(std::size_t n = 1);
     void appendIndent(const InlineSerContext& ctx);
     void appendReadableSizeCheck(const InlineSerContext& ctx, std::size_t size);
@@ -61,40 +69,10 @@ private:
     bmcl::StringView _modName; //TODO: remove
 };
 
-inline void SrcBuilder::setModName(bmcl::StringView modName)
+template <typename... A>
+SrcBuilder::SrcBuilder(A&&... args)
+    : StringBuilder(std::forward<A>(args)...)
 {
-    _modName = modName;
-}
-
-inline bmcl::StringView SrcBuilder::modName() const
-{
-    return _modName;
-}
-
-inline void SrcBuilder::appendModIfdef(bmcl::StringView name)
-{
-    append("#ifdef PHOTON_HAS_MODULE_");
-    appendUpper(name);
-    append("\n");
-}
-
-inline void SrcBuilder::appendDeviceIfDef(bmcl::StringView name)
-{
-    append("#ifdef PHOTON_DEVICE_");
-    appendUpper(name);
-    append("\n");
-}
-
-inline void SrcBuilder::appendTargetModIfdef(bmcl::StringView name)
-{
-    append("#ifdef PHOTON_HAS_TARGET_MODULE_");
-    appendUpper(name);
-    append("\n");
-}
-
-inline void SrcBuilder::appendEndif()
-{
-    append("#endif\n");
 }
 
 template <typename... A>
@@ -103,16 +81,6 @@ void SrcBuilder::appendInclude(A&&... args)
     append("#include <");
     append(std::forward<A>(args)...);
     append(">\n");
-}
-
-inline void SrcBuilder::appendIndent(std::size_t n)
-{
-    appendSeveral(n, "    ");
-}
-
-inline void SrcBuilder::appendIndent(const InlineSerContext& ctx)
-{
-    appendSeveral(ctx.indentLevel, "    ");
 }
 
 template <typename T>

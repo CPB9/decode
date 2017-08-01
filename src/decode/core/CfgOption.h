@@ -29,6 +29,7 @@ class SingleCfgOption : public CfgOption {
 public:
     SingleCfgOption(bmcl::StringView key);
     SingleCfgOption(bmcl::StringView key, bmcl::StringView value);
+    ~SingleCfgOption();
 
     bool matchesConfiguration(const Configuration* cfg) const override;
 

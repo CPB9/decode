@@ -18,7 +18,6 @@ namespace decode {
 class Function;
 class Component;
 class ValueInfoCache;
-class ModelEventHandler;
 
 class CmdNode : public FieldsNode {
 public:

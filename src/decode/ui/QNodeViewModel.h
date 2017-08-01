@@ -10,9 +10,8 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/model/NodeView.h"
-#include "decode/model/NodeViewUpdater.h"
 #include "decode/model/NodeViewStore.h"
+#include "decode/model/NodeView.h"
 #include "decode/ui/QModelBase.h"
 
 #include <bmcl/Fwd.h>
@@ -22,32 +21,16 @@
 namespace decode {
 
 class NodeView;
+class NodeViewUpdater;
 
 class QNodeViewModel : public QModelBase<NodeView> {
     Q_OBJECT
 public:
-    QNodeViewModel(NodeView* node)
-        : QModelBase<NodeView>(node)
-        , _store(node)
-    {
+    QNodeViewModel(NodeView* node);
+    ~QNodeViewModel();
 
-    }
-    ~QNodeViewModel()
-    {
-    }
-
-    void applyUpdates(NodeViewUpdater* updater)
-    {
-        updater->apply(&_store);
-    }
-
-    void setRoot(NodeView* node)
-    {
-        beginResetModel();
-        _root = node;
-        _store.setRoot(node);
-        endResetModel();
-    }
+    void applyUpdates(NodeViewUpdater* updater);
+    void setRoot(NodeView* node);
 
 private:
     NodeViewStore _store;

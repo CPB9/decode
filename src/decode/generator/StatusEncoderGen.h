@@ -47,6 +47,4 @@ inline SrcBuilder& StatusEncoderGen::output()
 {
     return *_output;
 }
-
-
 }

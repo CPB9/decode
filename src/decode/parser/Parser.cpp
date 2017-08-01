@@ -11,17 +11,19 @@
 #include "decode/core/FileInfo.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/CfgOption.h"
-#include "decode/parser/Decl.h"
-#include "decode/parser/DocBlock.h"
-#include "decode/parser/Ast.h"
+#include "decode/ast/Decl.h"
+#include "decode/ast/DocBlock.h"
+#include "decode/ast/Ast.h"
+#include "decode/ast/Function.h"
 #include "decode/parser/Token.h"
-#include "decode/parser/Decl.h"
-#include "decode/parser/Type.h"
+#include "decode/ast/Decl.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Field.h"
 #include "decode/parser/Lexer.h"
-#include "decode/parser/ModuleInfo.h"
-#include "decode/parser/Type.h"
-#include "decode/parser/Component.h"
-#include "decode/parser/Constant.h"
+#include "decode/ast/ModuleInfo.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Constant.h"
 
 #include <bmcl/FileUtils.h>
 #include <bmcl/Logging.h>
@@ -29,6 +31,7 @@
 
 #include <string>
 #include <functional>
+#include <unordered_map>
 
 #define TRY(expr) \
     do { \
@@ -44,6 +47,24 @@ namespace decode {
 #define ADD_BUILTIN(name, type, str) \
     _builtinTypes->name = new BuiltinType(BuiltinTypeKind::type); \
     _builtinTypes->btMap.emplace(str, _builtinTypes->name)
+
+struct AllBuiltinTypes : public RefCountable {
+    Rc<BuiltinType> usizeType;
+    Rc<BuiltinType> isizeType;
+    Rc<BuiltinType> varuintType;
+    Rc<BuiltinType> varintType;
+    Rc<BuiltinType> u8Type;
+    Rc<BuiltinType> i8Type;
+    Rc<BuiltinType> u16Type;
+    Rc<BuiltinType> i16Type;
+    Rc<BuiltinType> u32Type;
+    Rc<BuiltinType> i32Type;
+    Rc<BuiltinType> u64Type;
+    Rc<BuiltinType> i64Type;
+    Rc<BuiltinType> boolType;
+    Rc<BuiltinType> voidType;
+    std::unordered_map<bmcl::StringView, Rc<BuiltinType>> btMap;
+};
 
 Parser::Parser(Diagnostics* diag)
     : _diag(diag)
