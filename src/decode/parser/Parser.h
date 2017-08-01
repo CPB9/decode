@@ -169,8 +169,6 @@ private:
     Rc<T> beginNamedType(bmcl::StringView name);
     template <typename T>
     void consumeAndEndType(const Rc<T>& type);
-    template <typename T>
-    void endType(const Rc<T>& type);
 
     bool currentTokenIs(TokenKind kind);
 
@@ -190,7 +188,6 @@ private:
     Rc<FileInfo> _fileInfo;
     Rc<ModuleInfo> _moduleInfo;
 
-    std::vector<Rc<TypeDecl>> _typeDeclStack;
     Rc<AllBuiltinTypes> _builtinTypes;
 
     const char* _lastLineStart;

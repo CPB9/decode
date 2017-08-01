@@ -39,6 +39,8 @@
 # include <unistd.h>
 #elif defined(_MSC_VER) || defined(__MINGW32__)
 # include <windows.h>
+#else
+# error "Unsupported OS"
 #endif
 
 //TODO: use joinPath
@@ -55,7 +57,7 @@ void Generator::setOutPath(bmcl::StringView path)
     _savePath = path.toStdString();
 }
 
-bool Generator::makeDirectory(const char* path)
+static bool makeDirectory(const char* path, Diagnostics* diag)
 {
 #if defined(__linux__)
     int rv = mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
@@ -64,15 +66,15 @@ bool Generator::makeDirectory(const char* path)
         if (rn == EEXIST) {
             return true;
         }
-        //TODO: report error
-        BMCL_CRITICAL() << "unable to create dir: " << path;
+        diag->buildSystemFileErrorReport("failed to create directory", rn, path);
         return false;
     }
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     bool isOk = CreateDirectory(path, NULL);
     if (!isOk) {
-        if (GetLastError() != ERROR_ALREADY_EXISTS) {
-            BMCL_CRITICAL() << "error creating dir";
+        auto rn = GetLastError();
+        if (rn != ERROR_ALREADY_EXISTS) {
+            diag->buildSystemFileErrorReport("failed to create directory", rn, path);
             return false;
         }
     }
@@ -80,7 +82,7 @@ bool Generator::makeDirectory(const char* path)
     return true;
 }
 
-bool Generator::saveOutput(const char* path, SrcBuilder* output)
+static bool saveOutput(const char* path, SrcBuilder* output, Diagnostics* diag)
 {
 #if defined(__linux__)
     int fd;
@@ -91,8 +93,7 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
             if (rn == EINTR) {
                 continue;
             }
-            //TODO: handle error
-            BMCL_CRITICAL() << "unable to open file: " << path;
+            diag->buildSystemFileErrorReport("failed to create file", rn, path);
             return false;
         }
         break;
@@ -103,11 +104,11 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
     while(total < size) {
         ssize_t written = write(fd, output->result().c_str() + total, size - total);
         if (written == -1) {
-            if (errno == EINTR) {
+            int rn = errno;
+            if (rn == EINTR) {
                 continue;
             }
-            BMCL_CRITICAL() << "unable to write file: " << path;
-            //TODO: handle error
+            diag->buildSystemFileErrorReport("failed to write file", rn, path);
             close(fd);
             return false;
         }
@@ -118,15 +119,13 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (handle == INVALID_HANDLE_VALUE) {
-        BMCL_CRITICAL() << "error creating file";
-        //TODO: report error
+        diag->buildSystemFileErrorReport("failed to create file", GetLastError(), path);
         return false;
     }
     DWORD bytesWritten;
     bool isOk = WriteFile(handle, output->result().c_str(), output->result().size(), &bytesWritten, NULL);
     if (!isOk) {
-        BMCL_CRITICAL() << "error writing file";
-        //TODO: report error
+        diag->buildSystemFileErrorReport("failed to write file", GetLastError(), path);
         return false;
     }
     assert(output->result().size() == bytesWritten);
@@ -134,7 +133,7 @@ bool Generator::saveOutput(const char* path, SrcBuilder* output)
     return true;
 }
 
-static bool copyFile(const char* from, const char* to)
+static bool copyFile(const char* from, const char* to, Diagnostics* diag)
 {
 #if defined(__linux__)
     int fdFrom;
@@ -145,8 +144,7 @@ static bool copyFile(const char* from, const char* to)
             if (rn == EINTR) {
                 continue;
             }
-            //TODO: handle error
-            BMCL_CRITICAL() << "unable to open file for reading: " << from;
+            diag->buildSystemFileErrorReport("failed to open file", rn, from);
             return false;
         }
         break;
@@ -159,8 +157,7 @@ static bool copyFile(const char* from, const char* to)
             if (rn == EINTR) {
                 continue;
             }
-            //TODO: handle error
-            BMCL_CRITICAL() << "unable to open file for writing: " << to;
+            diag->buildSystemFileErrorReport("failed to open file", rn, to);
             return false;
         }
         break;
@@ -177,11 +174,11 @@ static bool copyFile(const char* from, const char* to)
                 goto end;
             }
             if (size == -1) {
-                if (errno == EINTR) {
+                int rn = errno;
+                if (rn == EINTR) {
                     continue;
                 }
-                BMCL_CRITICAL() << "unable to read file: " << to;
-                //TODO: handle error
+                diag->buildSystemFileErrorReport("failed to read file", rn, from);
                 isOk = false;
                 goto end;
             }
@@ -192,11 +189,11 @@ static bool copyFile(const char* from, const char* to)
         while(total < size) {
             ssize_t written = write(fdTo, &temp[total], size);
             if (written == -1) {
-                if (errno == EINTR) {
+                int rn = errno;
+                if (rn == EINTR) {
                     continue;
                 }
-                BMCL_CRITICAL() << "unable to write file: " << to;
-                //TODO: handle error
+                diag->buildSystemFileErrorReport("failed to write file", rn, to);
                 isOk = false;
                 goto end;
             }
@@ -210,7 +207,8 @@ end:
     return isOk;
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     if (!CopyFile(from, to, false)) {
-        BMCL_CRITICAL() << "failed to copy file " << from << " to " << to;
+        //TODO: extend error message
+        diag->buildSystemFileErrorReport("failed to copy file", GetLastError(), from);
         return false;
     }
     return true;
@@ -248,7 +246,7 @@ bool Generator::generateTmPrivate(const Package* package)
     _output.append("#define _PHOTON_TM_MSG_COUNT sizeof(_messageDesc) / sizeof(_messageDesc[0])\n\n");
 
     std::string tmDetailPath = _savePath + "/photon/Tm.Private.inc.c";
-    TRY(saveOutput(tmDetailPath.c_str(), &_output));
+    TRY(saveOutput(tmDetailPath.c_str(), &_output, _diag.get()));
     _output.clear();
 
     return true;
@@ -287,7 +285,7 @@ bool Generator::generateSerializedPackage(const Project* project)
     }
 
     std::string packageDetailPath = _savePath + "/photon/Package.Private.inc.c";
-    TRY(saveOutput(packageDetailPath.c_str(), &_output));
+    TRY(saveOutput(packageDetailPath.c_str(), &_output, _diag.get()));
     _output.clear();
 
     return true;
@@ -321,7 +319,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         for (const std::string& file : src->sources) {
             bmcl::StringView fname = getFilePart(file);
             joinPath(&dest, fname);
-            TRY(copyFile(file.c_str(), dest.c_str()));
+            TRY(copyFile(file.c_str(), dest.c_str(), _diag.get()));
             dest.resize(destSize);
             paths.push_back(joinPath(src->relativeDest, fname));
         }
@@ -419,7 +417,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         path.append("/Photon");
         path.appendWithFirstUpper(dev->name);
         path.appendWithFirstUpper(".h");
-        TRY(saveOutput(path.result().c_str(), &_output));
+        TRY(saveOutput(path.result().c_str(), &_output, _diag.get()));
         _output.clear();
 
         //src
@@ -444,7 +442,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         appendBundledSources(dev, ".c");
 
         path.result().back() = 'c';
-        TRY(saveOutput(path.result().c_str(), &_output));
+        TRY(saveOutput(path.result().c_str(), &_output, _diag.get()));
         _output.clear();
     }
     return true;
@@ -512,7 +510,7 @@ bool Generator::generateProject(const Project* project)
 {
     _photonPath.append(_savePath);
     _photonPath.append("/photon");
-    TRY(makeDirectory(_photonPath.result().c_str()));
+    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
     const Package* package = project->package();
 
@@ -548,7 +546,7 @@ bool Generator::generateProject(const Project* project)
 bool Generator::generateSlices()
 {
     _photonPath.append("_slices_");
-    TRY(makeDirectory(_photonPath.result().c_str()));
+    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
 
     for (const auto& it : _slices) {
@@ -614,7 +612,7 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
 {
     currentPath->appendWithFirstUpper(name);
     currentPath->append(ext);
-    TRY(saveOutput(currentPath->result().c_str(), &_output));
+    TRY(saveOutput(currentPath->result().c_str(), &_output, _diag.get()));
     currentPath->removeFromBack(name.size() + ext.size());
     return true;
 }
@@ -629,7 +627,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
     }
 
     _photonPath.append(_currentAst->moduleInfo()->moduleName());
-    TRY(makeDirectory(_photonPath.result().c_str()));
+    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
 
     SliceCollector coll;

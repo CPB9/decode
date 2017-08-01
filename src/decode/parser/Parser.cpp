@@ -321,41 +321,17 @@ void Parser::endDecl(const Rc<T>& decl)
 template <typename T>
 Rc<T> Parser::beginType()
 {
-    Rc<TypeDecl> decl = beginDecl<TypeDecl>();
     Rc<T> type = new T;
-    decl->_type = type;
-    //_ast->_typeToDecl.emplace(type, decl);
-    _typeDeclStack.push_back(decl);
     return type;
 }
 
 template <typename T>
 Rc<T> Parser::beginNamedType(bmcl::StringView name)
 {
-    Rc<TypeDecl> decl = beginDecl<TypeDecl>();
     Rc<T> type = new T;
     type->setModuleInfo(_moduleInfo.get());
     type->setName(name);
-    decl->_type = type;
-    //_ast->_typeToDecl.emplace(type, decl);
-    _typeDeclStack.push_back(decl);
     return type;
-}
-
-template <typename T>
-void Parser::consumeAndEndType(const Rc<T>& type)
-{
-    consume();
-    endType(type);
-}
-
-template <typename T>
-void Parser::endType(const Rc<T>& type)
-{
-    assert(!_typeDeclStack.empty());
-    //assert(_typeDeclStack.back()->type() == type);
-    endDecl(_typeDeclStack.back());
-    _typeDeclStack.pop_back();
 }
 
 bool Parser::currentTokenIs(TokenKind kind)
@@ -416,7 +392,7 @@ bool Parser::parseImports()
         }
         TRY(consumeAndExpectCurrentToken(TokenKind::Blank, "missing blanks after import declaration"));
         TRY(consumeAndExpectCurrentToken(TokenKind::Identifier, "imported module name must be an identifier"));
-        Rc<TypeImport> import = new TypeImport(_currentToken.value());
+        Rc<ImportDecl> import = new ImportDecl(_moduleInfo.get(), _currentToken.value());
         TRY(consumeAndExpectCurrentToken(TokenKind::DoubleColon));
         consume();
 
@@ -1193,7 +1169,6 @@ bool Parser::parseTag(TokenKind startToken, F&& fieldParser)
     TRY(parseBraceList(type, std::forward<F>(fieldParser)));
 
     _ast->addTopLevelType(type.get());
-    endType(type);
     return true;
 }
 

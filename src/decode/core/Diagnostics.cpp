@@ -10,13 +10,19 @@
 #include "decode/core/FileInfo.h"
 
 #include <bmcl/ColorStream.h>
+#include <bmcl/Assert.h>
 
 #include <iostream>
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+# include <windows.h>
+#endif
 
 namespace decode {
 
 Report::Report()
     : _highlightMessage(false)
+    , _locSize(1)
 {
 }
 
@@ -29,10 +35,11 @@ void Report::setLevel(Report::Level level)
     _level = level;
 }
 
-void Report::setLocation(const FileInfo* finfo, Location loc)
+void Report::setLocation(const FileInfo* finfo, Location loc, std::size_t size)
 {
     _fileInfo.reset(finfo);
     _location.emplace(loc);
+    _locSize = size;
 }
 
 void Report::setMessage(bmcl::StringView str)
@@ -104,9 +111,10 @@ void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) cons
         if (colorStream) {
             *colorStream << bmcl::ColorAttr::FgGreen << bmcl::ColorAttr::Bright;
         }
-        std::string arrow(_location->column, ' ');
-        arrow[_location->column - 1] = '^';
-        *out << arrow << std::endl;
+        BMCL_ASSERT(_location->column >= 1);
+        std::string prefix(_location->column - 1, ' ');
+        std::string arrows(_locSize, '^');
+        *out << prefix << arrows << std::endl;
     }
     if (colorStream) {
         *colorStream << bmcl::ColorAttr::Reset;
@@ -138,5 +146,47 @@ void Diagnostics::printReports(std::ostream* out) const
         report->print(out);
         *out << std::endl;
     }
+}
+
+Rc<Report> Diagnostics::buildSystemErrorReport(bmcl::StringView msg, bmcl::StringView reason)
+{
+    Rc<Report> report = addReport();
+    report->setLevel(Report::Error);
+    std::string errorMsg = msg.toStdString() + "\n\n" + "Reason:\n  ";
+    errorMsg.append(reason.begin(), reason.end());
+    report->setMessage(errorMsg);
+    return report;
+}
+
+Rc<Report> Diagnostics::buildSystemFileErrorReport(bmcl::StringView message, bmcl::StringView reason, bmcl::StringView path)
+{
+    return buildSystemErrorReport(message, reason.toStdString() + " `" + path.toStdString() + "`");
+}
+
+Rc<Report> Diagnostics::buildSystemFileErrorReport(bmcl::StringView message, SystemErrorType reason, bmcl::StringView path)
+{
+#if defined(__linux__)
+    return buildSystemFileErrorReport(message, std::strerror(reason), path);
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+    LPVOID buf;
+    DWORD len = FormatMessage(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER |
+        FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        reason,
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPTSTR)&buf,
+        0,
+        NULL
+    );
+    BMCL_ASSERT(buf);
+    LPCSTR strReason = (LPCSTR)buf;
+    Rc<Report> report = buildSystemFileErrorReport(message, bmcl::StringView(strReason, len), path);
+    LocalFree(buf);
+    return report;
+#else
+# error "Unsupported OS"
+#endif
 }
 }

@@ -83,11 +83,9 @@ PackageResult Package::readFromFiles(Configuration* cfg, Diagnostics* diag, bmcl
     return std::move(package);
 }
 
-static void addDecodeError(Diagnostics* diag, const char* msg)
+static void addDecodeError(Diagnostics* diag, bmcl::StringView msg)
 {
-    Rc<Report> report = diag->addReport();
-    report->setLevel(Report::Error);
-    report->setMessage(msg);
+    diag->buildSystemErrorReport("could not decode package from memory", msg);
 }
 
 PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, const void* src, std::size_t size)
@@ -100,13 +98,13 @@ PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, c
     while (!reader.isEmpty()) {
         auto fname = deserializeString(&reader);
         if (fname.isErr()) {
-            addDecodeError(diag, "could not decode package from memory");
+            addDecodeError(diag, fname.unwrapErr());
             return PackageResult();
         }
 
         auto contents = deserializeString(&reader);
         if (contents.isErr()) {
-            addDecodeError(diag, "could not decode package from memory");
+            addDecodeError(diag, contents.unwrapErr());
             return PackageResult();
         }
 
@@ -114,7 +112,6 @@ PackageResult Package::decodeFromMemory(Configuration* cfg, Diagnostics* diag, c
 
         ParseResult ast = p.parseFile(finfo.get());
         if (ast.isErr()) {
-            addDecodeError(diag, "could not decode package from memory");
             return PackageResult();
         }
 
@@ -154,14 +151,13 @@ bool Package::addFile(const char* path, Parser* p)
 
     addAst(ast.unwrap().get());
 
-    //BMCL_DEBUG() << "finished " << ast.unwrap()->moduleInfo()->fileName();
     return true;
 }
 
 bool Package::resolveTypes(Ast* ast)
 {
     bool isOk = true;
-    for (TypeImport* import : ast->importsRange()) {
+    for (ImportDecl* import : ast->importsRange()) {
         auto searchedAst = _modNameToAstMap.find(import->path().toStdString());
         if (searchedAst == _modNameToAstMap.end()) {
             isOk = false;

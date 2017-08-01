@@ -113,12 +113,13 @@ public:
 
 class ImportedType;
 
-class TypeImport : public RefCountable {
+class ImportDecl : public RefCountable {
 public:
     using Types = RcVec<ImportedType>;
 
-    TypeImport(bmcl::StringView path)
+    ImportDecl(const ModuleInfo* modInfo, bmcl::StringView path)
         : _importPath(path)
+        , _modInfo(modInfo)
     {
     }
 
@@ -151,6 +152,7 @@ public:
 
 private:
     bmcl::StringView _importPath;
+    Rc<const ModuleInfo> _modInfo;
     std::vector<Rc<ImportedType>> _types;
 };
 

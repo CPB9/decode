@@ -42,7 +42,7 @@ public:
 
     void setMessage(bmcl::StringView str);
     void setLevel(Level level);
-    void setLocation(const FileInfo* finfo, Location loc);
+    void setLocation(const FileInfo* finfo, Location loc, std::size_t size = 1);
     void setHighlightMessage(bool flag = true);
 
 private:
@@ -51,13 +51,25 @@ private:
     bmcl::Option<std::string> _message;
     bmcl::Option<Level> _level;
     bmcl::Option<Location> _location;
+    std::size_t _locSize;
     Rc<const FileInfo> _fileInfo;
     bool _highlightMessage;
 };
 
 class Diagnostics : public RefCountable {
 public:
+#if defined(__linux__)
+    using SystemErrorType = int;
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+    using SystemErrorType = uint32_t; //DWORD
+#else
+# error "Unsupported OS"
+#endif
     Rc<Report> addReport();
+
+    Rc<Report> buildSystemErrorReport(bmcl::StringView message, bmcl::StringView reason);
+    Rc<Report> buildSystemFileErrorReport(bmcl::StringView message, bmcl::StringView reason, bmcl::StringView path);
+    Rc<Report> buildSystemFileErrorReport(bmcl::StringView message, SystemErrorType reason, bmcl::StringView path);
 
     bool hasReports()
     {

@@ -26,7 +26,7 @@ namespace decode {
 
 class ModuleInfo;
 class ModuleDecl;
-class TypeImport;
+class ImportDecl;
 class ImportedType;
 class Type;
 class TypeDecl;
@@ -38,7 +38,7 @@ public:
     using Types = RcVec<Type>;
     using NamedTypes = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
-    using Imports = RcVec<TypeImport>;
+    using Imports = RcVec<ImportDecl>;
     using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
 
     Ast();
@@ -167,7 +167,7 @@ public:
         _typeNameToImplBlock.emplace(block->name(), block);
     }
 
-    void addTypeImport(TypeImport* decl)
+    void addTypeImport(ImportDecl* decl)
     {
         _importDecls.emplace_back(decl);
         for (ImportedType* type : decl->typesRange()) {

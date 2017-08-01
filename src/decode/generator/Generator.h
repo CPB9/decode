@@ -49,12 +49,9 @@ private:
     bool generateConfig(const Project* project);
     bool generateInit(const Project* project);
 
-    bool makeDirectory(const char* path);
-
     void appendModIfdef(bmcl::StringView name);
     void appendEndif();
 
-    bool saveOutput(const char* path, SrcBuilder* output);
     bool dumpIfNotEmpty(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
     bool dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
 

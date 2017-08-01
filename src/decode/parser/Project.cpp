@@ -127,11 +127,7 @@ using TableResult = bmcl::Result<toml::Table, void>;
 
 static void addError(bmcl::StringView msg, bmcl::StringView cause, Diagnostics* diag)
 {
-    Rc<Report> report = diag->addReport();
-    report->setLevel(Report::Error);
-    std::string errorMsg = msg.toStdString() + "\n\n" + "Reason:\n  ";
-    errorMsg.append(cause.begin(), cause.end());
-    report->setMessage(errorMsg);
+    diag->buildSystemErrorReport(msg, cause);
 }
 
 static void addParseError(bmcl::StringView path, bmcl::StringView cause, Diagnostics* diag)
@@ -145,7 +141,7 @@ static TableResult readToml(const std::string& path, Diagnostics* diag)
 {
     auto file = bmcl::readFileIntoString(path.c_str());
     if (file.isErr()) {
-        addError("failed to read file " + path, std::strerror(file.unwrapErr()), diag);
+        diag->buildSystemFileErrorReport("failed to read file", file.unwrapErr(), path);
         return TableResult();
     }
     try {
