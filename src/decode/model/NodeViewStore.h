@@ -10,8 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-
-#include <unordered_map>
+#include "decode/core/HashMap.h"
 
 namespace decode {
 
@@ -31,7 +30,7 @@ private:
     void unregisterNodes(NodeView* view);
 
     Rc<NodeView> _root;
-    std::unordered_map<uintptr_t, Rc<NodeView>> _map;
+    HashMap<uintptr_t, Rc<NodeView>> _map;
 };
 
 }

@@ -14,7 +14,6 @@
 #include "decode/generator/SrcBuilder.h"
 
 #include <string>
-#include <unordered_map>
 
 namespace decode {
 

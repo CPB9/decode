@@ -10,11 +10,11 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/HashMap.h"
 
 #include <bmcl/StringView.h>
 
 #include <string>
-#include <unordered_map>
 
 namespace decode {
 
@@ -43,7 +43,7 @@ public:
         }
     };
 
-    using MapType = std::unordered_map<Rc<const Type>, std::string, Hasher>;
+    using MapType = HashMap<Rc<const Type>, std::string, Hasher>;
 
     ValueInfoCache(const Package* package);
     ~ValueInfoCache();

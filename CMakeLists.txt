@@ -73,7 +73,7 @@ if (NOT MSVC)
     set(_TMP_FLAGS ${CMAKE_CXX_FLAGS})
     set(CMAKE_CXX_FLAGS "")
 endif()
-add_subdirectory(thirdparty/caf)
+add_subdirectory(thirdparty/caf EXCLUDE_FROM_ALL)
 if (NOT MSVC)
     set(CMAKE_CXX_FLAGS ${_TMP_FLAGS})
 endif()
@@ -166,6 +166,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/CmdDecoderGen.h
     src/decode/generator/CmdEncoderGen.cpp
     src/decode/generator/CmdEncoderGen.h
+    src/decode/generator/FuncPrototypeGen.cpp
+    src/decode/generator/FuncPrototypeGen.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
     src/decode/generator/HeaderGen.cpp
@@ -179,7 +181,6 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/InlineTypeSerializerGen.cpp
     src/decode/generator/InlineTypeSerializerGen.h
     src/decode/generator/NameVisitor.h
-    src/decode/generator/SerializationFuncPrototypeGen.h
     src/decode/generator/SliceCollector.cpp
     src/decode/generator/SliceCollector.h
     src/decode/generator/SourceGen.cpp
@@ -324,6 +325,7 @@ target_include_directories(decode
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/hopscotch_map/src
 )
 
 get_directory_property(HAS_PARENT_SCOPE PARENT_DIRECTORY)

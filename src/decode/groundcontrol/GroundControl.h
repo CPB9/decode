@@ -11,7 +11,6 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
-#include <bmcl/Bytes.h>
 #include <bmcl/Fwd.h>
 
 #include <caf/event_based_actor.hpp>
@@ -30,7 +29,7 @@ struct Device;
 
 class GroundControl : public caf::event_based_actor {
 public:
-    GroundControl(caf::actor_config& cfg, caf::actor sink, caf::actor eventHandler);
+    GroundControl(caf::actor_config& cfg, const caf::actor& sink, const caf::actor& eventHandler);
     ~GroundControl();
 
     caf::behavior make_behavior() override;

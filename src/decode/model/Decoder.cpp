@@ -19,10 +19,21 @@
 
 namespace decode {
 
-StatusMsgDecoder::ChainElement::ChainElement(std::size_t index, DecoderAction* action, ValueNode* node)
+ChainElement::ChainElement(std::size_t index, DecoderAction* action, ValueNode* node)
     : nodeIndex(index)
     , action(action)
     , node(node)
+{
+}
+
+ChainElement::ChainElement(const ChainElement& other)
+    : nodeIndex(other.nodeIndex)
+    , action(other.action)
+    , node(other.node)
+{
+}
+
+ChainElement::~ChainElement()
 {
 }
 

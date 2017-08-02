@@ -11,6 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
+#include "decode/core/HashMap.h"
 #include "decode/parser/Containers.h"
 #include "decode/model/Node.h"
 
@@ -18,7 +19,6 @@
 #include <bmcl/Fwd.h>
 
 #include <cstdint>
-#include <unordered_map>
 
 namespace decode {
 
@@ -43,7 +43,7 @@ public:
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
 
 public:
-    std::unordered_map<bmcl::StringView, Rc<ValueNode>> _nameToNodeMap; //TODO: remove
+    HashMap<bmcl::StringView, Rc<ValueNode>> _nameToNodeMap; //TODO: remove
     std::vector<Rc<ValueNode>> _nodes;
 };
 

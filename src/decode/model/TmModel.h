@@ -10,9 +10,9 @@
 
 #include "decode/Config.h"
 #include "decode/model/Node.h"
+#include "decode/core/HashMap.h"
 
 #include <vector>
-#include <unordered_map>
 
 namespace decode {
 
@@ -36,7 +36,7 @@ public:
     bmcl::StringView fieldName() const override;
 
 private:
-    std::unordered_map<uint64_t, Rc<StatusDecoder>> _decoders;
+    HashMap<uint64_t, Rc<StatusDecoder>> _decoders;
     std::vector<Rc<FieldsNode>> _nodes;
 };
 }

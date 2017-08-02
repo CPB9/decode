@@ -70,4 +70,14 @@ void MemIntervalSet::add(MemInterval interval)
     }
     _intervals.insert(it, interval);
 }
+
+//TODO: calculate on addition
+std::size_t MemIntervalSet::dataSize() const
+{
+    std::size_t s = 0;
+    for (const MemInterval& i : _intervals) {
+        s += i.size();
+    }
+    return s;
+}
 }

@@ -10,14 +10,12 @@
 #include "decode/groundcontrol/Exchange.h"
 #include "decode/groundcontrol/FwtState.h"
 #include "decode/groundcontrol/TmState.h"
-#include "decode/parser/Package.h"
 #include "decode/parser/Project.h"
-#include "decode/core/Diagnostics.h"
 #include "decode/groundcontrol/Atoms.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 
 #include <bmcl/Logging.h>
-#include <bmcl/Result.h>
+#include <bmcl/Bytes.h>
 #include <bmcl/SharedBytes.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
@@ -26,7 +24,7 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Device>);
 
 namespace decode {
 
-GroundControl::GroundControl(caf::actor_config& cfg, caf::actor sink, caf::actor eventHandler)
+GroundControl::GroundControl(caf::actor_config& cfg, const caf::actor& sink, const caf::actor& eventHandler)
     : caf::event_based_actor(cfg)
     , _sink(sink)
     , _handler(eventHandler)

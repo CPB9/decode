@@ -24,13 +24,14 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 #include "decode/core/PathUtils.h"
+#include "decode/core/HashMap.h"
+#include "decode/core/HashSet.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/Sha3.h>
 #include <bmcl/FixedArrayView.h>
 
-#include <unordered_set>
 #include <iostream>
 #include <deque>
 #include <memory>
@@ -226,13 +227,14 @@ bool Generator::generateTmPrivate(const Package* package)
     _output.clear();
 
     _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
+    FuncPrototypeGen prototypeGen(_reprGen.get(), &_output);
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendModIfdef(msg.component->moduleName());
         _output.appendIndent(1);
         _output.append("{");
         _output.append(".func = ");
-        _hgen->appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
+        prototypeGen.appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
         _output.append(", .compNum = ");
         _output.appendNumericValue(msg.component->number());
         _output.append(", .msgNum = ");
@@ -310,7 +312,7 @@ void Generator::appendBuiltinSources(bmcl::StringView ext)
 
 bool Generator::generateDeviceFiles(const Project* project)
 {
-    std::unordered_map<Rc<const Ast>, std::vector<std::string>> srcsPaths;
+    HashMap<Rc<const Ast>, std::vector<std::string>> srcsPaths;
     for (const Ast* mod : project->package()->modules()) {
         auto src = project->sourcesForModule(mod);
         if (src.isNone()) {
@@ -351,7 +353,7 @@ bool Generator::generateDeviceFiles(const Project* project)
 
     IncludeCollector coll;
     for (const Device* dev : project->devices()) {
-        std::unordered_set<std::string> types;
+        HashSet<std::string> types;
         types.insert("core/Reader");
         types.insert("core/Writer");
         types.insert("core/Error");
@@ -359,7 +361,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         for (const Rc<Ast>& module : dev->modules) {
             coll.collect(module.get(), &types);
         }
-        std::unordered_set<Rc<Ast>> targetMods;
+        HashSet<Rc<Ast>> targetMods;
 
         for (const Rc<Device>& dep : dev->cmdTargets) {
             for (const Rc<Ast>& module : dep->modules) {

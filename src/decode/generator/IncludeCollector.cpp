@@ -9,6 +9,7 @@
 #include "decode/generator/IncludeCollector.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/core/HashSet.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/Component.h"
@@ -84,7 +85,7 @@ void IncludeCollector::addInclude(const NamedType* type)
     _dest->insert(std::move(path));
 }
 
-void IncludeCollector::collect(const StatusMsg* msg, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const StatusMsg* msg, HashSet<std::string>* dest)
 {
     _currentType = 0;
     _dest = dest;
@@ -111,14 +112,14 @@ void IncludeCollector::collect(const StatusMsg* msg, std::unordered_set<std::str
     }
 }
 
-void IncludeCollector::collect(const Type* type, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const Type* type, HashSet<std::string>* dest)
 {
     _dest = dest;
     _currentType = type;
     traverseType(type);
 }
 
-void IncludeCollector::collect(const Component* comp, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const Component* comp, HashSet<std::string>* dest)
 {
     _dest = dest;
     _currentType = 0;
@@ -130,14 +131,14 @@ void IncludeCollector::collect(const Component* comp, std::unordered_set<std::st
     }
 }
 
-void IncludeCollector::collect(const Function* func, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const Function* func, HashSet<std::string>* dest)
 {
     _dest = dest;
     _currentType = func->type();
     traverseType(func->type());
 }
 
-void IncludeCollector::collect(const Ast* ast, std::unordered_set<std::string>* dest)
+void IncludeCollector::collect(const Ast* ast, HashSet<std::string>* dest)
 {
     _dest = dest;
     _currentType = nullptr;
@@ -146,7 +147,7 @@ void IncludeCollector::collect(const Ast* ast, std::unordered_set<std::string>* 
     }
 }
 
-void IncludeCollector::collectCmds(Component::Cmds::ConstRange cmds, std::unordered_set<std::string>* dest)
+void IncludeCollector::collectCmds(Component::Cmds::ConstRange cmds, HashSet<std::string>* dest)
 {
     _dest = dest;
     for (const Function* func : cmds) {
@@ -155,7 +156,7 @@ void IncludeCollector::collectCmds(Component::Cmds::ConstRange cmds, std::unorde
     }
 }
 
-void IncludeCollector::collectParams(Component::Params::ConstRange params, std::unordered_set<std::string>* dest)
+void IncludeCollector::collectParams(Component::Params::ConstRange params, HashSet<std::string>* dest)
 {
     _dest = dest;
     _currentType = nullptr;
@@ -164,7 +165,7 @@ void IncludeCollector::collectParams(Component::Params::ConstRange params, std::
     }
 }
 
-void IncludeCollector::collectStatuses(Component::Statuses::ConstRange statuses, std::unordered_set<std::string>* dest)
+void IncludeCollector::collectStatuses(Component::Statuses::ConstRange statuses, HashSet<std::string>* dest)
 {
     for (const StatusMsg* msg : statuses) {
         collect(msg, dest);

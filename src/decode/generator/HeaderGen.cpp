@@ -8,6 +8,7 @@
 
 #include "decode/generator/HeaderGen.h"
 #include "decode/core/Foreach.h"
+#include "decode/core/HashSet.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/Function.h"
 #include "decode/generator/TypeNameGen.h"
@@ -19,6 +20,7 @@ namespace decode {
 HeaderGen::HeaderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _typeDefGen(reprGen, output)
+    , _prototypeGen(reprGen, output)
     , _typeReprGen(reprGen)
 {
 }
@@ -106,9 +108,9 @@ void HeaderGen::appendSerializerFuncPrototypes(const Component*)
 
 void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
 {
-    appendSerializerFuncDecl(type);
+    _prototypeGen.appendSerializerFuncDecl(type);
     _output->append(";\n");
-    appendDeserializerFuncDecl(type);
+    _prototypeGen.appendDeserializerFuncDecl(type);
     _output->append(";\n\n");
 }
 
@@ -147,7 +149,7 @@ void HeaderGen::appendImplBlockIncludes(const SliceType* slice)
 
 void HeaderGen::appendImplBlockIncludes(const Component* comp)
 {
-    std::unordered_set<std::string> dest;
+    HashSet<std::string> dest;
     for (const Function* fn : comp->cmdsRange()) {
         _includeCollector.collect(fn->type(), &dest);
     }
@@ -166,7 +168,7 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
 void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
 {
     bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlockWithName(topLevelType->name());
-    std::unordered_set<std::string> dest;
+    HashSet<std::string> dest;
     if (impl.isSome()) {
         for (const Function* fn : impl->functionsRange()) {
             _includeCollector.collect(fn->type(), &dest);
@@ -178,7 +180,7 @@ void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
     appendIncludes(dest);
 }
 
-void HeaderGen::appendIncludes(const std::unordered_set<std::string>& src)
+void HeaderGen::appendIncludes(const HashSet<std::string>& src)
 {
     for (const std::string& path : src) {
         _output->appendLocalIncludePath(path);
@@ -191,14 +193,14 @@ void HeaderGen::appendIncludes(const std::unordered_set<std::string>& src)
 
 void HeaderGen::appendIncludesAndFwds(const Component* comp)
 {
-    std::unordered_set<std::string> includePaths;
+    HashSet<std::string> includePaths;
     _includeCollector.collect(comp, &includePaths);
     appendIncludes(includePaths);
 }
 
 void HeaderGen::appendIncludesAndFwds(const Type* topLevelType)
 {
-    std::unordered_set<std::string> includePaths;
+    HashSet<std::string> includePaths;
     _includeCollector.collect(topLevelType, &includePaths);
     appendIncludes(includePaths);
 }
@@ -335,10 +337,5 @@ void HeaderGen::appendCommonIncludePaths()
     _output->appendInclude("stddef.h");
     _output->appendInclude("stdint.h");
     _output->appendEol();
-}
-
-void HeaderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
-{
-    _typeReprGen->genTypeRepr(type, fieldName);
 }
 }

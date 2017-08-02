@@ -11,7 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
-#include <bmcl/Bytes.h>
+#include <bmcl/Fwd.h>
 
 #include <caf/event_based_actor.hpp>
 
@@ -21,7 +21,7 @@ class TmModel;
 
 class TmState : public caf::event_based_actor {
 public:
-    TmState(caf::actor_config& cfg, caf::actor handler);
+    TmState(caf::actor_config& cfg, const caf::actor& handler);
     ~TmState();
 
     caf::behavior make_behavior() override;

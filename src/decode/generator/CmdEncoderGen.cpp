@@ -4,6 +4,7 @@
 #include "decode/generator/IncludeCollector.h"
 #include "decode/ast/Function.h"
 #include "decode/core/Foreach.h"
+#include "decode/core/HashSet.h"
 
 namespace decode {
 
@@ -42,7 +43,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->startIncludeGuard("PRIVATE", "CMD_ENCODER");
     _output->appendEol();
 
-    std::unordered_set<std::string> includes;
+    HashSet<std::string> includes;
     IncludeCollector col;
 
     for (const char* path : {"core/Error", "core/Reader", "core/Writer", "core/Try"}) {
@@ -65,8 +66,6 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
 
         includes.clear();
     }
-
-
 
     _output->appendEol();
 

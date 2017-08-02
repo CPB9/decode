@@ -69,7 +69,7 @@ inline bool MemInterval::operator==(const MemInterval& other) const
 class MemIntervalSet {
 public:
     MemIntervalSet();
-    MemIntervalSet(const std::vector<MemInterval>& vec);
+    MemIntervalSet(std::vector<MemInterval>&& vec);
 
     void add(MemInterval chunk);
     void clear();
@@ -88,7 +88,7 @@ inline MemIntervalSet::MemIntervalSet()
 }
 
 //TODO: sort vec
-inline MemIntervalSet::MemIntervalSet(const std::vector<MemInterval>& vec)
+inline MemIntervalSet::MemIntervalSet(std::vector<MemInterval>&& vec)
     : _intervals(std::move(vec))
 {
 }
@@ -101,16 +101,6 @@ inline void MemIntervalSet::clear()
 inline std::size_t MemIntervalSet::size() const
 {
     return _intervals.size();
-}
-
-//TODO: calculate on addition
-inline std::size_t MemIntervalSet::dataSize() const
-{
-    std::size_t s = 0;
-    for (const MemInterval& i : _intervals) {
-        s += i.size();
-    }
-    return s;
 }
 
 inline MemInterval MemIntervalSet::at(std::size_t index) const

@@ -21,7 +21,6 @@
 
 #include <cstdint>
 #include <map>
-#include <unordered_map>
 
 namespace decode {
 

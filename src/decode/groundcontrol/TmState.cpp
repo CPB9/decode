@@ -18,6 +18,7 @@
 
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
+#include <bmcl/Bytes.h>
 #include <bmcl/SharedBytes.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<decode::NodeView>);
@@ -25,7 +26,7 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<decode::NodeViewUpdater>);
 
 namespace decode {
 
-TmState::TmState(caf::actor_config& cfg, caf::actor handler)
+TmState::TmState(caf::actor_config& cfg, const caf::actor& handler)
     : caf::event_based_actor(cfg)
     , _handler(handler)
 {

@@ -10,11 +10,10 @@
 
 #include "decode/Config.h"
 #include "decode/ast/AstVisitor.h"
-#include "decode/generator/SerializationFuncPrototypeGen.h"
+#include "decode/generator/FuncPrototypeGen.h"
 #include "decode/generator/InlineTypeDeserializerGen.h"
 #include "decode/generator/InlineTypeSerializerGen.h"
 
-#include <unordered_set>
 #include <string>
 
 namespace decode {
@@ -22,7 +21,7 @@ namespace decode {
 class SrcBuilder;
 class TypeReprGen;
 
-class SourceGen : public ConstAstVisitor<SourceGen>, public FuncPrototypeGen<SourceGen> {
+class SourceGen : public ConstAstVisitor<SourceGen> {
 public:
     SourceGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~SourceGen();
@@ -39,10 +38,6 @@ public:
     bool visitVariantType(const VariantType* type);
     bool visitImportedType(const ImportedType* type);
     bool visitAliasType(const AliasType* type);
-
-    void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
-
-    SrcBuilder& output();
 
 private:
     template <typename T, typename F>
@@ -63,6 +58,7 @@ private:
     Rc<TypeReprGen> _typeReprGen;
     InlineTypeSerializerGen _inlineSer;
     InlineTypeDeserializerGen _inlineDeser;
+    FuncPrototypeGen _prototypeGen;
 };
 
 }

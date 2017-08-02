@@ -16,7 +16,6 @@
 #include <bmcl/StringView.h>
 
 #include <string>
-#include <unordered_map>
 #include <functional>
 
 namespace decode {
@@ -83,7 +82,6 @@ private:
     Types _types;
     ImplBlocks _typeNameToImplBlock;
     Constants _constants;
-    //std::unordered_map<Rc<Type>, Rc<TypeDecl>> _typeToDecl;
     Rc<const ModuleInfo> _moduleInfo;
     Rc<ModuleDecl> _moduleDecl;
 };
