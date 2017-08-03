@@ -61,6 +61,7 @@ struct AllBuiltinTypes;
 class DECODE_EXPORT Parser {
 public:
     Parser(Diagnostics* diag);
+    Parser(Parser&& other) = delete; // msvc 2015 hack
     ~Parser();
 
     ParseResult parseFile(const char* fileName);
