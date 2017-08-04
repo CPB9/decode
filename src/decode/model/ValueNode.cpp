@@ -515,7 +515,9 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
             _values.resize(size);
         }
         for (std::size_t i = 0; i < size; i++) {
-            _values[i] = ValueNode::fromType(sField->fieldsBegin()[i]->type(), _cache.get(), this);
+            const Field* field = sField->fieldsBegin()[i];
+            _values[i] = ValueNode::fromType(field->type(), _cache.get(), this);
+            _values[i]->setFieldName(field->name());
         }
         TRY(ContainerValueNode::decode(src));
         break;
