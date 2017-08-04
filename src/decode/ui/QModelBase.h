@@ -11,6 +11,8 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/model/Value.h"
+#include "decode/model/Node.h"
+#include "decode/model/NodeView.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/StringView.h>

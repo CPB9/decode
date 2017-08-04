@@ -55,32 +55,31 @@ find_package(Qt5Widgets)
 
 # caf
 
-set(CAF_NO_EXAMPLES 1)
-set(CAF_NO_BENCHMARKS 1)
-set(CAF_NO_PYTHON 1)
-set(CAF_NO_OPENCL 1)
-set(CAF_NO_TOOLS 1)
-set(CAF_NO_UNIT_TESTS 1)
-set(CAF_LOG_LEVEL 0)
-if (UNIX)
-    set(CAF_CORE_LIBRARIES libcaf_core_shared)
-    set(CAF_IO_LIBRARIES libcaf_io_shared)
-else()
-    set(CAF_CORE_LIBRARIES libcaf_core_static)
-    set(CAF_IO_LIBRARIES libcaf_io_static)
+if (NOT CAF_INCLUDED) #for parent project
+    set(CAF_NO_EXAMPLES 1)
+    set(CAF_NO_BENCHMARKS 1)
+    set(CAF_NO_PYTHON 1)
+    set(CAF_NO_OPENCL 1)
+    set(CAF_NO_TOOLS 1)
+    set(CAF_NO_UNIT_TESTS 1)
+    set(CAF_LOG_LEVEL 0)
+    if (UNIX)
+        set(CAF_CORE_LIBRARIES libcaf_core_shared)
+        set(CAF_IO_LIBRARIES libcaf_io_shared)
+    else()
+        set(CAF_CORE_LIBRARIES libcaf_core_static)
+        set(CAF_IO_LIBRARIES libcaf_io_static)
+    endif()
+    if (NOT MSVC)
+        set(_TMP_FLAGS ${CMAKE_CXX_FLAGS})
+        set(CMAKE_CXX_FLAGS "")
+    endif()
+    add_subdirectory(thirdparty/caf EXCLUDE_FROM_ALL)
+    if (NOT MSVC)
+        set(CMAKE_CXX_FLAGS ${_TMP_FLAGS})
+    endif()
+    target_include_directories(${CAF_CORE_LIBRARIES} SYSTEM INTERFACE thirdparty/caf/libcaf_core)
 endif()
-if (NOT MSVC)
-    set(_TMP_FLAGS ${CMAKE_CXX_FLAGS})
-    set(CMAKE_CXX_FLAGS "")
-endif()
-add_subdirectory(thirdparty/caf EXCLUDE_FROM_ALL)
-if (NOT MSVC)
-    set(CMAKE_CXX_FLAGS ${_TMP_FLAGS})
-endif()
-target_include_directories(${CAF_CORE_LIBRARIES} SYSTEM INTERFACE thirdparty/caf/libcaf_core)
-target_include_directories(${CAF_IO_LIBRARIES} SYSTEM INTERFACE thirdparty/caf/libcaf_io)
-
-#caf
 
 set(DECODE_UI_SRC)
 
@@ -325,7 +324,6 @@ target_include_directories(decode
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/hopscotch_map/src
 )
 
 get_directory_property(HAS_PARENT_SCOPE PARENT_DIRECTORY)
