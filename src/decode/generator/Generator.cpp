@@ -301,7 +301,7 @@ bool Generator::generateSerializedPackage(const Project* project)
 
 void Generator::appendBuiltinSources(bmcl::StringView ext)
 {
-    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private", "StatusEncoder.Private", "Init"};
+    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private", "StatusEncoder.Private"};
     for (bmcl::StringView str : builtin) {
         _output.append("#include \"photon/");
         _output.append(str);
@@ -469,51 +469,6 @@ bool Generator::generateConfig(const Project* project)
     return true;
 }
 
-bool Generator::generateInit(const Project* project)
-{
-    _output.append("#ifndef __PHOTON_INIT_H__\n");
-    _output.append("#define __PHOTON_INIT_H__\n\n");
-    _output.startCppGuard();
-    _output.append("void Photon_Init();\n\n");
-    _output.endCppGuard();
-    _output.append("#endif\n");
-    TRY(dumpIfNotEmpty("Init", ".h", &_photonPath));
-    _output.clear();
-
-    _output.append("#include \"photon/Init.h\"\n\n");
-    _output.append("void Photon_Init()\n{\n");
-    for (const Ast* module : project->package()->modules()) {
-        if (module->component().isNone()) {
-            continue;
-        }
-        bmcl::OptionPtr<const ImplBlock> impl = module->component().unwrap()->implBlock();
-        if (impl.isNone()) {
-            continue;
-        }
-        auto initFunc = std::find_if(impl->functionsBegin(), impl->functionsEnd(), [](const Function* f) {
-            return f->name() == "init";
-        });
-        if (initFunc == impl->functionsEnd()) {
-            continue;
-        }
-        if (initFunc->type()->hasArguments()) {
-            BMCL_WARNING() << "init function from component <" << module->moduleInfo()->moduleName().toStdString() << " has arguments";
-            continue;
-        }
-        bmcl::StringView modName = module->moduleInfo()->moduleName();
-        _output.appendModIfdef(modName);
-        _output.append("    Photon");
-        _output.appendWithFirstUpper(modName);
-        _output.append("_Init();\n");
-        _output.appendEndif();
-    }
-    _output.append("}\n");
-    TRY(dumpIfNotEmpty("Init", ".c", &_photonPath));
-    _output.clear();
-
-    return true;
-}
-
 bool Generator::generateProject(const Project* project)
 {
     _photonPath.append(_savePath);
@@ -532,7 +487,6 @@ bool Generator::generateProject(const Project* project)
     }
 
     TRY(generateConfig(project));
-    TRY(generateInit(project));
     TRY(generateSlices());
     TRY(generateTmPrivate(package));
     TRY(generateSerializedPackage(project));

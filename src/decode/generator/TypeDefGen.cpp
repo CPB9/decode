@@ -233,14 +233,20 @@ void TypeDefGen::appendVariant(const VariantType* type)
 bool TypeDefGen::visitAliasType(const AliasType* type)
 {
     _output->append("typedef ");
+    bmcl::StringView modName;
+    if (type->moduleName() != "core") {
+        modName = type->moduleName();
+    }
     const Type* link = type->alias();
     if (link->isFunction()) {
         StringBuilder typedefName("Photon");
+        typedefName.appendWithFirstUpper(modName);
         typedefName.append(type->name());
         _typeReprGen->genTypeRepr(link, typedefName.result());
     } else {
         _typeReprGen->genTypeRepr(link);
         _output->append(" Photon");
+        _output->appendWithFirstUpper(modName);
         _output->append(type->name());
     }
     _output->append(";\n\n");

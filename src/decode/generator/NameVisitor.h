@@ -26,7 +26,6 @@ public:
     bool visitAliasType(const AliasType* type);
 
 protected:
-
     bool appendTypeName(const Type* type);
 };
 

@@ -49,13 +49,13 @@ void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
     appendIncludesAndFwds(type);
     appendCommonIncludePaths();
     _typeDefGen.genTypeDef(type);
+    appendImplBlockIncludes(namedType);
+    _output->startCppGuard();
+    appendFunctionPrototypes(namedType);
     if (type->typeKind() != TypeKind::Alias) {
-        appendImplBlockIncludes(namedType);
-        _output->startCppGuard();
-        appendFunctionPrototypes(namedType);
         appendSerializerFuncPrototypes(namedType);
-        _output->endCppGuard();
     }
+    _output->endCppGuard();
     endIncludeGuard();
 }
 
@@ -315,6 +315,9 @@ void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView t
             _output->append("* self");
             break;
         case SelfArgument::Value:
+            _output->appendModPrefix();
+            _output->append(typeName);
+            _output->append(" self");
             break;
         }
         if (type->hasArguments()) {
