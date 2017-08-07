@@ -15,8 +15,8 @@ using SendFwtPacketAtom                   = caf::atom_constant<caf::atom("sendup
 using SendCmdPacketAtom                   = caf::atom_constant<caf::atom("sendcpkt")>;
 using SetProjectAtom                      = caf::atom_constant<caf::atom("setprojt")>;
 using RegisterClientAtom                  = caf::atom_constant<caf::atom("regclien")>;
-using SetTmViewAtom                       = caf::atom_constant<caf::atom("updtmviw")>;
-using UpdateTmViewAtom                    = caf::atom_constant<caf::atom("settmviw")>;
+using SetTmViewAtom                       = caf::atom_constant<caf::atom("settmviw")>;
+using UpdateTmViewAtom                    = caf::atom_constant<caf::atom("updtmviw")>;
 using PushTmUpdatesAtom                   = caf::atom_constant<caf::atom("pushtmup")>;
 
 using RepeatStreamAtom                    = caf::atom_constant<caf::atom("strmrept")>;
