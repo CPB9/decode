@@ -10,10 +10,10 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/HashMap.h"
 
 #include <bmcl/Fwd.h>
 
-#include <unordered_map>
 #include <vector>
 
 namespace bmcl { class MemReader; }
@@ -26,15 +26,18 @@ class StatusMsg;
 class ValueNode;
 class DecoderAction;
 
+struct ChainElement {
+    ChainElement(std::size_t index, DecoderAction* action, ValueNode* node);
+    ChainElement(const ChainElement& other);
+    ~ChainElement();
+
+    std::size_t nodeIndex;
+    Rc<DecoderAction> action;
+    Rc<ValueNode> node;
+};
+
 class StatusMsgDecoder {
 public:
-    struct ChainElement {
-        ChainElement(std::size_t index, DecoderAction* action, ValueNode* node);
-
-        std::size_t nodeIndex;
-        Rc<DecoderAction> action;
-        Rc<ValueNode> node;
-    };
 
     StatusMsgDecoder(const StatusMsg* msg, FieldsNode* node);
     ~StatusMsgDecoder();
@@ -62,6 +65,6 @@ public:
     bool decode(uint64_t msgId, bmcl::Bytes payload);
 
 private:
-    std::unordered_map<uint64_t, StatusMsgDecoder> _decoders;
+    HashMap<uint64_t, StatusMsgDecoder> _decoders;
 };
 }

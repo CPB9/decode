@@ -47,7 +47,6 @@ private:
     bool generateSerializedPackage(const Project* project);
     bool generateDeviceFiles(const Project* project);
     bool generateConfig(const Project* project);
-    bool generateInit(const Project* project);
 
     void appendModIfdef(bmcl::StringView name);
     void appendEndif();

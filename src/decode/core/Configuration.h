@@ -11,18 +11,18 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Iterator.h"
+#include "decode/core/HashMap.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/Option.h>
 
-#include <unordered_map>
 #include <string>
 
 namespace decode {
 
 class Configuration : public RefCountable {
 public:
-    using Options = std::unordered_map<std::string, bmcl::Option<std::string>>;
+    using Options = HashMap<std::string, bmcl::Option<std::string>>;
     using OptionsConstIterator = Options::const_iterator;
     using OptionsConstRange = IteratorRange<Options::const_iterator>;
 

@@ -8,23 +8,19 @@
 
 #include "decode/groundcontrol/Exchange.h"
 #include "decode/groundcontrol/Crc.h"
-#include "decode/groundcontrol/FwtState.h"
-#include <decode/core/Diagnostics.h>
-#include <decode/parser/Package.h>
-#include <decode/groundcontrol/Atoms.h>
+#include "decode/groundcontrol/Atoms.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/MemWriter.h>
 #include <bmcl/Buffer.h>
-#include <bmcl/Result.h>
 #include <bmcl/SharedBytes.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 
 namespace decode {
 
-Exchange::Exchange(caf::actor_config& cfg, caf::actor dataSink)
+Exchange::Exchange(caf::actor_config& cfg, const caf::actor& dataSink)
     : caf::event_based_actor(cfg)
     , _sink(dataSink)
 {

@@ -11,7 +11,6 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/parser/Containers.h"
-#include "decode/generator/SerializationFuncPrototypeGen.h"
 #include "decode/generator/InlineTypeDeserializerGen.h"
 #include "decode/generator/InlineTypeSerializerGen.h"
 
@@ -25,16 +24,13 @@ class TypeReprGen;
 class SrcBuilder;
 class Type;
 
-class CmdDecoderGen : public FuncPrototypeGen<CmdDecoderGen> {
+class CmdDecoderGen {
 public:
     CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~CmdDecoderGen();
 
     void generateHeader(ComponentMap::ConstRange comps); //TODO: make generic
     void generateSource(ComponentMap::ConstRange comps);
-
-    SrcBuilder& output();
-    void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
 private:
     void appendFunctionPrototype(unsigned componenNum, unsigned cmdNum);
@@ -55,9 +51,4 @@ private:
     InlineTypeDeserializerGen _inlineDeser;
     StringBuilder _paramName;
 };
-
-inline SrcBuilder& CmdDecoderGen::output()
-{
-    return *_output;
-}
 }

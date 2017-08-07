@@ -9,13 +9,12 @@
 #pragma once
 
 #include "decode/Config.h"
+#include "decode/core/HashSet.h"
 #include "decode/generator/TypeDefGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/IncludeCollector.h"
 #include "decode/generator/TypeReprGen.h"
-#include "decode/generator/SerializationFuncPrototypeGen.h"
-
-#include <unordered_set>
+#include "decode/generator/FuncPrototypeGen.h"
 #include <string>
 
 namespace decode {
@@ -24,7 +23,7 @@ class Component;
 class FunctionType;
 class Function;
 
-class HeaderGen : public FuncPrototypeGen<HeaderGen> {
+class HeaderGen {
 public:
     HeaderGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~HeaderGen();
@@ -32,9 +31,6 @@ public:
     void genTypeHeader(const Ast* ast, const Type* type);
     void genSliceHeader(const SliceType* type);
     void genComponentHeader(const Ast* ast, const Component* type);
-
-    SrcBuilder& output();
-    void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
     void endIncludeGuard();
@@ -47,7 +43,7 @@ private:
     void startIncludeGuard(const Component* comp);
     void startIncludeGuard(const SliceType* type);
 
-    void appendIncludes(const std::unordered_set<std::string>& src);
+    void appendIncludes(const HashSet<std::string>& src);
     void appendImplBlockIncludes(const NamedType* topLevelType);
     void appendImplBlockIncludes(const Component* comp);
     void appendImplBlockIncludes(const SliceType* slice);
@@ -66,11 +62,7 @@ private:
     IncludeCollector _includeCollector;
     TypeDefGen _typeDefGen;
     SrcBuilder _sliceName;
+    FuncPrototypeGen _prototypeGen;
     Rc<TypeReprGen> _typeReprGen;
 };
-
-inline SrcBuilder& HeaderGen::output()
-{
-    return *_output;
-}
 }

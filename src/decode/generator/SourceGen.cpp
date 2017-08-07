@@ -21,21 +21,12 @@ SourceGen::SourceGen(TypeReprGen* reprGen, SrcBuilder* output)
     , _typeReprGen(reprGen)
     , _inlineSer(reprGen, output)
     , _inlineDeser(reprGen, output)
+    , _prototypeGen(reprGen, output)
 {
 }
 
 SourceGen::~SourceGen()
 {
-}
-
-inline SrcBuilder& SourceGen::output()
-{
-    return *_output;
-}
-
-inline void SourceGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
-{
-    _typeReprGen->genTypeRepr(type, fieldName);
 }
 
 inline bool SourceGen::visitBuiltinType(const BuiltinType* type)
@@ -318,13 +309,13 @@ void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 {
     appendIncludes(type);
     _output->appendEol();
-    appendSerializerFuncDecl(type);
+    _prototypeGen.appendSerializerFuncDecl(type);
     _output->append("\n{\n");
     (this->*serGen)(type);
     _output->append("    return PhotonError_Ok;\n");
     _output->append("}\n");
     _output->appendEol();
-    appendDeserializerFuncDecl(type);
+    _prototypeGen.appendDeserializerFuncDecl(type);
     _output->append("\n{\n");
     (this->*deserGen)(type);
     _output->append("    return PhotonError_Ok;\n");
@@ -339,13 +330,13 @@ bool SourceGen::visitSliceType(const SliceType* type)
     _output->appendLocalIncludePath(path.view());
     _output->appendLocalIncludePath("core/Try");
     _output->appendEol();
-    appendSerializerFuncDecl(type);
+    _prototypeGen.appendSerializerFuncDecl(type);
     _output->append("\n{\n");
     appendSliceSerializer(type);
     _output->append("    return PhotonError_Ok;\n");
     _output->append("}\n");
     _output->appendEol();
-    appendDeserializerFuncDecl(type);
+    _prototypeGen.appendDeserializerFuncDecl(type);
     _output->append("\n{\n");
     appendSliceDeserializer(type);
     _output->append("    return PhotonError_Ok;\n");

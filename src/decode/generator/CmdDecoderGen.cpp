@@ -236,9 +236,4 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
 
     _output->append("\n    return PhotonError_Ok;\n}");
 }
-
-void CmdDecoderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
-{
-    _typeReprGen->genTypeRepr(type, fieldName);
-}
 }

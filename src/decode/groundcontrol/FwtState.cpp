@@ -7,11 +7,10 @@
  */
 
 #include "decode/groundcontrol/FwtState.h"
-#include "decode/groundcontrol/Exchange.h"
 #include "decode/groundcontrol/MemIntervalSet.h"
+#include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/parser/Project.h"
-#include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/core/Utils.h"
 #include "decode/groundcontrol/Atoms.h"
 
@@ -20,11 +19,12 @@
 #include <bmcl/Logging.h>
 #include <bmcl/Result.h>
 #include <bmcl/SharedBytes.h>
+#include <bmcl/Bytes.h>
+
+#include <caf/atom.hpp>
 
 #include <chrono>
 #include <random>
-
-#include <caf/atom.hpp>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(std::string);
@@ -32,8 +32,6 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Device>);
 
 namespace decode {
-
-const unsigned maxChunkSize = 200;
 
 struct StartCmdRndGen {
     StartCmdRndGen()
@@ -53,7 +51,7 @@ struct StartCmdRndGen {
     uint64_t last;
 };
 
-FwtState::FwtState(caf::actor_config& cfg, caf::actor gc, caf::actor exchange, caf::actor eventHandler)
+FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& exchange, const caf::actor& eventHandler)
     : caf::event_based_actor(cfg)
     , _hasStartCommandPassed(false)
     , _hasDownloaded(false)

@@ -12,7 +12,6 @@
 #include "decode/ast/AstVisitor.h"
 #include "decode/generator/IncludeCollector.h"
 
-#include <unordered_set>
 #include <string>
 
 namespace decode {
@@ -50,5 +49,4 @@ private:
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
 };
-
 }

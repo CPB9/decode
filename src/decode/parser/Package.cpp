@@ -20,7 +20,6 @@
 #include "decode/ast/Decl.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
-#include "decode/parser/Lexer.h"
 #include "decode/parser/Parser.h"
 
 #include <bmcl/Buffer.h>
@@ -28,9 +27,7 @@
 #include <bmcl/MemReader.h>
 #include <bmcl/Result.h>
 
-#include <array>
 #include <cstring>
-#include <exception>
 #include <limits>
 #include <string>
 
@@ -42,10 +39,6 @@
 #endif
 
 namespace decode {
-
-#define DECODE_SUFFIX ".decode"
-
-const std::size_t suffixSize = sizeof(DECODE_SUFFIX) - 1;
 
 Package::Package(Configuration* cfg, Diagnostics* diag)
     : _diag(diag)

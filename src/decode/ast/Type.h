@@ -21,7 +21,6 @@
 
 #include <cstdint>
 #include <map>
-#include <unordered_map>
 
 namespace decode {
 
@@ -300,7 +299,7 @@ private:
 
 class EnumType : public NamedType {
 public:
-    using Constants = RcSecondUnorderedMap<std::int64_t, EnumConstant>;
+    using Constants = RcSecondMap<std::int64_t, EnumConstant>;
 
     EnumType(bmcl::StringView name, const ModuleInfo* info);
     ~EnumType();

@@ -35,14 +35,8 @@ enum ColumnDesc {
 template <typename T>
 class QModelBase : public QAbstractItemModel {
 public:
-    QModelBase(T* node)
-        : _root(node)
-        , _isEditable(false)
-    {
-    }
-    ~QModelBase()
-    {
-    }
+    QModelBase(T* node);
+    ~QModelBase();
 
     QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
     QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
@@ -68,6 +62,18 @@ protected:
     Rc<T> _root;
     bool _isEditable;
 };
+
+template <typename T>
+QModelBase<T>::QModelBase(T* node)
+    : _root(node)
+    , _isEditable(false)
+{
+}
+
+template <typename T>
+QModelBase<T>::~QModelBase()
+{
+}
 
 template <typename T>
 QVariant QModelBase<T>::fieldNameFromNode(const T* node)

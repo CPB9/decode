@@ -12,5 +12,4 @@ using ZpaqResult = bmcl::Result<bmcl::Buffer, std::string>;
 
 ZpaqResult zpaqDecompress(const void* src, std::size_t size);
 ZpaqResult zpaqCompress(const void* src, std::size_t size, unsigned compressionLevel = 4);
-
 }

@@ -12,15 +12,13 @@
 #include "decode/core/Rc.h"
 #include "decode/groundcontrol/MemIntervalSet.h"
 
-#include <bmcl/ArrayView.h>
+#include <bmcl/Fwd.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/Option.h>
-#include <bmcl/Fwd.h>
 
 #include <caf/event_based_actor.hpp>
 
 #include <array>
-#include <chrono>
 #include <cstring>
 
 namespace decode {
@@ -32,7 +30,7 @@ struct StartCmdRndGen;
 
 class FwtState : public caf::event_based_actor {
 public:
-    FwtState(caf::actor_config& cfg, caf::actor gc, caf::actor exchange, caf::actor eventHandler);
+    FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& exchange, const caf::actor& eventHandler);
     ~FwtState();
 
     caf::behavior make_behavior() override;

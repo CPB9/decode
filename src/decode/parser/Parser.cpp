@@ -11,6 +11,7 @@
 #include "decode/core/FileInfo.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/core/CfgOption.h"
+#include "decode/core/HashMap.h"
 #include "decode/ast/Decl.h"
 #include "decode/ast/DocBlock.h"
 #include "decode/ast/Ast.h"
@@ -31,7 +32,6 @@
 
 #include <string>
 #include <functional>
-#include <unordered_map>
 
 #define TRY(expr) \
     do { \
@@ -63,7 +63,7 @@ struct AllBuiltinTypes : public RefCountable {
     Rc<BuiltinType> i64Type;
     Rc<BuiltinType> boolType;
     Rc<BuiltinType> voidType;
-    std::unordered_map<bmcl::StringView, Rc<BuiltinType>> btMap;
+    HashMap<bmcl::StringView, Rc<BuiltinType>> btMap;
 };
 
 Parser::Parser(Diagnostics* diag)

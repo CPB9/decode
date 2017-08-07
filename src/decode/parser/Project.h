@@ -11,6 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
+#include "decode/core/HashMap.h"
 #include "decode/parser/Containers.h"
 
 #include <bmcl/Fwd.h>
@@ -18,7 +19,6 @@
 
 #include <string>
 #include <vector>
-#include <unordered_map>
 
 namespace decode {
 
@@ -75,7 +75,7 @@ private:
     Rc<Package> _package;
     Rc<Device> _master;
     std::vector<Rc<Device>> _devices;
-    std::unordered_map<Rc<const Ast>, SourcesToCopy> _sourcesMap;
+    HashMap<Rc<const Ast>, SourcesToCopy> _sourcesMap;
     std::string _name;
     std::uint64_t _mccId;
 };

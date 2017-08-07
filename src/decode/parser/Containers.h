@@ -11,13 +11,13 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Iterator.h"
+#include "decode/core/HashMap.h"
 
 #include <bmcl/OptionPtr.h>
 #include <bmcl/StringView.h>
 
 #include <vector>
 #include <map>
-#include <unordered_map>
 
 namespace decode {
 
@@ -36,10 +36,10 @@ public:
 };
 
 template <typename K, typename V>
-class RcSecondUnorderedMap : public std::unordered_map<K, Rc<V>> {
+class RcSecondUnorderedMap : public HashMap<K, Rc<V>> {
 public:
-    using Iterator = SmartPtrIteratorAdaptor<PairSecondIteratorAdaptor<typename std::unordered_map<K, Rc<V>>::iterator>>;
-    using ConstIterator = SmartPtrIteratorAdaptor<PairSecondIteratorAdaptor<typename std::unordered_map<K, Rc<V>>::const_iterator>>;
+    using Iterator = SmartPtrIteratorAdaptor<PairSecondIteratorAdaptor<typename HashMap<K, Rc<V>>::iterator>>;
+    using ConstIterator = SmartPtrIteratorAdaptor<PairSecondIteratorAdaptor<typename HashMap<K, Rc<V>>::const_iterator>>;
     using Range = IteratorRange<Iterator>;
     using ConstRange = IteratorRange<ConstIterator>;
 

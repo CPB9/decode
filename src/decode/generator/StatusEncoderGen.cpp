@@ -7,11 +7,11 @@
  */
 
 #include "decode/generator/StatusEncoderGen.h"
+#include "decode/core/HashSet.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/IncludeCollector.h"
 #include "decode/ast/Component.h"
 
-#include <unordered_set>
 #include <string>
 #include <cassert>
 
@@ -21,6 +21,7 @@ StatusEncoderGen::StatusEncoderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _typeReprGen(reprGen)
     , _output(output)
     , _inlineSer(reprGen, output)
+    , _prototypeGen(reprGen, output)
 {
 }
 
@@ -42,7 +43,7 @@ void StatusEncoderGen::generateHeader(CompAndMsgVecConstRange messages)
     std::size_t n = 0;
     for (const ComponentAndMsg& msg : messages) {
         _output->appendModIfdef(msg.component->moduleName());
-        appendStatusMessageGenFuncDecl(msg.component.get(), n);
+        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), n);
         _output->append(";\n");
         _output->appendEndif();
         n++;
@@ -57,8 +58,8 @@ void StatusEncoderGen::generateHeader(CompAndMsgVecConstRange messages)
 void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
 {
     IncludeCollector coll;
-    std::unordered_set<std::string> includes;
-    std::unordered_set<Rc<Component>> comps;
+    HashSet<std::string> includes;
+    HashSet<Rc<Component>> comps;
 
     for (const char* inc : {"core/Writer", "core/Error", "core/Try"}) {
         _output->appendLocalIncludePath(inc);
@@ -89,7 +90,7 @@ void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
     std::size_t n = 0;
     for (const ComponentAndMsg& msg : messages) {
         _output->appendModIfdef(msg.component->moduleName());
-        appendStatusMessageGenFuncDecl(msg.component.get(), n);
+        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), n);
         _output->append("\n{\n");
 
         for (const StatusRegexp* part : msg.msg->partsRange()) {
@@ -199,10 +200,5 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
         _output->appendIndent(indent - 1);
         _output->append("}\n");
     }
-}
-
-void StatusEncoderGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
-{
-    _typeReprGen->genTypeRepr(type, fieldName);
 }
 }

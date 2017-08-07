@@ -20,6 +20,7 @@
 #include "decode/core/Zpaq.h"
 #include "decode/core/Utils.h"
 #include "decode/core/ProgressPrinter.h"
+#include "decode/core/HashMap.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/StringView.h>
@@ -29,7 +30,6 @@
 
 #include <toml11/toml.hpp>
 
-#include <unordered_map>
 #include <set>
 
 namespace decode {
@@ -57,8 +57,8 @@ struct ModuleDesc {
     Project::SourcesToCopy sources;
 };
 
-using DeviceDescMap = std::unordered_map<std::string, DeviceDesc>;
-using ModuleDescMap = std::unordered_map<std::string, ModuleDesc>;
+using DeviceDescMap = HashMap<std::string, DeviceDesc>;
+using ModuleDescMap = HashMap<std::string, ModuleDesc>;
 
 Project::Project(Configuration* cfg, Diagnostics* diag)
     : _cfg(cfg)

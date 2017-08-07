@@ -74,7 +74,7 @@ if (NOT CAF_INCLUDED) #for parent project
         set(_TMP_FLAGS ${CMAKE_CXX_FLAGS})
         set(CMAKE_CXX_FLAGS "")
     endif()
-    add_subdirectory(thirdparty/caf)
+    add_subdirectory(thirdparty/caf EXCLUDE_FROM_ALL)
     if (NOT MSVC)
         set(CMAKE_CXX_FLAGS ${_TMP_FLAGS})
     endif()
@@ -165,6 +165,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/CmdDecoderGen.h
     src/decode/generator/CmdEncoderGen.cpp
     src/decode/generator/CmdEncoderGen.h
+    src/decode/generator/FuncPrototypeGen.cpp
+    src/decode/generator/FuncPrototypeGen.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
     src/decode/generator/HeaderGen.cpp
@@ -178,7 +180,6 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/InlineTypeSerializerGen.cpp
     src/decode/generator/InlineTypeSerializerGen.h
     src/decode/generator/NameVisitor.h
-    src/decode/generator/SerializationFuncPrototypeGen.h
     src/decode/generator/SliceCollector.cpp
     src/decode/generator/SliceCollector.h
     src/decode/generator/SourceGen.cpp

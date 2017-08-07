@@ -24,13 +24,14 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/Try.h"
 #include "decode/core/PathUtils.h"
+#include "decode/core/HashMap.h"
+#include "decode/core/HashSet.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/Sha3.h>
 #include <bmcl/FixedArrayView.h>
 
-#include <unordered_set>
 #include <iostream>
 #include <deque>
 #include <memory>
@@ -226,13 +227,14 @@ bool Generator::generateTmPrivate(const Package* package)
     _output.clear();
 
     _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
+    FuncPrototypeGen prototypeGen(_reprGen.get(), &_output);
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendModIfdef(msg.component->moduleName());
         _output.appendIndent(1);
         _output.append("{");
         _output.append(".func = ");
-        _hgen->appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
+        prototypeGen.appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
         _output.append(", .compNum = ");
         _output.appendNumericValue(msg.component->number());
         _output.append(", .msgNum = ");
@@ -299,7 +301,7 @@ bool Generator::generateSerializedPackage(const Project* project)
 
 void Generator::appendBuiltinSources(bmcl::StringView ext)
 {
-    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private", "StatusEncoder.Private", "Init"};
+    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private", "StatusEncoder.Private"};
     for (bmcl::StringView str : builtin) {
         _output.append("#include \"photon/");
         _output.append(str);
@@ -310,7 +312,7 @@ void Generator::appendBuiltinSources(bmcl::StringView ext)
 
 bool Generator::generateDeviceFiles(const Project* project)
 {
-    std::unordered_map<Rc<const Ast>, std::vector<std::string>> srcsPaths;
+    HashMap<Rc<const Ast>, std::vector<std::string>> srcsPaths;
     for (const Ast* mod : project->package()->modules()) {
         auto src = project->sourcesForModule(mod);
         if (src.isNone()) {
@@ -351,7 +353,7 @@ bool Generator::generateDeviceFiles(const Project* project)
 
     IncludeCollector coll;
     for (const Device* dev : project->devices()) {
-        std::unordered_set<std::string> types;
+        HashSet<std::string> types;
         types.insert("core/Reader");
         types.insert("core/Writer");
         types.insert("core/Error");
@@ -359,7 +361,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         for (const Rc<Ast>& module : dev->modules) {
             coll.collect(module.get(), &types);
         }
-        std::unordered_set<Rc<Ast>> targetMods;
+        HashSet<Rc<Ast>> targetMods;
 
         for (const Rc<Device>& dep : dev->cmdTargets) {
             for (const Rc<Ast>& module : dep->modules) {
@@ -467,51 +469,6 @@ bool Generator::generateConfig(const Project* project)
     return true;
 }
 
-bool Generator::generateInit(const Project* project)
-{
-    _output.append("#ifndef __PHOTON_INIT_H__\n");
-    _output.append("#define __PHOTON_INIT_H__\n\n");
-    _output.startCppGuard();
-    _output.append("void Photon_Init();\n\n");
-    _output.endCppGuard();
-    _output.append("#endif\n");
-    TRY(dumpIfNotEmpty("Init", ".h", &_photonPath));
-    _output.clear();
-
-    _output.append("#include \"photon/Init.h\"\n\n");
-    _output.append("void Photon_Init()\n{\n");
-    for (const Ast* module : project->package()->modules()) {
-        if (module->component().isNone()) {
-            continue;
-        }
-        bmcl::OptionPtr<const ImplBlock> impl = module->component().unwrap()->implBlock();
-        if (impl.isNone()) {
-            continue;
-        }
-        auto initFunc = std::find_if(impl->functionsBegin(), impl->functionsEnd(), [](const Function* f) {
-            return f->name() == "init";
-        });
-        if (initFunc == impl->functionsEnd()) {
-            continue;
-        }
-        if (initFunc->type()->hasArguments()) {
-            BMCL_WARNING() << "init function from component <" << module->moduleInfo()->moduleName().toStdString() << " has arguments";
-            continue;
-        }
-        bmcl::StringView modName = module->moduleInfo()->moduleName();
-        _output.appendModIfdef(modName);
-        _output.append("    Photon");
-        _output.appendWithFirstUpper(modName);
-        _output.append("_Init();\n");
-        _output.appendEndif();
-    }
-    _output.append("}\n");
-    TRY(dumpIfNotEmpty("Init", ".c", &_photonPath));
-    _output.clear();
-
-    return true;
-}
-
 bool Generator::generateProject(const Project* project)
 {
     _photonPath.append(_savePath);
@@ -530,7 +487,6 @@ bool Generator::generateProject(const Project* project)
     }
 
     TRY(generateConfig(project));
-    TRY(generateInit(project));
     TRY(generateSlices());
     TRY(generateTmPrivate(package));
     TRY(generateSerializedPackage(project));
