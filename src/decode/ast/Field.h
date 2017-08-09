@@ -31,6 +31,9 @@ enum class VariantFieldKind {
 
 class Field : public NamedRc, public DocBlockMixin {
 public:
+    using Pointer = Rc<Field>;
+    using ConstPointer = Rc<const Field>;
+
     Field(bmcl::StringView name, Type* type);
     ~Field();
 
@@ -43,6 +46,9 @@ private:
 
 class VariantField : public NamedRc, public DocBlockMixin {
 public:
+    using Pointer = Rc<VariantField>;
+    using ConstPointer = Rc<const VariantField>;
+
     VariantField(VariantFieldKind kind, bmcl::StringView name);
     ~VariantField();
 
@@ -54,12 +60,18 @@ private:
 
 class ConstantVariantField : public VariantField {
 public:
+    using Pointer = Rc<ConstantVariantField>;
+    using ConstPointer = Rc<const ConstantVariantField>;
+
     ConstantVariantField(bmcl::StringView name);
     ~ConstantVariantField();
 };
 
 class StructVariantField : public VariantField {
 public:
+    using Pointer = Rc<StructVariantField>;
+    using ConstPointer = Rc<const StructVariantField>;
+
     StructVariantField(bmcl::StringView name);
     ~StructVariantField();
 
@@ -78,6 +90,9 @@ private:
 
 class TupleVariantField : public VariantField {
 public:
+    using Pointer = Rc<TupleVariantField>;
+    using ConstPointer = Rc<const TupleVariantField>;
+
     TupleVariantField(bmcl::StringView name);
     ~TupleVariantField();
 

@@ -17,6 +17,9 @@ namespace decode {
 
 class NamedRc : public RefCountable {
 public:
+    using Pointer = Rc<NamedRc>;
+    using ConstPointer = Rc<const NamedRc>;
+
     NamedRc(bmcl::StringView name)
         : _name(name)
     {

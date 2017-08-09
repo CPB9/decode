@@ -38,6 +38,9 @@ class ReferenceType;
 
 class ValueNode : public Node {
 public:
+    using Pointer = Rc<ValueNode>;
+    using ConstPointer = Rc<const ValueNode>;
+
     ~ValueNode();
 
     static Rc<ValueNode> fromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
@@ -69,6 +72,9 @@ private:
 
 class ContainerValueNode : public ValueNode {
 public:
+    using Pointer = Rc<ContainerValueNode>;
+    using ConstPointer = Rc<const ContainerValueNode>;
+
     ~ContainerValueNode();
 
     bool encode(bmcl::MemWriter* dest) const override;
@@ -93,6 +99,9 @@ protected:
 
 class ArrayValueNode : public ContainerValueNode {
 public:
+    using Pointer = Rc<ArrayValueNode>;
+    using ConstPointer = Rc<const ArrayValueNode>;
+
     ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~ArrayValueNode();
 
@@ -108,6 +117,9 @@ private:
 
 class SliceValueNode : public ContainerValueNode {
 public:
+    using Pointer = Rc<SliceValueNode>;
+    using ConstPointer = Rc<const SliceValueNode>;
+
     SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~SliceValueNode();
 
@@ -129,6 +141,9 @@ private:
 
 class StructValueNode : public ContainerValueNode {
 public:
+    using Pointer = Rc<StructValueNode>;
+    using ConstPointer = Rc<const StructValueNode>;
+
     StructValueNode(const StructType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~StructValueNode();
 
@@ -182,6 +197,9 @@ private:
 
 class VariantValueNode : public ContainerValueNode {
 public:
+    using Pointer = Rc<VariantValueNode>;
+    using ConstPointer = Rc<const VariantValueNode>;
+
     VariantValueNode(const VariantType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VariantValueNode();
 
@@ -200,6 +218,9 @@ private:
 
 class NonContainerValueNode : public ValueNode {
 public:
+    using Pointer = Rc<NonContainerValueNode>;
+    using ConstPointer = Rc<const NonContainerValueNode>;
+
     bool isContainerValue() const override;
     bool canHaveChildren() const override;
 
@@ -211,6 +232,9 @@ protected:
 
 class AddressValueNode : public NonContainerValueNode {
 public:
+    using Pointer = Rc<AddressValueNode>;
+    using ConstPointer = Rc<const AddressValueNode>;
+
     AddressValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~AddressValueNode();
 
@@ -231,6 +255,9 @@ protected:
 
 class ReferenceValueNode : public AddressValueNode {
 public:
+    using Pointer = Rc<ReferenceValueNode>;
+    using ConstPointer = Rc<const ReferenceValueNode>;
+
     ReferenceValueNode(const ReferenceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~ReferenceValueNode();
     const Type* type() const override;
@@ -241,6 +268,9 @@ private:
 
 class FunctionValueNode : public AddressValueNode {
 public:
+    using Pointer = Rc<FunctionValueNode>;
+    using ConstPointer = Rc<const FunctionValueNode>;
+
     FunctionValueNode(const FunctionType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~FunctionValueNode();
     const Type* type() const override;
@@ -251,6 +281,9 @@ private:
 
 class EnumValueNode : public NonContainerValueNode {
 public:
+    using Pointer = Rc<EnumValueNode>;
+    using ConstPointer = Rc<const EnumValueNode>;
+
     EnumValueNode(const EnumType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~EnumValueNode();
 
@@ -274,6 +307,9 @@ private:
 
 class BuiltinValueNode : public NonContainerValueNode {
 public:
+    using Pointer = Rc<BuiltinValueNode>;
+    using ConstPointer = Rc<const BuiltinValueNode>;
+
     ~BuiltinValueNode();
 
     static Rc<BuiltinValueNode> fromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
@@ -288,6 +324,9 @@ protected:
 template <typename T>
 class NumericValueNode : public BuiltinValueNode {
 public:
+    using Pointer = Rc<NumericValueNode<T>>;
+    using ConstPointer = Rc<const NumericValueNode<T>>;
+
     NumericValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~NumericValueNode();
 
@@ -323,6 +362,9 @@ extern template class NumericValueNode<double>;
 
 class VarintValueNode : public NumericValueNode<std::int64_t> {
 public:
+    using Pointer = Rc<VarintValueNode>;
+    using ConstPointer = Rc<const VarintValueNode>;
+
     VarintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VarintValueNode();
 
@@ -332,6 +374,9 @@ public:
 
 class VaruintValueNode : public NumericValueNode<std::uint64_t> {
 public:
+    using Pointer = Rc<VaruintValueNode>;
+    using ConstPointer = Rc<const VaruintValueNode>;
+
     VaruintValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~VaruintValueNode();
 

@@ -21,6 +21,9 @@ class FileInfo;
 
 class ModuleInfo : public RefCountable, public DocBlockMixin {
 public:
+    using Pointer = Rc<ModuleInfo>;
+    using ConstPointer = Rc<const ModuleInfo>;
+
     ModuleInfo(bmcl::StringView name, const FileInfo* fileInfo);
     ~ModuleInfo();
 

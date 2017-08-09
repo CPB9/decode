@@ -33,6 +33,8 @@ class Constant;
 
 class Ast : public RefCountable {
 public:
+    using Pointer = Rc<Ast>;
+    using ConstPointer = Rc<const Ast>;
     using Types = RcVec<Type>;
     using NamedTypes = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;

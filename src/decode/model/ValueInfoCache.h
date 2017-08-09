@@ -36,6 +36,9 @@ private:
 
 class ValueInfoCache : public RefCountable {
 public:
+    using Pointer = Rc<ValueInfoCache>;
+    using ConstPointer = Rc<const ValueInfoCache>;
+
     struct Hasher {
         std::size_t operator()(const Rc<const Type>& key) const
         {

@@ -20,6 +20,9 @@ namespace decode {
 
 class FileInfo : public RefCountable {
 public:
+    using Pointer = Rc<FileInfo>;
+    using ConstPointer = Rc<const FileInfo>;
+
     FileInfo(std::string&& name, std::string&& contents);
     ~FileInfo();
 

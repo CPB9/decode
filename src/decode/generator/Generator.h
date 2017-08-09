@@ -31,6 +31,9 @@ class TypeReprGen;
 
 class Generator : public RefCountable {
 public:
+    using Pointer = Rc<Generator>;
+    using ConstPointer = Rc<const Generator>;
+
     Generator(Diagnostics* diag);
     ~Generator();
 

@@ -31,6 +31,9 @@ using PackageResult = bmcl::Result<Rc<Package>, void>;
 
 class Package : public RefCountable {
 public:
+    using Pointer = Rc<Package>;
+    using ConstPointer = Rc<const Package>;
+
     struct StringViewComparator
     {
         inline bool operator()(const bmcl::StringView& left, const bmcl::StringView& right) const

@@ -26,6 +26,9 @@ using NodeViewVec = std::vector<Rc<NodeView>>;
 
 class NodeView : public RefCountable {
 public:
+    using Pointer = Rc<NodeView>;
+    using ConstPointer = Rc<const NodeView>;
+
     NodeView(const Node* node, bmcl::OptionPtr<NodeView> parent = bmcl::None, std::size_t indexInParent = 0);
     ~NodeView();
 

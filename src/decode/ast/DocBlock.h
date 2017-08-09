@@ -13,6 +13,8 @@ namespace decode {
 
 class DocBlock : public RefCountable {
 public:
+    using Pointer = Rc<DocBlock>;
+    using ConstPointer = Rc<const DocBlock>;
     using DocVec = std::vector<bmcl::StringView>;
     using DocRange = IteratorRange<DocVec::const_iterator>;
 

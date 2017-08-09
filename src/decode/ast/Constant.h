@@ -21,6 +21,9 @@ class Type;
 
 class Constant : public NamedRc {
 public:
+    using Pointer = Rc<Constant>;
+    using ConstPointer = Rc<const Constant>;
+
     Constant(bmcl::StringView name, std::uintmax_t value, Type* type);
     ~Constant();
 

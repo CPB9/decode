@@ -34,6 +34,9 @@ using ProjectResult = bmcl::Result<Rc<Project>, void>;
 using DeviceVec = RcVec<Device>;
 
 struct Device : public RefCountable {
+    using Pointer = Rc<Device>;
+    using ConstPointer = Rc<const Device>;
+
     std::vector<Rc<Ast>> modules;
     DeviceVec tmSources;
     DeviceVec cmdTargets;
@@ -44,6 +47,8 @@ struct Device : public RefCountable {
 
 class Project : public RefCountable {
 public:
+    using Pointer = Rc<Project>;
+    using ConstPointer = Rc<const Project>;
     using HashType = bmcl::Sha3<512>;
 
     struct SourcesToCopy {

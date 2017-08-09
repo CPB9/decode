@@ -32,6 +32,9 @@ private:
 
 class OnboardTimeDesc : public RefCountable {
 public:
+    using Pointer = Rc<OnboardTimeDesc>;
+    using ConstPointer = Rc<const OnboardTimeDesc>;
+
     OnboardTimeDesc(OnboardTimeKind kind = OnboardTimeKind::Ticks);
     ~OnboardTimeDesc();
 

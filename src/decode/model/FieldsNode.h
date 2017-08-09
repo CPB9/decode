@@ -29,6 +29,9 @@ class NodeViewUpdater;
 
 class FieldsNode : public Node {
 public:
+    using Pointer = Rc<FieldsNode>;
+    using ConstPointer = Rc<const FieldsNode>;
+
     FieldsNode(FieldVec::ConstRange, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~FieldsNode();
 

@@ -36,6 +36,9 @@ enum class AccessorKind {
 
 class Accessor : public RefCountable {
 public:
+    using Pointer = Rc<Accessor>;
+    using ConstPointer = Rc<const Accessor>;
+
     ~Accessor();
 
     AccessorKind accessorKind() const;
@@ -60,6 +63,9 @@ struct Range {
 
 class FieldAccessor : public Accessor {
 public:
+    using Pointer = Rc<FieldAccessor>;
+    using ConstPointer = Rc<const FieldAccessor>;
+
     FieldAccessor(bmcl::StringView value, Field* field);
     ~FieldAccessor();
 
@@ -76,6 +82,9 @@ private:
 
 class SubscriptAccessor : public Accessor {
 public:
+    using Pointer = Rc<SubscriptAccessor>;
+    using ConstPointer = Rc<const SubscriptAccessor>;
+
     SubscriptAccessor(const Range& range, Type* type);
     SubscriptAccessor(std::uintmax_t subscript, Type* type);
     ~SubscriptAccessor();
@@ -96,6 +105,8 @@ private:
 
 class StatusRegexp : public RefCountable {
 public:
+    using Pointer = Rc<StatusRegexp>;
+    using ConstPointer = Rc<const StatusRegexp>;
     using Accessors = RcVec<Accessor>;
 
     StatusRegexp();
@@ -117,6 +128,8 @@ private:
 
 class StatusMsg : public RefCountable {
 public:
+    using Pointer = Rc<StatusMsg>;
+    using ConstPointer = Rc<const StatusMsg>;
     using Parts = RcVec<StatusRegexp>;
 
     StatusMsg(std::size_t num, std::size_t priority, bool isEnabled);
@@ -143,6 +156,8 @@ private:
 
 class Component : public RefCountable {
 public:
+    using Pointer = Rc<Component>;
+    using ConstPointer = Rc<const Component>;
     using Cmds = RcVec<Function>;
     using Params = FieldVec;
     using Statuses = RcSecondUnorderedMap<std::size_t, StatusMsg>;

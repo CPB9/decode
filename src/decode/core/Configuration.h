@@ -22,6 +22,8 @@ namespace decode {
 
 class Configuration : public RefCountable {
 public:
+    using Pointer = Rc<Configuration>;
+    using ConstPointer = Rc<const Configuration>;
     using Options = HashMap<std::string, bmcl::Option<std::string>>;
     using OptionsConstIterator = Options::const_iterator;
     using OptionsConstRange = IteratorRange<Options::const_iterator>;

@@ -50,6 +50,9 @@ private:
 
 class StatusDecoder : public RefCountable {
 public:
+    using Pointer = Rc<StatusDecoder>;
+    using ConstPointer = Rc<const StatusDecoder>;
+
     template <typename R>
     StatusDecoder(R statusRange, FieldsNode* node)
     {

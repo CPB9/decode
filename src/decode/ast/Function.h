@@ -25,6 +25,9 @@ class ModuleInfo;
 
 class Function : public NamedRc, public DocBlockMixin {
 public:
+    using Pointer = Rc<Function>;
+    using ConstPointer = Rc<const Function>;
+
     Function(bmcl::StringView name, FunctionType* type);
     ~Function();
 

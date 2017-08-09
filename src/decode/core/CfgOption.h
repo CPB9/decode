@@ -22,11 +22,17 @@ class Configuration;
 
 class CfgOption : public RefCountable {
 public:
+    using Pointer = Rc<CfgOption>;
+    using ConstPointer = Rc<const CfgOption>;
+
     virtual bool matchesConfiguration(const Configuration* cfg) const = 0;
 };
 
 class SingleCfgOption : public CfgOption {
 public:
+    using Pointer = Rc<SingleCfgOption>;
+    using ConstPointer = Rc<const SingleCfgOption>;
+
     SingleCfgOption(bmcl::StringView key);
     SingleCfgOption(bmcl::StringView key, bmcl::StringView value);
     ~SingleCfgOption();
@@ -40,6 +46,9 @@ protected:
 
 class NotCfgOption : public SingleCfgOption {
 public:
+    using Pointer = Rc<NotCfgOption>;
+    using ConstPointer = Rc<const NotCfgOption>;
+
     using SingleCfgOption::SingleCfgOption;
 
     bool matchesConfiguration(const Configuration* cfg) const override;
@@ -47,6 +56,9 @@ public:
 
 class AnyCfgOption : public CfgOption {
 public:
+    using Pointer = Rc<AnyCfgOption>;
+    using ConstPointer = Rc<const AnyCfgOption>;
+
     AnyCfgOption();
     ~AnyCfgOption();
 
@@ -59,6 +71,9 @@ protected:
 
 class AllCfgOption : public AnyCfgOption {
 public:
+    using Pointer = Rc<AllCfgOption>;
+    using ConstPointer = Rc<const AllCfgOption>;
+
     using AnyCfgOption::AnyCfgOption;
 
     bool matchesConfiguration(const Configuration* cfg) const override;

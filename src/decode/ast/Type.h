@@ -82,6 +82,9 @@ class ModuleInfo;
 
 class Type : public RefCountable, public DocBlockMixin {
 public:
+    using Pointer = Rc<Type>;
+    using ConstPointer = Rc<const Type>;
+
     ~Type();
 
     const ArrayType* asArray() const;
@@ -128,6 +131,9 @@ private:
 
 class NamedType : public Type {
 public:
+    using Pointer = Rc<NamedType>;
+    using ConstPointer = Rc<const NamedType>;
+
     ~NamedType();
 
     const ModuleInfo* moduleInfo() const;
@@ -146,6 +152,9 @@ private:
 
 class AliasType : public NamedType {
 public:
+    using Pointer = Rc<AliasType>;
+    using ConstPointer = Rc<const AliasType>;
+
     AliasType(bmcl::StringView name, const ModuleInfo* info, Type* alias);
     ~AliasType();
 
@@ -159,6 +168,9 @@ private:
 
 class ReferenceType : public Type {
 public:
+    using Pointer = Rc<ReferenceType>;
+    using ConstPointer = Rc<const ReferenceType>;
+
     ReferenceType(ReferenceKind kind, bool isMutable, Type* pointee);
     ~ReferenceType();
 
@@ -179,6 +191,9 @@ private:
 
 class BuiltinType : public Type {
 public:
+    using Pointer = Rc<BuiltinType>;
+    using ConstPointer = Rc<const BuiltinType>;
+
     BuiltinType(BuiltinTypeKind kind);
     ~BuiltinType();
 
@@ -190,6 +205,9 @@ private:
 
 class SliceType : public Type {
 public:
+    using Pointer = Rc<SliceType>;
+    using ConstPointer = Rc<const SliceType>;
+
     SliceType(const ModuleInfo* info, Type* elementType);
     ~SliceType();
 
@@ -205,6 +223,9 @@ private:
 
 class ArrayType : public Type {
 public:
+    using Pointer = Rc<ArrayType>;
+    using ConstPointer = Rc<const ArrayType>;
+
     ArrayType(std::uintmax_t elementCount, Type* elementType);
     ~ArrayType();
 
@@ -219,6 +240,9 @@ private:
 
 class ImportedType : public NamedType {
 public:
+    using Pointer = Rc<ImportedType>;
+    using ConstPointer = Rc<const ImportedType>;
+
     ImportedType(bmcl::StringView name, bmcl::StringView importPath, const ModuleInfo* info, NamedType* link = nullptr);
     ~ImportedType();
 
@@ -234,6 +258,9 @@ private:
 
 class FunctionType : public Type {
 public:
+    using Pointer = Rc<FunctionType>;
+    using ConstPointer = Rc<const FunctionType>;
+
     FunctionType(const ModuleInfo* info);
     ~FunctionType();
 
@@ -262,6 +289,8 @@ private:
 
 class StructType : public NamedType {
 public:
+    using Pointer = Rc<StructType>;
+    using ConstPointer = Rc<const StructType>;
     using Fields = FieldVec;
 
     StructType(bmcl::StringView name, const ModuleInfo* info);
@@ -286,6 +315,9 @@ private:
 
 class EnumConstant : public NamedRc, public DocBlockMixin {
 public:
+    using Pointer = Rc<EnumConstant>;
+    using ConstPointer = Rc<const EnumConstant>;
+
     EnumConstant(bmcl::StringView name, std::int64_t value, bool isUserSet);
     ~EnumConstant();
 
@@ -299,6 +331,8 @@ private:
 
 class EnumType : public NamedType {
 public:
+    using Pointer = Rc<EnumType>;
+    using ConstPointer = Rc<const EnumType>;
     using Constants = RcSecondMap<std::int64_t, EnumConstant>;
 
     EnumType(bmcl::StringView name, const ModuleInfo* info);
@@ -318,6 +352,8 @@ class VariantField;
 
 class VariantType : public NamedType {
 public:
+    using Pointer = Rc<VariantType>;
+    using ConstPointer = Rc<const VariantType>;
     using Fields = VariantFieldVec;
 
     VariantType(bmcl::StringView name, const ModuleInfo* info);

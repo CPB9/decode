@@ -29,6 +29,9 @@ class FileInfo;
 
 class Report : public RefCountable {
 public:
+    using Pointer = Rc<Report>;
+    using ConstPointer = Rc<const Report>;
+
     enum Level {
         Error,
         Warning,
@@ -58,6 +61,8 @@ private:
 
 class Diagnostics : public RefCountable {
 public:
+    using Pointer = Rc<Diagnostics>;
+    using ConstPointer = Rc<const Diagnostics>;
 #if defined(__linux__)
     using SystemErrorType = int;
 #elif defined(_MSC_VER) || defined(__MINGW32__)

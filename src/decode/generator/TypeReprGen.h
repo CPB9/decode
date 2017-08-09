@@ -20,6 +20,9 @@ namespace decode {
 
 class TypeReprGen : public NameVisitor<TypeReprGen>, public RefCountable {
 public:
+    using Pointer = Rc<TypeReprGen>;
+    using ConstPointer = Rc<const TypeReprGen>;
+
     TypeReprGen(SrcBuilder* dest);
     ~TypeReprGen();
 

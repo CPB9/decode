@@ -21,6 +21,9 @@ class ValueInfoCache;
 
 class CmdNode : public FieldsNode {
 public:
+    using Pointer = Rc<CmdNode>;
+    using ConstPointer = Rc<const CmdNode>;
+
     CmdNode(const Component* comp, const Function* func, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs = true);
     ~CmdNode();
 

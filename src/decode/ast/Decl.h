@@ -27,6 +27,9 @@ class Type;
 
 class Decl : public RefCountable {
 public:
+    using Pointer = Rc<Decl>;
+    using ConstPointer = Rc<const Decl>;
+
     Decl(const ModuleInfo* info, Location start, Location end);
     ~Decl();
 
@@ -47,6 +50,9 @@ private:
 
 class NamedDecl : public Decl {
 public:
+    using Pointer = Rc<NamedDecl>;
+    using ConstPointer = Rc<const NamedDecl>;
+
     NamedDecl();
     ~NamedDecl();
 
@@ -59,6 +65,9 @@ private:
 
 class TypeDecl : public Decl {
 public:
+    using Pointer = Rc<TypeDecl>;
+    using ConstPointer = Rc<const TypeDecl>;
+
     ~TypeDecl();
 
     const Type* type() const;
@@ -75,6 +84,9 @@ private:
 
 class ModuleDecl : public Decl {
 public:
+    using Pointer = Rc<ModuleDecl>;
+    using ConstPointer = Rc<const ModuleDecl>;
+
     ModuleDecl(const ModuleInfo* info, Location start, Location end);
     ~ModuleDecl();
 
@@ -85,6 +97,8 @@ class ImportedType;
 
 class ImportDecl : public RefCountable {
 public:
+    using Pointer = Rc<ImportDecl>;
+    using ConstPointer = Rc<const ImportDecl>;
     using Types = RcVec<ImportedType>;
 
     ImportDecl(const ModuleInfo* modInfo, bmcl::StringView path);
@@ -108,6 +122,8 @@ class Function;
 
 class ImplBlock : public NamedDecl {
 public:
+    using Pointer = Rc<ImplBlock>;
+    using ConstPointer = Rc<const ImplBlock>;
     using Functions = RcVec<Function>;
 
     ~ImplBlock();

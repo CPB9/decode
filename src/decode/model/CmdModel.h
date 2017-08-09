@@ -19,6 +19,9 @@ class CmdContainerNode;
 
 class CmdModel : public Node {
 public:
+    using Pointer = Rc<CmdModel>;
+    using ConstPointer = Rc<const CmdModel>;
+
     CmdModel(const Device* dev, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~CmdModel();
 

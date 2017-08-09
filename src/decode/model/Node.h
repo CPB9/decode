@@ -24,6 +24,9 @@ class NodeViewUpdater;
 
 class Node : public RefCountable {
 public:
+    using Pointer = Rc<Node>;
+    using ConstPointer = Rc<const Node>;
+
     explicit Node(bmcl::OptionPtr<Node> parent);
     ~Node();
 

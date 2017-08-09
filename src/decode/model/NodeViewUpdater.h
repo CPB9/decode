@@ -18,6 +18,9 @@ class NodeViewStore;
 
 class NodeViewUpdater : public RefCountable {
 public:
+    using Pointer = Rc<NodeViewUpdater>;
+    using ConstPointer = Rc<const NodeViewUpdater>;
+
     NodeViewUpdater();
     ~NodeViewUpdater();
 

@@ -24,6 +24,9 @@ class NodeViewUpdater;
 
 class TmModel : public Node {
 public:
+    using Pointer = Rc<TmModel>;
+    using ConstPointer = Rc<const TmModel>;
+
     TmModel(const Device* dev, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent = bmcl::None);
     ~TmModel();
 
