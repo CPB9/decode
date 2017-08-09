@@ -11,7 +11,7 @@
 #include "decode/parser/Project.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/Ast.h"
-#include "decode/model/Decoder.h"
+#include "decode/model/StatusDecoder.h"
 #include "decode/model/FieldsNode.h"
 
 namespace decode {

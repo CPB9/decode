@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "decode/model/Decoder.h"
+#include "decode/model/StatusDecoder.h"
 #include "decode/core/Try.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/Type.h"

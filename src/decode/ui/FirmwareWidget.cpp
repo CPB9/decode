@@ -41,8 +41,10 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     QObject::connect(sendButton, &QPushButton::clicked, _paramViewModel.get(), [this]() {
         uint8_t tmp[2048]; //TODO: temp
         bmcl::MemWriter dest(tmp, sizeof(tmp));
-        uint8_t prefix[11] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-        dest.write(prefix, sizeof(prefix));
+        dest.writeVarInt(1); // streamtype
+        dest.writeVarInt(0); // datatype
+        dest.writeUint16Le(0);
+        dest.writeVarUint(0); //time
         if (_scriptNode->encode(&dest)) {
             emit packetQueued(dest.writenData());
         } else {

@@ -33,5 +33,6 @@ protected:
 private:
     Rc<TmModel> _model;
     caf::actor _handler;
+    uint16_t _lastCounter;
 };
 }

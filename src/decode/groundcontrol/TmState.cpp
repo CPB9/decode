@@ -29,6 +29,7 @@ namespace decode {
 TmState::TmState(caf::actor_config& cfg, const caf::actor& handler)
     : caf::event_based_actor(cfg)
     , _handler(handler)
+    , _lastCounter(0)
 {
 }
 
@@ -69,7 +70,35 @@ void TmState::acceptData(bmcl::Bytes packet)
     }
 
     bmcl::MemReader src(packet);
-    src.skip(11);
+    int64_t streamType;
+    if (!src.readVarInt(&streamType)) {
+        //TODO: report error
+        return;
+    }
+
+    int64_t dataType;
+    if (!src.readVarInt(&dataType)) {
+        //TODO: report error
+        return;
+    }
+
+    if (src.sizeLeft() < 2) {
+        //TODO: report error
+        return;
+    }
+    uint16_t counter = src.readUint16Le();
+
+    uint16_t expectedCounter = _lastCounter + 1;
+    if (counter != expectedCounter) {
+        //TODO: estimate lost packets
+    }
+    _lastCounter = counter;
+
+    uint64_t tickTime;
+    if (!src.readVarUint(&tickTime)) {
+        //TODO: report error
+        return;
+    }
 
     while (src.sizeLeft() != 0) {
         if (src.sizeLeft() < 2) {

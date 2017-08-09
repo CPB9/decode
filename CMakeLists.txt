@@ -222,8 +222,6 @@ set(DECODE_MODEL_SRC
     src/decode/model/CmdModel.h
     src/decode/model/CmdNode.cpp
     src/decode/model/CmdNode.h
-    src/decode/model/Decoder.cpp
-    src/decode/model/Decoder.h
     src/decode/model/FieldsNode.cpp
     src/decode/model/FieldsNode.h
     src/decode/model/Node.cpp
@@ -236,6 +234,10 @@ set(DECODE_MODEL_SRC
     src/decode/model/NodeViewUpdate.h
     src/decode/model/NodeViewUpdater.cpp
     src/decode/model/NodeViewUpdater.h
+    src/decode/model/OnboardTime.cpp
+    src/decode/model/OnboardTime.h
+    src/decode/model/StatusDecoder.cpp
+    src/decode/model/StatusDecoder.h
     src/decode/model/TmModel.cpp
     src/decode/model/TmModel.h
     src/decode/model/Value.cpp
