@@ -8,7 +8,9 @@ namespace decode {
 
 using StartAtom                           = caf::atom_constant<caf::atom("startact")>;
 using StopAtom                            = caf::atom_constant<caf::atom("sstopact")>;
+using LogAtom                             = caf::atom_constant<caf::atom("logevent")>;
 using RecvDataAtom                        = caf::atom_constant<caf::atom("recvdata")>;
+using EnableLoggindAtom                   = caf::atom_constant<caf::atom("enablelg")>;
 using RecvUserPacketAtom                  = caf::atom_constant<caf::atom("recvupkt")>;
 using SendUserPacketAtom                  = caf::atom_constant<caf::atom("sendupkt")>;
 using SendDataAtom                        = caf::atom_constant<caf::atom("senddata")>;

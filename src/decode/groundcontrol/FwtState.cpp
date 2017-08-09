@@ -28,6 +28,11 @@
 #include <chrono>
 #include <random>
 
+#define FWT_LOG(msg)         \
+    if (_isLoggingEnabled) { \
+        logMsg(msg);         \
+    }
+
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(std::string);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
@@ -94,6 +99,9 @@ caf::behavior FwtState::make_behavior()
         [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
             setProject(proj.get(), dev.get());
         },
+        [this](EnableLoggindAtom, bool isEnabled) {
+            _isLoggingEnabled = isEnabled;
+        },
     };
 }
 
@@ -111,6 +119,7 @@ bool FwtState::hashMatches(const HashContainer& hash, bmcl::Bytes data)
 void FwtState::setProject(const Project* proj, const Device* dev)
 {
     if (_project == proj && _device == dev) {
+        FWT_LOG("no need to update project");
         return;
     }
     _project = proj;
@@ -121,6 +130,7 @@ void FwtState::setProject(const Project* proj, const Device* dev)
     }
     auto buf = _project->encode();
     if (!hashMatches(_downloadedHash.unwrap(), buf)) {
+        FWT_LOG("project hash mismatch");
         _downloadedHash = bmcl::None;
         startDownload();
     }
@@ -128,6 +138,7 @@ void FwtState::setProject(const Project* proj, const Device* dev)
 
 void FwtState::startDownload()
 {
+    FWT_LOG("starting firmware download");
     stopDownload();
     _isDownloading = true;
     send(_handler, FirmwareDownloadStartedEventAtom::value);
@@ -136,6 +147,9 @@ void FwtState::startDownload()
 
 void FwtState::stopDownload()
 {
+    if (_isDownloading) {
+        FWT_LOG("stopping firmware download");
+    }
     _acceptedChunks.clear();
     _desc.resize(0);
     _deviceName.clear();
@@ -221,9 +235,14 @@ void FwtState::handleCheckAction(std::size_t id)
     scheduleCheck(_checkId);
 }
 
-void FwtState::reportFirmwareError(const std::string& msg)
+void FwtState::logMsg(std::string&& msg)
 {
-    send(_handler, FirmwareErrorEventAtom::value, msg);
+    send(_handler, LogAtom::value, std::move(msg));
+}
+
+void FwtState::reportFirmwareError(std::string&& msg)
+{
+    send(_handler, FirmwareErrorEventAtom::value, std::move(msg));
 }
 
 //Hash = 0
@@ -232,6 +251,7 @@ void FwtState::reportFirmwareError(const std::string& msg)
 void FwtState::acceptData(bmcl::Bytes packet)
 {
     if (!_isDownloading) {
+        FWT_LOG("ignoring fwt packet while stopped");
         return;
     }
     bmcl::MemReader reader(packet.begin(), packet.size());
@@ -288,6 +308,8 @@ void FwtState::acceptChunkResponse(bmcl::MemReader* src)
 
     src->read(_desc.data() + os.start(), os.size());
 
+
+    FWT_LOG("recieved firmware chunk (" + std::to_string(os.start()) + ", " + std::to_string(os.end()) + ")");
     _acceptedChunks.add(os);
     send(_handler, FirmwareProgressEventAtom::value, std::size_t(_acceptedChunks.dataSize()));
     checkIntervals();
@@ -297,6 +319,7 @@ void FwtState::acceptChunkResponse(bmcl::MemReader* src)
 
 void FwtState::checkIntervals()
 {
+    FWT_LOG("checking firmware intervals");
     if (_acceptedChunks.size() == 0) {
         packAndSendPacket(&FwtState::genChunkCmd, MemInterval(0, _desc.size()));
         return;
@@ -328,6 +351,7 @@ void FwtState::readFirmware()
     if (!_isDownloading) {
         return;
     }
+    FWT_LOG("parsing firmware");
     _checkId = 0;
     send(_handler, FirmwareDownloadFinishedEventAtom::value);
 
@@ -414,6 +438,14 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
         scheduleStart();
         return;
     }
+    auto buf = _project->encode();
+    if (!hashMatches(_downloadedHash.unwrap(), buf)) {
+        FWT_LOG("firmware hash mismatch");
+        scheduleStart();
+        return;
+    }
+
+    send(_handler, FirmwareDownloadFinishedEventAtom::value);
     send(_gc, SetProjectAtom::value, Rc<const Project>(_project.get()), Rc<const Device>(_device.get()));
     stopDownload();
 }
@@ -455,11 +487,13 @@ void FwtState::acceptStopResponse(bmcl::MemReader* src)
 
 void FwtState::genHashCmd(bmcl::MemWriter* dest)
 {
+    FWT_LOG("sending firmware hash request");
     BMCL_ASSERT(dest->writeVarInt(0));
 }
 
 void FwtState::genChunkCmd(bmcl::MemWriter* dest, MemInterval os)
 {
+    FWT_LOG("sending firmware chunk request");
     BMCL_ASSERT(dest->writeVarInt(1));
 
     BMCL_ASSERT(dest->writeVarUint(os.start()));
@@ -468,12 +502,14 @@ void FwtState::genChunkCmd(bmcl::MemWriter* dest, MemInterval os)
 
 void FwtState::genStartCmd(bmcl::MemWriter* dest)
 {
+    FWT_LOG("sending firmware start request");
     BMCL_ASSERT(dest->writeVarInt(2));
     BMCL_ASSERT(dest->writeVarUint(_startCmdState->last));
 }
 
 void FwtState::genStopCmd(bmcl::MemWriter* dest)
 {
+    FWT_LOG("sending firmware stop request");
     BMCL_ASSERT(dest->writeVarInt(3));
 }
 }

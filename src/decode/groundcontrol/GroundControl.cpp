@@ -68,6 +68,11 @@ caf::behavior GroundControl::make_behavior()
             updateProject(proj.get(), dev.get());
             send(_fwt, SetProjectAtom::value, proj, dev);
         },
+        [this](EnableLoggindAtom, bool isEnabled) {
+            send(_fwt, EnableLoggindAtom::value, isEnabled);
+            send(_exc, EnableLoggindAtom::value, isEnabled);
+            send(_tm, EnableLoggindAtom::value, isEnabled);
+        },
     };
 }
 

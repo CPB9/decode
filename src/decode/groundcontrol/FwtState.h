@@ -66,7 +66,8 @@ private:
     void checkIntervals();
     void readFirmware();
 
-    void reportFirmwareError(const std::string& msg);
+    void reportFirmwareError(std::string&& msg);
+    void logMsg(std::string&& msg);
 
     void startDownload();
     void stopDownload();
@@ -83,6 +84,7 @@ private:
 
     bool _hasStartCommandPassed;
     bool _isDownloading;
+    bool _isLoggingEnabled;
     std::size_t _checkId;
     std::unique_ptr<StartCmdRndGen> _startCmdState;
     uint8_t _temp[20];

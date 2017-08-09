@@ -46,6 +46,9 @@ caf::behavior Exchange::make_behavior()
         },
         [this](StopAtom) {
         },
+        [this](EnableLoggindAtom, bool isEnabled) {
+            (void)isEnabled;
+        },
     };
 }
 
