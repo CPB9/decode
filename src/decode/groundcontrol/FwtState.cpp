@@ -20,6 +20,8 @@
 #include <bmcl/Result.h>
 #include <bmcl/SharedBytes.h>
 #include <bmcl/Bytes.h>
+#include <bmcl/Sha3.h>
+#include <bmcl/FixedArrayView.h>
 
 #include <caf/atom.hpp>
 
@@ -54,7 +56,7 @@ struct StartCmdRndGen {
 FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& exchange, const caf::actor& eventHandler)
     : caf::event_based_actor(cfg)
     , _hasStartCommandPassed(false)
-    , _hasDownloaded(false)
+    , _isDownloading(false)
     , _checkId(0)
     , _startCmdState(new StartCmdRndGen)
     , _gc(gc)
@@ -65,15 +67,11 @@ FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::acto
 
 FwtState::~FwtState()
 {
-    _hash = bmcl::None;
-    _hasStartCommandPassed = false;
-    _hasDownloaded = false;
+    stopDownload();
 }
 
 caf::behavior FwtState::make_behavior()
 {
-    send(_handler, FirmwareDownloadStartedEventAtom::value);
-    send(this, FwtHashAtom::value);
     return caf::behavior{
         [this](RecvUserPacketAtom, const bmcl::SharedBytes& packet) {
             acceptData(packet.view());
@@ -87,7 +85,60 @@ caf::behavior FwtState::make_behavior()
         [this](FwtCheckAtom, std::size_t id) {
             handleCheckAction(id);
         },
+        [this](StartAtom) {
+            startDownload();
+        },
+        [this](StopAtom) {
+            stopDownload();
+        },
+        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
+            setProject(proj.get(), dev.get());
+        },
     };
+}
+
+bool FwtState::hashMatches(const HashContainer& hash, bmcl::Bytes data)
+{
+    bmcl::Sha3<512> state;
+    state.update(data);
+    auto calculatedHash = state.finalize();
+    if (hash.size() != calculatedHash.size()) {
+        return false;
+    }
+    return hash == bmcl::Bytes(calculatedHash.data(), calculatedHash.size());
+}
+
+void FwtState::setProject(const Project* proj, const Device* dev)
+{
+    if (_project == proj && _device == dev) {
+        return;
+    }
+    if (_downloadedHash.isNone()) {
+        startDownload();
+    }
+    auto buf = _project->encode();
+    if (!hashMatches(_downloadedHash.unwrap(), buf)) {
+        _downloadedHash = bmcl::None;
+        startDownload();
+    }
+}
+
+void FwtState::startDownload()
+{
+    stopDownload();
+    _isDownloading = true;
+    send(_handler, FirmwareDownloadStartedEventAtom::value);
+    send(this, FwtHashAtom::value);
+}
+
+void FwtState::stopDownload()
+{
+    _acceptedChunks.clear();
+    _desc.resize(0);
+    _deviceName.clear();
+    _hash = bmcl::None;
+    _hasStartCommandPassed = false;
+    _isDownloading = false;
 }
 
 void FwtState::on_exit()
@@ -130,6 +181,9 @@ void FwtState::scheduleCheck(std::size_t id)
 
 void FwtState::handleHashAction()
 {
+    if (!_isDownloading) {
+        return;
+    }
     if (_hash.isSome()) {
         return;
     }
@@ -139,6 +193,9 @@ void FwtState::handleHashAction()
 
 void FwtState::handleStartAction()
 {
+    if (!_isDownloading) {
+        return;
+    }
     if (_hasStartCommandPassed) {
         return;
     }
@@ -149,7 +206,7 @@ void FwtState::handleStartAction()
 
 void FwtState::handleCheckAction(std::size_t id)
 {
-    if (_hasDownloaded) {
+    if (!_isDownloading) {
         return;
     }
     if (id != _checkId) {
@@ -171,7 +228,9 @@ void FwtState::reportFirmwareError(const std::string& msg)
 
 void FwtState::acceptData(bmcl::Bytes packet)
 {
-    //BMCL_DEBUG() << "accepted response";
+    if (!_isDownloading) {
+        return;
+    }
     bmcl::MemReader reader(packet.begin(), packet.size());
     int64_t answerType;
     if (!reader.readVarInt(&answerType)) {
@@ -181,19 +240,15 @@ void FwtState::acceptData(bmcl::Bytes packet)
 
     switch (answerType) {
     case 0:
-        //BMCL_DEBUG() << "accepted hash response";
         acceptHashResponse(&reader);
         return;
     case 1:
-        //BMCL_DEBUG() << "accepted chunk response";
         acceptChunkResponse(&reader);
         return;
     case 2:
-        //BMCL_DEBUG() << "accepted start response";
         acceptStartResponse(&reader);
         return;
     case 3:
-        //BMCL_DEBUG() << "accepted stop response";
         acceptStopResponse(&reader);
         return;
     default:
@@ -248,7 +303,6 @@ void FwtState::checkIntervals()
         if (chunk.start() == 0) {
             if (chunk.size() == _desc.size()) {
                 readFirmware();
-                _hasDownloaded = true;
                 return;
             }
             packAndSendPacket(&FwtState::genChunkCmd, MemInterval(chunk.end(), _desc.size()));
@@ -268,17 +322,24 @@ void FwtState::checkIntervals()
 
 void FwtState::readFirmware()
 {
-    if (_hasDownloaded) {
+    if (!_isDownloading) {
         return;
     }
     _checkId = 0;
     send(_handler, FirmwareDownloadFinishedEventAtom::value);
+
+    if (!hashMatches(_hash.unwrap(), _desc)) {
+        reportFirmwareError("Invalid firmware hash");
+        stopDownload();
+        return;
+    }
 
     Rc<Diagnostics> diag = new Diagnostics();
     auto project = Project::decodeFromMemory(diag.get(), _desc.data(), _desc.size());
     if (project.isErr()) {
         //TODO: restart download
         //TODO: print errors
+        stopDownload();
         return;
     }
 
@@ -286,9 +347,15 @@ void FwtState::readFirmware()
     if (dev.isNone()) {
         //TODO: restart download
         //TODO: print errors
+        stopDownload();
+        return;
     }
 
-    send(_gc, SetProjectAtom::value, Rc<const Project>(project.take()), Rc<const Device>(dev.unwrap()));
+    _downloadedHash = _hash.unwrap();
+    _project = project.unwrap();
+    _device = dev.unwrap();
+    send(_gc, SetProjectAtom::value, Rc<const Project>(project.take()), Rc<const Device>(dev.take()));
+    stopDownload();
 }
 
 void FwtState::acceptHashResponse(bmcl::MemReader* src)
@@ -330,7 +397,22 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
 
     send(_handler, FirmwareSizeRecievedEventAtom::value, std::size_t(_desc.size()));
     send(_handler, FirmwareHashDownloadedEventAtom::value, name.unwrap().toStdString(), bmcl::SharedBytes::create(_hash.unwrap()));
-    scheduleStart();
+
+    if (_downloadedHash.isNone()) {
+        scheduleStart();
+        return;
+    }
+    if (_downloadedHash.unwrap() != _hash.unwrap()) {
+        scheduleStart();
+        return;
+    }
+
+    if (!_project || !_device) {
+        scheduleStart();
+        return;
+    }
+    send(_gc, SetProjectAtom::value, Rc<const Project>(_project.get()), Rc<const Device>(_device.get()));
+    stopDownload();
 }
 
 void FwtState::acceptStartResponse(bmcl::MemReader* src)

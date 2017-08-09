@@ -60,6 +60,10 @@ caf::behavior TmState::make_behavior()
             send(_handler, UpdateTmViewAtom::value, updater);
             delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
         },
+        [this](StartAtom) {
+        },
+        [this](StopAtom) {
+        },
     };
 }
 

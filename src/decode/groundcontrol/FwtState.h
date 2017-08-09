@@ -27,6 +27,7 @@ class Sender;
 class Scheduler;
 class Project;
 struct StartCmdRndGen;
+struct Device;
 
 class FwtState : public caf::event_based_actor {
 public:
@@ -38,6 +39,8 @@ public:
     void on_exit() override;
 
 private:
+    using HashContainer = std::array<uint8_t, 64>;
+
     void acceptData(bmcl::Bytes packet);
     void handleHashAction();
     void handleStartAction();
@@ -65,19 +68,28 @@ private:
 
     void reportFirmwareError(const std::string& msg);
 
-    bmcl::Option<std::array<uint8_t, 64>> _hash;
+    void startDownload();
+    void stopDownload();
+    void setProject(const Project* proj, const Device* dev);
+
+    bool hashMatches(const HashContainer& hash, bmcl::Bytes data);
+
+    bmcl::Option<HashContainer> _hash;
+    bmcl::Option<HashContainer> _downloadedHash;
 
     MemIntervalSet _acceptedChunks;
     bmcl::Buffer _desc;
     std::string _deviceName;
 
     bool _hasStartCommandPassed;
-    bool _hasDownloaded;
+    bool _isDownloading;
     std::size_t _checkId;
     std::unique_ptr<StartCmdRndGen> _startCmdState;
     uint8_t _temp[20];
     caf::actor _gc;
     caf::actor _exc;
     caf::actor _handler;
+    Rc<const Project> _project;
+    Rc<const Device> _device;
 };
 }

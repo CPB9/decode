@@ -39,16 +39,7 @@ GroundControl::~GroundControl()
 caf::behavior GroundControl::make_behavior()
 {
     return caf::behavior{
-        [this](StartAtom) {
-            _exc = spawn<Exchange, caf::linked>(_sink);
-            _fwt = spawn<FwtState, caf::linked>(this, _exc, _handler);
-            _tm = spawn<TmState, caf::linked>(_handler);
-            send(_exc, RegisterClientAtom::value, uint64_t(0), _fwt);
-            send(_exc, RegisterClientAtom::value, uint64_t(2), _tm);
-        },
-        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
-            updateProject(proj.get(), dev.get());
-        },
+
         [this](RecvDataAtom, const bmcl::SharedBytes& data) {
             acceptData(data);
         },
@@ -57,6 +48,25 @@ caf::behavior GroundControl::make_behavior()
         },
         [this](SendFwtPacketAtom, const bmcl::SharedBytes& packet) {
             sendPacket(0, packet);
+        },
+        [this](StartAtom) {
+            _exc = spawn<Exchange, caf::linked>(_sink);
+            _fwt = spawn<FwtState, caf::linked>(this, _exc, _handler);
+            _tm = spawn<TmState, caf::linked>(_handler);
+            send(_exc, RegisterClientAtom::value, uint64_t(0), _fwt);
+            send(_exc, RegisterClientAtom::value, uint64_t(2), _tm);
+            send(_exc, StartAtom::value);
+            send(_tm, StartAtom::value);
+            send(_fwt, StartAtom::value);
+        },
+        [this](StopAtom) {
+            send(_fwt, StopAtom::value);
+            send(_exc, StopAtom::value);
+            send(_tm, StopAtom::value);
+        },
+        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
+            updateProject(proj.get(), dev.get());
+            send(_fwt, SetProjectAtom::value, proj, dev);
         },
     };
 }

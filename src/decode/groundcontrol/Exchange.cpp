@@ -42,6 +42,10 @@ caf::behavior Exchange::make_behavior()
         [this](RegisterClientAtom, uint64_t id, const caf::actor& client) {
             registerClient(id, client);
         },
+        [this](StartAtom) {
+        },
+        [this](StopAtom) {
+        },
     };
 }
 
