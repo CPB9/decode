@@ -99,7 +99,7 @@ caf::behavior FwtState::make_behavior()
 
 bool FwtState::hashMatches(const HashContainer& hash, bmcl::Bytes data)
 {
-    bmcl::Sha3<512> state;
+    Project::HashType state;
     state.update(data);
     auto calculatedHash = state.finalize();
     if (hash.size() != calculatedHash.size()) {

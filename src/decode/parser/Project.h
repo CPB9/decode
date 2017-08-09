@@ -44,6 +44,8 @@ struct Device : public RefCountable {
 
 class Project : public RefCountable {
 public:
+    using HashType = bmcl::Sha3<512>;
+
     struct SourcesToCopy {
         std::vector<std::string> sources;
         std::string relativeDest;
@@ -52,6 +54,8 @@ public:
     static ProjectResult fromFile(Configuration* cfg, Diagnostics* diag, const char* projectFilePath);
     static ProjectResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
     ~Project();
+
+    static bmcl::Buffer hash(bmcl::Bytes data);
 
     bool generate(const char* destDir);
 

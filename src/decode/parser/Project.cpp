@@ -27,6 +27,8 @@
 #include <bmcl/Logging.h>
 #include <bmcl/MemReader.h>
 #include <bmcl/FileUtils.h>
+#include <bmcl/Sha3.h>
+#include <bmcl/FixedArrayView.h>
 
 #include <toml11/toml.hpp>
 
@@ -698,5 +700,11 @@ bmcl::OptionPtr<Device> Project::deviceWithName(bmcl::StringView name) const
         return bmcl::None;
     }
     return it->get();
+}
+
+
+bmcl::Buffer Project::hash(bmcl::Bytes data)
+{
+    return Project::HashType::calcInOneStep(data);
 }
 }

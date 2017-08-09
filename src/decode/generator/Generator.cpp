@@ -271,7 +271,7 @@ bool Generator::generateSerializedPackage(const Project* project)
     _output.appendByteArrayDefinition("static const", "_package", encoded);
     _output.appendEol();
 
-    bmcl::Sha3<512> ctx;
+    Project::HashType ctx;
     ctx.update(encoded);
     auto hash = ctx.finalize();
 
