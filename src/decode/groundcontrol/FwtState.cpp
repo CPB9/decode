@@ -113,8 +113,11 @@ void FwtState::setProject(const Project* proj, const Device* dev)
     if (_project == proj && _device == dev) {
         return;
     }
+    _project = proj;
+    _device = dev;
     if (_downloadedHash.isNone()) {
         startDownload();
+        return;
     }
     auto buf = _project->encode();
     if (!hashMatches(_downloadedHash.unwrap(), buf)) {
