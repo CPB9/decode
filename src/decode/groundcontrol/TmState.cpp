@@ -14,6 +14,8 @@
 #include "decode/model/NodeView.h"
 #include "decode/model/NodeViewUpdater.h"
 #include "decode/model/ValueInfoCache.h"
+#include "decode/model/ValueNode.h"
+#include "decode/model/FindNode.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 
 #include <bmcl/MemReader.h>
@@ -21,8 +23,8 @@
 #include <bmcl/Bytes.h>
 #include <bmcl/SharedBytes.h>
 
-DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<decode::NodeView>);
-DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<decode::NodeViewUpdater>);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::NodeView::Pointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::NodeViewUpdater::Pointer);
 
 namespace decode {
 
@@ -45,8 +47,9 @@ void TmState::on_exit()
 caf::behavior TmState::make_behavior()
 {
     return caf::behavior{
-        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
+        [this](SetProjectAtom, Project::ConstPointer& proj, Device::ConstPointer& dev) {
             _model = new TmModel(dev.get(), new ValueInfoCache(proj->package()));
+            //auto n = findTypedNode<NumericValueNode<uint16_t>>(_model.get(), "exc.outCounter");
             Rc<NodeView> view = new NodeView(_model.get());
             send(_handler, SetTmViewAtom::value, view);
             delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);

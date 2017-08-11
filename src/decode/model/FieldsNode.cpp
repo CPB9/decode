@@ -14,7 +14,7 @@
 namespace decode {
 
 FieldsNode::FieldsNode(FieldVec::ConstRange params, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
-    : Node(parent)
+    : NodeWithNamedChildren(parent)
 {
     for (const Field* field : params) {
         Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, this);
@@ -29,7 +29,16 @@ FieldsNode::~FieldsNode()
 {
 }
 
-bmcl::OptionPtr<ValueNode> FieldsNode::nodeWithName(bmcl::StringView name)
+bmcl::OptionPtr<ValueNode> FieldsNode::valueNodeWithName(bmcl::StringView name)
+{
+    auto it = _nameToNodeMap.find(name);
+    if (it == _nameToNodeMap.end()) {
+        return bmcl::None;
+    }
+    return it->second.get();
+}
+
+bmcl::OptionPtr<Node> FieldsNode::nodeWithName(bmcl::StringView name)
 {
     auto it = _nameToNodeMap.find(name);
     if (it == _nameToNodeMap.end()) {

@@ -24,6 +24,10 @@ public:
     {
     }
 
+    ~ComponentParamsNode()
+    {
+    }
+
     bmcl::StringView fieldName() const override
     {
         return _comp->name();
@@ -39,7 +43,7 @@ private:
 };
 
 TmModel::TmModel(const Device* dev, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
-    : Node(parent)
+    : NodeWithNamedChildren(parent)
 {
     for (const Rc<Ast>& ast : dev->modules) {
         if (ast->component().isNone()) {
@@ -66,6 +70,17 @@ TmModel::TmModel(const Device* dev, const ValueInfoCache* cache, bmcl::OptionPtr
 
 TmModel::~TmModel()
 {
+}
+
+bmcl::OptionPtr<Node> TmModel::nodeWithName(bmcl::StringView name)
+{
+    auto it = std::find_if(_nodes.begin(), _nodes.end(), [name](const Rc<ComponentParamsNode>& node) {
+        return node->fieldName() == name;
+    });
+    if (it == _nodes.end()) {
+        return bmcl::None;
+    }
+    return it->get();
 }
 
 void TmModel::collectUpdates(NodeViewUpdater* dest)
@@ -104,6 +119,6 @@ bmcl::OptionPtr<Node> TmModel::childAt(std::size_t idx)
 
 bmcl::StringView TmModel::fieldName() const
 {
-    return "tm";
+    return "~";
 }
 }

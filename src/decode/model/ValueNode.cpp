@@ -893,6 +893,15 @@ bool NumericValueNode<T>::setValue(const Value& value)
     return false;
 }
 
+template <typename T>
+bmcl::Option<T> NumericValueNode<T>::rawValue() const
+{
+    if (_value.isSome()) {
+        return _value.unwrap().value();
+    }
+    return bmcl::None;
+}
+
 template class NumericValueNode<std::uint8_t>;
 template class NumericValueNode<std::int8_t>;
 template class NumericValueNode<std::uint16_t>;

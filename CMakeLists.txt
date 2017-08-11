@@ -224,6 +224,8 @@ set(DECODE_MODEL_SRC
     src/decode/model/CmdNode.h
     src/decode/model/FieldsNode.cpp
     src/decode/model/FieldsNode.h
+    src/decode/model/FindNode.cpp
+    src/decode/model/FindNode.h
     src/decode/model/Node.cpp
     src/decode/model/Node.h
     src/decode/model/NodeView.cpp

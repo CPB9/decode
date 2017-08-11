@@ -14,6 +14,7 @@
 #include "decode/core/HashMap.h"
 #include "decode/parser/Containers.h"
 #include "decode/model/Node.h"
+#include "decode/model/NodeWithNamedChildren.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/Fwd.h>
@@ -27,7 +28,7 @@ class ValueNode;
 class ValueInfoCache;
 class NodeViewUpdater;
 
-class FieldsNode : public Node {
+class FieldsNode : public NodeWithNamedChildren {
 public:
     using Pointer = Rc<FieldsNode>;
     using ConstPointer = Rc<const FieldsNode>;
@@ -35,7 +36,8 @@ public:
     FieldsNode(FieldVec::ConstRange, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     ~FieldsNode();
 
-    bmcl::OptionPtr<ValueNode> nodeWithName(bmcl::StringView name);
+    bmcl::OptionPtr<Node> nodeWithName(bmcl::StringView name) override;
+    bmcl::OptionPtr<ValueNode> valueNodeWithName(bmcl::StringView name);
 
     bool encodeFields(bmcl::MemWriter* dest) const;
 

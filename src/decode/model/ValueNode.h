@@ -341,6 +341,8 @@ public:
     ValueKind valueKind() const override;
     bool setValue(const Value& value) override;
 
+    bmcl::Option<T> rawValue() const;
+
 protected:
     bool emplace(int64_t value);
     bool emplace(uint64_t value);

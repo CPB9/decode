@@ -176,7 +176,7 @@ StatusMsgDecoder::StatusMsgDecoder(const StatusMsg* msg, FieldsNode* node)
         }
         assert(part->accessorsBegin()->accessorKind() == AccessorKind::Field);
         auto facc = part->accessorsBegin()->asFieldAccessor();
-        auto op = node->nodeWithName(facc->field()->name());
+        auto op = node->valueNodeWithName(facc->field()->name());
         assert(op.isSome());
         assert(node->hasParent());
         auto i = node->childIndex(op.unwrap());

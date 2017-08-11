@@ -62,6 +62,7 @@ FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::acto
     : caf::event_based_actor(cfg)
     , _hasStartCommandPassed(false)
     , _isDownloading(false)
+    , _isLoggingEnabled(false)
     , _checkId(0)
     , _startCmdState(new StartCmdRndGen)
     , _gc(gc)
