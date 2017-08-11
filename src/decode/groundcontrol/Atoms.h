@@ -20,7 +20,8 @@ using SetProjectAtom                      = caf::atom_constant<caf::atom("setpro
 using RegisterClientAtom                  = caf::atom_constant<caf::atom("regclien")>;
 using SetTmViewAtom                       = caf::atom_constant<caf::atom("settmviw")>;
 using UpdateTmViewAtom                    = caf::atom_constant<caf::atom("updtmviw")>;
-using PushTmUpdatesAtom                   = caf::atom_constant<caf::atom("pushtmup")>;
+using UpdateTmParams                      = caf::atom_constant<caf::atom("updtmprm")>;
+using PushTmUpdatesAtom                   = caf::atom_constant<caf::atom("pshtmupd")>;
 
 using RepeatStreamAtom                    = caf::atom_constant<caf::atom("strmrept")>;
 using SetStreamDestAtom                   = caf::atom_constant<caf::atom("strmdest")>;

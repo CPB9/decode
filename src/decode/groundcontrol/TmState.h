@@ -19,6 +19,9 @@ namespace decode {
 
 class TmModel;
 
+template <typename T>
+class NumericValueNode;
+
 class TmState : public caf::event_based_actor {
 public:
     TmState(caf::actor_config& cfg, const caf::actor& handler);
@@ -29,9 +32,22 @@ public:
 
 protected:
     void acceptData(bmcl::Bytes packet);
+    void initTmNodes();
+    template <typename T>
+    void initTypedNode(const char* name, Rc<T>* dest);
+    void pushTmUpdates();
+    template <typename T>
+    void updateParam(const Rc<NumericValueNode<T>>& src, T* dest, T defaultValue = 0);
 
 private:
     Rc<TmModel> _model;
+    Rc<NumericValueNode<double>> _latNode;
+    Rc<NumericValueNode<double>> _lonNode;
+    Rc<NumericValueNode<double>> _headingNode;
+    Rc<NumericValueNode<double>> _pitchNode;
+    Rc<NumericValueNode<double>> _rollNode;
+    bool _hasLatLon;
+    bool _hasOrientation;
     caf::actor _handler;
     uint16_t _lastCounter;
 };

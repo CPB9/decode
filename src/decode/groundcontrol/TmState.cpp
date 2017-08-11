@@ -17,6 +17,7 @@
 #include "decode/model/ValueNode.h"
 #include "decode/model/FindNode.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
+#include "decode/groundcontrol/TmParamUpdate.h"
 
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
@@ -25,6 +26,7 @@
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::NodeView::Pointer);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::NodeViewUpdater::Pointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::TmParamUpdate);
 
 namespace decode {
 
@@ -32,6 +34,8 @@ TmState::TmState(caf::actor_config& cfg, const caf::actor& handler)
     : caf::event_based_actor(cfg)
     , _handler(handler)
     , _lastCounter(0)
+    , _hasLatLon(false)
+    , _hasOrientation(false)
 {
 }
 
@@ -49,7 +53,7 @@ caf::behavior TmState::make_behavior()
     return caf::behavior{
         [this](SetProjectAtom, Project::ConstPointer& proj, Device::ConstPointer& dev) {
             _model = new TmModel(dev.get(), new ValueInfoCache(proj->package()));
-            //auto n = findTypedNode<NumericValueNode<uint16_t>>(_model.get(), "exc.outCounter");
+            initTmNodes();
             Rc<NodeView> view = new NodeView(_model.get());
             send(_handler, SetTmViewAtom::value, view);
             delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
@@ -58,10 +62,7 @@ caf::behavior TmState::make_behavior()
             acceptData(data.view());
         },
         [this](PushTmUpdatesAtom) {
-            Rc<NodeViewUpdater> updater = new NodeViewUpdater;
-            _model->collectUpdates(updater.get());
-            send(_handler, UpdateTmViewAtom::value, updater);
-            delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
+            pushTmUpdates();
         },
         [this](StartAtom) {
         },
@@ -71,6 +72,60 @@ caf::behavior TmState::make_behavior()
             (void)isEnabled;
         },
     };
+}
+
+void TmState::pushTmUpdates()
+{
+    Rc<NodeViewUpdater> updater = new NodeViewUpdater;
+    _model->collectUpdates(updater.get());
+    if (_hasLatLon) {
+        LatLon latLon;
+        updateParam(_latNode, &latLon.latitude);
+        updateParam(_lonNode, &latLon.longitude);
+        send(_handler, UpdateTmParams::value, TmParamUpdate(latLon));
+    }
+    if (_hasOrientation) {
+        Orientation orientation;
+        updateParam(_headingNode, &orientation.heading);
+        updateParam(_pitchNode, &orientation.pitch);
+        updateParam(_rollNode, &orientation.roll);
+        send(_handler, UpdateTmParams::value, TmParamUpdate(orientation));
+    }
+    send(_handler, UpdateTmViewAtom::value, updater);
+    delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
+}
+
+template <typename T>
+void TmState::updateParam(const Rc<NumericValueNode<T>>& src, T* dest, T defaultValue)
+{
+    if (src) {
+        auto value = src->rawValue();
+        if (value.isSome()) {
+            *dest = value.unwrap();
+        } else {
+            *dest = defaultValue;
+        }
+    }
+}
+
+template <typename T>
+void TmState::initTypedNode(const char* name, Rc<T>* dest)
+{
+    auto node = findTypedNode<T>(_model.get(), name);
+    if (node.isOk()) {
+        *dest = node.unwrap();
+    }
+}
+
+void TmState::initTmNodes()
+{
+    initTypedNode("nav.latLon.latitude", &_latNode);
+    initTypedNode("nav.latLon.longitude", &_lonNode);
+    _hasLatLon = _latNode || _lonNode;
+    initTypedNode("nav.orientation.heading", &_headingNode);
+    initTypedNode("nav.orientation.pitch", &_pitchNode);
+    initTypedNode("nav.orientation.roll", &_rollNode);
+    _hasOrientation = _headingNode || _pitchNode || _rollNode;
 }
 
 void TmState::acceptData(bmcl::Bytes packet)
