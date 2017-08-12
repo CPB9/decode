@@ -29,7 +29,9 @@ GroundControl::GroundControl(caf::actor_config& cfg, const caf::actor& sink, con
     , _sink(sink)
     , _handler(eventHandler)
 {
-
+    _exc = spawn<Exchange, caf::linked>(_sink);
+    _fwt = spawn<FwtState, caf::linked>(this, _exc, _handler);
+    _tm = spawn<TmState, caf::linked>(_handler);
 }
 
 GroundControl::~GroundControl()
@@ -50,9 +52,6 @@ caf::behavior GroundControl::make_behavior()
             sendPacket(0, packet);
         },
         [this](StartAtom) {
-            _exc = spawn<Exchange, caf::linked>(_sink);
-            _fwt = spawn<FwtState, caf::linked>(this, _exc, _handler);
-            _tm = spawn<TmState, caf::linked>(_handler);
             send(_exc, RegisterClientAtom::value, uint64_t(0), _fwt);
             send(_exc, RegisterClientAtom::value, uint64_t(2), _tm);
             send(_exc, StartAtom::value);
