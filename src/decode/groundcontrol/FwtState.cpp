@@ -312,7 +312,7 @@ void FwtState::acceptChunkResponse(bmcl::MemReader* src)
 
     FWT_LOG("recieved firmware chunk (" + std::to_string(os.start()) + ", " + std::to_string(os.end()) + ")");
     _acceptedChunks.add(os);
-    send(_handler, FirmwareProgressEventAtom::value, std::size_t(_acceptedChunks.dataSize()));
+    send(_handler, FirmwareProgressEventAtom::value, std::size_t(_acceptedChunks.dataSize()), std::size_t(_desc.size()));
     checkIntervals();
     _checkId++;
     scheduleCheck(_checkId);
