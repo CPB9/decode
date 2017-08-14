@@ -499,6 +499,16 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
         return ProjectResult();
     }
 
+    uint64_t masterIndex;
+    if (!reader.readVarUint(&masterIndex)) {
+        addReadErr("Error reading master index");
+        return ProjectResult();
+    }
+    if (masterIndex >= devNum) {
+        addReadErr("Invalid master index");
+        return ProjectResult();
+    }
+
     std::vector<Rc<Device>> devices;
     for (uint64_t i = 0; i < devNum; i++) {
         Rc<Device> dev = new Device;
@@ -585,6 +595,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     }
 
     Rc<Project> proj = new Project(cfg.get(), diag);
+    proj->_master = devices[masterIndex];
     proj->_devices = std::move(devices);
     proj->_package = package.take();
     proj->_mccId = mccId;
@@ -624,6 +635,11 @@ bmcl::Buffer Project::encode() const
     le32enc(dest.data() + sizeOffset, packageSize);
 
     dest.writeVarUint(_devices.size());
+
+    auto mt = std::find(_devices.begin(), _devices.end(), _master);
+    assert(mt != _devices.end());
+    dest.writeVarUint(mt - _devices.begin());
+
     for (const Rc<Device>& dev : _devices) {
         dest.writeVarUint(dev->id);
         serializeString(dev->name, &dest);
