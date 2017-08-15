@@ -83,6 +83,7 @@ private:
     std::string _deviceName;
 
     bool _hasStartCommandPassed;
+    bool _isRunning;
     bool _isDownloading;
     bool _isLoggingEnabled;
     std::size_t _checkId;

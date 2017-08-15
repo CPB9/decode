@@ -61,6 +61,7 @@ struct StartCmdRndGen {
 FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& exchange, const caf::actor& eventHandler)
     : caf::event_based_actor(cfg)
     , _hasStartCommandPassed(false)
+    , _isRunning(false)
     , _isDownloading(false)
     , _isLoggingEnabled(false)
     , _checkId(0)
@@ -92,9 +93,11 @@ caf::behavior FwtState::make_behavior()
             handleCheckAction(id);
         },
         [this](StartAtom) {
+            _isRunning = true;
             startDownload();
         },
         [this](StopAtom) {
+            _isRunning = false;
             stopDownload();
         },
         [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
@@ -119,6 +122,7 @@ bool FwtState::hashMatches(const HashContainer& hash, bmcl::Bytes data)
 
 void FwtState::setProject(const Project* proj, const Device* dev)
 {
+    FWT_LOG("setting project");
     if (_project == proj && _device == dev) {
         FWT_LOG("no need to update project");
         return;
@@ -126,19 +130,34 @@ void FwtState::setProject(const Project* proj, const Device* dev)
     _project = proj;
     _device = dev;
     if (_downloadedHash.isNone()) {
-        startDownload();
+        FWT_LOG("project set");
+        Project::HashType state;
+        auto buf = _project->encode();
+        state.update(buf);
+        auto calculatedHash = state.finalize();
+        assert(calculatedHash.size() == 64);
+        _downloadedHash.emplace();
+        std::memcpy(_downloadedHash.unwrap().data(), calculatedHash.data(), 64);
+        if (_isRunning) {
+            startDownload();
+        }
         return;
     }
     auto buf = _project->encode();
     if (!hashMatches(_downloadedHash.unwrap(), buf)) {
         FWT_LOG("project hash mismatch");
         _downloadedHash = bmcl::None;
-        startDownload();
+        if (_isRunning) {
+            startDownload();
+        }
     }
 }
 
 void FwtState::startDownload()
 {
+    if (_isDownloading) {
+        return;
+    }
     FWT_LOG("starting firmware download");
     stopDownload();
     _isDownloading = true;
@@ -229,6 +248,11 @@ void FwtState::handleCheckAction(std::size_t id)
     }
     if (id != _checkId) {
         return;
+    }
+    if (!_hasStartCommandPassed) {
+        if (_acceptedChunks.size() == 0) {
+            return;
+        }
     }
     //TODO: handle event
     checkIntervals();
@@ -395,21 +419,21 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
 
     uint64_t descSize;
     if (!src->readVarUint(&descSize)) {
-        reportFirmwareError("Recieved hash responce with invalid firmware size");
+        reportFirmwareError("Recieved hash response with invalid firmware size");
         scheduleHash();
         return;
     }
 
     auto name = deserializeString(src);
     if (name.isErr()) {
-        reportFirmwareError("Recieved hash responce with invalid device name");
+        reportFirmwareError("Recieved hash response with invalid device name");
         return;
     }
     _deviceName = name.unwrap().toStdString();
 
     //TODO: check descSize for overflow
     if (src->readableSize() != 64) {
-        reportFirmwareError("Recieved hash responce with invalid hash size: " + std::to_string(src->readableSize()));
+        reportFirmwareError("Recieved hash response with invalid hash size: " + std::to_string(src->readableSize()));
         scheduleHash();
         return;
     }
@@ -421,40 +445,44 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
     _acceptedChunks.clear();
     _startCmdState->generate();
 
-    packAndSendPacket(&FwtState::genStartCmd);
 
     send(_handler, FirmwareSizeRecievedEventAtom::value, std::size_t(_desc.size()));
     send(_handler, FirmwareHashDownloadedEventAtom::value, name.unwrap().toStdString(), bmcl::SharedBytes::create(_hash.unwrap()));
 
     if (_downloadedHash.isNone()) {
+        packAndSendPacket(&FwtState::genStartCmd);
         scheduleStart();
         return;
     }
     if (_downloadedHash.unwrap() != _hash.unwrap()) {
+        packAndSendPacket(&FwtState::genStartCmd);
         scheduleStart();
         return;
     }
 
     if (!_project || !_device) {
+        packAndSendPacket(&FwtState::genStartCmd);
         scheduleStart();
         return;
     }
     auto buf = _project->encode();
     if (!hashMatches(_downloadedHash.unwrap(), buf)) {
         FWT_LOG("firmware hash mismatch");
+        packAndSendPacket(&FwtState::genStartCmd);
         scheduleStart();
         return;
     }
 
     send(_handler, FirmwareDownloadFinishedEventAtom::value);
     send(_gc, SetProjectAtom::value, Rc<const Project>(_project.get()), Rc<const Device>(_device.get()));
+    FWT_LOG("hash matches, no need to download");
     stopDownload();
 }
 
 void FwtState::acceptStartResponse(bmcl::MemReader* src)
 {
     if (_hasStartCommandPassed) {
-        //reportFirmwareError("Recieved duplicate start command responce");
+        //reportFirmwareError("Recieved duplicate start command response");
         return;
     }
 
@@ -472,6 +500,7 @@ void FwtState::acceptStartResponse(bmcl::MemReader* src)
         scheduleStart();
         return;
     }
+    FWT_LOG("recieved start response");
     _hasStartCommandPassed = true;
     send(_handler, FirmwareStartCmdPassedEventAtom::value);
     scheduleCheck(_checkId);
