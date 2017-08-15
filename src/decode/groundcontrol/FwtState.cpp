@@ -284,7 +284,7 @@ void FwtState::acceptData(bmcl::Bytes packet)
 void FwtState::acceptChunkResponse(bmcl::MemReader* src)
 {
     if (_hash.isNone()) {
-        reportFirmwareError("Recieved firmware chunk before recieving hash");
+        FWT_LOG("recieved firmware chunk before recieving hash");
         return;
     }
 
