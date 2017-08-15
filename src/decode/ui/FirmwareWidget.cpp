@@ -23,6 +23,7 @@
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/Logging.h>
+#include <bmcl/SharedBytes.h>
 
 namespace decode {
 
@@ -46,7 +47,7 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
         dest.writeUint16Le(0);
         dest.writeVarUint(0); //time
         if (_scriptNode->encode(&dest)) {
-            emit packetQueued(dest.writenData());
+            emit packetQueued(bmcl::SharedBytes::create(dest.writenData()));
         } else {
             BMCL_DEBUG() << "error encoding";
             QMessageBox::warning(this, "UiTest", "Error while encoding cmd. Args may be empty", QMessageBox::Ok);

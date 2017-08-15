@@ -11,6 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 
+#include <bmcl/Fwd.h>
 #include <bmcl/Bytes.h>
 
 #include <QWidget>
@@ -42,7 +43,7 @@ public:
     void setRootCmdNode(Node* root);
 
 signals:
-    void packetQueued(bmcl::Bytes packet);
+    void packetQueued(const bmcl::SharedBytes& packet);
 
 private:
     QTreeView* _mainView;
