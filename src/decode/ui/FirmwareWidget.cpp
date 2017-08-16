@@ -16,6 +16,7 @@
 #include <QWidget>
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QTreeView>
 #include <QMessageBox>
@@ -33,8 +34,9 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     Rc<Node> emptyNode = new Node(bmcl::None);
     _paramViewModel = bmcl::makeUnique<QNodeViewModel>(new NodeView(emptyNode.get()));
 
-    auto buttonLayout = new QVBoxLayout;
-    auto sendButton = new QPushButton("send");
+    auto buttonLayout = new QHBoxLayout;
+    auto sendButton = new QPushButton("Send");
+    buttonLayout->setDirection(QBoxLayout::RightToLeft);
     buttonLayout->addWidget(sendButton);
     buttonLayout->addStretch();
 
@@ -83,7 +85,7 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     cmdViewWidget->setRootIndex(_cmdViewModel->index(0, 0));
     cmdViewWidget->setColumnHidden(2, true);
 
-    auto rightLayout = new QHBoxLayout;
+    auto rightLayout = new QVBoxLayout;
     auto cmdLayout = new QVBoxLayout;
     cmdLayout->addWidget(cmdViewWidget);
     cmdLayout->addWidget(scriptEditWidget);
