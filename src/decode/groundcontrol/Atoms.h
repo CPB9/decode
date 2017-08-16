@@ -22,6 +22,7 @@ using SetTmViewAtom                       = caf::atom_constant<caf::atom("settmv
 using UpdateTmViewAtom                    = caf::atom_constant<caf::atom("updtmviw")>;
 using UpdateTmParams                      = caf::atom_constant<caf::atom("updtmprm")>;
 using PushTmUpdatesAtom                   = caf::atom_constant<caf::atom("pshtmupd")>;
+using PingAtom                            = caf::atom_constant<caf::atom("ping")>;
 
 using RepeatStreamAtom                    = caf::atom_constant<caf::atom("strmrept")>;
 using SetStreamDestAtom                   = caf::atom_constant<caf::atom("strmdest")>;

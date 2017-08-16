@@ -35,6 +35,7 @@ caf::behavior Exchange::make_behavior()
     return caf::behavior{
         [this](RecvDataAtom, const bmcl::SharedBytes& data) {
             acceptData(data.view());
+            _dataReceived = true;
         },
         [this](SendUserPacketAtom, uint64_t id, const bmcl::SharedBytes& data) {
             sendPacket(id, data.view());
@@ -42,9 +43,20 @@ caf::behavior Exchange::make_behavior()
         [this](RegisterClientAtom, uint64_t id, const caf::actor& client) {
             registerClient(id, client);
         },
+        [this](PingAtom)
+        {
+            if (!_isRunning) return;
+            if (!_dataReceived) sendPacket(2, bmcl::Bytes());
+            _dataReceived = false;
+            delayed_send(this, std::chrono::seconds(1), PingAtom::value);
+        },
         [this](StartAtom) {
+            _isRunning = true;
+            _dataReceived = false;
+            delayed_send(this, std::chrono::seconds(1), PingAtom::value);
         },
         [this](StopAtom) {
+            _isRunning = false;
         },
         [this](EnableLoggindAtom, bool isEnabled) {
             (void)isEnabled;

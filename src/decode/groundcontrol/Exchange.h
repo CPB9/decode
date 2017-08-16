@@ -54,6 +54,8 @@ private:
     bool acceptPacket(bmcl::Bytes packet);
     void handlePayload(bmcl::Bytes data);
 
+    bool _isRunning = false;
+    bool _dataReceived = false;
     bmcl::Buffer _incoming;
     HashMap<uint64_t, caf::actor> _clients;
     caf::actor _sink;

@@ -41,7 +41,6 @@ private:
     void acceptData(const bmcl::SharedBytes& data);
 
     void updateProject(const Project* project, const Device* dev);
-    void acceptTmMsg(uint8_t compNum, uint8_t msgNum, bmcl::Bytes payload);
 
     caf::actor _sink;
     caf::actor _handler;
