@@ -415,12 +415,8 @@ const Type* StructValueNode::type() const
 
 bmcl::OptionPtr<ValueNode> StructValueNode::nodeWithName(bmcl::StringView name)
 {
-    bmcl::OptionPtr<const Field> field = _type->fieldWithName(name);
-    if (field.isNone()) {
-        return bmcl::None;
-    }
     for (const Rc<ValueNode>& node : _values) {
-        if (node->type() == field->type()) {
+        if (node->fieldName() == name) {
             return node.get();
         }
     }
