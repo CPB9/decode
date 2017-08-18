@@ -12,6 +12,7 @@
 #include "decode/core/Rc.h"
 
 #include <bmcl/Fwd.h>
+#include <bmcl/Buffer.h>
 
 #include <caf/event_based_actor.hpp>
 
@@ -26,6 +27,19 @@ class GcTmState;
 class Project;
 class Model;
 struct Device;
+struct PacketRequest;
+
+struct SearchResult {
+public:
+    SearchResult(std::size_t junkSize, std::size_t dataSize)
+        : junkSize(junkSize)
+        , dataSize(dataSize)
+    {
+    }
+
+    std::size_t junkSize;
+    std::size_t dataSize;
+};
 
 class GroundControl : public caf::event_based_actor {
 public:
@@ -36,17 +50,23 @@ public:
     const char* name() const override;
     void on_exit() override;
 
+    static SearchResult findPacket(const void* data, std::size_t size);
+    static SearchResult findPacket(bmcl::Bytes data);
+
 private:
-    void sendPacket(uint64_t destId, const bmcl::SharedBytes& packet);
+    void sendUnreliablePacket(const PacketRequest& packet);
     void acceptData(const bmcl::SharedBytes& data);
+    bool acceptPacket(bmcl::Bytes packet);
+    void reportError(std::string&& msg);
 
     void updateProject(const Project* project, const Device* dev);
 
     caf::actor _sink;
     caf::actor _handler;
     caf::actor _exc;
-    caf::actor _tm;
-    caf::actor _fwt;
+    bmcl::Buffer _incoming;
     Rc<const Project> _project;
+    Rc<const Device> _dev;
+    bool _isRunning;
 };
 }

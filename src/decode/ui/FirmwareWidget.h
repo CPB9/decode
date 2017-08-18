@@ -30,6 +30,7 @@ class Node;
 class Model;
 class NodeView;
 class NodeViewUpdater;
+struct PacketRequest;
 
 class FirmwareWidget : public QWidget {
     Q_OBJECT
@@ -43,7 +44,8 @@ public:
     void setRootCmdNode(Node* root);
 
 signals:
-    void packetQueued(const bmcl::SharedBytes& packet);
+    void unreliablePacketQueued(const PacketRequest& packet);
+    void reliablePacketQueued(const PacketRequest& packet);
 
 private:
     QTreeView* _mainView;

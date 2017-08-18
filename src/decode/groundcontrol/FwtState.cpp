@@ -13,6 +13,7 @@
 #include "decode/parser/Project.h"
 #include "decode/core/Utils.h"
 #include "decode/groundcontrol/Atoms.h"
+#include "decode/groundcontrol/Packet.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
@@ -35,8 +36,9 @@
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(std::string);
-DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
-DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Device>);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Project::ConstPointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Device::ConstPointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
 
 namespace decode {
 
@@ -58,7 +60,7 @@ struct StartCmdRndGen {
     uint64_t last;
 };
 
-FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& exchange, const caf::actor& eventHandler)
+FwtState::FwtState(caf::actor_config& cfg, const caf::actor& exchange, const caf::actor& eventHandler)
     : caf::event_based_actor(cfg)
     , _hasStartCommandPassed(false)
     , _isRunning(false)
@@ -66,7 +68,6 @@ FwtState::FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::acto
     , _isLoggingEnabled(false)
     , _checkId(0)
     , _startCmdState(new StartCmdRndGen)
-    , _gc(gc)
     , _exc(exchange)
     , _handler(eventHandler)
 {
@@ -100,7 +101,7 @@ caf::behavior FwtState::make_behavior()
             _isRunning = false;
             stopDownload();
         },
-        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
+        [this](SetProjectAtom, const Project::ConstPointer& proj, const Device::ConstPointer& dev) {
             setProject(proj.get(), dev.get());
         },
         [this](EnableLoggindAtom, bool isEnabled) {
@@ -180,7 +181,6 @@ void FwtState::stopDownload()
 
 void FwtState::on_exit()
 {
-    destroy(_gc);
     destroy(_exc);
     destroy(_handler);
 }
@@ -195,7 +195,11 @@ inline void FwtState::packAndSendPacket(C&& enc, A&&... args)
 {
     bmcl::MemWriter writer(_temp, sizeof(_temp));
     (this->*enc)(&writer, std::forward<A>(args)...);
-    send(_gc, SendUserPacketAtom::value, bmcl::SharedBytes::create(writer.writenData()));
+    PacketRequest req;
+    req.deviceId = 0; //FIXME
+    req.packetType = PacketType::Firmware;
+    req.payload = bmcl::SharedBytes::create(writer.writenData());
+    send(_exc, SendUnreliablePacketAtom::value, req);
 }
 
 void FwtState::scheduleHash()
@@ -406,7 +410,7 @@ void FwtState::readFirmware()
     _downloadedHash = _hash.unwrap();
     _project = project.unwrap();
     _device = dev.unwrap();
-    send(_gc, SetProjectAtom::value, Rc<const Project>(project.take()), Rc<const Device>(dev.take()));
+    send(_exc, SetProjectAtom::value, Rc<const Project>(project.take()), Rc<const Device>(dev.take()));
     stopDownload();
 }
 
@@ -474,7 +478,7 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
     }
 
     send(_handler, FirmwareDownloadFinishedEventAtom::value);
-    send(_gc, SetProjectAtom::value, Rc<const Project>(_project.get()), Rc<const Device>(_device.get()));
+    send(_exc, SetProjectAtom::value, Rc<const Project>(_project.get()), Rc<const Device>(_device.get()));
     FWT_LOG("hash matches, no need to download");
     stopDownload();
 }

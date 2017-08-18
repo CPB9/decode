@@ -31,7 +31,7 @@ struct Device;
 
 class FwtState : public caf::event_based_actor {
 public:
-    FwtState(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& exchange, const caf::actor& eventHandler);
+    FwtState(caf::actor_config& cfg, const caf::actor& exchange, const caf::actor& eventHandler);
     ~FwtState();
 
     caf::behavior make_behavior() override;
@@ -89,7 +89,6 @@ private:
     std::size_t _checkId;
     std::unique_ptr<StartCmdRndGen> _startCmdState;
     uint8_t _temp[20];
-    caf::actor _gc;
     caf::actor _exc;
     caf::actor _handler;
     Rc<const Project> _project;

@@ -8,19 +8,21 @@
 
 #include "decode/groundcontrol/GroundControl.h"
 #include "decode/groundcontrol/Exchange.h"
-#include "decode/groundcontrol/FwtState.h"
-#include "decode/groundcontrol/TmState.h"
 #include "decode/parser/Project.h"
 #include "decode/groundcontrol/Atoms.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
+#include "decode/groundcontrol/Packet.h"
+#include "decode/groundcontrol/Crc.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Bytes.h>
 #include <bmcl/SharedBytes.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
-DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Project>);
-DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Rc<const decode::Device>);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketResponse);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Project::ConstPointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Device::ConstPointer);
 
 namespace decode {
 
@@ -28,10 +30,9 @@ GroundControl::GroundControl(caf::actor_config& cfg, const caf::actor& sink, con
     : caf::event_based_actor(cfg)
     , _sink(sink)
     , _handler(eventHandler)
+    , _isRunning(false)
 {
-    _exc = spawn<Exchange, caf::linked>(_sink);
-    _fwt = spawn<FwtState, caf::linked>(this, _exc, _handler);
-    _tm = spawn<TmState, caf::linked>(_handler);
+    _exc = spawn<Exchange, caf::linked>(this, _sink, _handler);
 }
 
 GroundControl::~GroundControl()
@@ -41,38 +42,39 @@ GroundControl::~GroundControl()
 caf::behavior GroundControl::make_behavior()
 {
     return caf::behavior{
-
         [this](RecvDataAtom, const bmcl::SharedBytes& data) {
             acceptData(data);
         },
-        [this](SendCmdPacketAtom, const bmcl::SharedBytes& packet) {
-            sendPacket(2, packet);
+        [this](SendUnreliablePacketAtom, const PacketRequest& packet) {
+            sendUnreliablePacket(packet);
         },
-        [this](SendFwtPacketAtom, const bmcl::SharedBytes& packet) {
-            sendPacket(0, packet);
+        [this](SendReliablePacketAtom atom, const PacketRequest& packet) {
+            return delegate(_exc, atom, packet);
         },
         [this](StartAtom) {
-            send(_exc, RegisterClientAtom::value, uint64_t(0), _fwt);
-            send(_exc, RegisterClientAtom::value, uint64_t(2), _tm);
+            _isRunning = true;
             send(_exc, StartAtom::value);
-            send(_tm, StartAtom::value);
-            send(_fwt, StartAtom::value);
         },
         [this](StopAtom) {
-            send(_fwt, StopAtom::value);
+            _isRunning = false;
             send(_exc, StopAtom::value);
-            send(_tm, StopAtom::value);
         },
-        [this](SetProjectAtom, const Rc<const Project>& proj, const Rc<const Device>& dev) {
+        [this](SetProjectAtom, const Project::ConstPointer& proj, const Device::ConstPointer& dev) {
+            if (_project == proj && _dev == dev) {
+                return;
+            }
             updateProject(proj.get(), dev.get());
-            send(_fwt, SetProjectAtom::value, proj, dev);
+            send(_exc, SetProjectAtom::value, proj, dev);
         },
         [this](EnableLoggindAtom, bool isEnabled) {
-            send(_fwt, EnableLoggindAtom::value, isEnabled);
             send(_exc, EnableLoggindAtom::value, isEnabled);
-            send(_tm, EnableLoggindAtom::value, isEnabled);
         },
     };
+}
+
+void GroundControl::reportError(std::string&& msg)
+{
+    //FIXME
 }
 
 const char* GroundControl::name() const
@@ -85,24 +87,114 @@ void GroundControl::on_exit()
     destroy(_sink);
     destroy(_handler);
     destroy(_exc);
-    destroy(_tm);
-    destroy(_fwt);
 }
 
 void GroundControl::updateProject(const Project* project, const Device* dev)
 {
     _project.reset(project);
-    send(_tm, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
+    _dev.reset(dev);
     send(_handler, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
 }
 
-void GroundControl::sendPacket(uint64_t destId, const bmcl::SharedBytes& packet)
+void GroundControl::sendUnreliablePacket(const PacketRequest& packet)
 {
-    send(_exc, SendUserPacketAtom::value, destId, packet);
+    send(_exc, SendUnreliablePacketAtom::value, packet);
 }
 
 void GroundControl::acceptData(const bmcl::SharedBytes& data)
 {
-    send(_exc, RecvDataAtom::value, data);
+    _incoming.write(data.data(), data.size());
+    if (!_isRunning) {
+        return;
+    }
+
+begin:
+    if (_incoming.size() == 0) {
+        return;
+    }
+    SearchResult rv = findPacket(_incoming);
+
+    if (rv.dataSize) {
+        bmcl::Bytes packet = _incoming.asBytes().slice(rv.junkSize, rv.junkSize + rv.dataSize);
+        if (!acceptPacket(packet)) {
+            _incoming.removeFront(rv.junkSize + 1);
+        } else {
+            _incoming.removeFront(rv.junkSize + rv.dataSize);
+        }
+        goto begin;
+    } else {
+        if (rv.junkSize) {
+            _incoming.removeFront(rv.junkSize);
+        }
+    }
+}
+
+bool GroundControl::acceptPacket(bmcl::Bytes packet)
+{
+    if (packet.size() < 4) {
+        reportError("recieved packet with size < 4");
+        return false;
+    }
+
+    uint16_t payloadSize = le16dec(packet.data());
+    if (payloadSize + 2 != packet.size()) {
+        reportError("recieved packet with invalid size");
+        return false;
+    }
+
+    uint16_t encodedCrc = le16dec(packet.data() + payloadSize);
+    Crc16 calculatedCrc;
+    calculatedCrc.update(packet.data(), packet.size() - 2);
+    if (calculatedCrc.get() != encodedCrc) {
+        reportError("recieved packet with invalid crc");
+        return false;
+    }
+
+    send(_exc, RecvPayloadAtom::value, bmcl::SharedBytes::create(packet.data() + 2, payloadSize - 2));
+    return true;
+}
+
+SearchResult GroundControl::findPacket(bmcl::Bytes data)
+{
+    return findPacket(data.data(), data.size());
+}
+
+SearchResult GroundControl::findPacket(const void* data, std::size_t size)
+{
+    constexpr uint16_t separator = 0x9c3e;
+    constexpr uint8_t firstSepPart = (separator & 0xff00) >> 8;
+    constexpr uint8_t secondSepPart = separator & 0x00ff;
+
+    const uint8_t* begin = (const uint8_t*)data;
+    const uint8_t* it = begin;
+    const uint8_t* end = it + size;
+    const uint8_t* next;
+
+    while (true) {
+        it = std::find(it, end, firstSepPart);
+        next = it + 1;
+        if (next >= end) {
+            return SearchResult(size, 0);
+        }
+        if (*next == secondSepPart) {
+            break;
+        }
+        it++;
+    }
+
+    std::size_t junkSize = it - begin;
+    it += 2; //skipped sep
+
+    if ((it + 2) >= end) {
+        return SearchResult(junkSize, 0);
+    }
+
+    //const uint8_t* packetBegin = it;
+
+    uint16_t expectedSize = le16dec(it);
+    if (it > end - expectedSize - 2) {
+        return SearchResult(junkSize, 0);
+    }
+    return SearchResult(junkSize + 2, 2 + expectedSize);
 }
 }

@@ -11,53 +11,63 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/HashMap.h"
+#include "decode/groundcontrol/Packet.h"
 
 #include <bmcl/Fwd.h>
-#include <bmcl/Buffer.h>
 
 #include <caf/event_based_actor.hpp>
+
+#include <deque>
 
 namespace decode {
 
 class Client;
 class Package;
+struct PacketRequest;
+struct QueuedPacket;
 
-struct SearchResult {
-public:
-    SearchResult(std::size_t junkSize, std::size_t dataSize)
-        : junkSize(junkSize)
-        , dataSize(dataSize)
+struct QueuedPacket {
+    PacketRequest request;
+};
+
+struct StreamState {
+    StreamState()
+        : reliableCounter(0)
+        , unreliableCounter(0)
     {
     }
 
-    std::size_t junkSize;
-    std::size_t dataSize;
+    std::deque<QueuedPacket> queue;
+    uint16_t reliableCounter;
+    uint16_t unreliableCounter;
+    caf::actor client;
 };
 
 class Exchange : public caf::event_based_actor {
 public:
-    Exchange(caf::actor_config& cfg, const caf::actor& dataSink);
+    Exchange(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler);
     ~Exchange();
 
     caf::behavior make_behavior() override;
     const char* name() const override;
     void on_exit() override;
 
-    static SearchResult findPacket(const void* data, std::size_t size);
-    static SearchResult findPacket(bmcl::Bytes data);
 
 private:
-    void registerClient(uint64_t id, const caf::actor& client);
-    void acceptData(bmcl::Bytes data);
-    void sendPacket(uint64_t destId, bmcl::Bytes packet);
+    template <typename... A>
+    void sendAllStreams(A&&... args);
 
-    bool acceptPacket(bmcl::Bytes packet);
-    void handlePayload(bmcl::Bytes data);
+    void reportError(std::string&& msg);
+    void sendUnreliablePacket(const PacketRequest& packet);
 
-    bool _isRunning = false;
-    bool _dataReceived = false;
-    bmcl::Buffer _incoming;
-    HashMap<uint64_t, caf::actor> _clients;
+    bool handlePayload(bmcl::Bytes data);
+
+    StreamState _fwtStream;
+    StreamState _tmStream;
+    caf::actor _gc;
     caf::actor _sink;
+    caf::actor _handler;
+    bool _isRunning;
+    bool _dataReceived;
 };
 }

@@ -10,56 +10,91 @@
 #include "decode/groundcontrol/Crc.h"
 #include "decode/groundcontrol/Atoms.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
+#include "decode/groundcontrol/Packet.h"
+#include "decode/groundcontrol/FwtState.h"
+#include "decode/groundcontrol/TmState.h"
+#include "decode/parser/Project.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/MemWriter.h>
+#include <bmcl/MemReader.h>
 #include <bmcl/Buffer.h>
 #include <bmcl/SharedBytes.h>
+#include <bmcl/String.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Project::ConstPointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Device::ConstPointer);
 
 namespace decode {
 
-Exchange::Exchange(caf::actor_config& cfg, const caf::actor& dataSink)
+Exchange::Exchange(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler)
     : caf::event_based_actor(cfg)
+    , _gc(gc)
     , _sink(dataSink)
+    , _handler(handler)
+    , _isRunning(false)
+    , _dataReceived(false)
 {
+    _fwtStream.client = spawn<FwtState, caf::linked>(this, _handler);
+    _tmStream.client = spawn<TmState, caf::linked>(_handler);
 }
 
 Exchange::~Exchange()
 {
 }
 
+template <typename... A>
+void Exchange::sendAllStreams(A&&... args)
+{
+    send(_fwtStream.client, std::forward<A>(args)...);
+    send(_tmStream.client, std::forward<A>(args)...);
+}
+
 caf::behavior Exchange::make_behavior()
 {
     return caf::behavior{
-        [this](RecvDataAtom, const bmcl::SharedBytes& data) {
-            acceptData(data.view());
+        [this](RecvPayloadAtom, const bmcl::SharedBytes& data) {
             _dataReceived = true;
+            handlePayload(data.view());
         },
-        [this](SendUserPacketAtom, uint64_t id, const bmcl::SharedBytes& data) {
-            sendPacket(id, data.view());
+        [this](SendUnreliablePacketAtom, const PacketRequest& packet) {
+            sendUnreliablePacket(packet);
         },
-        [this](RegisterClientAtom, uint64_t id, const caf::actor& client) {
-            registerClient(id, client);
+        [this](SendReliablePacketAtom, const PacketRequest& packet) {
         },
         [this](PingAtom)
         {
-            if (!_isRunning) return;
-            if (!_dataReceived) sendPacket(2, bmcl::Bytes());
+            if (!_isRunning) {
+                return;
+            }
+            if (!_dataReceived) {
+                PacketRequest req;
+                req.deviceId = 0;
+                req.packetType = PacketType::Commands;
+                sendUnreliablePacket(req);
+            }
             _dataReceived = false;
             delayed_send(this, std::chrono::seconds(1), PingAtom::value);
         },
         [this](StartAtom) {
             _isRunning = true;
             _dataReceived = false;
+            sendAllStreams(StartAtom::value);
             delayed_send(this, std::chrono::seconds(1), PingAtom::value);
         },
         [this](StopAtom) {
             _isRunning = false;
+            sendAllStreams(StopAtom::value);
         },
         [this](EnableLoggindAtom, bool isEnabled) {
             (void)isEnabled;
+            sendAllStreams(EnableLoggindAtom::value, isEnabled);
+        },
+        [this](SetProjectAtom, const Project::ConstPointer& proj, const Device::ConstPointer& dev) {
+            sendAllStreams(SetProjectAtom::value, proj, dev);
+            send(_gc, SetProjectAtom::value, proj, dev);
         },
     };
 }
@@ -72,133 +107,85 @@ const char* Exchange::name() const
 void Exchange::on_exit()
 {
     destroy(_sink);
-    _clients.clear();
+    destroy(_fwtStream.client);
+    destroy(_tmStream.client);
 }
 
-void Exchange::acceptData(bmcl::Bytes data)
+void Exchange::reportError(std::string&& msg)
 {
-    _incoming.write(data.data(), data.size());
-    SearchResult rv = findPacket(_incoming);
-
-    if (rv.dataSize) {
-        bmcl::Bytes packet = _incoming.asBytes().slice(rv.junkSize, rv.junkSize + rv.dataSize);
-        if (!acceptPacket(packet)) {
-            _incoming.removeFront(1); //clean junk + 1
-            //TODO: repeat search
-            return;
-        }
-    }
-
-    if (rv.junkSize) {
-        assert(rv.junkSize <= _incoming.size());
-        _incoming.removeFront(rv.junkSize);
-    }
+    send(_handler, ExchangeErrorEventAtom::value, std::move(msg));
 }
 
-bool Exchange::acceptPacket(bmcl::Bytes packet)
+bool Exchange::handlePayload(bmcl::Bytes data)
 {
-    if (packet.size() < 4) {
-        //invalid packet
+    if (data.size() == 0) {
+        reportError("recieved empty payload");
         return false;
     }
 
-    uint16_t payloadSize = le16dec(packet.data());
-    if (payloadSize + 2 != packet.size()) {
-        //invalid packet
+    bmcl::MemReader reader(data);
+    int64_t streamType;
+    if (!reader.readVarInt(&streamType)) {
+        reportError("recieved invalid stream type");
         return false;
     }
 
-    uint16_t encodedCrc = le16dec(packet.data() + payloadSize);
-    Crc16 calculatedCrc;
-    calculatedCrc.update(packet.data(), packet.size() - 2);
-    if (calculatedCrc.get() != encodedCrc) {
-        //invalid packet
+    int64_t type;
+    if (!reader.readVarInt(&type)) {
+        reportError("recieved invalid packet type");
         return false;
     }
 
-    handlePayload(bmcl::Bytes(packet.data() + 2, payloadSize - 2));
+    if (reader.sizeLeft() < 2) {
+        reportError("recieved invalid counter");
+        return false;
+    }
+    uint16_t counter = reader.readUint16Le();
+
+    uint64_t time;
+    if (!reader.readVarUint(&time)) {
+        reportError("recieved invalid time");
+        return false;
+    }
+
+    bmcl::Bytes userData(reader.current(), reader.end());
+    caf::actor dest;
+    switch ((PacketType)type) {
+    case PacketType::Firmware:
+        dest = _fwtStream.client;
+        break;
+    case PacketType::Telemetry:
+        dest = _tmStream.client;
+        break;
+    //case PacketType::Commands:
+    //    break;
+    //case PacketType::User:
+    //    break;
+    default:
+        reportError("recieved invalid packet type: " + std::to_string(type));
+        return false;
+    }
+
+    send(dest, RecvUserPacketAtom::value, bmcl::SharedBytes::create(userData));
     return true;
 }
 
-void Exchange::handlePayload(bmcl::Bytes data)
+void Exchange::sendUnreliablePacket(const PacketRequest& req)
 {
-    if (data.size() == 0) {
-        //invalid packet
-        return;
-    }
-
-    uint8_t type = data[0];
-
-    auto it = _clients.find(type);
-    if (it == _clients.end()) {
-        //TODO: report error
-        return;
-    }
-
-    bmcl::Bytes userPacket = data.slice(1, data.size());
-    send(it->second, RecvUserPacketAtom::value, bmcl::SharedBytes::create(userPacket));
-}
-
-void Exchange::sendPacket(uint64_t dataId, bmcl::Bytes payload)
-{
-    bmcl::SharedBytes packet = bmcl::SharedBytes::create(2 + 2 + 1 + payload.size() + 2);
+    bmcl::SharedBytes packet = bmcl::SharedBytes::create(2 + 2 + 1 + 1 + 2 + 1 + req.payload.size() + 2);
     bmcl::MemWriter packWriter(packet.data(), packet.size());
     packWriter.writeUint16Be(0x9c3e);
-    packWriter.writeUint16Le(3 + payload.size()); //HACK: data type
-    packWriter.writeVarUint(dataId);
-    packWriter.write(payload);
+    packWriter.writeUint16Le(1 + 1 + 2 + 1 + req.payload.size() + 2); //HACK: data type
+    packWriter.writeVarInt((int64_t)StreamType::Unreliable); //unreliable
+    packWriter.writeVarInt((int64_t)req.packetType);
+    packWriter.writeUint16Le(0); //counter
+    packWriter.writeVarUint(0); //time
+    packWriter.write(req.payload.view());
     Crc16 crc;
     crc.update(packWriter.writenData().sliceFrom(2));
     packWriter.writeUint16Le(crc.get());
-    send(_sink, SendDataAtom::value, bmcl::SharedBytes::create(packWriter.writenData()));
+    assert(packWriter.sizeLeft() == 0);
+    send(_sink, SendDataAtom::value, packet);
 }
 
-SearchResult Exchange::findPacket(bmcl::Bytes data)
-{
-    return findPacket(data.data(), data.size());
-}
-
-SearchResult Exchange::findPacket(const void* data, std::size_t size)
-{
-    constexpr uint16_t separator = 0x9c3e;
-    constexpr uint8_t firstSepPart = (separator & 0xff00) >> 8;
-    constexpr uint8_t secondSepPart = separator & 0x00ff;
-
-    const uint8_t* begin = (const uint8_t*)data;
-    const uint8_t* it = begin;
-    const uint8_t* end = it + size;
-    const uint8_t* next;
-
-    while (true) {
-        it = std::find(it, end, firstSepPart);
-        next = it + 1;
-        if (next >= end) {
-            return SearchResult(size, 0);
-        }
-        if (*next == secondSepPart) {
-            break;
-        }
-        it++;
-    }
-
-    std::size_t junkSize = it - begin;
-    it += 2; //skipped sep
-
-    if ((it + 2) >= end) {
-        return SearchResult(junkSize, 0);
-    }
-
-    //const uint8_t* packetBegin = it;
-
-    uint16_t expectedSize = le16dec(it);
-    if (it > end - expectedSize - 2) {
-        return SearchResult(junkSize, 0);
-    }
-    return SearchResult(junkSize + 2, 2 + expectedSize);
-}
-
-void Exchange::registerClient(uint64_t id, const caf::actor& client)
-{
-    _clients.emplace(id, client);
-}
 }

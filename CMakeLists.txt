@@ -202,6 +202,8 @@ source_group("generator" FILES ${DECODE_GENERATOR_SRC})
 set(DECODE_GROUNDCONTROL_SRC
     src/decode/groundcontrol/AllowUnsafeMessageType.h
     src/decode/groundcontrol/Atoms.h
+    src/decode/groundcontrol/CmdState.cpp
+    src/decode/groundcontrol/CmdState.h
     src/decode/groundcontrol/Crc.cpp
     src/decode/groundcontrol/Crc.h
     src/decode/groundcontrol/Exchange.cpp

@@ -33,9 +33,6 @@ namespace decode {
 TmState::TmState(caf::actor_config& cfg, const caf::actor& handler)
     : caf::event_based_actor(cfg)
     , _handler(handler)
-    , _lastCounter(0)
-    , _hasLatLon(false)
-    , _hasOrientation(false)
 {
 }
 
@@ -78,13 +75,13 @@ void TmState::pushTmUpdates()
 {
     Rc<NodeViewUpdater> updater = new NodeViewUpdater;
     _model->collectUpdates(updater.get());
-    if (_hasLatLon) {
+    if (_features.hasLatLon) {
         LatLon latLon;
         updateParam(_latNode, &latLon.latitude);
         updateParam(_lonNode, &latLon.longitude);
         send(_handler, UpdateTmParams::value, TmParamUpdate(latLon));
     }
-    if (_hasOrientation) {
+    if (_features.hasOrientation) {
         Orientation orientation;
         updateParam(_headingNode, &orientation.heading);
         updateParam(_pitchNode, &orientation.pitch);
@@ -121,11 +118,11 @@ void TmState::initTmNodes()
 {
     initTypedNode("nav.latLon.latitude", &_latNode);
     initTypedNode("nav.latLon.longitude", &_lonNode);
-    _hasLatLon = _latNode || _lonNode;
+    _features.hasLatLon = _latNode || _lonNode;
     initTypedNode("nav.orientation.heading", &_headingNode);
     initTypedNode("nav.orientation.pitch", &_pitchNode);
     initTypedNode("nav.orientation.roll", &_rollNode);
-    _hasOrientation = _headingNode || _pitchNode || _rollNode;
+    _features.hasOrientation = _headingNode || _pitchNode || _rollNode;
 }
 
 void TmState::acceptData(bmcl::Bytes packet)
@@ -135,36 +132,6 @@ void TmState::acceptData(bmcl::Bytes packet)
     }
 
     bmcl::MemReader src(packet);
-    int64_t streamType;
-    if (!src.readVarInt(&streamType)) {
-        //TODO: report error
-        return;
-    }
-
-    int64_t dataType;
-    if (!src.readVarInt(&dataType)) {
-        //TODO: report error
-        return;
-    }
-
-    if (src.sizeLeft() < 2) {
-        //TODO: report error
-        return;
-    }
-    uint16_t counter = src.readUint16Le();
-
-    uint16_t expectedCounter = _lastCounter + 1;
-    if (counter != expectedCounter) {
-        //TODO: estimate lost packets
-    }
-    _lastCounter = counter;
-
-    uint64_t tickTime;
-    if (!src.readVarUint(&tickTime)) {
-        //TODO: report error
-        return;
-    }
-
     while (src.sizeLeft() != 0) {
         if (src.sizeLeft() < 2) {
             //TODO: report error

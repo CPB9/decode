@@ -12,6 +12,7 @@
 #include "decode/ui/QNodeModel.h"
 #include "decode/ui/QNodeViewModel.h"
 #include "decode/model/NodeView.h"
+#include "decode/groundcontrol/Packet.h"
 
 #include <QWidget>
 
@@ -44,12 +45,12 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     QObject::connect(sendButton, &QPushButton::clicked, _paramViewModel.get(), [this]() {
         uint8_t tmp[2048]; //TODO: temp
         bmcl::MemWriter dest(tmp, sizeof(tmp));
-        dest.writeVarInt(1); // streamtype
-        dest.writeVarInt(0); // datatype
-        dest.writeUint16Le(0);
-        dest.writeVarUint(0); //time
         if (_scriptNode->encode(&dest)) {
-            emit packetQueued(bmcl::SharedBytes::create(dest.writenData()));
+            PacketRequest req;
+            req.deviceId = 0;
+            req.packetType = PacketType::Commands;
+            req.payload = bmcl::SharedBytes::create(dest.writenData());
+            emit unreliablePacketQueued(req);
         } else {
             BMCL_DEBUG() << "error encoding";
             QMessageBox::warning(this, "UiTest", "Error while encoding cmd. Args may be empty", QMessageBox::Ok);

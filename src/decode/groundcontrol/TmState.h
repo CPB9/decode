@@ -10,6 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/groundcontrol/TmFeatures.h"
 
 #include <bmcl/Fwd.h>
 
@@ -30,7 +31,7 @@ public:
     caf::behavior make_behavior() override;
     void on_exit() override;
 
-protected:
+private:
     void acceptData(bmcl::Bytes packet);
     void initTmNodes();
     template <typename T>
@@ -39,16 +40,13 @@ protected:
     template <typename T>
     void updateParam(const Rc<NumericValueNode<T>>& src, T* dest, T defaultValue = 0);
 
-private:
     Rc<TmModel> _model;
     Rc<NumericValueNode<double>> _latNode;
     Rc<NumericValueNode<double>> _lonNode;
     Rc<NumericValueNode<double>> _headingNode;
     Rc<NumericValueNode<double>> _pitchNode;
     Rc<NumericValueNode<double>> _rollNode;
-    bool _hasLatLon;
-    bool _hasOrientation;
     caf::actor _handler;
-    uint16_t _lastCounter;
+    TmFeatures _features;
 };
 }
