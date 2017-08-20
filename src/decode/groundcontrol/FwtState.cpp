@@ -81,7 +81,7 @@ FwtState::~FwtState()
 caf::behavior FwtState::make_behavior()
 {
     return caf::behavior{
-        [this](RecvUserPacketAtom, const bmcl::SharedBytes& packet) {
+        [this](RecvPacketPayloadAtom, const bmcl::SharedBytes& packet) {
             acceptData(packet.view());
         },
         [this](FwtHashAtom) {
@@ -197,7 +197,7 @@ inline void FwtState::packAndSendPacket(C&& enc, A&&... args)
     (this->*enc)(&writer, std::forward<A>(args)...);
     PacketRequest req;
     req.deviceId = 0; //FIXME
-    req.packetType = PacketType::Firmware;
+    req.streamType = StreamType::Firmware;
     req.payload = bmcl::SharedBytes::create(writer.writenData());
     send(_exc, SendUnreliablePacketAtom::value, req);
 }

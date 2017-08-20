@@ -31,6 +31,7 @@ class Model;
 class NodeView;
 class NodeViewUpdater;
 struct PacketRequest;
+struct PacketResponse;
 
 class FirmwareWidget : public QWidget {
     Q_OBJECT
@@ -42,6 +43,8 @@ public:
     void applyTmUpdates(NodeViewUpdater* updater);
 
     void setRootCmdNode(Node* root);
+
+    void acceptPacketResponse(const PacketResponse& response);
 
 signals:
     void unreliablePacketQueued(const PacketRequest& packet);

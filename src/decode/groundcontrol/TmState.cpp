@@ -55,7 +55,7 @@ caf::behavior TmState::make_behavior()
             send(_handler, SetTmViewAtom::value, view);
             delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
         },
-        [this](RecvUserPacketAtom, const bmcl::SharedBytes& data) {
+        [this](RecvPacketPayloadAtom, const bmcl::SharedBytes& data) {
             acceptData(data.view());
         },
         [this](PushTmUpdatesAtom) {

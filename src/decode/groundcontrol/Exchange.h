@@ -16,31 +16,53 @@
 #include <bmcl/Fwd.h>
 
 #include <caf/event_based_actor.hpp>
+#include <caf/response_promise.hpp>
 
 #include <deque>
+#include <chrono>
 
 namespace decode {
 
 class Client;
 class Package;
-struct PacketRequest;
 struct QueuedPacket;
 
 struct QueuedPacket {
+    using TimePoint = std::chrono::steady_clock::time_point;
+
+    QueuedPacket(const PacketRequest& req, uint16_t counter, TimePoint time, const caf::response_promise& promise)
+        : request(req)
+        , counter(counter)
+        , queueTime(time)
+        , promise(promise)
+    {
+    }
+
     PacketRequest request;
+    uint16_t counter;
+    TimePoint queueTime;
+    caf::response_promise promise;
 };
 
 struct StreamState {
-    StreamState()
-        : reliableCounter(0)
-        , unreliableCounter(0)
+    StreamState(StreamType type)
+        : currentReliableUplinkCounter(0)
+        , currentUnreliableUplinkCounter(0)
+        , expectedReliableDownlinkCounter(0)
+        , expectedUnreliableDownlinkCounter(0)
+        , checkId(0)
+        , type(type)
     {
     }
 
     std::deque<QueuedPacket> queue;
-    uint16_t reliableCounter;
-    uint16_t unreliableCounter;
+    uint16_t currentReliableUplinkCounter;
+    uint16_t currentUnreliableUplinkCounter;
+    uint16_t expectedReliableDownlinkCounter;
+    uint16_t expectedUnreliableDownlinkCounter;
+    std::size_t checkId;
     caf::actor client;
+    StreamType type;
 };
 
 class Exchange : public caf::event_based_actor {
@@ -52,18 +74,29 @@ public:
     const char* name() const override;
     void on_exit() override;
 
-
 private:
     template <typename... A>
     void sendAllStreams(A&&... args);
 
+    bmcl::SharedBytes packPacket(const PacketRequest& req, PacketType streamType, uint16_t counter);
+
     void reportError(std::string&& msg);
     void sendUnreliablePacket(const PacketRequest& packet);
+    void sendUnreliablePacket(const PacketRequest& packet, StreamState* state);
+    caf::response_promise queueReliablePacket(const PacketRequest& packet);
+    caf::response_promise queueReliablePacket(const PacketRequest& packet, StreamState* state);
+
+    void packAndSendFirstQueued(StreamState* state);
 
     bool handlePayload(bmcl::Bytes data);
+    void checkQueue(StreamState* stream);
+
+    bool acceptPacket(const PacketHeader& header, bmcl::Bytes payload, StreamState* state);
+    bool acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, StreamState* state);
 
     StreamState _fwtStream;
-    StreamState _tmStream;
+    StreamState _cmdTmStream;
+    StreamState _userStream;
     caf::actor _gc;
     caf::actor _sink;
     caf::actor _handler;

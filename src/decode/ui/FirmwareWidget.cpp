@@ -48,9 +48,10 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
         if (_scriptNode->encode(&dest)) {
             PacketRequest req;
             req.deviceId = 0;
-            req.packetType = PacketType::Commands;
+            req.streamType = StreamType::CmdTelem;
             req.payload = bmcl::SharedBytes::create(dest.writenData());
-            emit unreliablePacketQueued(req);
+            setEnabled(false);
+            emit reliablePacketQueued(req);
         } else {
             BMCL_DEBUG() << "error encoding";
             QMessageBox::warning(this, "UiTest", "Error while encoding cmd. Args may be empty", QMessageBox::Ok);
@@ -116,6 +117,12 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
 
 FirmwareWidget::~FirmwareWidget()
 {
+}
+
+void FirmwareWidget::acceptPacketResponse(const PacketResponse& response)
+{
+    //TODO: parse response
+    setEnabled(true);
 }
 
 void FirmwareWidget::setRootTmNode(NodeView* root)
