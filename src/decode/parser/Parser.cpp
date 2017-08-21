@@ -1297,11 +1297,11 @@ bool Parser::parseParameters(Component* parent)
     TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Field> field = parseField();
-        field->setDocs(docs.get());
-        clearUnusedDocComments();
         if (!field) {
             return false;
         }
+        field->setDocs(docs.get());
+        clearUnusedDocComments();
         comp->addParam(field.get());
         return true;
     }));
