@@ -15,7 +15,7 @@
 
 namespace decode {
 
-QCmdModel::QCmdModel(CmdContainerNode* node)
+QCmdModel::QCmdModel(ScriptNode* node)
     : QNodeModel(node)
     , _cmds(node)
 {

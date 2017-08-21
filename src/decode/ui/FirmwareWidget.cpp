@@ -24,6 +24,7 @@
 #include <QHeaderView>
 
 #include <bmcl/MemWriter.h>
+#include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
 #include <bmcl/SharedBytes.h>
 
@@ -41,7 +42,7 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     buttonLayout->addWidget(sendButton);
     buttonLayout->addStretch();
 
-    _scriptNode.reset(new CmdContainerNode(bmcl::None));
+    _scriptNode.reset(new ScriptNode(bmcl::None));
     QObject::connect(sendButton, &QPushButton::clicked, _paramViewModel.get(), [this]() {
         uint8_t tmp[2048]; //TODO: temp
         bmcl::MemWriter dest(tmp, sizeof(tmp));
@@ -73,44 +74,60 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     scriptEditWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     scriptEditWidget->header()->setStretchLastSection(false);
     scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
+    scriptEditWidget->expandToDepth(1);
 
     _cmdViewModel = bmcl::makeUnique<QNodeModel>(emptyNode.get());
-    auto cmdViewWidget = new QTreeView;
-    cmdViewWidget->setModel(_cmdViewModel.get());
-    cmdViewWidget->setAlternatingRowColors(true);
-    cmdViewWidget->setSelectionMode(QAbstractItemView::SingleSelection);
-    cmdViewWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    cmdViewWidget->setDragEnabled(true);
-    cmdViewWidget->setDragDropMode(QAbstractItemView::DragDrop);
-    cmdViewWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    cmdViewWidget->header()->setStretchLastSection(false);
-    cmdViewWidget->setRootIndex(_cmdViewModel->index(0, 0));
-    cmdViewWidget->setColumnHidden(2, true);
+    _cmdViewWidget = new QTreeView;
+    _cmdViewWidget->setModel(_cmdViewModel.get());
+    _cmdViewWidget->setAlternatingRowColors(true);
+    _cmdViewWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    _cmdViewWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    _cmdViewWidget->setDragEnabled(true);
+    _cmdViewWidget->setDragDropMode(QAbstractItemView::DragDrop);
+    _cmdViewWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    _cmdViewWidget->header()->setStretchLastSection(false);
+    _cmdViewWidget->setRootIndex(_cmdViewModel->index(0, 0));
+    _cmdViewWidget->setColumnHidden(2, true);
+    _cmdViewWidget->expandToDepth(1);
+
+    _scriptResultModel = bmcl::makeUnique<QNodeModel>(emptyNode.get());
+    _scriptResultWidget = new QTreeView;
+    _scriptResultWidget->setModel(_scriptResultModel.get());
+    _scriptResultWidget->setAlternatingRowColors(true);
+    _scriptResultWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    _scriptResultWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    _scriptResultWidget->setDragEnabled(true);
+    _scriptResultWidget->setDragDropMode(QAbstractItemView::DragDrop);
+    _scriptResultWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    _scriptResultWidget->header()->setStretchLastSection(false);
+    _scriptResultWidget->setRootIndex(_scriptResultModel->index(0, 0));
 
     auto rightLayout = new QVBoxLayout;
     auto cmdLayout = new QVBoxLayout;
-    cmdLayout->addWidget(cmdViewWidget);
+    cmdLayout->addWidget(_cmdViewWidget);
     cmdLayout->addWidget(scriptEditWidget);
+    cmdLayout->addWidget(_scriptResultWidget);
     rightLayout->addLayout(cmdLayout);
     rightLayout->addLayout(buttonLayout);
 
-    _mainView = new QTreeView;
-    _mainView->setAcceptDrops(true);
-    _mainView->setAlternatingRowColors(true);
-    _mainView->setSelectionMode(QAbstractItemView::SingleSelection);
-    _mainView->setSelectionBehavior(QAbstractItemView::SelectRows);
-    _mainView->setDragEnabled(true);
-    _mainView->setDragDropMode(QAbstractItemView::DragDrop);
-    _mainView->setDropIndicatorShown(true);
-    _mainView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    _mainView->header()->setStretchLastSection(false);
-    _mainView->setModel(_paramViewModel.get());
+    _paramViewWidget = new QTreeView;
+    _paramViewWidget->setAcceptDrops(true);
+    _paramViewWidget->setAlternatingRowColors(true);
+    _paramViewWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    _paramViewWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    _paramViewWidget->setDragEnabled(true);
+    _paramViewWidget->setDragDropMode(QAbstractItemView::DragDrop);
+    _paramViewWidget->setDropIndicatorShown(true);
+    _paramViewWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    _paramViewWidget->header()->setStretchLastSection(false);
+    _paramViewWidget->setModel(_paramViewModel.get());
 
     QObject::connect(scriptEditWidget, &QTreeView::expanded, scriptEditWidget, [scriptEditWidget]() { scriptEditWidget->resizeColumnToContents(0); });
-    QObject::connect(_mainView, &QTreeView::expanded, _mainView, [this]() { _mainView->resizeColumnToContents(0); });
+    QObject::connect(_paramViewWidget, &QTreeView::expanded, _paramViewWidget, [this]() {
+        _paramViewWidget->resizeColumnToContents(0); });
 
     auto centralLayout = new QHBoxLayout;
-    centralLayout->addWidget(_mainView);
+    centralLayout->addWidget(_paramViewWidget);
     centralLayout->addLayout(rightLayout);
     setLayout(centralLayout);
 }
@@ -121,23 +138,31 @@ FirmwareWidget::~FirmwareWidget()
 
 void FirmwareWidget::acceptPacketResponse(const PacketResponse& response)
 {
-    //TODO: parse response
+    BMCL_DEBUG() << response.payload.size();
+    bmcl::MemReader reader(response.payload.view());
+    _scriptResultNode = ScriptResultNode::fromScriptNode(_scriptNode.get(), bmcl::None);
+    //TODO: check errors
+    _scriptResultNode->decode(&reader);
+    _scriptResultModel->setRoot(_scriptResultNode.get());
+    _scriptResultWidget->expandAll();
     setEnabled(true);
 }
 
 void FirmwareWidget::setRootTmNode(NodeView* root)
 {
     _paramViewModel->setRoot(root);
+    _paramViewWidget->expandToDepth(0);
 }
 
 void FirmwareWidget::setRootCmdNode(Node* root)
 {
     _cmdViewModel->setRoot(root);
+    _cmdViewWidget->expandToDepth(0);
 }
 
 void FirmwareWidget::applyTmUpdates(NodeViewUpdater* updater)
 {
     _paramViewModel->applyUpdates(updater);
-    _mainView->viewport()->update();
+    _paramViewWidget->viewport()->update();
 }
 }

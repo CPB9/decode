@@ -223,7 +223,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
         _output->append(", ");
     });
     if (rv.isSome()) {
-        writePointerOp(rv.unwrap());
+        //writePointerOp(rv.unwrap());
         _output->append("&_rv");
     } else if (ftype->hasArguments()) {
         _output->removeFromBack(2);

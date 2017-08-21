@@ -15,7 +15,7 @@ namespace decode {
 
 struct Device;
 class ValueInfoCache;
-class CmdContainerNode;
+class ScriptNode;
 
 class CmdModel : public Node {
 public:
@@ -31,6 +31,6 @@ public:
     bmcl::StringView fieldName() const override;
 
 private:
-    std::vector<Rc<CmdContainerNode>> _nodes;
+    std::vector<Rc<ScriptNode>> _nodes;
 };
 }

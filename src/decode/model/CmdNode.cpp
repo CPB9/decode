@@ -11,7 +11,9 @@
 #include "decode/ast/Component.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Function.h"
+#include "decode/ast/Type.h"
 #include "decode/model/ValueInfoCache.h"
+#include "decode/model/ValueNode.h"
 
 #include <bmcl/MemWriter.h>
 
@@ -75,18 +77,18 @@ bmcl::StringView CmdNode::shortDescription() const
     return _func->shortDescription();
 }
 
-CmdContainerNode::CmdContainerNode(bmcl::OptionPtr<Node> parent)
-    : Node(parent)
+ScriptNode::ScriptNode(bmcl::OptionPtr<Node> parent)
+    : GenericContainerNode<CmdNode, Node>(parent)
 {
 }
 
-CmdContainerNode::~CmdContainerNode()
+ScriptNode::~ScriptNode()
 {
 }
 
-Rc<CmdContainerNode> CmdContainerNode::withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs)
+Rc<ScriptNode> ScriptNode::withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs)
 {
-    CmdContainerNode* self = new CmdContainerNode(parent);
+    ScriptNode* self = new ScriptNode(parent);
     self->_fieldName = comp->moduleName();
     for (const Function* f : comp->cmdsRange()) {
         self->_nodes.emplace_back(new CmdNode(comp, f, cache, self, expandArgs));
@@ -94,32 +96,17 @@ Rc<CmdContainerNode> CmdContainerNode::withAllCmds(const Component* comp, const 
     return self;
 }
 
-std::size_t CmdContainerNode::numChildren() const
-{
-    return _nodes.size();
-}
-
-bmcl::Option<std::size_t> CmdContainerNode::childIndex(const Node* node) const
-{
-    return childIndexGeneric(_nodes, node);
-}
-
-bmcl::OptionPtr<Node> CmdContainerNode::childAt(std::size_t idx)
-{
-    return childAtGeneric(_nodes, idx);
-}
-
-bmcl::StringView CmdContainerNode::fieldName() const
+bmcl::StringView ScriptNode::fieldName() const
 {
     return _fieldName;
 }
 
-void CmdContainerNode::addCmdNode(CmdNode* node)
+void ScriptNode::addCmdNode(CmdNode* node)
 {
     _nodes.emplace_back(node);
 }
 
-bool CmdContainerNode::encode(bmcl::MemWriter* dest) const
+bool ScriptNode::encode(bmcl::MemWriter* dest) const
 {
     for (const CmdNode* node : RcVec<CmdNode>::ConstRange(_nodes)) {
         TRY(node->encode(dest));
@@ -127,8 +114,52 @@ bool CmdContainerNode::encode(bmcl::MemWriter* dest) const
     return true;
 }
 
-void CmdContainerNode::swapNodes(std::size_t i1, std::size_t i2)
+void ScriptNode::swapNodes(std::size_t i1, std::size_t i2)
 {
     std::swap(_nodes[i1], _nodes[i2]);
 }
+
+ScriptResultNode::ScriptResultNode(bmcl::OptionPtr<Node> parent)
+    : GenericContainerNode<ValueNode, Node>(parent)
+{
+}
+
+ScriptResultNode::~ScriptResultNode()
+{
+}
+
+Rc<ScriptResultNode> ScriptResultNode::fromScriptNode(const ScriptNode* node, bmcl::OptionPtr<Node> parent)
+{
+    Rc<ScriptResultNode> resultNode = new ScriptResultNode(parent);
+    std::size_t n = 0;
+    for (const CmdNode* cmdNode : node->nodes()) {
+        const Function* func = cmdNode->function();
+        auto rv = func->type()->returnValue();
+        if (rv.isSome()) {
+            Rc<ValueNode> valueNode = ValueNode::fromType(rv.unwrap(), cmdNode->cache(), resultNode.get());
+            valueNode->setFieldName(resultNode->_indexCache.arrayIndex(n));
+            n++;
+            resultNode->_nodes.emplace_back(valueNode);
+        }
+    }
+    return resultNode;
+}
+
+bool ScriptResultNode::decode(bmcl::MemReader* src)
+{
+    for (const Rc<ValueNode>& node : _nodes) {
+        if (!node->decode(src)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bmcl::StringView ScriptResultNode::fieldName() const
+{
+    return "~";
+}
+
+template class GenericContainerNode<CmdNode, Node>;
+template class GenericContainerNode<ValueNode, Node>;
 }

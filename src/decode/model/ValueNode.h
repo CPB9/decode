@@ -59,6 +59,11 @@ public:
     void setFieldName(bmcl::StringView name);
     void setShortDesc(bmcl::StringView desc);
 
+    const ValueInfoCache* cache() const
+    {
+        return _cache.get();
+    }
+
 protected:
 
     explicit ValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);

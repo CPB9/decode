@@ -29,7 +29,7 @@ CmdModel::CmdModel(const Device* dev, const ValueInfoCache* cache, bmcl::OptionP
             continue;
         }
 
-        Rc<CmdContainerNode> node = CmdContainerNode::withAllCmds(it, cache, this, false);
+        Rc<ScriptNode> node = ScriptNode::withAllCmds(it, cache, this, false);
         _nodes.emplace_back(node);
     }
 }

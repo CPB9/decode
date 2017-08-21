@@ -10,6 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/model/FieldsNode.h"
+#include "decode/model/ValueInfoCache.h"
 
 #include <bmcl/Fwd.h>
 
@@ -37,6 +38,17 @@ public:
 
     Rc<CmdNode> clone(bmcl::OptionPtr<Node> parent);
 
+    const Function* function() const
+    {
+        return _func.get();
+    }
+
+    const ValueInfoCache* cache() const
+    {
+        return _cache.get();
+    }
+
+
 private:
     Rc<const Component> _comp;
     Rc<const Function> _func;
@@ -45,26 +57,83 @@ private:
     bool _expandArgs;
 };
 
-class CmdContainerNode : public Node {
+template <typename T, typename B = Node>
+class GenericContainerNode : public B {
 public:
-    CmdContainerNode(bmcl::OptionPtr<Node> parent);
-    ~CmdContainerNode();
+    template <typename... A>
+    GenericContainerNode(A&&... args)
+        : B(std::forward<A>(args)...)
+    {
+    }
 
-    static Rc<CmdContainerNode> withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs);
+    ~GenericContainerNode()
+    {
+    }
+
+    std::size_t numChildren() const override
+    {
+        return _nodes.size();
+    }
+
+    bmcl::Option<std::size_t> childIndex(const Node* node) const override
+    {
+        return Node::childIndexGeneric(_nodes, node);
+    }
+
+    bmcl::OptionPtr<Node> childAt(std::size_t idx) override
+    {
+        return Node::childAtGeneric(_nodes, idx);
+    }
+
+    typename RcVec<T>::ConstRange nodes() const
+    {
+        return _nodes;
+    }
+
+    typename RcVec<T>::Range nodes()
+    {
+        return _nodes;
+    }
+
+protected:
+    RcVec<T> _nodes;
+};
+
+extern template class GenericContainerNode<CmdNode, Node>;
+
+class ScriptNode : public GenericContainerNode<CmdNode, Node> {
+public:
+    ScriptNode(bmcl::OptionPtr<Node> parent);
+    ~ScriptNode();
+
+    static Rc<ScriptNode> withAllCmds(const Component* comp, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent, bool expandArgs);
 
     void addCmdNode(CmdNode* node);
 
     bool encode(bmcl::MemWriter* dest) const;
 
-    std::size_t numChildren() const override;
-    bmcl::Option<std::size_t> childIndex(const Node* node) const override;
-    bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
     bmcl::StringView fieldName() const override;
 
     void swapNodes(std::size_t i1, std::size_t i2);
 
 private:
     bmcl::StringView _fieldName;
-    RcVec<CmdNode> _nodes;
+};
+
+extern template class GenericContainerNode<ValueNode, Node>;
+
+class ScriptResultNode : public GenericContainerNode<ValueNode, Node> {
+public:
+    ScriptResultNode(bmcl::OptionPtr<Node> parent);
+    ~ScriptResultNode();
+
+    static Rc<ScriptResultNode> fromScriptNode(const ScriptNode* node, bmcl::OptionPtr<Node> parent);
+
+    bool decode(bmcl::MemReader* src);
+
+    bmcl::StringView fieldName() const override;
+
+private:
+    StrIndexCache _indexCache;
 };
 }

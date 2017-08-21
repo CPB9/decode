@@ -22,10 +22,11 @@ class QTreeView;
 
 namespace decode {
 
-class CmdContainerNode;
+class ScriptNode;
 class QNodeModel;
 class QNodeViewModel;
 class QCmdModel;
+class ScriptResultNode;
 class Node;
 class Model;
 class NodeView;
@@ -51,10 +52,14 @@ signals:
     void reliablePacketQueued(const PacketRequest& packet);
 
 private:
-    QTreeView* _mainView;
-    Rc<CmdContainerNode> _scriptNode;
+    QTreeView* _paramViewWidget;
+    QTreeView* _scriptResultWidget;
+    QTreeView* _cmdViewWidget;
+    Rc<ScriptNode> _scriptNode;
+    Rc<ScriptResultNode> _scriptResultNode;
     std::unique_ptr<QNodeViewModel> _paramViewModel;
     std::unique_ptr<QCmdModel> _scriptEditModel;
     std::unique_ptr<QNodeModel> _cmdViewModel;
+    std::unique_ptr<QNodeModel> _scriptResultModel;
 };
 }

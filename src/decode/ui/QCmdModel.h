@@ -13,13 +13,13 @@
 
 namespace decode {
 
-class CmdContainerNode;
+class ScriptNode;
 class CmdNode;
 
 class QCmdModel : public QNodeModel {
     Q_OBJECT
 public:
-    QCmdModel(CmdContainerNode* node);
+    QCmdModel(ScriptNode* node);
     ~QCmdModel();
 
     QMimeData* mimeData(const QModelIndexList& indexes) const override;
@@ -30,11 +30,16 @@ public:
     Qt::DropActions supportedDragActions() const override;
     Qt::DropActions supportedDropActions() const override;
 
+    const ScriptNode* scriptNode() const
+    {
+        return _cmds.get();
+    }
+
 private:
     static bmcl::OptionPtr<CmdNode> decodeQModelDrop(const QMimeData* data);
     static bmcl::OptionPtr<CmdNode> decodeQCmdModelDrop(const QMimeData* data, const QModelIndex& parent);
 
-    Rc<CmdContainerNode> _cmds;
+    Rc<ScriptNode> _cmds;
 };
 
 }
