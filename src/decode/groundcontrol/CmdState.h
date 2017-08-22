@@ -19,6 +19,10 @@ namespace decode {
 
 class CmdModel;
 struct Device;
+class Project;
+class StructType;
+class BuiltinType;
+class Ast;
 
 template <typename T>
 class NumericValueNode;
@@ -34,6 +38,7 @@ public:
 private:
     Rc<CmdModel> _model;
     Rc<const Device> _dev;
+    Rc<const Project> _proj;
     caf::actor _exc;
     caf::actor _handler;
 };

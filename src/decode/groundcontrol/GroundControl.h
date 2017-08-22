@@ -64,6 +64,7 @@ private:
     caf::actor _sink;
     caf::actor _handler;
     caf::actor _exc;
+    caf::actor _cmd;
     bmcl::Buffer _incoming;
     Rc<const Project> _project;
     Rc<const Device> _dev;

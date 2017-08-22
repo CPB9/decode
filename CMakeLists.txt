@@ -210,6 +210,9 @@ set(DECODE_GROUNDCONTROL_SRC
     src/decode/groundcontrol/Exchange.h
     src/decode/groundcontrol/FwtState.cpp
     src/decode/groundcontrol/FwtState.h
+    src/decode/groundcontrol/GcInterface.cpp
+    src/decode/groundcontrol/GcInterface.h
+    src/decode/groundcontrol/GcStructs.h
     src/decode/groundcontrol/GroundControl.cpp
     src/decode/groundcontrol/GroundControl.h
     src/decode/groundcontrol/MemIntervalSet.cpp

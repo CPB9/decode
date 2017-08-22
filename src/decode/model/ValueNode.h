@@ -347,6 +347,7 @@ public:
     bool setValue(const Value& value) override;
 
     bmcl::Option<T> rawValue() const;
+    void setRawValue(T value);
 
 protected:
     bool emplace(int64_t value);

@@ -898,6 +898,12 @@ bmcl::Option<T> NumericValueNode<T>::rawValue() const
     return bmcl::None;
 }
 
+template <typename T>
+void NumericValueNode<T>::setRawValue(T value)
+{
+    updateOptionalValuePair(&_value, value);
+}
+
 template class NumericValueNode<std::uint8_t>;
 template class NumericValueNode<std::int8_t>;
 template class NumericValueNode<std::uint16_t>;

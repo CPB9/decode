@@ -13,6 +13,7 @@
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/groundcontrol/Packet.h"
 #include "decode/groundcontrol/Crc.h"
+#include "decode/groundcontrol/CmdState.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Bytes.h>
@@ -33,6 +34,7 @@ GroundControl::GroundControl(caf::actor_config& cfg, const caf::actor& sink, con
     , _isRunning(false)
 {
     _exc = spawn<Exchange, caf::linked>(this, _sink, _handler);
+    _cmd = spawn<CmdState, caf::linked>(_exc, _handler);
 }
 
 GroundControl::~GroundControl()
@@ -64,7 +66,6 @@ caf::behavior GroundControl::make_behavior()
                 return;
             }
             updateProject(proj.get(), dev.get());
-            send(_exc, SetProjectAtom::value, proj, dev);
         },
         [this](EnableLoggindAtom, bool isEnabled) {
             send(_exc, EnableLoggindAtom::value, isEnabled);
@@ -87,6 +88,7 @@ void GroundControl::on_exit()
     destroy(_sink);
     destroy(_handler);
     destroy(_exc);
+    destroy(_cmd);
 }
 
 void GroundControl::updateProject(const Project* project, const Device* dev)
@@ -94,6 +96,8 @@ void GroundControl::updateProject(const Project* project, const Device* dev)
     _project.reset(project);
     _dev.reset(dev);
     send(_handler, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
+    send(_cmd, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
+    send(_exc, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
 }
 
 void GroundControl::sendUnreliablePacket(const PacketRequest& packet)

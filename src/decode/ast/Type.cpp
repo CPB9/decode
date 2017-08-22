@@ -200,6 +200,135 @@ ReferenceType* Type::asReference()
     return static_cast<ReferenceType*>(this);
 }
 
+const Type* Type::resolveFinalType() const
+{
+    if (_typeKind == TypeKind::Alias) {
+        return asAlias()->alias()->resolveFinalType();
+    }
+    if (_typeKind == TypeKind::Imported) {
+        return asImported()->link()->resolveFinalType();
+    }
+    return this;
+}
+
+template <typename R, typename C>
+bool compareRanges(R r1, R r2, C&& comparator)
+{
+    if (r1.size() != r2.size()) {
+        return false;
+    }
+    auto i1 = r1.begin();
+    auto i2 = r2.begin();
+    for (; i1 != r1.end(); i1++, i2++) {
+        if (!comparator(*i1, *i2)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Type::equals(const Type* other) const
+{
+    const Type* first = resolveFinalType();
+    const Type* second = other->resolveFinalType();
+    if (first == second) {
+        return true;
+    }
+    if (first->typeKind() != second->typeKind()) {
+        return false;
+    }
+
+    switch (first->typeKind()) {
+        case TypeKind::Builtin:
+            return first->asBuiltin()->builtinTypeKind() == second->asBuiltin()->builtinTypeKind();
+        case TypeKind::Reference: {
+            const ReferenceType* l = first->asReference();
+            const ReferenceType* r = second->asReference();
+            return (l->isMutable() == r->isMutable()) &&
+                   (l->referenceKind() == r->referenceKind()) &&
+                   (l->pointee()->equals(r->pointee()));
+        }
+        case TypeKind::Array: {
+            const ArrayType* l = first->asArray();
+            const ArrayType* r = second->asArray();
+            return (l->elementCount() == r->elementCount()) &&
+                   (l->elementType()->equals(r->elementType()));
+        }
+        case TypeKind::Slice:
+            return first->asSlice()->elementType()->equals(second->asSlice()->elementType());
+        case TypeKind::Function: {
+            const FunctionType* l = first->asFunction();
+            const FunctionType* r = second->asFunction();
+            if (l->selfArgument() != r->selfArgument()) {
+                return false;
+            }
+            if (l->hasReturnValue()) {
+                if (r->hasReturnValue()) {
+                    if (!l->returnValue().unwrap()->equals(r->returnValue().unwrap())) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+            return compareRanges(l->argumentsRange(), r->argumentsRange(), [](const Field* lt, const Field* rt) {
+                if (lt->name() != rt->name()) {
+                    return false;
+                }
+                return lt->type()->equals(rt->type());
+            });
+            return true;
+        }
+        case TypeKind::Enum: {
+            const EnumType* l = first->asEnum();
+            const EnumType* r = second->asEnum();
+            if (l->name() != r->name()) {
+                return false;
+            }
+            return compareRanges(l->constantsRange(), r->constantsRange(), [](const EnumConstant* lt, const EnumConstant* rt) {
+                if (lt->isUserSet() != rt->isUserSet()) {
+                    return false;
+                }
+                return lt->value() == rt->value();
+            });
+        }
+        case TypeKind::Struct: {
+            const StructType* l = first->asStruct();
+            const StructType* r = second->asStruct();
+            if (l->name() != r->name()) {
+                return false;
+            }
+            return compareRanges(l->fieldsRange(), r->fieldsRange(), [](const Field* lt, const Field* rt) {
+                if (lt->name() != rt->name()) {
+                    return false;
+                }
+                return lt->type()->equals(rt->type());
+            });
+        }
+        case TypeKind::Variant: {
+            const VariantType* l = first->asVariant();
+            const VariantType* r = second->asVariant();
+            if (l->name() != r->name()) {
+                return false;
+            }
+            return compareRanges(l->fieldsRange(), r->fieldsRange(), [](const VariantField* lt, const VariantField* rt) {
+                if (lt->name() != rt->name()) {
+                    return false;
+                }
+                return true;
+            });
+        }
+        case TypeKind::Imported:
+            assert(false);
+            return false;
+        case TypeKind::Alias:
+            assert(false);
+            return false;
+    }
+
+    return true;
+}
+
 NamedType::NamedType(TypeKind kind, bmcl::StringView name, const ModuleInfo* info)
     : Type(kind)
     , _name(name)
@@ -529,6 +658,11 @@ void StructType::addField(Field* field)
 {
     _fields.emplace_back(field);
     _nameToFieldMap.emplace(field->name(), field);
+}
+
+const Field* StructType::fieldAt(std::size_t index) const
+{
+    return _fields[index].get();
 }
 
 bmcl::OptionPtr<const Field> StructType::fieldWithName(bmcl::StringView name) const

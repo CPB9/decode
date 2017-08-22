@@ -2,6 +2,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/groundcontrol/GcStructs.h"
 
 #include <bmcl/Variant.h>
 
@@ -11,17 +12,6 @@ enum class TmParamKind {
     None,
     LatLon,
     Orientation,
-};
-
-struct LatLon {
-    double latitude;
-    double longitude;
-};
-
-struct Orientation {
-    double heading;
-    double pitch;
-    double roll;
 };
 
 using TmParamUpdate =

@@ -111,6 +111,8 @@ public:
 
     TypeKind typeKind() const;
 
+    const Type* resolveFinalType() const;
+
     bool isArray() const;
     bool isSlice() const;
     bool isStruct() const;
@@ -121,6 +123,8 @@ public:
     bool isVariant() const;
     bool isEnum() const;
     bool isReference() const;
+
+    bool equals(const Type* other) const;
 
 protected:
     Type(TypeKind kind);
@@ -305,6 +309,8 @@ public:
 
     void addField(Field* field);
 
+    const Field* fieldAt(std::size_t index) const;
+
     bmcl::OptionPtr<const Field> fieldWithName(bmcl::StringView name) const;
     bmcl::Option<std::size_t> indexOfField(const Field* field) const;
 
@@ -371,4 +377,67 @@ public:
 private:
     VariantFieldVec _fields;
 };
+
+template <typename T>
+inline TypeKind deferTypeKind();
+
+template <>
+inline TypeKind deferTypeKind<BuiltinType>()
+{
+    return TypeKind::Builtin;
+}
+
+template <>
+inline TypeKind deferTypeKind<ReferenceType>()
+{
+    return TypeKind::Reference;
+}
+
+template <>
+inline TypeKind deferTypeKind<ArrayType>()
+{
+    return TypeKind::Array;
+}
+
+template <>
+inline TypeKind deferTypeKind<SliceType>()
+{
+    return TypeKind::Slice;
+}
+
+template <>
+inline TypeKind deferTypeKind<FunctionType>()
+{
+    return TypeKind::Function;
+}
+
+template <>
+inline TypeKind deferTypeKind<EnumType>()
+{
+    return TypeKind::Enum;
+}
+
+template <>
+inline TypeKind deferTypeKind<StructType>()
+{
+    return TypeKind::Struct;
+}
+
+template <>
+inline TypeKind deferTypeKind<VariantType>()
+{
+    return TypeKind::Variant;
+}
+
+template <>
+inline TypeKind deferTypeKind<ImportedType>()
+{
+    return TypeKind::Imported;
+}
+
+template <>
+inline TypeKind deferTypeKind<AliasType>()
+{
+    return TypeKind::Alias;
+}
 }
