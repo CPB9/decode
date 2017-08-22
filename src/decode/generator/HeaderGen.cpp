@@ -84,20 +84,20 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     endIncludeGuard();
 }
 
-void HeaderGen::genSliceHeader(const SliceType* slice)
+void HeaderGen::genDynArrayHeader(const DynArrayType* dynArray)
 {
-    _sliceName.clear();
-    TypeNameGen gen(&_sliceName);
-    gen.genTypeName(slice);
-    startIncludeGuard(slice);
+    _dynArrayName.clear();
+    TypeNameGen gen(&_dynArrayName);
+    gen.genTypeName(dynArray);
+    startIncludeGuard(dynArray);
     _output->appendLocalIncludePath("Config");
     _output->appendEol();
-    appendIncludesAndFwds(slice);
+    appendIncludesAndFwds(dynArray);
     appendCommonIncludePaths();
-    _typeDefGen.genTypeDef(slice);
-    appendImplBlockIncludes(slice);
+    _typeDefGen.genTypeDef(dynArray);
+    appendImplBlockIncludes(dynArray);
     _output->startCppGuard();
-    appendSerializerFuncPrototypes(slice);
+    appendSerializerFuncPrototypes(dynArray);
     _output->endCppGuard();
     endIncludeGuard();
 }
@@ -119,9 +119,9 @@ void HeaderGen::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typ
     _output->startIncludeGuard(modName, typeName);
 }
 
-void HeaderGen::startIncludeGuard(const SliceType* slice)
+void HeaderGen::startIncludeGuard(const DynArrayType* dynArray)
 {
-    _output->startIncludeGuard("SLICE", _sliceName.view());
+    _output->startIncludeGuard("SLICE", _dynArrayName.view());
 }
 
 void HeaderGen::startIncludeGuard(const Component* comp)
@@ -139,7 +139,7 @@ void HeaderGen::endIncludeGuard()
     _output->endIncludeGuard();
 }
 
-void HeaderGen::appendImplBlockIncludes(const SliceType* slice)
+void HeaderGen::appendImplBlockIncludes(const DynArrayType* dynArray)
 {
     _output->appendLocalIncludePath("core/Reader");
     _output->appendLocalIncludePath("core/Writer");
@@ -242,7 +242,7 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
     case TypeKind::Enum:
     case TypeKind::Builtin:
         return type;
-    case TypeKind::Slice:
+    case TypeKind::DynArray:
     case TypeKind::Struct:
     case TypeKind::Variant:
         return new ReferenceType(ReferenceKind::Pointer, false, type);
@@ -279,8 +279,12 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
             if (ftype->hasArguments()) {
                 _output->append(", ");
             }
-            Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
-            _typeReprGen->genTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
+            if (rv->isArray()) {
+                _typeReprGen->genTypeRepr(rv.unwrap(), "rv");
+            } else {
+                Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
+                _typeReprGen->genTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
+            }
         }
 
         _output->append(");\n");

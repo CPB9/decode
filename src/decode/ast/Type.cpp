@@ -30,9 +30,9 @@ bool Type::isArray() const
     return _typeKind == TypeKind::Array;
 }
 
-bool Type::isSlice() const
+bool Type::isDynArray() const
 {
-    return _typeKind == TypeKind::Slice;
+    return _typeKind == TypeKind::DynArray;
 }
 
 bool Type::isStruct() const
@@ -86,10 +86,10 @@ const ArrayType* Type::asArray() const
     return static_cast<const ArrayType*>(this);
 }
 
-const SliceType* Type::asSlice() const
+const DynArrayType* Type::asDynArray() const
 {
-    assert(isSlice());
-    return static_cast<const SliceType*>(this);
+    assert(isDynArray());
+    return static_cast<const DynArrayType*>(this);
 }
 
 const StructType* Type::asStruct() const
@@ -146,10 +146,10 @@ ArrayType* Type::asArray()
     return static_cast<ArrayType*>(this);
 }
 
-SliceType* Type::asSlice()
+DynArrayType* Type::asDynArray()
 {
-    assert(isSlice());
-    return static_cast<SliceType*>(this);
+    assert(isDynArray());
+    return static_cast<DynArrayType*>(this);
 }
 
 StructType* Type::asStruct()
@@ -254,8 +254,8 @@ bool Type::equals(const Type* other) const
             return (l->elementCount() == r->elementCount()) &&
                    (l->elementType()->equals(r->elementType()));
         }
-        case TypeKind::Slice:
-            return first->asSlice()->elementType()->equals(second->asSlice()->elementType());
+        case TypeKind::DynArray:
+            return first->asDynArray()->elementType()->equals(second->asDynArray()->elementType());
         case TypeKind::Function: {
             const FunctionType* l = first->asFunction();
             const FunctionType* r = second->asFunction();
@@ -452,33 +452,39 @@ BuiltinTypeKind BuiltinType::builtinTypeKind() const
     return _builtinTypeKind;
 }
 
-SliceType::SliceType(const ModuleInfo* info, Type* elementType)
-    : Type(TypeKind::Slice)
+DynArrayType::DynArrayType(const ModuleInfo* info, std::uintmax_t maxSize, Type* elementType)
+    : Type(TypeKind::DynArray)
     , _moduleInfo(info)
+    , _maxSize(maxSize)
     , _elementType(elementType)
 {
 }
 
-SliceType::~SliceType()
+DynArrayType::~DynArrayType()
 {
 }
 
-const Type* SliceType::elementType() const
-{
-    return _elementType.get();
-}
-
-Type* SliceType::elementType()
+const Type* DynArrayType::elementType() const
 {
     return _elementType.get();
 }
 
-const ModuleInfo* SliceType::moduleInfo() const
+Type* DynArrayType::elementType()
+{
+    return _elementType.get();
+}
+
+std::uintmax_t DynArrayType::maxSize() const
+{
+    return _maxSize;
+}
+
+const ModuleInfo* DynArrayType::moduleInfo() const
 {
     return _moduleInfo.get();
 }
 
-bmcl::StringView SliceType::moduleName() const
+bmcl::StringView DynArrayType::moduleName() const
 {
     return _moduleInfo->moduleName();
 }

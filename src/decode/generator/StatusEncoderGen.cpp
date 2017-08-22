@@ -127,15 +127,15 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
         case AccessorKind::Subscript: {
             auto sacc = static_cast<const SubscriptAccessor*>(acc);
             const Type* type = sacc->type();
-            if (type->isSlice()) {
+            if (type->isDynArray()) {
                 _output->appendIndent(ctx);
                 _output->append("PHOTON_TRY(PhotonWriter_WriteVaruint(dest, ");
                 _output->append(currentField.view());
                 _output->append(".size));\n");
             }
-            //TODO: add bounds checking for slices
-            if (type->isSlice()) {
-                lastType = type->asSlice()->elementType();
+            //TODO: add bounds checking for dynArrays
+            if (type->isDynArray()) {
+                lastType = type->asDynArray()->elementType();
             } else if (type->isArray()) {
                 lastType = type->asArray()->elementType();
             } else {
@@ -160,7 +160,7 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
                 } else {
                     if (type->isArray()) {
                         _output->appendNumericValue(type->asArray()->elementCount());
-                    } else if (type->isSlice()) {
+                    } else if (type->isDynArray()) {
                         _output->append(currentField.view());
                         _output->append(".size");
                     } else {
@@ -171,7 +171,7 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
                 _output->append(ctx.currentLoopVar());
                 _output->append("++) {\n");
 
-                if (type->isSlice()) {
+                if (type->isDynArray()) {
                     currentField.append(".data");
                 }
                 currentField.append('[');
@@ -179,7 +179,7 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
                 currentField.append(']');
                 ctx = ctx.incLoopVar().indent();
             } else {
-                if (type->isSlice()) {
+                if (type->isDynArray()) {
                     currentField.append(".data");
                 }
                 uintmax_t i = sacc->asIndex();

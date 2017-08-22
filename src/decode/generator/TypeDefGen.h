@@ -31,7 +31,7 @@ public:
     bool visitBuiltinType(const BuiltinType* type);
     bool visitReferenceType(const ReferenceType* type);
     bool visitArrayType(const ArrayType* type);
-    bool visitSliceType(const SliceType* type);
+    bool visitDynArrayType(const DynArrayType* type);
     bool visitFunctionType(const FunctionType* type);
     bool visitEnumType(const EnumType* type);
     bool visitStructType(const StructType* type);

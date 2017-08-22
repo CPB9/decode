@@ -20,22 +20,22 @@ namespace decode {
 class Type;
 class TypeReprGen;
 class Component;
-class SliceType;
+class DynArrayType;
 
-class SliceCollector : public ConstAstVisitor<SliceCollector> {
+class DynArrayCollector : public ConstAstVisitor<DynArrayCollector> {
 public:
-    using NameToSliceMap = RcSecondUnorderedMap<std::string, const SliceType>;
+    using NameToDynArrayMap = RcSecondUnorderedMap<std::string, const DynArrayType>;
 
-    SliceCollector();
-    ~SliceCollector();
+    DynArrayCollector();
+    ~DynArrayCollector();
 
-    void collectUniqueSlices(const Type* type, NameToSliceMap* dest);
-    void collectUniqueSlices(const Component* type, NameToSliceMap* dest);
+    void collectUniqueDynArrays(const Type* type, NameToDynArrayMap* dest);
+    void collectUniqueDynArrays(const Component* type, NameToDynArrayMap* dest);
 
-    bool visitSliceType(const SliceType* slice);
+    bool visitDynArrayType(const DynArrayType* dynArray);
 
 private:
-    SrcBuilder _sliceName;
-    NameToSliceMap* _dest;
+    SrcBuilder _dynArrayName;
+    NameToDynArrayMap* _dest;
 };
 }

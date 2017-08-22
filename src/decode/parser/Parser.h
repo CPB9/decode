@@ -129,7 +129,7 @@ private:
     Rc<Type> parseReferenceType();
     Rc<Type> parsePointerType();
     Rc<Type> parseNonReferenceType();
-    Rc<Type> parseSliceType();
+    Rc<Type> parseDynArrayType();
     Rc<Type> parseArrayType();
     Rc<Type> parseBuiltinOrResolveType();
     bool parseUnsignedInteger(std::uintmax_t* dest);

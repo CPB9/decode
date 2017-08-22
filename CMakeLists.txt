@@ -180,8 +180,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/InlineTypeSerializerGen.cpp
     src/decode/generator/InlineTypeSerializerGen.h
     src/decode/generator/NameVisitor.h
-    src/decode/generator/SliceCollector.cpp
-    src/decode/generator/SliceCollector.h
+    src/decode/generator/DynArrayCollector.cpp
+    src/decode/generator/DynArrayCollector.h
     src/decode/generator/SourceGen.cpp
     src/decode/generator/SourceGen.h
     src/decode/generator/SrcBuilder.cpp

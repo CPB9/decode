@@ -866,7 +866,7 @@ Rc<Type> Parser::parseType()
             return parseFunctionPointer();
         }
         if (_lexer->nextIs(TokenKind::LBracket)) {
-            return parseSliceType();
+            return parseDynArrayType();
         }
         return parseReferenceType();
     case TokenKind::LBracket:
@@ -919,7 +919,7 @@ Rc<Type> Parser::parseFunctionPointer()
     return fn;
 }
 
-Rc<Type> Parser::parseSliceType()
+Rc<Type> Parser::parseDynArrayType()
 {
     TRY(expectCurrentToken(TokenKind::Ampersand));
     consume();
@@ -931,10 +931,17 @@ Rc<Type> Parser::parseSliceType()
         return nullptr;
     }
 
+    TRY(expectCurrentToken(TokenKind::SemiColon));
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Number, "expected array size"));
+    std::uintmax_t maxSize;
+    TRY(parseUnsignedInteger(&maxSize));
+    skipBlanks();
+
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
 
-    Rc<SliceType> type = new SliceType(_moduleInfo.get(), innerType.get());
+    Rc<DynArrayType> type = new DynArrayType(_moduleInfo.get(), maxSize, innerType.get());
     _ast->addType(type.get());
     return type;
 }

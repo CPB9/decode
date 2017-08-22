@@ -29,7 +29,7 @@ public:
     bool visitBuiltinType(const BuiltinType* type);
     bool visitArrayType(const ArrayType* type);
     bool visitReferenceType(const ReferenceType* type);
-    bool visitSliceType(const SliceType* type);
+    bool visitDynArrayType(const DynArrayType* type);
 
     bool appendTypeName(const NamedType* type);
 

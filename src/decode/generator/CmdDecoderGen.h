@@ -44,6 +44,7 @@ private:
     void generateMainFunc(ComponentMap::ConstRange comps);
 
     void writePointerOp(const Type* type);
+    void writeReturnOp(const Type* type);
 
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;

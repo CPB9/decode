@@ -278,16 +278,22 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
     _output->append("    }\n");
 }
 
-void SourceGen::appendSliceSerializer(const SliceType* type)
+void SourceGen::appendDynArraySerializer(const DynArrayType* type)
 {
     InlineSerContext ctx;
+    _output->append("    if (self->size > ");
+    _output->appendNumericValue(type->maxSize());
+    _output->append(") {\n        return PhotonError_InvalidValue;\n    }\n");
+    _output->appendWithTryMacro([](SrcBuilder* output) {
+        output->append("    PhotonWriter_WriteVaruint(dest, self->size)");
+    });
     _output->appendLoopHeader(ctx, "self->size");
     InlineSerContext lctx = ctx.indent();
     _inlineSer.inspect(type->elementType(), lctx, "self->data[a]");
     _output->append("    }\n");
 }
 
-void SourceGen::appendSliceDeserializer(const SliceType* type)
+void SourceGen::appendDynArrayDeserializer(const DynArrayType* type)
 {
     InlineSerContext ctx;
     _output->appendIndent(1);
@@ -296,6 +302,9 @@ void SourceGen::appendSliceDeserializer(const SliceType* type)
     _output->appendWithTryMacro([](SrcBuilder* output) {
         output->append("PhotonReader_ReadVaruint(src, &size)");
     });
+    _output->append("    if (size > ");
+    _output->appendNumericValue(type->maxSize());
+    _output->append(") {\n        return PhotonError_InvalidValue;\n    }\n");
     _output->appendLoopHeader(ctx, "size");
     InlineSerContext lctx = ctx.indent();
     _inlineDeser.inspect(type->elementType(), lctx, "self->data[a]");
@@ -323,22 +332,22 @@ void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
     _output->appendEol();
 }
 
-bool SourceGen::visitSliceType(const SliceType* type)
+bool SourceGen::visitDynArrayType(const DynArrayType* type)
 {
-    StringBuilder path("_slices_/");
+    StringBuilder path("_dynarray_/");
     path.append(TypeNameGen::genTypeNameAsString(type));
     _output->appendLocalIncludePath(path.view());
     _output->appendLocalIncludePath("core/Try");
     _output->appendEol();
     _prototypeGen.appendSerializerFuncDecl(type);
     _output->append("\n{\n");
-    appendSliceSerializer(type);
+    appendDynArraySerializer(type);
     _output->append("    return PhotonError_Ok;\n");
     _output->append("}\n");
     _output->appendEol();
     _prototypeGen.appendDeserializerFuncDecl(type);
     _output->append("\n{\n");
-    appendSliceDeserializer(type);
+    appendDynArrayDeserializer(type);
     _output->append("    return PhotonError_Ok;\n");
     _output->append("}\n");
     _output->appendEol();

@@ -138,15 +138,17 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         const ArrayType* array = type->asArray();
         dest->append('[');
         buildTypeName(array->elementType(), dest);
-        dest->append(", ");
+        dest->append("; ");
         dest->appendNumericValue(array->elementCount());
         dest->append(']');
         return;
     }
-    case TypeKind::Slice: {
-        const SliceType* slice = type->asSlice();
+    case TypeKind::DynArray: {
+        const DynArrayType* dynArray = type->asDynArray();
         dest->append("&[");
-        buildTypeName(slice->elementType(), dest);
+        buildTypeName(dynArray->elementType(), dest);
+        dest->append("; ");
+        dest->appendNumericValue(dynArray->maxSize());
         dest->append(']');
         return;
     }

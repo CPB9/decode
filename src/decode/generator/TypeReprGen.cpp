@@ -86,7 +86,7 @@ bool TypeReprGen::visitReferenceType(const ReferenceType* type)
     return true;
 }
 
-bool TypeReprGen::visitSliceType(const SliceType* type)
+bool TypeReprGen::visitDynArrayType(const DynArrayType* type)
 {
     _hasPrefix = true;
     _typeName.setModName(bmcl::StringView::empty());

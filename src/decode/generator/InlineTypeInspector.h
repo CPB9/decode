@@ -33,7 +33,7 @@ public:
     bool visitEnumType(const EnumType* type);
     bool visitStructType(const StructType* type);
     bool visitVariantType(const VariantType* type);
-    bool visitSliceType(const SliceType* type);
+    bool visitDynArrayType(const DynArrayType* type);
     bool visitBuiltinType(const BuiltinType* type);
     bool visitAliasType(const AliasType* type);
     bool visitImportedType(const ImportedType* type);
@@ -162,7 +162,7 @@ inline bool InlineTypeInspector<B>::visitEnumType(const EnumType* type)
 }
 
 template <typename B>
-inline bool InlineTypeInspector<B>::visitSliceType(const SliceType* type)
+inline bool InlineTypeInspector<B>::visitDynArrayType(const DynArrayType* type)
 {
     base().inspectNonInlineType(type);
     return false;

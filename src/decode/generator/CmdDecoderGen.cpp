@@ -163,7 +163,31 @@ void CmdDecoderGen::writePointerOp(const Type* type)
     case TypeKind::Enum:
     case TypeKind::Builtin:
         break;
-    case TypeKind::Slice:
+    case TypeKind::DynArray:
+    case TypeKind::Struct:
+    case TypeKind::Variant:
+        _output->append("&");
+        break;
+    case TypeKind::Imported:
+        writePointerOp(t->asImported()->link());
+        break;
+    case TypeKind::Alias:
+        writePointerOp(t->asAlias()->alias());
+        break;
+    }
+}
+
+void CmdDecoderGen::writeReturnOp(const Type* type)
+{
+    const Type* t = type; //HACK: fix Rc::operator->
+    switch (type->typeKind()) {
+    case TypeKind::Array:
+        break;
+    case TypeKind::Function:
+    case TypeKind::Reference:
+    case TypeKind::Enum:
+    case TypeKind::Builtin:
+    case TypeKind::DynArray:
     case TypeKind::Struct:
     case TypeKind::Variant:
         _output->append("&");
@@ -223,8 +247,8 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
         _output->append(", ");
     });
     if (rv.isSome()) {
-        //writePointerOp(rv.unwrap());
-        _output->append("&_rv");
+        writeReturnOp(rv.unwrap());
+        _output->append("_rv");
     } else if (ftype->hasArguments()) {
         _output->removeFromBack(2);
     }

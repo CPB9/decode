@@ -78,21 +78,21 @@ private:
     std::size_t _fieldIndex;
 };
 
-class DecodeSlicePartsAction : public DecoderAction {
+class DecodeDynArrayPartsAction : public DecoderAction {
 public:
     bool execute(ValueNode* node, bmcl::MemReader* src) override
     {
-        uint64_t sliceSize;
-        if (!src->readVarUint(&sliceSize)) {
+        uint64_t dynArraySize;
+        if (!src->readVarUint(&dynArraySize)) {
             //TODO: report error
             return false;
         }
         //FIXME: implement range check
-        SliceValueNode* cnode = static_cast<SliceValueNode*>(node);
+        DynArrayValueNode* cnode = static_cast<DynArrayValueNode*>(node);
         //TODO: add size check
-        cnode->resize(sliceSize);
+        cnode->resize(dynArraySize);
         const std::vector<Rc<ValueNode>>& values = cnode->values();
-        for (std::size_t i = 0; i < sliceSize; i++) {
+        for (std::size_t i = 0; i < dynArraySize; i++) {
             TRY(_next->execute(values[i].get(), src));
         }
         return true;
@@ -152,9 +152,9 @@ static Rc<DecoderAction> createMsgDecoder(const StatusRegexp* part, const Type* 
             if (type->isArray()) {
                 updateAction(new DecodeArrayPartsAction);
                 lastType = type->asArray()->elementType();
-            } else if (type->isSlice()) {
-                updateAction(new DecodeSlicePartsAction);
-                lastType = type->asSlice()->elementType();
+            } else if (type->isDynArray()) {
+                updateAction(new DecodeDynArrayPartsAction);
+                lastType = type->asDynArray()->elementType();
             } else {
                 assert(false);
             }

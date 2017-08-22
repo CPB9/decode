@@ -29,7 +29,7 @@ public:
     ~HeaderGen();
 
     void genTypeHeader(const Ast* ast, const Type* type);
-    void genSliceHeader(const SliceType* type);
+    void genDynArrayHeader(const DynArrayType* type);
     void genComponentHeader(const Ast* ast, const Component* type);
 
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
@@ -41,12 +41,12 @@ private:
 
     void startIncludeGuard(const NamedType* type);
     void startIncludeGuard(const Component* comp);
-    void startIncludeGuard(const SliceType* type);
+    void startIncludeGuard(const DynArrayType* type);
 
     void appendIncludes(const HashSet<std::string>& src);
     void appendImplBlockIncludes(const NamedType* topLevelType);
     void appendImplBlockIncludes(const Component* comp);
-    void appendImplBlockIncludes(const SliceType* slice);
+    void appendImplBlockIncludes(const DynArrayType* dynArray);
     void appendIncludesAndFwds(const Type* topLevelType);
     void appendIncludesAndFwds(const Component* comp);
     void appendCommonIncludePaths();
@@ -61,7 +61,7 @@ private:
     SrcBuilder* _output;
     IncludeCollector _includeCollector;
     TypeDefGen _typeDefGen;
-    SrcBuilder _sliceName;
+    SrcBuilder _dynArrayName;
     FuncPrototypeGen _prototypeGen;
     Rc<TypeReprGen> _typeReprGen;
 };

@@ -31,7 +31,7 @@ public:
     bool visitBuiltinType(const BuiltinType* type);
     bool visitReferenceType(const ReferenceType* type);
     bool visitArrayType(const ArrayType* type);
-    bool visitSliceType(const SliceType* type);
+    bool visitDynArrayType(const DynArrayType* type);
     bool visitFunctionType(const FunctionType* type);
     bool visitEnumType(const EnumType* type);
     bool visitStructType(const StructType* type);
@@ -49,8 +49,8 @@ private:
     void appendStructDeserializer(const StructType* type);
     void appendVariantSerializer(const VariantType* type);
     void appendVariantDeserializer(const VariantType* type);
-    void appendSliceSerializer(const SliceType* type);
-    void appendSliceDeserializer(const SliceType* type);
+    void appendDynArraySerializer(const DynArrayType* type);
+    void appendDynArrayDeserializer(const DynArrayType* type);
 
     void appendIncludes(const NamedType* type);
 

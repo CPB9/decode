@@ -169,8 +169,8 @@ static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* 
         return new ReferenceValueNode(type->asReference(), cache, parent);
     case TypeKind::Array:
         return new ArrayValueNode(type->asArray(), cache, parent);
-    case TypeKind::Slice:
-        return new SliceValueNode(type->asSlice(), cache, parent);
+    case TypeKind::DynArray:
+        return new DynArrayValueNode(type->asDynArray(), cache, parent);
     case TypeKind::Function:
         return new FunctionValueNode(type->asFunction(), cache, parent);
     case TypeKind::Enum:
@@ -299,7 +299,7 @@ const Type* ArrayValueNode::type() const
     return _type.get();
 }
 
-SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+DynArrayValueNode::DynArrayValueNode(const DynArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)
     , _minSizeSinceUpdate(0)
@@ -307,11 +307,11 @@ SliceValueNode::SliceValueNode(const SliceType* type, const ValueInfoCache* cach
 {
 }
 
-SliceValueNode::~SliceValueNode()
+DynArrayValueNode::~DynArrayValueNode()
 {
 }
 
-void SliceValueNode::collectUpdates(NodeViewUpdater* dest)
+void DynArrayValueNode::collectUpdates(NodeViewUpdater* dest)
 {
     for (std::size_t i = 0; i < _minSizeSinceUpdate; i++) {
         _values[0]->collectUpdates(dest);
@@ -334,7 +334,7 @@ void SliceValueNode::collectUpdates(NodeViewUpdater* dest)
     _lastUpdateSize = _minSizeSinceUpdate;
 }
 
-bool SliceValueNode::encode(bmcl::MemWriter* dest) const
+bool DynArrayValueNode::encode(bmcl::MemWriter* dest) const
 {
     if (!dest->writeVarUint(_values.size())) {
         //TODO: report error
@@ -343,10 +343,14 @@ bool SliceValueNode::encode(bmcl::MemWriter* dest) const
     return ContainerValueNode::encode(dest);
 }
 
-bool SliceValueNode::decode(bmcl::MemReader* src)
+bool DynArrayValueNode::decode(bmcl::MemReader* src)
 {
     uint64_t size;
     if (!src->readVarUint(&size)) {
+        //TODO: report error
+        return false;
+    }
+    if (size > _type->maxSize()) {
         //TODO: report error
         return false;
     }
@@ -354,12 +358,12 @@ bool SliceValueNode::decode(bmcl::MemReader* src)
     return ContainerValueNode::decode(src);
 }
 
-const Type* SliceValueNode::type() const
+const Type* DynArrayValueNode::type() const
 {
     return _type.get();
 }
 
-void SliceValueNode::resize(std::size_t size)
+void DynArrayValueNode::resize(std::size_t size)
 {
     _minSizeSinceUpdate = std::min(_minSizeSinceUpdate, size);
     std::size_t currentSize = _values.size();

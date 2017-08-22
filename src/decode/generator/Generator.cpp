@@ -9,7 +9,7 @@
 #include "decode/generator/Generator.h"
 #include "decode/generator/HeaderGen.h"
 #include "decode/generator/SourceGen.h"
-#include "decode/generator/SliceCollector.h"
+#include "decode/generator/DynArrayCollector.h"
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/generator/CmdDecoderGen.h"
 #include "decode/generator/CmdEncoderGen.h"
@@ -487,7 +487,7 @@ bool Generator::generateProject(const Project* project)
     }
 
     TRY(generateConfig(project));
-    TRY(generateSlices());
+    TRY(generateDynArrays());
     TRY(generateTmPrivate(package));
     TRY(generateSerializedPackage(project));
     TRY(generateStatusMessages(package));
@@ -498,21 +498,21 @@ bool Generator::generateProject(const Project* project)
     _hgen.reset();
     _sgen.reset();
     _reprGen.reset();
-    _slices.clear();
+    _dynArrays.clear();
     _photonPath.resize(0);
     return true;
 }
 
 #define GEN_PREFIX ".gen"
 
-bool Generator::generateSlices()
+bool Generator::generateDynArrays()
 {
-    _photonPath.append("_slices_");
+    _photonPath.append("_dynarray_");
     TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
 
-    for (const auto& it : _slices) {
-        _hgen->genSliceHeader(it.second.get());
+    for (const auto& it : _dynArrays) {
+        _hgen->genDynArrayHeader(it.second.get());
         TRY(dumpIfNotEmpty(it.first, ".h", &_photonPath));
         _output.clear();
 
@@ -521,7 +521,7 @@ bool Generator::generateSlices()
         _output.clear();
     }
 
-    _photonPath.removeFromBack(std::strlen("_slices_/"));
+    _photonPath.removeFromBack(std::strlen("_dynarray_/"));
     return true;
 }
 
@@ -592,9 +592,9 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
     TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
 
-    SliceCollector coll;
+    DynArrayCollector coll;
     for (const NamedType* type : ast->namedTypesRange()) {
-        coll.collectUniqueSlices(type, &_slices);
+        coll.collectUniqueDynArrays(type, &_dynArrays);
         if (type->typeKind() == TypeKind::Imported) {
             continue;
         }
@@ -611,7 +611,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
 
     if (ast->component().isSome()) {
         bmcl::OptionPtr<const Component> comp = ast->component();
-        coll.collectUniqueSlices(comp.unwrap(), &_slices);
+        coll.collectUniqueDynArrays(comp.unwrap(), &_dynArrays);
 
         _hgen->genComponentHeader(_currentAst.get(), comp.unwrap());
         TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_photonPath));

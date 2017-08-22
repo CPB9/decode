@@ -91,10 +91,13 @@ bool TypeNameGen::visitReferenceType(const ReferenceType* type)
     return true;
 }
 
-inline bool TypeNameGen::visitSliceType(const SliceType* type)
+inline bool TypeNameGen::visitDynArrayType(const DynArrayType* type)
 {
-    _output->append("SliceOf");
-    return true;
+    _output->append("DynArrayOf");
+    traverseType(type->elementType());
+    _output->append("MaxSize");
+    _output->appendNumericValue(type->maxSize());
+    return false;
 }
 
 inline bool TypeNameGen::appendTypeName(const NamedType* type)

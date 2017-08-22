@@ -26,7 +26,7 @@ class ValueInfoCache;
 class Function;
 class NodeViewUpdater;
 class ArrayType;
-class SliceType;
+class DynArrayType;
 class StructType;
 class FunctionType;
 class BuiltinType;
@@ -120,13 +120,13 @@ private:
     bool _changedSinceUpdate;
 };
 
-class SliceValueNode : public ContainerValueNode {
+class DynArrayValueNode : public ContainerValueNode {
 public:
-    using Pointer = Rc<SliceValueNode>;
-    using ConstPointer = Rc<const SliceValueNode>;
+    using Pointer = Rc<DynArrayValueNode>;
+    using ConstPointer = Rc<const DynArrayValueNode>;
 
-    SliceValueNode(const SliceType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
-    ~SliceValueNode();
+    DynArrayValueNode(const DynArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
+    ~DynArrayValueNode();
 
     void collectUpdates(NodeViewUpdater* dest) override;
 
@@ -138,7 +138,7 @@ public:
     void resize(std::size_t size);
 
 private:
-    Rc<const SliceType> _type;
+    Rc<const DynArrayType> _type;
     StrIndexCache _indexCache; //TODO: share
     std::size_t _minSizeSinceUpdate;
     std::size_t _lastUpdateSize;

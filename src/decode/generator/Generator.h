@@ -26,7 +26,7 @@ class Project;
 class HeaderGen;
 class SourceGen;
 class NamedType;
-class SliceType;
+class DynArrayType;
 class TypeReprGen;
 
 class Generator : public RefCountable {
@@ -43,7 +43,7 @@ public:
 
 private:
     bool generateTypesAndComponents(const Ast* ast);
-    bool generateSlices();
+    bool generateDynArrays();
     bool generateStatusMessages(const Package* package);
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
@@ -67,6 +67,6 @@ private:
     std::unique_ptr<HeaderGen> _hgen;
     std::unique_ptr<SourceGen> _sgen;
     Rc<TypeReprGen> _reprGen;
-    RcSecondUnorderedMap<std::string, const SliceType> _slices;
+    RcSecondUnorderedMap<std::string, const DynArrayType> _dynArrays;
 };
 }

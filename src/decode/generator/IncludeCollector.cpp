@@ -58,19 +58,19 @@ bool IncludeCollector::visitFunctionType(const FunctionType* func)
     return true;
 }
 
-bool IncludeCollector::visitSliceType(const SliceType* slice)
+bool IncludeCollector::visitDynArrayType(const DynArrayType* dynArray)
 {
-    if (slice == _currentType) {
-        traverseType(slice->elementType());
+    if (dynArray == _currentType) {
+        traverseType(dynArray->elementType());
         return false;
     }
     SrcBuilder path;
-    path.append("_slices_/");
+    path.append("_dynarray_/");
     TypeNameGen gen(&path);
-    gen.genTypeName(slice);
+    gen.genTypeName(dynArray);
 
     _dest->insert(std::move(path.result()));
-    ascendTypeOnce(slice->elementType());
+    ascendTypeOnce(dynArray->elementType());
     return false;
 }
 

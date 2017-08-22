@@ -28,7 +28,7 @@ enum class TypeKind {
     Builtin,
     Reference,
     Array,
-    Slice,
+    DynArray,
     Function,
     Enum,
     Struct,
@@ -68,7 +68,7 @@ enum class SelfArgument {
 };
 
 class ArrayType;
-class SliceType;
+class DynArrayType;
 class StructType;
 class FunctionType;
 class BuiltinType;
@@ -88,7 +88,7 @@ public:
     ~Type();
 
     const ArrayType* asArray() const;
-    const SliceType* asSlice() const;
+    const DynArrayType* asDynArray() const;
     const StructType* asStruct() const;
     const FunctionType* asFunction() const;
     const BuiltinType* asBuiltin() const;
@@ -99,7 +99,7 @@ public:
     const ReferenceType* asReference() const;
 
     ArrayType* asArray();
-    SliceType* asSlice();
+    DynArrayType* asDynArray();
     StructType* asStruct();
     FunctionType* asFunction();
     BuiltinType* asBuiltin();
@@ -114,7 +114,7 @@ public:
     const Type* resolveFinalType() const;
 
     bool isArray() const;
-    bool isSlice() const;
+    bool isDynArray() const;
     bool isStruct() const;
     bool isFunction() const;
     bool isBuiltin() const;
@@ -207,21 +207,23 @@ private:
     BuiltinTypeKind _builtinTypeKind;
 };
 
-class SliceType : public Type {
+class DynArrayType : public Type {
 public:
-    using Pointer = Rc<SliceType>;
-    using ConstPointer = Rc<const SliceType>;
+    using Pointer = Rc<DynArrayType>;
+    using ConstPointer = Rc<const DynArrayType>;
 
-    SliceType(const ModuleInfo* info, Type* elementType);
-    ~SliceType();
+    DynArrayType(const ModuleInfo* info, std::uintmax_t maxSize, Type* elementType);
+    ~DynArrayType();
 
     const Type* elementType() const;
     Type* elementType();
+    std::uintmax_t maxSize() const;
     const ModuleInfo* moduleInfo() const;
     bmcl::StringView moduleName() const;
 
 private:
     Rc<const ModuleInfo> _moduleInfo;
+    std::uintmax_t _maxSize;
     Rc<Type> _elementType;
 };
 
@@ -400,9 +402,9 @@ inline TypeKind deferTypeKind<ArrayType>()
 }
 
 template <>
-inline TypeKind deferTypeKind<SliceType>()
+inline TypeKind deferTypeKind<DynArrayType>()
 {
-    return TypeKind::Slice;
+    return TypeKind::DynArray;
 }
 
 template <>

@@ -242,16 +242,16 @@ bool Package::resolveStatuses(Ast* ast)
                 } else if (acc->accessorKind() == AccessorKind::Subscript) {
                     SubscriptAccessor* sacc = static_cast<SubscriptAccessor*>(acc.get());
                     sacc->setType(lastType.get());
-                    if (lastType->isSlice()) {
-                        SliceType* slice = lastType->asSlice();
-                        lastType = slice->elementType();
+                    if (lastType->isDynArray()) {
+                        DynArrayType* dynArray = lastType->asDynArray();
+                        lastType = dynArray->elementType();
                     } else if (lastType->isArray()) {
                         ArrayType* array = lastType->asArray();
                         lastType = array->elementType();
                         //TODO: check ranges
                     } else {
                         //TODO: report error
-                        BMCL_CRITICAL() << "subscript accessor can only access array or slice";
+                        BMCL_CRITICAL() << "subscript accessor can only access array or dynArray";
                         return false;
                     }
                 } else {

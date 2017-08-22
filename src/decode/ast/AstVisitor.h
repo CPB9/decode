@@ -13,6 +13,7 @@
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
 #include "decode/ast/Component.h"
+#include "decode/ast/Function.h"
 
 namespace decode {
 
@@ -38,10 +39,11 @@ class AstVisitorBase {
 public:
     void traverseType(typename P<Type>::type type);
     void traverseComponentParameters(typename P<Component>::type comp);
+    void traverseComponentCommands(typename P<Component>::type comp);
 
     void traverseBuiltinType(typename P<BuiltinType>::type builtin);
     void traverseArrayType(typename P<ArrayType>::type array);
-    void traverseSliceType(typename P<SliceType>::type slice);
+    void traverseDynArrayType(typename P<DynArrayType>::type dynArray);
     void traverseReferenceType(typename P<ReferenceType>::type ref);
     void traverseFunctionType(typename P<FunctionType>::type fn);
     void traverseEnumType(typename P<EnumType>::type enumeration);
@@ -65,7 +67,7 @@ protected:
     bool visitType(typename P<Type>::type type);
     bool visitBuiltinType(typename P<BuiltinType>::type builtin);
     bool visitArrayType(typename P<ArrayType>::type array);
-    bool visitSliceType(typename P<SliceType>::type slice);
+    bool visitDynArrayType(typename P<DynArrayType>::type dynArray);
     bool visitReferenceType(typename P<ReferenceType>::type ref);
     bool visitFunctionType(typename P<FunctionType>::type fn);
     bool visitEnumType(typename P<EnumType>::type enumeration);
@@ -121,9 +123,9 @@ inline bool AstVisitorBase<B, P>::visitArrayType(typename P<ArrayType>::type arr
 }
 
 template <typename B, template <typename> class P>
-inline bool AstVisitorBase<B, P>::visitSliceType(typename P<SliceType>::type slice)
+inline bool AstVisitorBase<B, P>::visitDynArrayType(typename P<DynArrayType>::type dynArray)
 {
-    (void)slice;
+    (void)dynArray;
     return true;
 }
 
@@ -216,9 +218,9 @@ void AstVisitorBase<B, P>::ascendTypeOnce(typename P<Type>::type type)
         base().visitArrayType(array);
         break;
     }
-    case TypeKind::Slice: {
-        typename P<SliceType>::type ref = ptrCast<P, SliceType>(type);
-        base().visitSliceType(ref);
+    case TypeKind::DynArray: {
+        typename P<DynArrayType>::type ref = ptrCast<P, DynArrayType>(type);
+        base().visitDynArrayType(ref);
         break;
     }
     case TypeKind::Function: {
@@ -282,12 +284,12 @@ void AstVisitorBase<B, P>::traverseArrayType(typename P<ArrayType>::type array)
 }
 
 template <typename B, template <typename> class P>
-void AstVisitorBase<B, P>::traverseSliceType(typename P<SliceType>::type slice)
+void AstVisitorBase<B, P>::traverseDynArrayType(typename P<DynArrayType>::type dynArray)
 {
-    if (!base().visitSliceType(slice)) {
+    if (!base().visitDynArrayType(dynArray)) {
         return;
     }
-    traverseType(slice->elementType());
+    traverseType(dynArray->elementType());
 }
 
 template <typename B, template <typename> class P>
@@ -432,9 +434,9 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
         traverseArrayType(array);
         break;
     }
-    case TypeKind::Slice: {
-        typename P<SliceType>::type slice = ptrCast<P, SliceType>(type);
-        traverseSliceType(slice);
+    case TypeKind::DynArray: {
+        typename P<DynArrayType>::type dynArray = ptrCast<P, DynArrayType>(type);
+        traverseDynArrayType(dynArray);
         break;
     }
     case TypeKind::Function: {
@@ -476,6 +478,16 @@ void AstVisitorBase<B, P>::traverseComponentParameters(typename P<Component>::ty
     if (comp->hasParams()) {
         for (typename P<Field>::type field : comp->paramsRange()) {
             traverseType(field->type());
+        }
+    }
+}
+
+template <typename B, template <typename> class P>
+void AstVisitorBase<B, P>::traverseComponentCommands(typename P<Component>::type comp)
+{
+    if (comp->hasCmds()) {
+        for (typename P<Function>::type func : comp->cmdsRange()) {
+            traverseType(func->type());
         }
     }
 }

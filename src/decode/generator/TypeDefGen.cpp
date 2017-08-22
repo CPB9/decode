@@ -85,14 +85,16 @@ bool TypeDefGen::visitVariantType(const VariantType* type)
     return false;
 }
 
-bool TypeDefGen::visitSliceType(const SliceType* type)
+bool TypeDefGen::visitDynArrayType(const DynArrayType* type)
 {
     TypeNameGen gen(_output);
     _output->appendTagHeader("struct");
 
     _output->appendIndent(1);
     _typeReprGen->genTypeRepr(type->elementType());
-    _output->append("* data;\n");
+    _output->append(" data[");
+    _output->appendNumericValue(type->maxSize());
+    _output->append("];\n");
 
     _output->appendIndent(1);
     _output->append("size_t size;\n");
