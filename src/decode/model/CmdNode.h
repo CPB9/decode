@@ -10,6 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/model/FieldsNode.h"
+#include "decode/model/ValueNode.h"
 #include "decode/model/ValueInfoCache.h"
 
 #include <bmcl/Fwd.h>
