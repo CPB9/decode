@@ -49,13 +49,15 @@ public:
     using Pointer = Rc<VariantField>;
     using ConstPointer = Rc<const VariantField>;
 
-    VariantField(VariantFieldKind kind, bmcl::StringView name);
+    VariantField(VariantFieldKind kind, std::uintmax_t id, bmcl::StringView name);
     ~VariantField();
 
     VariantFieldKind variantFieldKind() const;
+    std::uintmax_t id() const;
 
 private:
     VariantFieldKind _variantFieldKind;
+    std::uintmax_t _id;
 };
 
 class ConstantVariantField : public VariantField {
@@ -63,7 +65,7 @@ public:
     using Pointer = Rc<ConstantVariantField>;
     using ConstPointer = Rc<const ConstantVariantField>;
 
-    ConstantVariantField(bmcl::StringView name);
+    ConstantVariantField(std::uintmax_t id, bmcl::StringView name);
     ~ConstantVariantField();
 };
 
@@ -72,7 +74,7 @@ public:
     using Pointer = Rc<StructVariantField>;
     using ConstPointer = Rc<const StructVariantField>;
 
-    StructVariantField(bmcl::StringView name);
+    StructVariantField(std::uintmax_t id, bmcl::StringView name);
     ~StructVariantField();
 
     FieldVec::ConstIterator fieldsBegin() const;
@@ -84,6 +86,8 @@ public:
 
     void addField(Field* field);
 
+    const Field* fieldAt(std::size_t index) const;
+
 private:
     FieldVec _fields;
 };
@@ -93,7 +97,7 @@ public:
     using Pointer = Rc<TupleVariantField>;
     using ConstPointer = Rc<const TupleVariantField>;
 
-    TupleVariantField(bmcl::StringView name);
+    TupleVariantField(std::uintmax_t id, bmcl::StringView name);
     ~TupleVariantField();
 
     TypeVec::ConstIterator typesBegin() const;
@@ -108,4 +112,25 @@ public:
 private:
     TypeVec _types;
 };
+
+template <typename T>
+inline VariantFieldKind deferVariantFieldKind();
+
+template <>
+inline VariantFieldKind deferVariantFieldKind<ConstantVariantField>()
+{
+    return VariantFieldKind::Constant;
+}
+
+template <>
+inline VariantFieldKind deferVariantFieldKind<TupleVariantField>()
+{
+    return VariantFieldKind::Tuple;
+}
+
+template <>
+inline VariantFieldKind deferVariantFieldKind<StructVariantField>()
+{
+    return VariantFieldKind::Struct;
+}
 }

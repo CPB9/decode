@@ -36,6 +36,5 @@ public:
 
 private:
     bmcl::Option<std::string> _error;
-}
-
+};
 }

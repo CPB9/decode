@@ -262,6 +262,11 @@ ValueNode* ContainerValueNode::nodeAt(std::size_t index)
     return _values[index].get();
 }
 
+const ValueNode* ContainerValueNode::nodeAt(std::size_t index) const
+{
+    return _values[index].get();
+}
+
 ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
     : ContainerValueNode(cache, parent)
     , _type(type)

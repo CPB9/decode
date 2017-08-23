@@ -228,6 +228,8 @@ set(DECODE_MODEL_SRC
     src/decode/model/CmdModel.h
     src/decode/model/CmdNode.cpp
     src/decode/model/CmdNode.h
+    src/decode/model/Encoder.cpp
+    src/decode/model/Encoder.h
     src/decode/model/FieldsNode.cpp
     src/decode/model/FieldsNode.h
     src/decode/model/FindNode.cpp

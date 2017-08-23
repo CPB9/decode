@@ -11,6 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/NamedRc.h"
+#include "decode/parser/Containers.h"
 #include "decode/ast/DocBlockMixin.h"
 
 #include <bmcl/Fwd.h>
@@ -31,7 +32,9 @@ public:
     Function(bmcl::StringView name, FunctionType* type);
     ~Function();
 
+    FieldVec::ConstRange fieldsRange() const;
     const FunctionType* type() const;
+    const Field* fieldAt(std::size_t index) const;
 
 private:
     Rc<FunctionType> _type;

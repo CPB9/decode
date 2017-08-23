@@ -92,6 +92,7 @@ public:
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
 
+    const ValueNode* nodeAt(std::size_t index) const;
     ValueNode* nodeAt(std::size_t index);
 
     const std::vector<Rc<ValueNode>> values();

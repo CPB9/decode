@@ -31,9 +31,10 @@ Type* Field::type()
     return _type.get();
 }
 
-VariantField::VariantField(VariantFieldKind kind, bmcl::StringView name)
+VariantField::VariantField(VariantFieldKind kind, std::uintmax_t id, bmcl::StringView name)
     : NamedRc(name)
     , _variantFieldKind(kind)
+    , _id(id)
 {
 }
 
@@ -46,8 +47,13 @@ VariantFieldKind VariantField::variantFieldKind() const
     return _variantFieldKind;
 }
 
-ConstantVariantField::ConstantVariantField(bmcl::StringView name)
-    : VariantField(VariantFieldKind::Constant, name)
+std::uintmax_t VariantField::id() const
+{
+    return _id;
+}
+
+ConstantVariantField::ConstantVariantField(std::uintmax_t id, bmcl::StringView name)
+    : VariantField(VariantFieldKind::Constant, id, name)
 {
 }
 
@@ -55,8 +61,8 @@ ConstantVariantField::~ConstantVariantField()
 {
 }
 
-StructVariantField::StructVariantField(bmcl::StringView name)
-    : VariantField(VariantFieldKind::Struct, name)
+StructVariantField::StructVariantField(std::uintmax_t id, bmcl::StringView name)
+    : VariantField(VariantFieldKind::Struct, id, name)
 {
 }
 
@@ -99,8 +105,13 @@ void StructVariantField::addField(Field* field)
     _fields.emplace_back(field);
 }
 
-TupleVariantField::TupleVariantField(bmcl::StringView name)
-    : VariantField(VariantFieldKind::Tuple, name)
+const Field* StructVariantField::fieldAt(std::size_t index) const
+{
+    return _fields[index].get();
+}
+
+TupleVariantField::TupleVariantField(std::uintmax_t id, bmcl::StringView name)
+    : VariantField(VariantFieldKind::Tuple, id, name)
 {
 }
 

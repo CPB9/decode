@@ -138,7 +138,6 @@ FirmwareWidget::~FirmwareWidget()
 
 void FirmwareWidget::acceptPacketResponse(const PacketResponse& response)
 {
-    BMCL_DEBUG() << response.payload.size();
     bmcl::MemReader reader(response.payload.view());
     _scriptResultNode = ScriptResultNode::fromScriptNode(_scriptNode.get(), bmcl::None);
     //TODO: check errors

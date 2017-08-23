@@ -1104,19 +1104,20 @@ bool Parser::parseVariantField(VariantType* parent)
     consumeAndSkipBlanks();
      //TODO: peek next token
 
+    std::uintmax_t id = parent->fieldsRange().size();
     if (currentTokenIs(TokenKind::Comma)) {
-        Rc<ConstantVariantField> field = new ConstantVariantField(name);
+        Rc<ConstantVariantField> field = new ConstantVariantField(id, name);
         field->setDocs(docs.get());
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LBrace)) {
-        Rc<StructVariantField> field = new StructVariantField(name);
+        Rc<StructVariantField> field = new StructVariantField(id, name);
         field->setDocs(docs.get());
         TRY(parseBraceList(field.get(), [this](StructVariantField* dest) {
             return parseRecordField(dest);
         }));
         parent->addField(field.get());
     } else if (currentTokenIs(TokenKind::LParen)) {
-        Rc<TupleVariantField> field = new TupleVariantField(name);
+        Rc<TupleVariantField> field = new TupleVariantField(id, name);
         field->setDocs(docs.get());
         TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, field, [this](const Rc<TupleVariantField>& field) {
             skipBlanks();
