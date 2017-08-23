@@ -135,7 +135,10 @@ public:
 
     const Type* type() const override;
 
-    void resize(std::size_t size);
+    std::size_t maxSize() const;
+    bmcl::Option<std::size_t> canBeResized() const override;
+    bool resizeNode(std::size_t size) override;
+    void resizeDynArray(std::size_t size);
 
 private:
     Rc<const DynArrayType> _type;

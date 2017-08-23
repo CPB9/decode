@@ -39,11 +39,13 @@ public:
 
     virtual bool canHaveChildren() const;
     virtual std::size_t numChildren() const;
+    virtual bmcl::Option<std::size_t> canBeResized() const;
     virtual bmcl::Option<std::size_t> childIndex(const Node* node) const;
     virtual bmcl::OptionPtr<Node> childAt(std::size_t idx);
     virtual bmcl::StringView fieldName() const;
     virtual bmcl::StringView typeName() const;
     virtual bmcl::StringView shortDescription() const;
+    virtual bool resizeNode(std::size_t size);
     virtual Value value() const;
     virtual ValueKind valueKind() const;
     virtual bool canSetValue() const;

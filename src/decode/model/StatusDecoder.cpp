@@ -87,10 +87,13 @@ public:
             //TODO: report error
             return false;
         }
-        //FIXME: implement range check
         DynArrayValueNode* cnode = static_cast<DynArrayValueNode*>(node);
+        if (dynArraySize > cnode->maxSize()) {
+            //TODO: report error
+            return false;
+        }
         //TODO: add size check
-        cnode->resize(dynArraySize);
+        cnode->resizeDynArray(dynArraySize);
         const std::vector<Rc<ValueNode>>& values = cnode->values();
         for (std::size_t i = 0; i < dynArraySize; i++) {
             TRY(_next->execute(values[i].get(), src));

@@ -52,6 +52,17 @@ std::size_t Node::numChildren() const
     return 0;
 }
 
+bmcl::Option<std::size_t> Node::canBeResized() const
+{
+    return bmcl::None;
+}
+
+bool Node::resizeNode(std::size_t size)
+{
+    (void)size;
+    return false;
+}
+
 bmcl::Option<std::size_t> Node::childIndex(const Node* node) const
 {
     return bmcl::None;

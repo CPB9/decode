@@ -354,7 +354,7 @@ bool DynArrayValueNode::decode(bmcl::MemReader* src)
         //TODO: report error
         return false;
     }
-    resize(size);
+    resizeDynArray(size);
     return ContainerValueNode::decode(src);
 }
 
@@ -363,7 +363,26 @@ const Type* DynArrayValueNode::type() const
     return _type.get();
 }
 
-void DynArrayValueNode::resize(std::size_t size)
+std::size_t DynArrayValueNode::maxSize() const
+{
+    return _type->maxSize();
+}
+
+bmcl::Option<std::size_t> DynArrayValueNode::canBeResized() const
+{
+    return bmcl::Option<std::size_t>(_type->maxSize());
+}
+
+bool DynArrayValueNode::resizeNode(std::size_t size)
+{
+    if (size > _type->maxSize()) {
+        return false;
+    }
+    resizeDynArray(size);
+    return true;
+}
+
+void DynArrayValueNode::resizeDynArray(std::size_t size)
 {
     _minSizeSinceUpdate = std::min(_minSizeSinceUpdate, size);
     std::size_t currentSize = _values.size();
