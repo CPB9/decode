@@ -83,6 +83,26 @@ bool Encoder::writeI64(int64_t value)
     return true;
 }
 
+bool Encoder::writeF32(float value)
+{
+    union {
+        float f;
+        uint64_t u;
+    } data;
+    data.f = value;
+    return writeU64(data.f);
+}
+
+bool Encoder::writeF64(double value)
+{
+    union {
+        double d;
+        uint64_t u;
+    } data;
+    data.d = value;
+    return writeU64(data.u);
+}
+
 bool Encoder::writeUSize(std::uintmax_t value)
 {
     //TODO: check target pointer size
@@ -95,12 +115,12 @@ bool Encoder::writeISize(std::intmax_t value)
     return writeI64(value);
 }
 
-bool Encoder::writeVaruint(std::uint64_t value)
+bool Encoder::writeVarUint(std::uint64_t value)
 {
     return _writer.writeVarUint(value);
 }
 
-bool Encoder::writeVarint(std::int64_t value)
+bool Encoder::writeVarInt(std::int64_t value)
 {
     return _writer.writeVarInt(value);
 }
@@ -113,5 +133,15 @@ bool Encoder::writeEnumTag(std::int64_t value)
 bool Encoder::writeVariantTag(std::int64_t value)
 {
     return _writer.writeVarInt(value);
+}
+
+bool Encoder::writeDynArraySize(std::uint64_t value)
+{
+    return _writer.writeVarUint(value);
+}
+
+bmcl::Bytes Encoder::writenData() const
+{
+    return _writer.writenData();
 }
 }

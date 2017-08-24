@@ -15,20 +15,28 @@
 
 #include <caf/event_based_actor.hpp>
 
+#include <functional>
+
 namespace decode {
 
 class CmdModel;
 struct Device;
+class Encoder;
 class Project;
 class StructType;
 class BuiltinType;
 class Ast;
+class AllGcInterfaces;
+struct PacketRequest;
 
 template <typename T>
 class NumericValueNode;
 
 class CmdState : public caf::event_based_actor {
 public:
+    using EncodeHandler = std::function<bool(Encoder*)>;
+    using EncodeResult = bmcl::Result<PacketRequest, std::string>;
+
     CmdState(caf::actor_config& cfg, const caf::actor& exchange, const caf::actor& handler);
     ~CmdState();
 
@@ -41,6 +49,7 @@ private:
     Rc<const Project> _proj;
     caf::actor _exc;
     caf::actor _handler;
+    Rc<const AllGcInterfaces> _ifaces;
 };
 }
 

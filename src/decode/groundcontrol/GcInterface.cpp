@@ -11,6 +11,7 @@
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/CmdNode.h"
 #include "decode/model/Value.h"
+#include "decode/model/Encoder.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/OptionPtr.h>
@@ -210,12 +211,9 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     GC_TRY(expectField(_formationEntryStruct.get(), 0, "pos", _vec3Struct.get()));
     GC_TRY(expectField(_formationEntryStruct.get(), 1, "id", varuintType));
 
-    GC_TRY(findType<StructType>(_navModule.get(), "Waypoint", &_waypointStruct));
-    GC_TRY(expectFieldNum(_waypointStruct.get(), 2));
-    GC_TRY(expectField(_waypointStruct.get(), 0, "position", _posStruct.get()));
-    GC_TRY(expectField(_waypointStruct.get(), 1, "action", _actionVariant.get()));
-
     GC_TRY(findType<VariantType>(_navModule.get(), "Action", &_actionVariant));
+    Rc<const ConstantVariantField> noneField;
+    GC_TRY(findVariantField<ConstantVariantField>(_actionVariant.get(), "None", &noneField));
     Rc<const ConstantVariantField> loopField;
     GC_TRY(findVariantField<ConstantVariantField>(_actionVariant.get(), "Loop", &loopField));
     Rc<const ConstantVariantField> snakeField;
@@ -238,6 +236,11 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     }
     _formationArrayMaxSize = formationArrayType->asDynArray()->maxSize();
 
+    GC_TRY(findType<StructType>(_navModule.get(), "Waypoint", &_waypointStruct));
+    GC_TRY(expectFieldNum(_waypointStruct.get(), 2));
+    GC_TRY(expectField(_waypointStruct.get(), 0, "position", _posStruct.get()));
+    GC_TRY(expectField(_waypointStruct.get(), 1, "action", _actionVariant.get()));
+
     if (_navModule->component().isNone()) {
         return std::string("`nav` module has no component");
     }
@@ -247,6 +250,10 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     GC_TRY(findCmd(_navComponent.get(), "beginRoute", &_beginRouteCmd));
     GC_TRY(expectFieldNum(_beginRouteCmd.get(), 1));
     GC_TRY(expectField(_beginRouteCmd.get(), 0, "routeIndex", usizeType));
+
+    GC_TRY(findCmd(_navComponent.get(), "endRoute", &_endRouteCmd));
+    GC_TRY(expectFieldNum(_endRouteCmd.get(), 1));
+    GC_TRY(expectField(_endRouteCmd.get(), 0, "routeIndex", usizeType));
 
     GC_TRY(findCmd(_navComponent.get(), "setRoutePoint", &_setRoutePointCmd));
     GC_TRY(expectFieldNum(_setRoutePointCmd.get(), 3));
@@ -274,41 +281,70 @@ bool getNumericValue(const ValueNode* node, T* dest)
     return false;
 }
 
-bool WaypointGcInterface::fromVec3(const Vec3& vec, Node* dest) const
+bool WaypointGcInterface::beginNavCmd(const Function* cmd, Encoder* dest) const
 {
-    StructValueNode* vec3Node = static_cast<StructValueNode*>(dest);
-    setNumericValue(vec3Node->nodeAt(0), vec.x);
-    setNumericValue(vec3Node->nodeAt(1), vec.y);
-    setNumericValue(vec3Node->nodeAt(2), vec.z);
+    TRY(dest->writeVarUint(_navComponent->number()));
+    auto it = std::find(_navComponent->cmdsBegin(), _navComponent->cmdsEnd(), cmd);
+    if (it == _navComponent->cmdsEnd()) {
+        //TODO: report error
+        return false;
+    }
+
+    return dest->writeVarUint(std::distance(_navComponent->cmdsBegin(), it));
+}
+
+bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t index, Encoder* dest) const
+{
+    TRY(beginNavCmd(_beginRouteCmd.get(), dest));
+    return dest->writeUSize(index);
+}
+
+bool WaypointGcInterface::encodeEndRouteCmd(std::uintmax_t index, Encoder* dest) const
+{
+    TRY(beginNavCmd(_endRouteCmd.get(), dest));
+    return dest->writeUSize(index);
+}
+
+bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t routeIndex, std::uintmax_t pointIndex, const Waypoint& wp, Encoder* dest) const
+{
+    TRY(beginNavCmd(_setRoutePointCmd.get(), dest));
+    TRY(dest->writeUSize(routeIndex));
+    TRY(dest->writeUSize(pointIndex));
+    TRY(dest->writeF64(wp.position.latLon.latitude));
+    TRY(dest->writeF64(wp.position.latLon.longitude));
+    TRY(dest->writeF64(wp.position.altitude));
+    switch (wp.action.kind()) {
+    case WaypointActionKind::None:
+        TRY(dest->writeVariantTag(0));
+        break;
+    case WaypointActionKind::Sleep:
+        TRY(dest->writeVariantTag(1));
+        TRY(dest->writeVarUint(wp.action.as<SleepWaypointAction>().timeout));
+        break;
+    case WaypointActionKind::Formation:
+        TRY(dest->writeVariantTag(2));
+        for (const FormationEntry& entry: wp.action.as<FormationWaypointAction>().entries) {
+            //TODO: check max size
+            TRY(dest->writeDynArraySize(wp.action.as<FormationWaypointAction>().entries.size()));
+            TRY(dest->writeF64(entry.pos.x));
+            TRY(dest->writeF64(entry.pos.y));
+            TRY(dest->writeF64(entry.pos.z));
+            TRY(dest->writeVarUint(entry.id));
+        }
+        break;
+    case WaypointActionKind::Reynolds:
+        TRY(dest->writeVariantTag(3));
+        break;
+    case WaypointActionKind::Snake:
+        TRY(dest->writeVariantTag(4));
+        break;
+    case WaypointActionKind::Loop:
+        TRY(dest->writeVariantTag(5));
+        break;
+    default:
+        return false;
+    }
     return true;
-}
-
-bool WaypointGcInterface::toVec3(const Node* node, Vec3* dest) const
-{
-    const StructValueNode* vec3Node = static_cast<const StructValueNode*>(node);
-    TRY(getNumericValue(vec3Node->nodeAt(0), &dest->x));
-    TRY(getNumericValue(vec3Node->nodeAt(1), &dest->y));
-    TRY(getNumericValue(vec3Node->nodeAt(2), &dest->z));
-    return true;
-}
-
-bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t index, bmcl::MemWriter* dest) const
-{
-    Rc<CmdNode> node = new CmdNode(_navComponent.get(), _beginRouteCmd.get(), _cache.get(), bmcl::None);
-    node->childAt(0).unwrap()->setValue(Value::makeUnsigned(index));
-    return node->encode(dest);
-}
-
-bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t routeIndex, std::uintmax_t pointIndex, const Waypoint& wp, bmcl::MemWriter* dest) const
-{
-    Rc<CmdNode> node = new CmdNode(_navComponent.get(), _setRoutePointCmd.get(), _cache.get(), bmcl::None);
-    node->childAt(0).unwrap()->setValue(Value::makeUnsigned(routeIndex));
-    node->childAt(1).unwrap()->setValue(Value::makeUnsigned(pointIndex));
-
-    const StructValueNode* waypointNode = static_cast<const StructValueNode*>(node->childAt(2).unwrap());
-    //TODO: finish cmd
-
-    return node->encode(dest);
 }
 
 AllGcInterfaces::AllGcInterfaces(const Device* dev)
@@ -342,7 +378,7 @@ bmcl::OptionPtr<const WaypointGcInterface> AllGcInterfaces::waypointInterface() 
     return _waypointIface.get();
 }
 
-const std::string& AllGcInterfaces::errors()
+const std::string& AllGcInterfaces::errors() const
 {
     return _errors;
 }

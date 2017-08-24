@@ -51,6 +51,7 @@ public:
 
 
 private:
+
     Rc<const Component> _comp;
     Rc<const Function> _func;
     Rc<const ValueInfoCache> _cache;

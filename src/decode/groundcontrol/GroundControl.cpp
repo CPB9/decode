@@ -14,6 +14,7 @@
 #include "decode/groundcontrol/Packet.h"
 #include "decode/groundcontrol/Crc.h"
 #include "decode/groundcontrol/CmdState.h"
+#include "decode/groundcontrol/GcCmd.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Bytes.h>
@@ -24,6 +25,7 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketResponse);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Project::ConstPointer);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Device::ConstPointer);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::GcCmd);
 
 namespace decode {
 
@@ -52,6 +54,9 @@ caf::behavior GroundControl::make_behavior()
         },
         [this](SendReliablePacketAtom atom, const PacketRequest& packet) {
             return delegate(_exc, atom, packet);
+        },
+        [this](SendGcCommandAtom atom, const GcCmd& cmd) {
+            return delegate(_cmd, atom, cmd);
         },
         [this](StartAtom) {
             _isRunning = true;

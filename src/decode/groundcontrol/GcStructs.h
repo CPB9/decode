@@ -4,6 +4,8 @@
 
 #include <bmcl/Variant.h>
 
+#include <vector>
+
 namespace decode {
 
 struct LatLon {
@@ -42,13 +44,30 @@ enum class WaypointActionKind {
     Loop,
 };
 
+struct SleepWaypointAction {
+    uint64_t timeout;
+};
+
+struct FormationWaypointAction {
+    std::vector<FormationEntry> entries;
+};
+
+struct ReynoldsWaypointAction {
+};
+
+struct SnakeWaypointAction {
+};
+
+struct LoopWaypointAction {
+};
+
 using WaypointAction =
     bmcl::Variant<WaypointActionKind, WaypointActionKind::None,
-        bmcl::VariantElementDesc<WaypointActionKind, uint64_t, WaypointActionKind::Sleep>,
-        bmcl::VariantElementDesc<WaypointActionKind, std::vector<FormationEntry>, WaypointActionKind::Formation>,
-        bmcl::VariantElementDesc<WaypointActionKind, void, WaypointActionKind::Reynolds>,
-        bmcl::VariantElementDesc<WaypointActionKind, void, WaypointActionKind::Snake>,
-        bmcl::VariantElementDesc<WaypointActionKind, void, WaypointActionKind::Loop>
+        bmcl::VariantElementDesc<WaypointActionKind, SleepWaypointAction, WaypointActionKind::Sleep>,
+        bmcl::VariantElementDesc<WaypointActionKind, FormationWaypointAction, WaypointActionKind::Formation>,
+        bmcl::VariantElementDesc<WaypointActionKind, ReynoldsWaypointAction, WaypointActionKind::Reynolds>,
+        bmcl::VariantElementDesc<WaypointActionKind, SnakeWaypointAction, WaypointActionKind::Snake>,
+        bmcl::VariantElementDesc<WaypointActionKind, LoopWaypointAction, WaypointActionKind::Loop>
     >;
 
 struct Waypoint {
