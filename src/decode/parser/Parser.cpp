@@ -724,10 +724,10 @@ bool Parser::parseImplBlock()
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction();
-        fn->setDocs(docs.get());
         if (!fn) {
             return false;
         }
+        fn->setDocs(docs.get());
         //TODO: check conflicting names
         block->addFunction(fn.get());
         clearUnusedDocComments();
@@ -1060,10 +1060,10 @@ bool Parser::parseRecordField(T* parent)
 {
     Rc<DocBlock> docs = createDocsFromComments();
     Rc<Field> decl = parseField();
-    decl->setDocs(docs.get());
     if (!decl) {
         return false;
     }
+    decl->setDocs(docs.get());
     parent->addField(decl.get());
     return true;
 }
@@ -1261,10 +1261,10 @@ bool Parser::parseCommands(Component* parent)
     TRY(parseNamelessTag(TokenKind::Commands, TokenKind::Eol, parent, [this](Component* comp) {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction(false);
-        fn->setDocs(docs.get());
         if (!fn) {
             return false;
         }
+        fn->setDocs(docs.get());
         comp->addCommand(fn.get());
         clearUnusedDocComments();
         return true;
@@ -1283,10 +1283,10 @@ bool Parser::parseComponentImpl(Component* parent)
     TRY(parseNamelessTag(TokenKind::Impl, TokenKind::Eol, impl.get(), [this](ImplBlock* impl) {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction(false);
-        fn->setDocs(docs.get());
         if (!fn) {
             return false;
         }
+        fn->setDocs(docs.get());
         impl->addFunction(fn.get());
         clearUnusedDocComments();
         return true;
