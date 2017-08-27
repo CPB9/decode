@@ -44,7 +44,7 @@ static CmdState::EncodeResult encodePacket(CmdState::EncodeHandler handler)
     if (!handler(&writer)) {
         return writer.errorMsgOr("unknown error").toStdString();
     }
-
+    req.payload = bmcl::SharedBytes::create(writer.writenData());
     return req;
 }
 
@@ -65,66 +65,249 @@ struct RouteUploadState {
 
 using SendNextPointCmdAtom  = caf::atom_constant<caf::atom("sendnxtp")>;
 using SendStartRouteCmdAtom = caf::atom_constant<caf::atom("sendstrt")>;
+using SendClearRouteCmdAtom = caf::atom_constant<caf::atom("sendclrt")>;
 using SendEndRouteCmdAtom   = caf::atom_constant<caf::atom("sendenrt")>;
 
-caf::behavior routeUploadActor(caf::stateful_actor<RouteUploadState>* self,
-                               caf::actor exchange,
-                               const WaypointGcInterface* iface,
-                               const caf::response_promise& promise,
-                               Route&& route)
-{
-    self->state.exchange = exchange;
-    self->state.iface = iface;
-    self->state.promise = promise;
-    self->state.route = std::move(route);
-    self->send(self, SendStartRouteCmdAtom::value);
-    return caf::behavior{
-        [self](SendNextPointCmdAtom) {
-            if (self->state.currentIndex >= self->state.route.waypoints.size()) {
-                self->send(self, SendEndRouteCmdAtom::value);
-                return;
-            }
-            auto rv = encodePacket([self](Encoder* dest) {
-                return self->state.iface->encodeSetRoutePointCmd(self->state.routeIndex, self->state.currentIndex,
-                                                                 self->state.route.waypoints[self->state.currentIndex], dest);
-            });
-            if (rv.isErr()) {
-                self->state.promise.deliver(caf::sec::invalid_argument);
-                return;
-            }
-            self->request(self->state.exchange, caf::infinite, SendReliablePacketAtom::value, rv.unwrap()).then([self](const PacketResponse& resp) {
-                self->send(self, SendNextPointCmdAtom::value);
-                self->state.currentIndex++;
-            });
+class NavActorBase : public caf::event_based_actor {
+public:
+    NavActorBase(caf::actor_config& cfg,
+                 caf::actor exchange,
+                 const WaypointGcInterface* iface,
+                 const caf::response_promise& promise)
+        : caf::event_based_actor(cfg)
+        , _exchange(exchange)
+        , _iface(iface)
+        , _promise(promise)
+    {
+    }
+
+    void on_exit() override
+    {
+        destroy(_exchange);
+    }
+
+protected:
+    template <typename T>
+    void action(T* actor, bool (T::* encode)(Encoder* dest) const, void (T::* next)(const PacketResponse& resp))
+    {
+        auto rv = encodePacket(std::bind(encode, actor, std::placeholders::_1));
+        if (rv.isErr()) {
+            _promise.deliver(caf::sec::invalid_argument);
+            quit();
+            return;
+        }
+        request(_exchange, caf::infinite, SendReliablePacketAtom::value, rv.unwrap()).then([=](const PacketResponse& resp) {
+            (actor->*next)(resp);
         },
-        [self](SendStartRouteCmdAtom) {
-            auto rv = encodePacket([self](Encoder* dest) {
-                return self->state.iface->encodeBeginRouteCmd(self->state.routeIndex, dest);
-            });
-            if (rv.isErr()) {
-                self->state.promise.deliver(caf::sec::invalid_argument);
-                return;
-            }
-            self->request(self->state.exchange, caf::infinite, SendReliablePacketAtom::value, rv.unwrap()).then([self](const PacketResponse& resp) {
-                self->send(self, SendNextPointCmdAtom::value);
-            });
-        },
-        [self](SendEndRouteCmdAtom) {
-             auto rv = encodePacket([self](Encoder* dest) {
-                return self->state.iface->encodeEndRouteCmd(self->state.routeIndex, dest);
-            });
-            if (rv.isErr()) {
-                self->state.promise.deliver(caf::sec::invalid_argument);
-                return;
-            }
-            self->request(self->state.exchange, caf::infinite, SendReliablePacketAtom::value, rv.unwrap()).then([self](const PacketResponse& resp) {
-                self->state.promise.deliver(caf::none);
-                BMCL_DEBUG() << "ooook";
-                self->send_exit(self, caf::exit_reason::normal);
-            });
-        },
-    };
-}
+        [=](const caf::error& err) {
+            BMCL_CRITICAL() << err.code();
+            _promise.deliver(caf::sec::invalid_argument);
+            quit();
+        });
+    }
+
+    caf::actor _exchange;
+    Rc<const WaypointGcInterface> _iface;
+    caf::response_promise _promise;
+};
+
+class RouteUploadActor : public NavActorBase {
+public:
+    RouteUploadActor(caf::actor_config& cfg,
+                     caf::actor exchange,
+                     const WaypointGcInterface* iface,
+                     const caf::response_promise& promise,
+                     Route&& route)
+        : NavActorBase(cfg, exchange, iface, promise)
+        , _route(std::move(route))
+        , _currentIndex(0)
+        , _routeIndex(0)
+    {
+    }
+
+    bool encodeRoutePoint(Encoder* dest) const
+    {
+        return _iface->encodeSetRoutePointCmd(_routeIndex, _currentIndex, _route.waypoints[_currentIndex], dest);
+    }
+
+    bool encodeBeginRoute(Encoder* dest) const
+    {
+        return _iface->encodeBeginRouteCmd(_routeIndex, dest);
+    }
+
+    bool encodeClearRoute(Encoder* dest) const
+    {
+        return _iface->encodeClearRouteCmd(_routeIndex, dest);
+    }
+
+    bool encodeEndRoute(Encoder* dest) const
+    {
+        return _iface->encodeEndRouteCmd(_routeIndex, dest);
+    }
+
+    void sendFirstPoint(const PacketResponse&)
+    {
+        send(this, SendNextPointCmdAtom::value);
+    }
+
+    void sendClearRoute(const PacketResponse&)
+    {
+        send(this, SendClearRouteCmdAtom::value);
+    }
+
+    void sendNextPoint(const PacketResponse&)
+    {
+        _currentIndex++;
+        send(this, SendNextPointCmdAtom::value);
+    }
+
+    void endUpload(const PacketResponse&)
+    {
+        _promise.deliver(caf::none);
+        quit();
+    }
+
+    caf::behavior make_behavior() override
+    {
+        send(this, SendStartRouteCmdAtom::value);
+        return caf::behavior{
+            [this](SendNextPointCmdAtom) {
+                if (_currentIndex >= _route.waypoints.size()) {
+                    send(this, SendEndRouteCmdAtom::value);
+                    return;
+                }
+                action(this, &RouteUploadActor::encodeRoutePoint, &RouteUploadActor::sendNextPoint);
+            },
+            [this](SendClearRouteCmdAtom) {
+                action(this, &RouteUploadActor::encodeClearRoute, &RouteUploadActor::sendFirstPoint);
+            },
+            [this](SendStartRouteCmdAtom) {
+                action(this, &RouteUploadActor::encodeBeginRoute, &RouteUploadActor::sendClearRoute);
+            },
+            [this](SendEndRouteCmdAtom) {
+                action(this, &RouteUploadActor::encodeEndRoute, &RouteUploadActor::endUpload);
+            },
+        };
+    }
+
+private:
+    Route _route;
+    std::size_t _currentIndex;
+    std::size_t _routeIndex;
+};
+
+class OneActionNavActor : public NavActorBase {
+public:
+    OneActionNavActor(caf::actor_config& cfg,
+                      caf::actor exchange,
+                      const WaypointGcInterface* iface,
+                      const caf::response_promise& promise)
+        : NavActorBase(cfg, exchange, iface, promise)
+    {
+    }
+
+    virtual bool encode(Encoder* dest) const = 0;
+
+    virtual void end(const PacketResponse&)
+    {
+        _promise.deliver(caf::none);
+        quit();
+    }
+
+    caf::behavior make_behavior() override
+    {
+        send(this, StartAtom::value);
+        return caf::behavior{
+            [this](StartAtom) {
+                action(this, &OneActionNavActor::encode, &OneActionNavActor::end);
+            },
+        };
+    }
+};
+
+class SetActiveRouteActor : public OneActionNavActor {
+public:
+    SetActiveRouteActor(caf::actor_config& cfg,
+                        caf::actor exchange,
+                        const WaypointGcInterface* iface,
+                        const caf::response_promise& promise,
+                        SetActiveRouteGcCmd&& cmd)
+        : OneActionNavActor(cfg, exchange, iface, promise)
+        , _cmd(std::move(cmd))
+    {
+    }
+
+    bool encode(Encoder* dest) const override
+    {
+        return _iface->encodeSetActiveRouteCmd(_cmd.id, dest);
+    }
+
+private:
+    SetActiveRouteGcCmd _cmd;
+};
+
+class SetRouteActivePointActor : public OneActionNavActor {
+public:
+    SetRouteActivePointActor(caf::actor_config& cfg,
+                             caf::actor exchange,
+                             const WaypointGcInterface* iface,
+                             const caf::response_promise& promise,
+                             SetRouteActivePointGcCmd&& cmd)
+        : OneActionNavActor(cfg, exchange, iface, promise)
+        , _cmd(std::move(cmd))
+    {
+    }
+
+    bool encode(Encoder* dest) const override
+    {
+        return _iface->encodeSetRouteActivePointCmd(_cmd.id, _cmd.index, dest);
+    }
+
+private:
+    SetRouteActivePointGcCmd _cmd;
+};
+
+class SetRouteInvertedActor : public OneActionNavActor {
+public:
+    SetRouteInvertedActor(caf::actor_config& cfg,
+                          caf::actor exchange,
+                          const WaypointGcInterface* iface,
+                          const caf::response_promise& promise,
+                          SetRouteInvertedGcCmd&& cmd)
+        : OneActionNavActor(cfg, exchange, iface, promise)
+        , _cmd(std::move(cmd))
+    {
+    }
+
+    bool encode(Encoder* dest) const override
+    {
+        return _iface->encodeSetRouteInvertedCmd(_cmd.id, _cmd.isInverted, dest);
+    }
+
+private:
+    SetRouteInvertedGcCmd _cmd;
+};
+
+class SetRouteClosedActor : public OneActionNavActor {
+public:
+    SetRouteClosedActor(caf::actor_config& cfg,
+                        caf::actor exchange,
+                        const WaypointGcInterface* iface,
+                        const caf::response_promise& promise,
+                        SetRouteClosedGcCmd&& cmd)
+        : OneActionNavActor(cfg, exchange, iface, promise)
+        , _cmd(std::move(cmd))
+    {
+    }
+
+    bool encode(Encoder* dest) const override
+    {
+        return _iface->encodeSetRouteClosedCmd(_cmd.id, _cmd.isClosed, dest);
+    }
+
+private:
+    SetRouteClosedGcCmd _cmd;
+};
 
 caf::behavior CmdState::make_behavior()
 {
@@ -134,20 +317,52 @@ caf::behavior CmdState::make_behavior()
             _proj = proj;
             _dev = dev;
             _ifaces = new AllGcInterfaces(dev.get());
+//             Route rt;
+//             Waypoint wp;
+//             wp.position = Position{1,2,3};
+//             wp.action = SnakeWaypointAction{};
+//             rt.waypoints.push_back(wp);
+//             rt.waypoints.push_back(wp);
+//             send(this, SendGcCommandAtom::value, GcCmd(rt));
+//             SetActiveRouteGcCmd cmd;
+//             cmd.id.emplace(0);
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd));
+//             SetRouteActivePointGcCmd cmd2;
+//             cmd2.id = 0;
+//             cmd2.index.emplace(2);
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd2));
+//             SetRouteInvertedGcCmd cmd3;
+//             cmd3.id = 0;
+//             cmd3.isInverted = true;
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd3));
+//             SetRouteClosedGcCmd cmd4;
+//             cmd4.id = 0;
+//             cmd4.isClosed = true;
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd4));
         },
-        [this](SendGcCommandAtom, const GcCmd& cmd) -> caf::result<void> {
+        [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {
+            if (_ifaces->waypointInterface().isNone()) {
+                return caf::sec::invalid_argument;
+            }
             caf::response_promise promise = make_response_promise();
             switch (cmd.kind()) {
             case GcCmdKind::None:
                 return caf::sec::invalid_argument;
             case GcCmdKind::UploadRoute:
-                if (_ifaces->waypointInterface().isNone()) {
-                    return caf::sec::invalid_argument;
-                }
-                spawn(routeUploadActor, _exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<Route>()));
+                spawn<RouteUploadActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<Route>()));
                 return promise;
-            case GcCmdKind::Test:
-                return caf::sec::invalid_argument;
+            case GcCmdKind::SetActiveRoute:
+                spawn<SetActiveRouteActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetActiveRouteGcCmd>()));
+                return promise;
+            case GcCmdKind::SetRouteActivePoint:
+                spawn<SetRouteActivePointActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetRouteActivePointGcCmd>()));
+                return promise;
+            case GcCmdKind::SetRouteInverted:
+                spawn<SetRouteInvertedActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetRouteInvertedGcCmd>()));
+                return promise;
+            case GcCmdKind::SetRouteClosed:
+                spawn<SetRouteClosedActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetRouteClosedGcCmd>()));
+                return promise;
             };
             return caf::sec::invalid_argument;
         },

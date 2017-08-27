@@ -14,6 +14,8 @@ public:
     Encoder(void* dest, std::size_t maxSize);
     ~Encoder();
 
+    bool writeBool(bool value);
+
     bool writeU8(std::uint8_t value);
     bool writeU16(std::uint16_t value);
     bool writeU32(std::uint32_t value);

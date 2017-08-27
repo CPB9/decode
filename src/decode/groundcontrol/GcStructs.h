@@ -3,6 +3,7 @@
 #include "decode/Config.h"
 
 #include <bmcl/Variant.h>
+#include <bmcl/Option.h>
 
 #include <vector>
 
@@ -33,6 +34,31 @@ struct Position {
 struct FormationEntry {
     Vec3 pos;
     uint64_t id;
+};
+
+struct RouteInfo {
+    RouteInfo()
+        : id(0)
+        , size(0)
+        , maxSize(0)
+        , isClosed(false)
+        , isInverted(false)
+        , isEditing(false)
+    {
+    }
+
+    uintmax_t id;
+    uint64_t size;
+    uint64_t maxSize;
+    bmcl::Option<uintmax_t> activePoint;
+    bool isClosed;
+    bool isInverted;
+    bool isEditing;
+};
+
+struct AllRoutesInfo {
+    std::vector<RouteInfo> info;
+    bmcl::Option<uintmax_t> activeRoute;
 };
 
 enum class WaypointActionKind {

@@ -12,6 +12,7 @@
 #include "decode/model/CmdNode.h"
 #include "decode/model/Value.h"
 #include "decode/model/Encoder.h"
+#include "decode/model/Decoder.h"
 
 #include <bmcl/Result.h>
 #include <bmcl/OptionPtr.h>
@@ -36,6 +37,7 @@ GcInterfaceResult<CoreGcInterface> CoreGcInterface::create(const Device* dev)
     self->_f64Type = new BuiltinType(BuiltinTypeKind::F64);
     self->_varuintType = new BuiltinType(BuiltinTypeKind::Varuint);
     self->_usizeType = new BuiltinType(BuiltinTypeKind::USize);
+    self->_boolType = new BuiltinType(BuiltinTypeKind::Bool);
     return self;
 }
 
@@ -57,6 +59,11 @@ const BuiltinType* CoreGcInterface::varuintType() const
 const BuiltinType* CoreGcInterface::usizeType() const
 {
     return _usizeType.get();
+}
+
+const BuiltinType* CoreGcInterface::boolType() const
+{
+    return _boolType.get();
 }
 
 const ValueInfoCache* CoreGcInterface::cache() const
@@ -169,6 +176,19 @@ static bmcl::Option<std::string> expectField(const T* container, std::size_t i, 
     return bmcl::None;
 }
 
+static bmcl::Option<std::string> expectDynArrayField(const Field* dynArrayField, const Type* element, std::size_t* maxSize)
+{
+    const Type* dynArray = dynArrayField->type();
+    if (!dynArray->isDynArray()) {
+        return std::string(wrapWithQuotes(dynArrayField->name()) + " field is not a dyn array");
+    }
+    if (!dynArray->asDynArray()->elementType()->equals(element)) {
+        return std::string(wrapWithQuotes(dynArrayField->name()) + " field dyn array element has invalid type");
+    }
+    *maxSize = dynArray->asDynArray()->maxSize();
+    return bmcl::None;
+}
+
 #define GC_TRY(expr)               \
     {                              \
         auto strErr = expr;        \
@@ -226,15 +246,34 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     Rc<const StructVariantField> formationField;
     GC_TRY(findVariantField<StructVariantField>(_actionVariant.get(), "Formation", &formationField));
     GC_TRY(expectFieldNum(formationField.get(), 1));
+    GC_TRY(expectDynArrayField(formationField->fieldAt(0), _formationEntryStruct.get(), &_formationArrayMaxSize));
 
-    const Type* formationArrayType = formationField->fieldAt(0)->type();
-    if (!formationArrayType->isDynArray()) {
-        return std::string("`Formation` field is not a dyn array");
-    }
-    if (!formationArrayType->asDynArray()->elementType()->equals(_formationEntryStruct.get())) {
-        return std::string("`Formation` field dyn array element is not `FormationEntry`");
-    }
-    _formationArrayMaxSize = formationArrayType->asDynArray()->maxSize();
+    GC_TRY(findType<VariantType>(_navModule.get(), "OptionalRouteId", &_optionalRouteIdStruct));
+    GC_TRY(findVariantField<ConstantVariantField>(_optionalRouteIdStruct.get(), "None", &noneField));
+    Rc<const StructVariantField> idField;
+    GC_TRY(findVariantField<StructVariantField>(_optionalRouteIdStruct.get(), "Some", &idField));
+    GC_TRY(expectField(idField.get(), 0, "id", varuintType));
+
+    GC_TRY(findType<VariantType>(_navModule.get(), "OptionalIndex", &_optionalIndexStruct));
+    GC_TRY(findVariantField<ConstantVariantField>(_optionalIndexStruct.get(), "None", &noneField));
+    GC_TRY(findVariantField<StructVariantField>(_optionalIndexStruct.get(), "Some", &idField));
+    GC_TRY(expectField(idField.get(), 0, "index", varuintType));
+
+    const BuiltinType* boolType = _coreIface->boolType();
+    GC_TRY(findType<StructType>(_navModule.get(), "RouteInfo", &_routeInfoStruct));
+    GC_TRY(expectFieldNum(_routeInfoStruct.get(), 7));
+    GC_TRY(expectField(_routeInfoStruct.get(), 0, "id", varuintType));
+    GC_TRY(expectField(_routeInfoStruct.get(), 1, "size", varuintType));
+    GC_TRY(expectField(_routeInfoStruct.get(), 2, "maxSize", varuintType));
+    GC_TRY(expectField(_routeInfoStruct.get(), 3, "activePoint", _optionalIndexStruct.get()));
+    GC_TRY(expectField(_routeInfoStruct.get(), 4, "isClosed", boolType));
+    GC_TRY(expectField(_routeInfoStruct.get(), 5, "isInverted", boolType));
+    GC_TRY(expectField(_routeInfoStruct.get(), 6, "isEditing", boolType));
+
+    GC_TRY(findType<StructType>(_navModule.get(), "AllRoutesInfo", &_allRoutesInfoStruct));
+    GC_TRY(expectFieldNum(_allRoutesInfoStruct.get(), 2));
+    GC_TRY(expectDynArrayField(_allRoutesInfoStruct->fieldAt(0), _routeInfoStruct.get(), &_allRoutesInfoMaxSize));
+    GC_TRY(expectField(_allRoutesInfoStruct.get(), 1, "activeRoute", _optionalRouteIdStruct.get()));
 
     GC_TRY(findType<StructType>(_navModule.get(), "Waypoint", &_waypointStruct));
     GC_TRY(expectFieldNum(_waypointStruct.get(), 2));
@@ -246,20 +285,46 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     }
 
     _navComponent = _navModule->component().unwrap();
-    const BuiltinType* usizeType = _coreIface->usizeType();
+    //const BuiltinType* usizeType = _coreIface->usizeType();
     GC_TRY(findCmd(_navComponent.get(), "beginRoute", &_beginRouteCmd));
     GC_TRY(expectFieldNum(_beginRouteCmd.get(), 1));
-    GC_TRY(expectField(_beginRouteCmd.get(), 0, "routeIndex", usizeType));
+    GC_TRY(expectField(_beginRouteCmd.get(), 0, "routeId", varuintType));
 
     GC_TRY(findCmd(_navComponent.get(), "endRoute", &_endRouteCmd));
     GC_TRY(expectFieldNum(_endRouteCmd.get(), 1));
-    GC_TRY(expectField(_endRouteCmd.get(), 0, "routeIndex", usizeType));
+    GC_TRY(expectField(_endRouteCmd.get(), 0, "routeId", varuintType));
+
+    GC_TRY(findCmd(_navComponent.get(), "endRoute", &_clearRouteCmd));
+    GC_TRY(expectFieldNum(_clearRouteCmd.get(), 1));
+    GC_TRY(expectField(_clearRouteCmd.get(), 0, "routeId", varuintType));
+
+    GC_TRY(findCmd(_navComponent.get(), "setActiveRoute", &_setActiveRouteCmd));
+    GC_TRY(expectFieldNum(_setActiveRouteCmd.get(), 1));
+    GC_TRY(expectField(_setActiveRouteCmd.get(), 0, "routeId", _optionalRouteIdStruct.get()));
+
+    GC_TRY(findCmd(_navComponent.get(), "setRouteClosed", &_setRouteClosedCmd));
+    GC_TRY(expectFieldNum(_setRouteClosedCmd.get(), 2));
+    GC_TRY(expectField(_setRouteClosedCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectField(_setRouteClosedCmd.get(), 1, "isClosed", boolType));
+
+    GC_TRY(findCmd(_navComponent.get(), "setRouteInverted", &_setRouteInvertedCmd));
+    GC_TRY(expectFieldNum(_setRouteInvertedCmd.get(), 2));
+    GC_TRY(expectField(_setRouteInvertedCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectField(_setRouteInvertedCmd.get(), 1, "isInverted", boolType));
+
+    GC_TRY(findCmd(_navComponent.get(), "setRouteActivePoint", &_setRouteActivePointCmd));
+    GC_TRY(expectFieldNum(_setRouteActivePointCmd.get(), 2));
+    GC_TRY(expectField(_setRouteActivePointCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectField(_setRouteActivePointCmd.get(), 1, "pointIndex", _optionalIndexStruct.get()));
 
     GC_TRY(findCmd(_navComponent.get(), "setRoutePoint", &_setRoutePointCmd));
     GC_TRY(expectFieldNum(_setRoutePointCmd.get(), 3));
-    GC_TRY(expectField(_setRoutePointCmd.get(), 0, "routeIndex", usizeType));
-    GC_TRY(expectField(_setRoutePointCmd.get(), 1, "pointIndex", usizeType));
+    GC_TRY(expectField(_setRoutePointCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectField(_setRoutePointCmd.get(), 1, "pointIndex", varuintType));
     GC_TRY(expectField(_setRoutePointCmd.get(), 2, "waypoint", _waypointStruct.get()));
+
+    GC_TRY(findCmd(_navComponent.get(), "getRoutesInfo", &_getRoutesInfoCmd));
+    GC_TRY(expectFieldNum(_getRoutesInfoCmd.get(), 0));
 
     return bmcl::None;
 }
@@ -293,23 +358,69 @@ bool WaypointGcInterface::beginNavCmd(const Function* cmd, Encoder* dest) const
     return dest->writeVarUint(std::distance(_navComponent->cmdsBegin(), it));
 }
 
-bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t index, Encoder* dest) const
+bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t id, Encoder* dest) const
 {
     TRY(beginNavCmd(_beginRouteCmd.get(), dest));
-    return dest->writeUSize(index);
+    return dest->writeVarUint(id);
 }
 
-bool WaypointGcInterface::encodeEndRouteCmd(std::uintmax_t index, Encoder* dest) const
+bool WaypointGcInterface::encodeClearRouteCmd(std::uintmax_t id, Encoder* dest) const
+{
+    TRY(beginNavCmd(_beginRouteCmd.get(), dest));
+    return dest->writeVarUint(id);
+}
+
+bool WaypointGcInterface::encodeEndRouteCmd(std::uintmax_t id, Encoder* dest) const
 {
     TRY(beginNavCmd(_endRouteCmd.get(), dest));
-    return dest->writeUSize(index);
+    return dest->writeVarUint(id);
 }
 
-bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t routeIndex, std::uintmax_t pointIndex, const Waypoint& wp, Encoder* dest) const
+bool WaypointGcInterface::encodeSetActiveRouteCmd(bmcl::Option<uintmax_t> id, Encoder* dest) const
+{
+    TRY(beginNavCmd(_setActiveRouteCmd.get(), dest));
+    if (id.isSome()) {
+        TRY(dest->writeVariantTag(1));
+        return dest->writeVarUint(id.unwrap());
+    }
+    return dest->writeVariantTag(0);
+}
+
+bool WaypointGcInterface::encodeSetRouteActivePointCmd(uintmax_t id, bmcl::Option<uintmax_t> index, Encoder* dest) const
+{
+    TRY(beginNavCmd(_setRouteActivePointCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    if (index.isSome()) {
+        TRY(dest->writeVariantTag(1));
+        return dest->writeVarUint(index.unwrap());
+    }
+    return dest->writeVariantTag(0);
+}
+
+bool WaypointGcInterface::encodeSetRouteInvertedCmd(uintmax_t id, bool flag, Encoder* dest) const
+{
+    TRY(beginNavCmd(_setRouteInvertedCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    return dest->writeBool(flag);
+}
+
+bool WaypointGcInterface::encodeSetRouteClosedCmd(uintmax_t id, bool flag, Encoder* dest) const
+{
+    TRY(beginNavCmd(_setRouteClosedCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    return dest->writeBool(flag);
+}
+
+bool WaypointGcInterface::encodeGetRoutesInfoCmd(Encoder* dest) const
+{
+    return beginNavCmd(_getRoutesInfoCmd.get(), dest);
+}
+
+bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t id, std::uintmax_t pointIndex, const Waypoint& wp, Encoder* dest) const
 {
     TRY(beginNavCmd(_setRoutePointCmd.get(), dest));
-    TRY(dest->writeUSize(routeIndex));
-    TRY(dest->writeUSize(pointIndex));
+    TRY(dest->writeVarUint(id));
+    TRY(dest->writeVarUint(pointIndex));
     TRY(dest->writeF64(wp.position.latLon.latitude));
     TRY(dest->writeF64(wp.position.latLon.longitude));
     TRY(dest->writeF64(wp.position.altitude));
@@ -342,6 +453,45 @@ bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t routeIndex, std:
         TRY(dest->writeVariantTag(5));
         break;
     default:
+        return false;
+    }
+    return true;
+}
+
+bool WaypointGcInterface::decodeGetRoutesInfoResponse(Decoder* src, AllRoutesInfo* dest) const
+{
+    uint64_t size;
+    TRY(src->readDynArraySize(&size));
+    //TODO: check size
+    dest->info.reserve(size);
+    for (uint64_t i = 0; i < size; i++) {
+        dest->info.emplace_back();
+        RouteInfo& info = dest->info.back();
+        TRY(src->readVarUint(&info.id));
+        TRY(src->readVarUint(&info.size));
+        TRY(src->readVarUint(&info.maxSize));
+        int64_t isSome;
+        TRY(src->readVariantTag(&isSome));
+        if (isSome == 0) {
+            info.activePoint = bmcl::None;
+        } else if (isSome == 1) {
+            info.activePoint.emplace();
+            TRY(src->readVarUint(&info.activePoint.unwrap()));
+        } else {
+            return false;
+        }
+        TRY(src->readBool(&info.isClosed));
+        TRY(src->readBool(&info.isInverted));
+        TRY(src->readBool(&info.isEditing));
+    }
+    int64_t isSome;
+    TRY(src->readVariantTag(&isSome));
+    if (isSome == 0) {
+        dest->activeRoute = bmcl::None;
+    } else if (isSome == 1) {
+        dest->activeRoute.emplace();
+        TRY(src->readVarUint(&dest->activeRoute.unwrap()));
+    } else {
         return false;
     }
     return true;

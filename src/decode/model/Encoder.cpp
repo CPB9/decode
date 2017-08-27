@@ -11,6 +11,11 @@ Encoder::~Encoder()
 {
 }
 
+bool Encoder::writeBool(bool value)
+{
+    return writeU8(value);
+}
+
 bool Encoder::writeU8(uint8_t value)
 {
     if (_writer.writableSize() < 1) {
@@ -125,6 +130,11 @@ bool Encoder::writeVarInt(std::int64_t value)
     return _writer.writeVarInt(value);
 }
 
+bool Encoder::writeDynArraySize(std::uint64_t value)
+{
+    return _writer.writeVarUint(value);
+}
+
 bool Encoder::writeEnumTag(std::int64_t value)
 {
     return _writer.writeVarInt(value);
@@ -133,11 +143,6 @@ bool Encoder::writeEnumTag(std::int64_t value)
 bool Encoder::writeVariantTag(std::int64_t value)
 {
     return _writer.writeVarInt(value);
-}
-
-bool Encoder::writeDynArraySize(std::uint64_t value)
-{
-    return _writer.writeVarUint(value);
 }
 
 bmcl::Bytes Encoder::writenData() const
