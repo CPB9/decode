@@ -70,14 +70,26 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     _output->appendUpper(comp->name());
     _output->append("_COMPONENT_ID ");
     _output->appendNumericValue(comp->number());
-    //for (const Function* func : comp->cmdsRange()) {
-    //    _output->append("#define PHOTON_");
-    //    _output->appendUpper(comp->name());
-    //    _output->append("_CMD_");
-    //    _output->append("_ID ");
-    //    _output->appendNumericValue(func->number());
-    //}
-    _output->append("\n\n");
+    _output->appendEol();
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        _output->append("#define PHOTON_");
+        _output->appendUpper(comp->name());
+        _output->append("_STATUS_");
+        _output->appendUpper(msg->name());
+        _output->append("_ID ");
+        _output->appendNumericValue(msg->number());
+        _output->appendEol();
+    }
+    for (const Command* func : comp->cmdsRange()) {
+        _output->append("#define PHOTON_");
+        _output->appendUpper(comp->name());
+        _output->append("_CMD_");
+        _output->appendUpper(func->name());
+        _output->append("_ID ");
+        _output->appendNumericValue(func->number());
+        _output->appendEol();
+    }
+    _output->appendEol();
 
     appendIncludesAndFwds(comp);
     appendCommonIncludePaths();

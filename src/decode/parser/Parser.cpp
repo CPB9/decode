@@ -622,7 +622,8 @@ Rc<CfgOption> Parser::parseCfgOption()
     return opt;
 }
 
-Rc<Function> Parser::parseFunction(bool selfAllowed)
+template <typename T>
+Rc<T> Parser::parseFunction(bool selfAllowed)
 {
     TRY(expectCurrentToken(TokenKind::Fn));
     TRY(consumeAndExpectCurrentToken(TokenKind::Blank, "missing blanks after fn declaration"));
@@ -703,7 +704,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
     //TODO: skip past end of line
 
     _ast->addType(fnType.get());
-    return new Function(name, fnType.get());
+    return new T(name, fnType.get());
 }
 
 bool Parser::parseImplBlock()
@@ -723,7 +724,7 @@ bool Parser::parseImplBlock()
     clearUnusedDocComments();
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
         Rc<DocBlock> docs = createDocsFromComments();
-        Rc<Function> fn = parseFunction();
+        Rc<Function> fn = parseFunction<Function>();
         if (!fn) {
             return false;
         }
@@ -1260,11 +1261,12 @@ bool Parser::parseCommands(Component* parent)
     }
     TRY(parseNamelessTag(TokenKind::Commands, TokenKind::Eol, parent, [this](Component* comp) {
         Rc<DocBlock> docs = createDocsFromComments();
-        Rc<Function> fn = parseFunction(false);
+        Rc<Command> fn = parseFunction<Command>(false);
         if (!fn) {
             return false;
         }
         fn->setDocs(docs.get());
+        fn->setNumber(comp->cmdsRange().size());
         comp->addCommand(fn.get());
         clearUnusedDocComments();
         return true;
@@ -1282,7 +1284,7 @@ bool Parser::parseComponentImpl(Component* parent)
     Rc<ImplBlock> impl = new ImplBlock;
     TRY(parseNamelessTag(TokenKind::Impl, TokenKind::Eol, impl.get(), [this](ImplBlock* impl) {
         Rc<DocBlock> docs = createDocsFromComments();
-        Rc<Function> fn = parseFunction(false);
+        Rc<Function> fn = parseFunction<Function>(false);
         if (!fn) {
             return false;
         }
@@ -1329,10 +1331,10 @@ bool Parser::parseStatuses(Component* parent)
         consumeAndSkipBlanks();
 
         Token numToken = _currentToken;
-        uintmax_t num;
-        TRY(parseUnsignedInteger(&num));
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        bmcl::StringView name = _currentToken.value();
+        consumeAndSkipBlanks();
 
-        skipBlanks();
         TRY(expectCurrentToken(TokenKind::Comma));
         consumeAndSkipBlanks();
 
@@ -1358,10 +1360,10 @@ bool Parser::parseStatuses(Component* parent)
         consumeAndSkipBlanks();
         TRY(expectCurrentToken(TokenKind::RBracket));
 
-        StatusMsg* msg = new StatusMsg(num, prio, isEnabled);
-        bool isOk = comp->addStatus(num, msg);
+        StatusMsg* msg = new StatusMsg(name, prio, isEnabled);
+        bool isOk = comp->addStatus(msg);
         if (!isOk) {
-            std::string msg =  "status with id " + std::to_string(num) + " already defined";
+            std::string msg =  "status with name " + name.toStdString() + " already defined";
             reportTokenError(&numToken, msg.c_str());
             return false;
         }

@@ -39,4 +39,20 @@ public:
 private:
     Rc<FunctionType> _type;
 };
+
+//TODO: move
+class Command : public Function {
+public:
+    using Pointer = Rc<Command>;
+    using ConstPointer = Rc<const Command>;
+
+    Command(bmcl::StringView name, FunctionType* type);
+    ~Command();
+
+    std::uintmax_t number() const;
+    void setNumber(std::uintmax_t num);
+
+private:
+    std::uintmax_t _number;
+};
 }

@@ -11,6 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/NamedRc.h"
+#include "decode/core/Hash.h"
 #include "decode/ast/DocBlockMixin.h"
 #include "decode/parser/Containers.h"
 
@@ -22,6 +23,7 @@ namespace decode {
 
 class ImplBlock;
 class Function;
+class Command;
 class FunctionType;
 class Field;
 class Type;
@@ -132,7 +134,7 @@ public:
     using ConstPointer = Rc<const StatusMsg>;
     using Parts = RcVec<StatusRegexp>;
 
-    StatusMsg(std::size_t num, std::size_t priority, bool isEnabled);
+    StatusMsg(bmcl::StringView name, std::size_t priority, bool isEnabled);
     ~StatusMsg();
 
     Parts::Iterator partsBegin();
@@ -141,16 +143,19 @@ public:
     Parts::ConstIterator partsBegin() const;
     Parts::ConstIterator partsEnd() const;
     Parts::ConstRange partsRange() const;
+    bmcl::StringView name() const;
     std::size_t number() const;
     std::size_t priority() const;
     bool isEnabled() const;
 
+    void setNumber(std::size_t num);
     void addPart(StatusRegexp* part);
 
 private:
     Parts _parts;
     std::size_t _number;
     std::size_t _priority;
+    bmcl::StringView _name;
     bool _isEnabled;
 };
 
@@ -158,9 +163,9 @@ class Component : public RefCountable {
 public:
     using Pointer = Rc<Component>;
     using ConstPointer = Rc<const Component>;
-    using Cmds = RcVec<Function>;
+    using Cmds = RcVec<Command>;
     using Params = FieldVec;
-    using Statuses = RcSecondUnorderedMap<std::size_t, StatusMsg>;
+    using Statuses = RcSecondUnorderedMap<bmcl::StringView, StatusMsg>;
 
     Component(std::size_t compNum, const ModuleInfo* info);
     ~Component();
@@ -194,8 +199,8 @@ public:
     bmcl::OptionPtr<Field> paramWithName(bmcl::StringView name);
 
     void addParam(Field* param);
-    void addCommand(Function* func);
-    bool addStatus(std::uintmax_t n, StatusMsg* msg);
+    void addCommand(Command* func);
+    bool addStatus(StatusMsg* msg);
     void setImplBlock(ImplBlock* block);
     void setNumber(std::size_t number);
 

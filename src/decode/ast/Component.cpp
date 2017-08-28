@@ -183,9 +183,10 @@ void StatusRegexp::addAccessor(Accessor* acc)
     _accessors.emplace_back(acc);
 }
 
-StatusMsg::StatusMsg(std::size_t num, std::size_t priority, bool isEnabled)
-    : _number(num)
+StatusMsg::StatusMsg(bmcl::StringView name, std::size_t priority, bool isEnabled)
+    : _number(0)
     , _priority(priority)
+    , _name(name)
     , _isEnabled(isEnabled)
 {
 }
@@ -224,6 +225,11 @@ StatusMsg::Parts::ConstRange StatusMsg::partsRange() const
     return _parts;
 }
 
+bmcl::StringView StatusMsg::name() const
+{
+    return _name;
+}
+
 std::size_t StatusMsg::number() const
 {
     return _number;
@@ -237,6 +243,11 @@ std::size_t StatusMsg::priority() const
 bool StatusMsg::isEnabled() const
 {
     return _isEnabled;
+}
+
+void StatusMsg::setNumber(std::size_t num)
+{
+    _number = num;
 }
 
 void StatusMsg::addPart(StatusRegexp* part)
@@ -394,14 +405,15 @@ void Component::addParam(Field* param)
     _params.emplace_back(param);
 }
 
-void Component::addCommand(Function* func)
+void Component::addCommand(Command* func)
 {
     _cmds.emplace_back(func);
 }
 
-bool Component::addStatus(std::uintmax_t n, StatusMsg* msg)
+bool Component::addStatus(StatusMsg* msg)
 {
-    auto it = _statuses.emplace(std::piecewise_construct, std::forward_as_tuple(n), std::forward_as_tuple(msg));
+    msg->setNumber(_statuses.size());
+    auto it = _statuses.emplace(std::piecewise_construct, std::forward_as_tuple(msg->name()), std::forward_as_tuple(msg));
     return it.second;
 }
 

@@ -35,4 +35,24 @@ const Field* Function::fieldAt(std::size_t index) const
 Function::~Function()
 {
 }
+
+Command::Command(bmcl::StringView name, FunctionType* type)
+    : Function(name, type)
+    , _number(0)
+{
+}
+
+Command::~Command()
+{
+}
+
+std::uintmax_t Command::number() const
+{
+    return _number;
+}
+
+void Command::setNumber(std::uintmax_t num)
+{
+    _number = num;
+}
 }

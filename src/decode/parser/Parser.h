@@ -122,7 +122,8 @@ private:
     bool parseVariantField(VariantType* parent);
     bool parseComponentField(Component* parent);
 
-    Rc<Function> parseFunction(bool selfAllowed = true);
+    template <typename T>
+    Rc<T> parseFunction(bool selfAllowed = true);
 
     Rc<Type> parseType();
     Rc<Type> parseFunctionPointer();
