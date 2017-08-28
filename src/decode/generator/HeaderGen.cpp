@@ -65,6 +65,20 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     startIncludeGuard(comp);
     _output->appendLocalIncludePath("Config");
     _output->appendEol();
+
+    _output->append("#define PHOTON_");
+    _output->appendUpper(comp->name());
+    _output->append("_COMPONENT_ID ");
+    _output->appendNumericValue(comp->number());
+    //for (const Function* func : comp->cmdsRange()) {
+    //    _output->append("#define PHOTON_");
+    //    _output->appendUpper(comp->name());
+    //    _output->append("_CMD_");
+    //    _output->append("_ID ");
+    //    _output->appendNumericValue(func->number());
+    //}
+    _output->append("\n\n");
+
     appendIncludesAndFwds(comp);
     appendCommonIncludePaths();
     _typeDefGen.genComponentDef(comp);
@@ -75,6 +89,7 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append(";\n\n");
     }
+
     appendImplBlockIncludes(comp);
     _output->startCppGuard();
     appendFunctionPrototypes(comp);
