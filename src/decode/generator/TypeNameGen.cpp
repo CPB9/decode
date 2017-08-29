@@ -58,6 +58,8 @@ static bmcl::StringView builtinToName(const BuiltinType* type)
         return "Bool";
     case BuiltinTypeKind::Void:
         return "Void";
+    case BuiltinTypeKind::Char:
+        return "Char";
     }
 
     return nullptr;

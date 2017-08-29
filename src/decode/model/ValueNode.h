@@ -239,6 +239,30 @@ protected:
     NonContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 };
 
+class StringValueNode : public NonContainerValueNode {
+public:
+    StringValueNode(const DynArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
+    ~StringValueNode();
+
+    void collectUpdates(NodeViewUpdater* dest) override;
+
+    bool encode(bmcl::MemWriter* dest) const override;
+    bool decode(bmcl::MemReader* src) override;
+
+    bool isInitialized() const override;
+    Value value() const override;
+
+    ValueKind valueKind() const override;
+    bool setValue(const Value& value) override;
+
+    const Type * type() const override;
+
+private:
+    Rc<const DynArrayType> _type;
+    bmcl::Option<std::string> _value;
+    bool _hasChanged;
+};
+
 class AddressValueNode : public NonContainerValueNode {
 public:
     using Pointer = Rc<AddressValueNode>;

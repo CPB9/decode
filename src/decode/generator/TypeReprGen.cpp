@@ -58,6 +58,8 @@ static bmcl::StringView builtinToC(const BuiltinType* type)
         return "bool";
     case BuiltinTypeKind::Void:
         return "void";
+    case BuiltinTypeKind::Char:
+        return "char";
     }
     return nullptr;
 }

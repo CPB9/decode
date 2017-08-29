@@ -225,6 +225,9 @@ bool InlineTypeInspector<B>::visitBuiltinType(const BuiltinType* type)
     case BuiltinTypeKind::Bool:
         base().genSizedSer("sizeof(uint8_t)", "U8");
         break;
+    case BuiltinTypeKind::Char:
+        base().genSizedSer("sizeof(char)", "Char");
+        break;
     case BuiltinTypeKind::Varuint:
         base().genVarSer("Varuint");
         break;

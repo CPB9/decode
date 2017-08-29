@@ -112,6 +112,9 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         case BuiltinTypeKind::Void:
             dest->append("void");
             return;
+        case BuiltinTypeKind::Char:
+            dest->append("char");
+            return;
         }
         assert(false);
         break;

@@ -54,6 +54,7 @@ enum class BuiltinTypeKind {
     F64,
     Bool,
     Void,
+    Char,
 };
 
 enum class ReferenceKind {
@@ -123,6 +124,7 @@ public:
     bool isVariant() const;
     bool isEnum() const;
     bool isReference() const;
+    bool isBuiltinChar() const;
 
     bool equals(const Type* other) const;
 

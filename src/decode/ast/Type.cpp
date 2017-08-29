@@ -75,6 +75,14 @@ bool Type::isReference() const
     return _typeKind == TypeKind::Reference;
 }
 
+bool Type::isBuiltinChar() const
+{
+    if (isBuiltin()) {
+        return asBuiltin()->builtinTypeKind() == BuiltinTypeKind::Char;
+    }
+    return false;
+}
+
 TypeKind Type::typeKind() const
 {
     return _typeKind;

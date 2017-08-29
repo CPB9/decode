@@ -94,6 +94,9 @@ bool TypeDefGen::visitDynArrayType(const DynArrayType* type)
     _typeReprGen->genTypeRepr(type->elementType());
     _output->append(" data[");
     _output->appendNumericValue(type->maxSize());
+    if (type->elementType()->isBuiltinChar()) {
+        _output->append(" + 1");
+    }
     _output->append("];\n");
 
     _output->appendIndent(1);

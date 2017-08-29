@@ -49,6 +49,17 @@ inline double letoh(double value)
 #else
 # error TODO: implement for big endian
 #endif
+template <>
+inline char htole(char value)
+{
+    return value;
+}
+
+template <>
+inline char letoh(char value)
+{
+    return value;
+}
 }
 
 namespace decode {
@@ -155,6 +166,8 @@ static Rc<BuiltinValueNode> builtinNodeFromType(const BuiltinType* type, const V
     case BuiltinTypeKind::Void:
         assert(false);
         return nullptr;
+    case BuiltinTypeKind::Char:
+        return new NumericValueNode<char>(type, cache, parent);
     }
     assert(false);
     return nullptr;
@@ -169,8 +182,15 @@ static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* 
         return new ReferenceValueNode(type->asReference(), cache, parent);
     case TypeKind::Array:
         return new ArrayValueNode(type->asArray(), cache, parent);
-    case TypeKind::DynArray:
-        return new DynArrayValueNode(type->asDynArray(), cache, parent);
+    case TypeKind::DynArray: {
+        const DynArrayType* dynArray = type->asDynArray();
+        if (dynArray->elementType()->isBuiltin()) {
+            if (dynArray->elementType()->asBuiltin()->builtinTypeKind() == BuiltinTypeKind::Char) {
+                return new StringValueNode(dynArray, cache, parent);
+            }
+        }
+        return new DynArrayValueNode(dynArray, cache, parent);
+    }
     case TypeKind::Function:
         return new FunctionValueNode(type->asFunction(), cache, parent);
     case TypeKind::Enum:
@@ -576,6 +596,109 @@ bool NonContainerValueNode::canHaveChildren() const
 bool NonContainerValueNode::canSetValue() const
 {
     return true;
+}
+
+StringValueNode::StringValueNode(const DynArrayType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+    : NonContainerValueNode(cache, parent)
+    , _type(type)
+    , _hasChanged(false)
+{
+    assert(type->elementType()->isBuiltin());
+    assert(type->elementType()->asBuiltin()->builtinTypeKind() == BuiltinTypeKind::Char);
+}
+
+StringValueNode::~StringValueNode()
+{
+}
+
+const Type* StringValueNode::type() const
+{
+    return _type.get();
+}
+
+void StringValueNode::collectUpdates(NodeViewUpdater* dest)
+{
+    if (_hasChanged) {
+        dest->addValueUpdate(value(), this);
+        _hasChanged = false;
+    }
+}
+
+bool StringValueNode::encode(bmcl::MemWriter* dest) const
+{
+    if (_value.isNone()) {
+        //TODO: report error
+        return false;
+    }
+    if (!dest->writeVarUint(_value->size())) {
+        //TODO: report error
+        return false;
+    }
+    if (dest->sizeLeft() < _value->size()) {
+        //TODO: report error
+        return false;
+    }
+    dest->write(_value->data(), _value->size());
+    return true;
+}
+
+bool StringValueNode::decode(bmcl::MemReader* src)
+{
+    uint64_t size;
+    if (!src->readVarUint(&size)) {
+        //TODO: report error
+        return false;
+    }
+    if (src->sizeLeft() < size) {
+        //TODO: report error
+        return false;
+    }
+    if (_value.isNone()) {
+        _value.emplace();
+    }
+    _value->assign((const char*)src->current(), size);
+    src->skip(size);
+    return true;
+}
+
+bool StringValueNode::isInitialized() const
+{
+    return _value.isSome();
+}
+
+Value StringValueNode::value() const
+{
+    if (_value.isSome()) {
+        return Value::makeString(_value.unwrap());
+    }
+    return Value::makeUninitialized();
+}
+
+ValueKind StringValueNode::valueKind() const
+{
+    return ValueKind::String;
+}
+
+bool StringValueNode::setValue(const Value& value)
+{
+    if (value.kind() == ValueKind::String) {
+        _hasChanged = true;
+        if (value.asString().size() > _type->maxSize()) {
+            //TODO: report error
+            return false;
+        }
+        _value.emplace(value.asString());
+        return true;
+    } else if (value.kind() == ValueKind::StringView) {
+        _hasChanged = true;
+        if (value.asStringView().size() > _type->maxSize()) {
+            //TODO: report error
+            return false;
+        }
+        _value.emplace(value.asStringView().toStdString());
+        return true;
+    }
+    return false;
 }
 
 AddressValueNode::AddressValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)

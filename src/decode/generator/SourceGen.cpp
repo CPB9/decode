@@ -284,8 +284,9 @@ void SourceGen::appendDynArraySerializer(const DynArrayType* type)
     _output->append("    if (self->size > ");
     _output->appendNumericValue(type->maxSize());
     _output->append(") {\n        return PhotonError_InvalidValue;\n    }\n");
+    _output->append("    ");
     _output->appendWithTryMacro([](SrcBuilder* output) {
-        output->append("    PhotonWriter_WriteVaruint(dest, self->size)");
+        output->append("PhotonWriter_WriteVaruint(dest, self->size)");
     });
     _output->appendLoopHeader(ctx, "self->size");
     InlineSerContext lctx = ctx.indent();
@@ -309,8 +310,10 @@ void SourceGen::appendDynArrayDeserializer(const DynArrayType* type)
     InlineSerContext lctx = ctx.indent();
     _inlineDeser.inspect(type->elementType(), lctx, "self->data[a]");
     _output->append("    }\n");
-    _output->appendIndent(1);
-    _output->append("self->size = size;\n");
+    if (type->elementType()->isBuiltinChar()) {
+        _output->append("    self->data[size] = '\\0';\n");
+    }
+    _output->append("    self->size = size;\n");
 }
 
 template <typename T, typename F>

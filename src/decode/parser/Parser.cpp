@@ -63,6 +63,7 @@ struct AllBuiltinTypes : public RefCountable {
     Rc<BuiltinType> i64Type;
     Rc<BuiltinType> boolType;
     Rc<BuiltinType> voidType;
+    Rc<BuiltinType> charType;
     HashMap<bmcl::StringView, Rc<BuiltinType>> btMap;
 };
 
@@ -86,6 +87,7 @@ Parser::Parser(Diagnostics* diag)
     ADD_BUILTIN(i64Type, F64, "f64");
     ADD_BUILTIN(boolType, Bool, "bool");
     ADD_BUILTIN(voidType, Void, "void");
+    ADD_BUILTIN(charType, Char, "char");
 }
 
 Parser::~Parser()
