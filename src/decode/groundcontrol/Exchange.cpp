@@ -232,6 +232,19 @@ bool Exchange::handlePayload(bmcl::Bytes data)
     return false;
 }
 
+void Exchange::handleReceipt(const PacketHeader& header, ReceiptType type, bmcl::Bytes payload, StreamState* state, QueuedPacket* packet)
+{
+    PacketResponse resp;
+    resp.type = type;
+    resp.counter = header.counter;
+    resp.tickTime = header.tickTime;
+    resp.payload = bmcl::SharedBytes::create(payload);
+    packet->promise.deliver(resp);
+    state->queue.pop_front();
+    state->currentReliableUplinkCounter++;
+    checkQueue(state);
+}
+
 bool Exchange::acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, StreamState* state)
 {
     bmcl::MemReader reader(payload);
@@ -250,14 +263,8 @@ bool Exchange::acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, St
     switch (receiptType) {
     case 0: { //ok
         if (packet.counter == header.counter) {
-            PacketResponse resp;
-            resp.counter = header.counter;
-            resp.tickTime = header.tickTime;
-            resp.payload = bmcl::SharedBytes::create(reader.current(), reader.sizeLeft());
-            packet.promise.deliver(resp);
-            state->queue.pop_front();
+            handleReceipt(header, ReceiptType::Ok, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
             state->currentReliableUplinkCounter++;
-            checkQueue(state);
             return true;
         } else {
             reportError("recieved receipt, but no packets with proper counter queued");
@@ -266,10 +273,24 @@ bool Exchange::acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, St
         break;
     }
     case 1: //TODO: packet error
-        reportError("packet error");
+        if (packet.counter == header.counter) {
+            handleReceipt(header, ReceiptType::PacketError, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
+            reportError("packet error");
+            return true;
+        } else {
+            reportError("recieved receipt, but no packets with proper counter queued");
+            return false;
+        }
         break;
     case 2: //TODO: payload error
-        reportError("payload error");
+        if (packet.counter == header.counter) {
+            handleReceipt(header, ReceiptType::PacketError, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
+            reportError("payload error");
+            return true;
+        } else {
+            reportError("recieved receipt, but no packets with proper counter queued");
+            return false;
+        }
         break;
     case 3: { //counter correction
         if (reader.readableSize() < 2) {

@@ -287,8 +287,9 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     _navComponent = _navModule->component().unwrap();
     //const BuiltinType* usizeType = _coreIface->usizeType();
     GC_TRY(findCmd(_navComponent.get(), "beginRoute", &_beginRouteCmd));
-    GC_TRY(expectFieldNum(_beginRouteCmd.get(), 1));
+    GC_TRY(expectFieldNum(_beginRouteCmd.get(), 2));
     GC_TRY(expectField(_beginRouteCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectField(_beginRouteCmd.get(), 1, "size", varuintType));
 
     GC_TRY(findCmd(_navComponent.get(), "endRoute", &_endRouteCmd));
     GC_TRY(expectFieldNum(_endRouteCmd.get(), 1));
@@ -358,10 +359,11 @@ bool WaypointGcInterface::beginNavCmd(const Function* cmd, Encoder* dest) const
     return dest->writeVarUint(std::distance(_navComponent->cmdsBegin(), it));
 }
 
-bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t id, Encoder* dest) const
+bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t id, std::uintmax_t size, Encoder* dest) const
 {
     TRY(beginNavCmd(_beginRouteCmd.get(), dest));
-    return dest->writeVarUint(id);
+    TRY(dest->writeVarUint(id));
+    return dest->writeVarUint(size);
 }
 
 bool WaypointGcInterface::encodeClearRouteCmd(std::uintmax_t id, Encoder* dest) const

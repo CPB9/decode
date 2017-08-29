@@ -42,6 +42,7 @@ struct PacketHeader {
 };
 
 struct PacketResponse {
+    ReceiptType type;
     bmcl::SharedBytes payload;
     uint64_t tickTime;
     uint16_t counter;

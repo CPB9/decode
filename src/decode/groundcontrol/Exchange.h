@@ -94,6 +94,8 @@ private:
     bool acceptPacket(const PacketHeader& header, bmcl::Bytes payload, StreamState* state);
     bool acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, StreamState* state);
 
+    void handleReceipt(const PacketHeader& header, ReceiptType type, bmcl::Bytes payload, StreamState* state, QueuedPacket* packet);
+
     StreamState _fwtStream;
     StreamState _cmdTmStream;
     StreamState _userStream;

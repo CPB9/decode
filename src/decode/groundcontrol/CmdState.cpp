@@ -97,7 +97,13 @@ protected:
             return;
         }
         request(_exchange, caf::infinite, SendReliablePacketAtom::value, rv.unwrap()).then([=](const PacketResponse& resp) {
-            (actor->*next)(resp);
+            if (resp.type == ReceiptType::Ok) {
+                (actor->*next)(resp);
+                return;
+            }
+            BMCL_CRITICAL() << "could not deliver packet";
+            _promise.deliver(caf::sec::invalid_argument);
+            quit();
         },
         [=](const caf::error& err) {
             BMCL_CRITICAL() << err.code();
@@ -132,7 +138,7 @@ public:
 
     bool encodeBeginRoute(Encoder* dest) const
     {
-        return _iface->encodeBeginRouteCmd(_routeIndex, dest);
+        return _iface->encodeBeginRouteCmd(_routeIndex, _route.waypoints.size(), dest);
     }
 
     bool encodeClearRoute(Encoder* dest) const

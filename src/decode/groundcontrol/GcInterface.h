@@ -57,7 +57,7 @@ public:
 
     static GcInterfaceResult<WaypointGcInterface> create(const Device* dev, const CoreGcInterface* coreIface);
 
-    bool encodeBeginRouteCmd(std::uintmax_t id, Encoder* dest) const;
+    bool encodeBeginRouteCmd(std::uintmax_t id, std::uintmax_t size, Encoder* dest) const;
     bool encodeEndRouteCmd(std::uintmax_t id, Encoder* dest) const;
     bool encodeClearRouteCmd(std::uintmax_t id, Encoder* dest) const;
     bool encodeSetRoutePointCmd(std::uintmax_t id, std::uintmax_t pointIndex, const Waypoint& wp, Encoder* dest) const;
