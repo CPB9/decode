@@ -108,13 +108,13 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
             appendEncoderPrototype(it, jt);
             _output->append("\n{\n");
 
-            _output->append("    PHOTON_TRY(PhotonWriter_WriteVaruint(dest, ");
+            _output->append("    PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
             _output->appendNumericValue(it->number());
-            _output->append("));\n");
+            _output->append("), \"Failed to write component number\");\n");
 
-            _output->append("    PHOTON_TRY(PhotonWriter_WriteVaruint(dest, ");
+            _output->append("    PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
             _output->appendNumericValue(funcNum);
-            _output->append("));\n");
+            _output->append("), \"Failed to write cmd number\");\n");
 
             for (const Field* arg : jt->type()->argumentsRange()) {
                 _inlineSer.inspect(arg->type(), ctx, arg->name());

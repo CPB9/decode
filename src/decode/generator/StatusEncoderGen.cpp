@@ -61,7 +61,7 @@ void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
     HashSet<std::string> includes;
     HashSet<Rc<Component>> comps;
 
-    for (const char* inc : {"core/Writer", "core/Error", "core/Try"}) {
+    for (const char* inc : {"core/Writer", "core/Error", "core/Try", "core/Logging"}) {
         _output->appendLocalIncludePath(inc);
     }
     for (const ComponentAndMsg& msg : messages) {
@@ -86,6 +86,7 @@ void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
         includes.clear();
     }
     _output->appendEol();
+    _output->append("#define _PHOTON_FNAME \"StatusEncoder.Private.c\"\n\n");
 
     std::size_t n = 0;
     for (const ComponentAndMsg& msg : messages) {
@@ -101,6 +102,7 @@ void StatusEncoderGen::generateSource(CompAndMsgVecConstRange messages)
         _output->appendEol();
         n++;
     }
+    _output->append("#undef _PHOTON_FNAME\n");
 }
 
 void StatusEncoderGen::appendInlineSerializer(const Component* comp, const StatusRegexp* part)
@@ -129,9 +131,9 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
             const Type* type = sacc->type();
             if (type->isDynArray()) {
                 _output->appendIndent(ctx);
-                _output->append("PHOTON_TRY(PhotonWriter_WriteVaruint(dest, ");
+                _output->append("PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
                 _output->append(currentField.view());
-                _output->append(".size));\n");
+                _output->append(".size), \"Failed to write dynarray size\");\n");
             }
             //TODO: add bounds checking for dynArrays
             if (type->isDynArray()) {

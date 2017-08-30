@@ -41,6 +41,7 @@ public:
     void appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize);
     void appendLoopHeader(const InlineSerContext& ctx, bmcl::StringView loopSize);
     void appendWithTryMacro(const SrcGen& func);
+    void appendWithTryMacro(const SrcGen& func, bmcl::StringView msg);
     void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = bmcl::StringView::empty());
     void appendLocalIncludePath(bmcl::StringView path);
     void appendTagHeader(bmcl::StringView name);

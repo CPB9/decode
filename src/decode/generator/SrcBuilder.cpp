@@ -69,6 +69,8 @@ void SrcBuilder::appendReadableSizeCheck(const InlineSerContext& ctx, bmcl::Stri
     append(sizeCheck);
     append(") {\n");
     appendIndent(ctx);
+    append("    PHOTON_CRITICAL(\"Not enough data to deserialize\");\n");
+    appendIndent(ctx);
     append("    return PhotonError_NotEnoughData;\n");
     appendIndent(ctx);
     append("}\n");
@@ -80,6 +82,8 @@ void SrcBuilder::appendWritableSizeCheck(const InlineSerContext& ctx, bmcl::Stri
     append("if (PhotonWriter_WritableSize(dest) < ");
     append(sizeCheck);
     append(") {\n");
+    appendIndent(ctx);
+    append("    PHOTON_DEBUG(\"Not enough space to serialize\");\n");
     appendIndent(ctx);
     append("    return PhotonError_NotEnoughSpace;\n");
     appendIndent(ctx);
@@ -131,6 +135,15 @@ void SrcBuilder::appendWithTryMacro(const SrcGen& func)
     append("PHOTON_TRY(");
     func(this);
     append(");\n");
+}
+
+void SrcBuilder::appendWithTryMacro(const SrcGen& func, bmcl::StringView msg)
+{
+    append("PHOTON_TRY_MSG(");
+    func(this);
+    append(", \"");
+    append(msg);
+    append("\");\n");
 }
 
 void SrcBuilder::appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix)

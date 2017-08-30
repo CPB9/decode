@@ -65,7 +65,9 @@ void CmdDecoderGen::appendFunctionName(unsigned componenNum, unsigned cmdNum)
 void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 {
     _output->appendLocalIncludePath("CmdDecoder.Private");
+    _output->appendLocalIncludePath("core/Logging");
     _output->appendEol();
+    _output->append("#define _PHOTON_FNAME \"CmdDecoder.Private.c\"\n\n");
 
     for (const Component* it : comps) {
         _output->appendModIfdef(it->moduleName());
@@ -96,6 +98,7 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
     }
 
     generateMainFunc(comps);
+    _output->append("\n#undef _PHOTON_FNAME\n");
 }
 
 void CmdDecoderGen::appendMainFunctionPrototype()
@@ -132,11 +135,13 @@ void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
             cmdNum++;
         }
         _output->append("        default:\n");
+        _output->append("            PHOTON_CRITICAL(\"Recieved invalid cmd id\");\n");
         _output->append("            return PhotonError_InvalidCmdId;\n");
         _output->append("        }\n    }\n");
         _output->appendEndif();
     }
-    _output->append("    }\n    return PhotonError_InvalidComponentId;\n}");
+    _output->append("    }\n    PHOTON_CRITICAL(\"Recieved invalid component id\");\n");
+    _output->append("    return PhotonError_InvalidComponentId;\n}");
 }
 
 template <typename C>
@@ -235,7 +240,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     _output->appendEol();
 
     //TODO: gen command call
-    _output->append("    PHOTON_TRY(Photon");
+    _output->append("    PHOTON_TRY_MSG(Photon");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->append("_");
     _output->appendWithFirstUpper(func->name());
@@ -252,7 +257,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     } else if (ftype->hasArguments()) {
         _output->removeFromBack(2);
     }
-    _output->append("));\n\n");
+    _output->append("), \"Failed to decode cmd\");\n\n");
 
     if (rv.isSome()) {
         _inlineSer.inspect(rv.unwrap(), ctx, "_rv");
