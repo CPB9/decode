@@ -7,9 +7,11 @@
 #include "decode/model/CmdModel.h"
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/Encoder.h"
+#include "decode/model/Decoder.h"
 #include "decode/groundcontrol/GcInterface.h"
 #include "decode/groundcontrol/Packet.h"
 #include "decode/groundcontrol/GcCmd.h"
+#include "decode/groundcontrol/TmParamUpdate.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/MemWriter.h>
@@ -18,6 +20,7 @@
 #include <caf/sec.hpp>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::TmParamUpdate);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketResponse);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::GcCmd);
@@ -315,6 +318,121 @@ private:
     SetRouteClosedGcCmd _cmd;
 };
 
+class DownloadRouteInfoActor : public OneActionNavActor {
+public:
+    DownloadRouteInfoActor(caf::actor_config& cfg,
+                           caf::actor exchange,
+                           const WaypointGcInterface* iface,
+                           const caf::response_promise& promise,
+                           caf::actor handler)
+        : OneActionNavActor(cfg, exchange, iface, promise)
+        , _handler(handler)
+    {
+    }
+
+    bool encode(Encoder* dest) const override
+    {
+        return _iface->encodeGetRoutesInfoCmd(dest);
+    }
+
+    void end(const PacketResponse& resp) override
+    {
+        Decoder dec(resp.payload.view());
+        AllRoutesInfo info;
+        if (!_iface->decodeGetRoutesInfoResponse(&dec, &info)) {
+            _promise.deliver(caf::sec::invalid_argument);
+        } else {
+            send(_handler, UpdateTmParams::value, TmParamUpdate(std::move(info)));
+            _promise.deliver(caf::none);
+        }
+        quit();
+    }
+
+private:
+    caf::actor _handler;
+};
+
+using SendGetInfoAtom       = caf::atom_constant<caf::atom("sendgein")>;
+using SendGetNextPointAtom  = caf::atom_constant<caf::atom("sendgenp")>;
+
+class DownloadRouteActor : public NavActorBase {
+public:
+    DownloadRouteActor(caf::actor_config& cfg,
+                       caf::actor exchange,
+                       const WaypointGcInterface* iface,
+                       const caf::response_promise& promise,
+                       DownloadRouteGcCmd&& cmd,
+                       caf::actor handler)
+        : NavActorBase(cfg, exchange, iface, promise)
+        , _currentIndex(0)
+        , _handler(handler)
+    {
+        _route.id = cmd.id;
+    }
+
+    bool encodeGetInfo(Encoder* dest) const
+    {
+        return _iface->encodeGetRouteInfoCmd(_route.id, dest);
+    }
+
+    bool encodeGetRoutePoint(Encoder* dest) const
+    {
+        return _iface->encodeGetRouteInfoCmd(_route.id, dest);
+    }
+
+    void unpackInfoAndSendGetPoint(const PacketResponse& resp)
+    {
+        Decoder dec(resp.payload.view());
+        if (!_iface->decodeGetRouteInfoResponse(&dec, &_route.route.info)) {
+            _promise.deliver(caf::sec::invalid_argument);
+            return;
+        }
+        send(this, SendGetNextPointAtom::value);
+    }
+
+    void unpackPointAndSendGetPoint(const PacketResponse& resp)
+    {
+        Decoder dec(resp.payload.view());
+        Waypoint point;
+        if (!_iface->decodeGetRoutePointResponse(&dec, &point)) {
+            _promise.deliver(caf::sec::invalid_argument);
+            return;
+        }
+        _route.route.waypoints.push_back(point);
+        _currentIndex++;
+        send(this, SendGetNextPointAtom::value);
+    }
+
+    void endDownload()
+    {
+        _promise.deliver(caf::none);
+        send(_handler, UpdateTmParams::value, TmParamUpdate(std::move(_route)));
+        quit();
+    }
+
+    caf::behavior make_behavior() override
+    {
+        send(this, SendGetInfoAtom::value);
+        return caf::behavior{
+            [this](SendGetNextPointAtom) {
+                if (_currentIndex >= _route.route.info.size) {
+                    endDownload();
+                    return;
+                }
+                action(this, &DownloadRouteActor::encodeGetRoutePoint, &DownloadRouteActor::unpackPointAndSendGetPoint);
+            },
+            [this](SendGetInfoAtom) {
+                action(this, &DownloadRouteActor::encodeGetInfo, &DownloadRouteActor::unpackInfoAndSendGetPoint);
+            },
+        };
+    }
+
+private:
+    RouteTmParam _route;
+    std::size_t _currentIndex;
+    caf::actor _handler;
+};
+
 caf::behavior CmdState::make_behavior()
 {
     return caf::behavior{
@@ -323,6 +441,8 @@ caf::behavior CmdState::make_behavior()
             _proj = proj;
             _dev = dev;
             _ifaces = new AllGcInterfaces(dev.get());
+            BMCL_CRITICAL() << _ifaces->errors();
+            assert(_ifaces->waypointInterface().isSome());
 //             Route rt;
 //             Waypoint wp;
 //             wp.position = Position{1,2,3};
@@ -345,6 +465,12 @@ caf::behavior CmdState::make_behavior()
 //             cmd4.id = 0;
 //             cmd4.isClosed = true;
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd4));
+//             DownloadRouteInfoGcCmd cmd5;
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd5));
+
+            DownloadRouteGcCmd cmd6;
+            cmd6.id = 0;
+            send(this, SendGcCommandAtom::value, GcCmd(cmd6));
         },
         [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {
             if (_ifaces->waypointInterface().isNone()) {
@@ -368,6 +494,11 @@ caf::behavior CmdState::make_behavior()
                 return promise;
             case GcCmdKind::SetRouteClosed:
                 spawn<SetRouteClosedActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetRouteClosedGcCmd>()));
+            case GcCmdKind::DownloadRouteInfo:
+                spawn<DownloadRouteInfoActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, _handler);
+                return promise;
+            case GcCmdKind::DownloadRoute:
+                spawn<DownloadRouteActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<DownloadRouteGcCmd>()), _handler);
                 return promise;
             };
             return caf::sec::invalid_argument;

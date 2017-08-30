@@ -189,6 +189,14 @@ static bmcl::Option<std::string> expectDynArrayField(const Field* dynArrayField,
     return bmcl::None;
 }
 
+static bmcl::Option<std::string> expectReturnValue(const Function* func, bmcl::OptionPtr<const Type> rv)
+{
+    if (func->type()->returnValue() != rv) {
+        return "Command " + wrapWithQuotes(func->name()) + " has invalid return value";
+    }
+    return bmcl::None;
+}
+
 #define GC_TRY(expr)               \
     {                              \
         auto strErr = expr;        \
@@ -295,7 +303,7 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     GC_TRY(expectFieldNum(_endRouteCmd.get(), 1));
     GC_TRY(expectField(_endRouteCmd.get(), 0, "routeId", varuintType));
 
-    GC_TRY(findCmd(_navComponent.get(), "endRoute", &_clearRouteCmd));
+    GC_TRY(findCmd(_navComponent.get(), "clearRoute", &_clearRouteCmd));
     GC_TRY(expectFieldNum(_clearRouteCmd.get(), 1));
     GC_TRY(expectField(_clearRouteCmd.get(), 0, "routeId", varuintType));
 
@@ -324,8 +332,20 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     GC_TRY(expectField(_setRoutePointCmd.get(), 1, "pointIndex", varuintType));
     GC_TRY(expectField(_setRoutePointCmd.get(), 2, "waypoint", _waypointStruct.get()));
 
+    GC_TRY(findCmd(_navComponent.get(), "getRouteInfo", &_getRouteInfoCmd));
+    GC_TRY(expectFieldNum(_getRouteInfoCmd.get(), 1));
+    GC_TRY(expectField(_getRouteInfoCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectReturnValue(_getRouteInfoCmd.get(), _routeInfoStruct.get()));
+
+    GC_TRY(findCmd(_navComponent.get(), "getRoutePoint", &_getRoutePointCmd));
+    GC_TRY(expectFieldNum(_getRoutePointCmd.get(), 2));
+    GC_TRY(expectField(_getRoutePointCmd.get(), 0, "routeId", varuintType));
+    GC_TRY(expectField(_getRoutePointCmd.get(), 1, "pointIndex", varuintType));
+    GC_TRY(expectReturnValue(_getRoutePointCmd.get(), _waypointStruct.get()));
+
     GC_TRY(findCmd(_navComponent.get(), "getRoutesInfo", &_getRoutesInfoCmd));
     GC_TRY(expectFieldNum(_getRoutesInfoCmd.get(), 0));
+    GC_TRY(expectReturnValue(_getRoutesInfoCmd.get(), _allRoutesInfoStruct.get()));
 
     return bmcl::None;
 }
@@ -368,7 +388,7 @@ bool WaypointGcInterface::encodeBeginRouteCmd(std::uintmax_t id, std::uintmax_t 
 
 bool WaypointGcInterface::encodeClearRouteCmd(std::uintmax_t id, Encoder* dest) const
 {
-    TRY(beginNavCmd(_beginRouteCmd.get(), dest));
+    TRY(beginNavCmd(_clearRouteCmd.get(), dest));
     return dest->writeVarUint(id);
 }
 
@@ -436,9 +456,8 @@ bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t id, std::uintmax
         break;
     case WaypointActionKind::Formation:
         TRY(dest->writeVariantTag(2));
+        TRY(dest->writeDynArraySize(wp.action.as<FormationWaypointAction>().entries.size()));
         for (const FormationEntry& entry: wp.action.as<FormationWaypointAction>().entries) {
-            //TODO: check max size
-            TRY(dest->writeDynArraySize(wp.action.as<FormationWaypointAction>().entries.size()));
             TRY(dest->writeF64(entry.pos.x));
             TRY(dest->writeF64(entry.pos.y));
             TRY(dest->writeF64(entry.pos.z));
@@ -460,6 +479,39 @@ bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t id, std::uintmax
     return true;
 }
 
+bool WaypointGcInterface::encodeGetRouteInfoCmd(uintmax_t id, Encoder* dest) const
+{
+    TRY(beginNavCmd(_getRouteInfoCmd.get(), dest));
+    return dest->writeVarUint(id);
+}
+
+bool WaypointGcInterface::encodeGetRoutePointCmd(uintmax_t id, uintmax_t pointIndex, Encoder* dest) const
+{
+    TRY(beginNavCmd(_getRoutePointCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    return dest->writeVarUint(pointIndex);
+}
+
+static bool decodeRouteInfo(Decoder* src, RouteInfo* info)
+{
+    TRY(src->readVarUint(&info->id));
+    TRY(src->readVarUint(&info->size));
+    TRY(src->readVarUint(&info->maxSize));
+    int64_t isSome;
+    TRY(src->readVariantTag(&isSome));
+    if (isSome == 0) {
+        info->activePoint = bmcl::None;
+    } else if (isSome == 1) {
+        info->activePoint.emplace();
+        TRY(src->readVarUint(&info->activePoint.unwrap()));
+    } else {
+        return false;
+    }
+    TRY(src->readBool(&info->isClosed));
+    TRY(src->readBool(&info->isInverted));
+    return src->readBool(&info->isEditing);
+}
+
 bool WaypointGcInterface::decodeGetRoutesInfoResponse(Decoder* src, AllRoutesInfo* dest) const
 {
     uint64_t size;
@@ -469,22 +521,7 @@ bool WaypointGcInterface::decodeGetRoutesInfoResponse(Decoder* src, AllRoutesInf
     for (uint64_t i = 0; i < size; i++) {
         dest->info.emplace_back();
         RouteInfo& info = dest->info.back();
-        TRY(src->readVarUint(&info.id));
-        TRY(src->readVarUint(&info.size));
-        TRY(src->readVarUint(&info.maxSize));
-        int64_t isSome;
-        TRY(src->readVariantTag(&isSome));
-        if (isSome == 0) {
-            info.activePoint = bmcl::None;
-        } else if (isSome == 1) {
-            info.activePoint.emplace();
-            TRY(src->readVarUint(&info.activePoint.unwrap()));
-        } else {
-            return false;
-        }
-        TRY(src->readBool(&info.isClosed));
-        TRY(src->readBool(&info.isInverted));
-        TRY(src->readBool(&info.isEditing));
+        TRY(decodeRouteInfo(src, &info));
     }
     int64_t isSome;
     TRY(src->readVariantTag(&isSome));
@@ -494,6 +531,55 @@ bool WaypointGcInterface::decodeGetRoutesInfoResponse(Decoder* src, AllRoutesInf
         dest->activeRoute.emplace();
         TRY(src->readVarUint(&dest->activeRoute.unwrap()));
     } else {
+        return false;
+    }
+    return true;
+}
+
+bool WaypointGcInterface::decodeGetRouteInfoResponse(Decoder* src, RouteInfo* dest) const
+{
+    return decodeRouteInfo(src, dest);
+}
+
+bool WaypointGcInterface::decodeGetRoutePointResponse(Decoder* src, Waypoint* dest) const
+{
+    TRY(src->readF64(&dest->position.latLon.latitude));
+    TRY(src->readF64(&dest->position.latLon.longitude));
+    TRY(src->readF64(&dest->position.altitude));
+
+    int64_t actionKind;
+    TRY(src->readVariantTag(&actionKind));
+
+    switch (actionKind) {
+    case 0:
+        break;
+    case 1:
+        dest->action = SleepWaypointAction();
+        TRY(src->readVarUint(&dest->action.as<SleepWaypointAction>().timeout));
+        break;
+    case 2:
+        dest->action = FormationWaypointAction();
+        uint64_t size;
+        TRY(src->readVarUint(&size));
+        for (uint64_t i = 0; i < size; i++)  {
+            FormationEntry entry;
+            TRY(src->readF64(&entry.pos.x));
+            TRY(src->readF64(&entry.pos.y));
+            TRY(src->readF64(&entry.pos.z));
+            TRY(src->readVarUint(&entry.id));
+            dest->action.as<FormationWaypointAction>().entries.push_back(entry);
+        }
+        break;
+    case 3:
+        dest->action = ReynoldsWaypointAction();
+        break;
+    case 4:
+        dest->action = SnakeWaypointAction();
+        break;
+    case 5:
+        dest->action = LoopWaypointAction();
+        break;
+    default:
         return false;
     }
     return true;

@@ -16,10 +16,8 @@ enum class GcCmdKind {
     SetRouteActivePoint,
     SetRouteInverted,
     SetRouteClosed,
-};
-
-struct Route {
-    std::vector<Waypoint> waypoints;
+    DownloadRouteInfo,
+    DownloadRoute,
 };
 
 struct SetActiveRouteGcCmd {
@@ -41,12 +39,21 @@ struct SetRouteClosedGcCmd {
     bool isClosed;
 };
 
+struct DownloadRouteInfoGcCmd {
+};
+
+struct DownloadRouteGcCmd {
+    uint64_t id;
+};
+
 using GcCmd =
     bmcl::Variant<GcCmdKind, GcCmdKind::None,
         bmcl::VariantElementDesc<GcCmdKind, Route, GcCmdKind::UploadRoute>,
         bmcl::VariantElementDesc<GcCmdKind, SetActiveRouteGcCmd, GcCmdKind::SetActiveRoute>,
         bmcl::VariantElementDesc<GcCmdKind, SetRouteActivePointGcCmd, GcCmdKind::SetRouteActivePoint>,
         bmcl::VariantElementDesc<GcCmdKind, SetRouteInvertedGcCmd, GcCmdKind::SetRouteInverted>,
-        bmcl::VariantElementDesc<GcCmdKind, SetRouteClosedGcCmd, GcCmdKind::SetRouteClosed>
+        bmcl::VariantElementDesc<GcCmdKind, SetRouteClosedGcCmd, GcCmdKind::SetRouteClosed>,
+        bmcl::VariantElementDesc<GcCmdKind, DownloadRouteInfoGcCmd, GcCmdKind::DownloadRouteInfo>,
+        bmcl::VariantElementDesc<GcCmdKind, DownloadRouteGcCmd, GcCmdKind::DownloadRoute>
     >;
 }

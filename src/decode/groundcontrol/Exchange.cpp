@@ -241,7 +241,6 @@ void Exchange::handleReceipt(const PacketHeader& header, ReceiptType type, bmcl:
     resp.payload = bmcl::SharedBytes::create(payload);
     packet->promise.deliver(resp);
     state->queue.pop_front();
-    state->currentReliableUplinkCounter++;
     checkQueue(state);
 }
 
@@ -263,8 +262,8 @@ bool Exchange::acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, St
     switch (receiptType) {
     case 0: { //ok
         if (packet.counter == header.counter) {
-            handleReceipt(header, ReceiptType::Ok, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
             state->currentReliableUplinkCounter++;
+            handleReceipt(header, ReceiptType::Ok, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
             return true;
         } else {
             reportError("recieved receipt, but no packets with proper counter queued");
@@ -284,7 +283,7 @@ bool Exchange::acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, St
         break;
     case 2: //TODO: payload error
         if (packet.counter == header.counter) {
-            handleReceipt(header, ReceiptType::PacketError, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
+            handleReceipt(header, ReceiptType::PayloadError, bmcl::Bytes(reader.current(), reader.sizeLeft()), state, &packet);
             reportError("payload error");
             return true;
         } else {
@@ -295,7 +294,9 @@ bool Exchange::acceptReceipt(const PacketHeader& header, bmcl::Bytes payload, St
     case 3: { //counter correction
         if (reader.readableSize() < 2) {
             reportError("recieved invalid counter correction");
+            return false;
         }
+        reportError("recieved counter correction");
         uint16_t newCounter = reader.readUint16Le();
         state->currentReliableUplinkCounter = newCounter;
         checkQueue(state);

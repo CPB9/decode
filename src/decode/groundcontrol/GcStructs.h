@@ -100,4 +100,9 @@ struct Waypoint {
     Position position;
     WaypointAction action;
 };
+
+struct Route {
+    std::vector<Waypoint> waypoints;
+    RouteInfo info;
+};
 };

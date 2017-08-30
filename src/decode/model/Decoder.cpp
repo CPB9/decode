@@ -7,6 +7,11 @@ Decoder::Decoder(const void* src, std::size_t maxSize)
 {
 }
 
+Decoder::Decoder(bmcl::Bytes data)
+    : _reader(data)
+{
+}
+
 Decoder::~Decoder()
 {
 }

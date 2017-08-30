@@ -65,9 +65,13 @@ public:
     bool encodeSetRouteActivePointCmd(uintmax_t id, bmcl::Option<uintmax_t> index, Encoder* dest) const;
     bool encodeSetRouteInvertedCmd(uintmax_t id, bool flag, Encoder* dest) const;
     bool encodeSetRouteClosedCmd(uintmax_t id, bool flag, Encoder* dest) const;
+    bool encodeGetRouteInfoCmd(uintmax_t id, Encoder* dest) const;
+    bool encodeGetRoutePointCmd(uintmax_t id, uintmax_t pointIndex, Encoder* dest) const;
     bool encodeGetRoutesInfoCmd(Encoder* dest) const;
 
     bool decodeGetRoutesInfoResponse(Decoder* src, AllRoutesInfo* dest) const;
+    bool decodeGetRouteInfoResponse(Decoder* src, RouteInfo* dest) const;
+    bool decodeGetRoutePointResponse(Decoder* src, Waypoint* dest) const;
 
 private:
     WaypointGcInterface(const Device* dev, const CoreGcInterface* coreIface);
@@ -99,6 +103,8 @@ private:
     Rc<const Function> _setActiveRouteCmd;
     Rc<const Function> _setRouteActivePointCmd;
     Rc<const Function> _getRoutesInfoCmd;
+    Rc<const Function> _getRouteInfoCmd;
+    Rc<const Function> _getRoutePointCmd;
     std::size_t _formationArrayMaxSize;
     std::size_t _allRoutesInfoMaxSize;
 };

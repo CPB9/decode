@@ -12,6 +12,7 @@ namespace decode {
 class Decoder : public StringErrorMixin {
 public:
     Decoder(const void* src, std::size_t maxSize);
+    Decoder(bmcl::Bytes data);
     ~Decoder();
 
     bool readBool(bool* value);
