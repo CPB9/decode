@@ -377,7 +377,7 @@ public:
 
     bool encodeGetRoutePoint(Encoder* dest) const
     {
-        return _iface->encodeGetRouteInfoCmd(_route.id, dest);
+        return _iface->encodeGetRoutePointCmd(_route.id, _currentIndex, dest);
     }
 
     void unpackInfoAndSendGetPoint(const PacketResponse& resp)
@@ -441,8 +441,10 @@ caf::behavior CmdState::make_behavior()
             _proj = proj;
             _dev = dev;
             _ifaces = new AllGcInterfaces(dev.get());
-            BMCL_CRITICAL() << _ifaces->errors();
-            assert(_ifaces->waypointInterface().isSome());
+            if (!_ifaces->errors().empty()) {
+                BMCL_CRITICAL() << _ifaces->errors();
+            }
+//             assert(_ifaces->waypointInterface().isSome());
 //             Route rt;
 //             Waypoint wp;
 //             wp.position = Position{1,2,3};
@@ -467,10 +469,9 @@ caf::behavior CmdState::make_behavior()
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd4));
 //             DownloadRouteInfoGcCmd cmd5;
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd5));
-
-            DownloadRouteGcCmd cmd6;
-            cmd6.id = 0;
-            send(this, SendGcCommandAtom::value, GcCmd(cmd6));
+//             DownloadRouteGcCmd cmd6;
+//             cmd6.id = 0;
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd6));
         },
         [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {
             if (_ifaces->waypointInterface().isNone()) {
