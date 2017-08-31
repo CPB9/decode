@@ -172,7 +172,7 @@ public:
 
     void endUpload(const PacketResponse&)
     {
-        _promise.deliver(caf::none);
+        _promise.deliver(caf::unit);
         quit();
     }
 
@@ -343,7 +343,7 @@ public:
             _promise.deliver(caf::sec::invalid_argument);
         } else {
             send(_handler, UpdateTmParams::value, TmParamUpdate(std::move(info)));
-            _promise.deliver(caf::none);
+            _promise.deliver(caf::unit);
         }
         quit();
     }
@@ -405,7 +405,7 @@ public:
 
     void endDownload()
     {
-        _promise.deliver(caf::none);
+        _promise.deliver(caf::unit);
         send(_handler, UpdateTmParams::value, TmParamUpdate(std::move(_route)));
         quit();
     }
