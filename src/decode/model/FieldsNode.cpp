@@ -17,9 +17,9 @@ FieldsNode::FieldsNode(FieldVec::ConstRange params, const ValueInfoCache* cache,
     : NodeWithNamedChildren(parent)
 {
     for (const Field* field : params) {
-        Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, this);
-        node->setShortDesc(field->shortDescription());
-        node->setFieldName(field->name());
+        if (field->rangeAttribute().isSome()) {
+        }
+        Rc<ValueNode> node = ValueNode::fromField(field, cache, this);
         _nameToNodeMap.emplace(field->name(), node);
         _nodes.emplace_back(node);
     }

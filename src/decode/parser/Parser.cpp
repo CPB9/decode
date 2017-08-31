@@ -12,6 +12,7 @@
 #include "decode/core/Diagnostics.h"
 #include "decode/core/CfgOption.h"
 #include "decode/core/HashMap.h"
+#include "decode/core/RangeAttr.h"
 #include "decode/ast/Decl.h"
 #include "decode/ast/DocBlock.h"
 #include "decode/ast/Ast.h"
@@ -251,6 +252,9 @@ bool Parser::skipCommentsAndSpace()
 {
     while (true) {
         switch (_currentToken.kind()) {
+        case TokenKind::Hash:
+            TRY(parseAttribute());
+            break;
         case TokenKind::Blank:
             consume();
             break;
@@ -397,13 +401,14 @@ bool Parser::parseModuleDecl()
     _ast->setModuleDecl(modDecl.get());
     consume();
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
-void Parser::clearUnusedDocComments()
+void Parser::clearUnusedDocCommentsAndAttributes()
 {
     _docComments.clear();
+    _lastRangeAttr.reset();
 }
 
 bool Parser::parseImports()
@@ -456,7 +461,7 @@ bool Parser::parseImports()
     }
 
 end:
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -538,13 +543,12 @@ bool Parser::parseConstant()
 
     _ast->addConstant(new Constant(name, value, type.get()));
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
 bool Parser::parseAttribute()
 {
-    TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Hash));
     consume();
 
@@ -566,6 +570,13 @@ bool Parser::parseAttribute()
 
         TRY(expectCurrentToken(TokenKind::RParen));
         consumeAndSkipBlanks();
+    } else if (_currentToken.value() == "ranges") {
+        consumeAndSkipBlanks();
+
+        _lastRangeAttr = parseRangeAttr();
+        if (!_lastRangeAttr) {
+            return false;
+        }
     } else {
         reportCurrentTokenError("only cfg attributes are supported");
         return false;
@@ -574,6 +585,80 @@ bool Parser::parseAttribute()
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
     return true;
+}
+
+Rc<RangeAttr> Parser::parseRangeAttr()
+{
+    Rc<RangeAttr> attr = new RangeAttr;
+    bool isOk = parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, attr, [this](const Rc<RangeAttr>& attr) -> bool {
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        bmcl::StringView name = _currentToken.value();
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Equality));
+        consumeAndSkipBlanks();
+
+        Token start = _currentToken;
+        bool isNegative = false;
+        if (currentTokenIs(TokenKind::Dash)) {
+            isNegative = true;
+            consume();
+        }
+        TRY(expectCurrentToken(TokenKind::Number));
+        consume();
+
+        auto setValue = [&](NumberVariant&& value) -> bool {
+            if (name == "default") {
+                attr->setDefaultValue(std::move(value));
+            } else if (name == "min") {
+                attr->setMinValue(std::move(value));
+            } else if (name == "max") {
+                attr->setMaxValue(std::move(value));
+            } else {
+                return false;
+            }
+            return true;
+        };
+
+        if (currentTokenIs(TokenKind::Dot)) {
+            consume();
+            if (currentTokenIs(TokenKind::Number)) {
+                consume();
+            }
+
+            double value = std::strtod(start.begin(), 0);
+            if (errno == ERANGE) {
+                errno = 0;
+                reportTokenError(&start, "double value range error");
+                return false;
+            }
+            TRY(setValue(NumberVariant(value)));
+        } else {
+            if (isNegative) {
+                std::intmax_t value = std::strtoll(start.begin(), 0, 10);
+                if (errno == ERANGE) {
+                    errno = 0;
+                    reportTokenError(&start, "integer too big");
+                    return false;
+                }
+                TRY(setValue(NumberVariant(value)));
+            } else {
+                std::uintmax_t value = std::strtoull(start.begin(), 0, 10);
+                if (errno == ERANGE) {
+                    errno = 0;
+                    reportTokenError(&start, "unsigned integer too big");
+                    return false;
+                }
+                TRY(setValue(NumberVariant(value)));
+            }
+        }
+
+        return true;
+    });
+    if (!isOk) {
+        return nullptr;
+    }
+    return attr;
 }
 
 Rc<CfgOption> Parser::parseCfgOption()
@@ -723,7 +808,7 @@ bool Parser::parseImplBlock()
     block->_name = _currentToken.value();
     consumeAndSkipBlanks();
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction<Function>();
@@ -733,7 +818,7 @@ bool Parser::parseImplBlock()
         fn->setDocs(docs.get());
         //TODO: check conflicting names
         block->addFunction(fn.get());
-        clearUnusedDocComments();
+        clearUnusedDocCommentsAndAttributes();
         return true;
     }));
 
@@ -747,7 +832,7 @@ bool Parser::parseImplBlock()
     //TODO: check conflicts
     _ast->addImplBlock(block.get());
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -782,7 +867,7 @@ bool Parser::parseAlias()
     //TODO: check conflicts
     _ast->addTopLevelType(type.get());
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -1034,6 +1119,7 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
 Rc<Field> Parser::parseField()
 {
     TRY(expectCurrentToken(TokenKind::Identifier, "expected identifier"));
+    Rc<DocBlock> docs = createDocsFromComments();
     bmcl::StringView name = _currentToken.value();
     consumeAndSkipBlanks();
     TRY(expectCurrentToken(TokenKind::Colon));
@@ -1044,7 +1130,11 @@ Rc<Field> Parser::parseField()
         return nullptr;
     }
     Rc<Field> field = new Field(name, type.get());
-
+    field->setDocs(docs.get());
+    if (_lastRangeAttr) {
+        field->setRangeAttribute(_lastRangeAttr.get());
+    }
+    clearUnusedDocCommentsAndAttributes();
     return field;
 }
 
@@ -1061,12 +1151,10 @@ Rc<DocBlock> Parser::createDocsFromComments()
 template <typename T>
 bool Parser::parseRecordField(T* parent)
 {
-    Rc<DocBlock> docs = createDocsFromComments();
     Rc<Field> decl = parseField();
     if (!decl) {
         return false;
     }
-    decl->setDocs(docs.get());
     parent->addField(decl.get());
     return true;
 }
@@ -1137,7 +1225,7 @@ bool Parser::parseVariantField(VariantType* parent)
         return false;
     }
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -1219,7 +1307,7 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
     consumeAndSkipBlanks();
 
     TRY(parseBraceList(type.get(), std::forward<F>(fieldParser)));
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
 
     _ast->addTopLevelType(type.get());
     return true;
@@ -1270,10 +1358,10 @@ bool Parser::parseCommands(Component* parent)
         fn->setDocs(docs.get());
         fn->setNumber(comp->cmdsRange().size());
         comp->addCommand(fn.get());
-        clearUnusedDocComments();
+        clearUnusedDocCommentsAndAttributes();
         return true;
     }));
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -1292,11 +1380,11 @@ bool Parser::parseComponentImpl(Component* parent)
         }
         fn->setDocs(docs.get());
         impl->addFunction(fn.get());
-        clearUnusedDocComments();
+        clearUnusedDocCommentsAndAttributes();
         return true;
     }));
     parent->setImplBlock(impl.get());
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -1307,18 +1395,15 @@ bool Parser::parseParameters(Component* parent)
         return false;
     }
     TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
-        Rc<DocBlock> docs = createDocsFromComments();
         Rc<Field> field = parseField();
         if (!field) {
             return false;
         }
-        field->setDocs(docs.get());
-        clearUnusedDocComments();
         comp->addParam(field.get());
         return true;
     }));
 
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 
@@ -1429,7 +1514,7 @@ bool Parser::parseStatuses(Component* parent)
         }
         return true;
     }));
-    clearUnusedDocComments();
+    clearUnusedDocCommentsAndAttributes();
     return true;
 }
 

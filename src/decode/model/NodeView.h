@@ -21,6 +21,7 @@ namespace decode {
 
 class NodeView;
 class Node;
+struct ValueUpdate;
 
 using NodeViewVec = std::vector<Rc<NodeView>>;
 
@@ -41,6 +42,8 @@ public:
         }
     }
 
+    void setValueUpdate(ValueUpdate&& update);
+
     uintptr_t id() const;
     std::size_t size() const;
     bool canSetValue() const;
@@ -55,6 +58,8 @@ public:
     bmcl::Option<std::size_t> indexInParent() const;
     bmcl::OptionPtr<NodeView> childAt(std::size_t at);
     bmcl::OptionPtr<const NodeView> childAt(std::size_t at) const;
+    bool isDefault() const;
+    bool isInRange() const;
 
 private:
     friend class NodeViewStore;
@@ -71,5 +76,7 @@ private:
     std::size_t _indexInParent;
     uintptr_t _id;
     bool _canHaveChildren;
+    bool _isDefault;
+    bool _isInRange;
 };
 }

@@ -55,7 +55,7 @@ protected:
     static QVariant fieldNameFromNode(const T* node);
     static QVariant typeNameFromNode(const T* node);
     static QVariant shortDescFromNode(const T* node);
-    static QVariant backgroundFromValue(const Value& value);
+    static QVariant backgroundFromValue(const T* node, const Value& value);
     static QString qstringFromValue(const Value& value);
     static Value valueFromQvariant(const QVariant& variant, ValueKind kind);
 
@@ -169,16 +169,18 @@ Value QModelBase<T>::valueFromQvariant(const QVariant& variant, ValueKind kind)
 }
 
 template <typename T>
-QVariant QModelBase<T>::backgroundFromValue(const Value& value)
+QVariant QModelBase<T>::backgroundFromValue(const T* node, const Value& value)
 {
-    switch (value.kind()) {
-    case ValueKind::None:
-        return QVariant();
-    case ValueKind::Uninitialized:
+    if (value.kind() == ValueKind::Uninitialized) {
         return QColor(Qt::red);
-    default:
-        return QVariant();
     }
+    if (node->isDefault()) {
+        return QColor(Qt::green);
+    }
+    if (!node->isInRange()) {
+        return QColor(Qt::yellow);
+    }
+    return QVariant();
 }
 
 template <typename T>
@@ -213,7 +215,7 @@ QVariant QModelBase<T>::data(const QModelIndex& index, int role) const
         }
 
         if (role == Qt::BackgroundRole) {
-            return backgroundFromValue(node->value());
+            return backgroundFromValue(node, node->value());
         }
     }
 
@@ -323,7 +325,7 @@ QMap<int, QVariant> QModelBase<T>::itemData(const QModelIndex& index) const
         QString s = qstringFromValue(value);
         roles.insert(Qt::DisplayRole, s);
         roles.insert(Qt::EditRole, s);
-        roles.insert(Qt::BackgroundRole, backgroundFromValue(value));
+        roles.insert(Qt::BackgroundRole, backgroundFromValue(node, value));
         return roles;
     }
     case ColumnDesc::ColumnInfo:

@@ -35,6 +35,8 @@ class ImportedType;
 class VariantType;
 class EnumType;
 class ReferenceType;
+class RangeAttr;
+class Field;
 
 class ValueNode : public Node {
 public:
@@ -44,6 +46,7 @@ public:
     ~ValueNode();
 
     static Rc<ValueNode> fromType(const Type* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
+    static Rc<ValueNode> fromField(const Field* field, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     virtual bool encode(bmcl::MemWriter* dest) const = 0;
     virtual bool decode(bmcl::MemReader* src) = 0;
@@ -348,9 +351,12 @@ public:
     static Rc<BuiltinValueNode> fromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
     const Type* type() const override;
 
+    void setRangeAttribute(const RangeAttr* attr);
+
 protected:
     BuiltinValueNode(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
+    Rc<const RangeAttr> _rangeAttr;
     Rc<const BuiltinType> _type;
 };
 
@@ -373,6 +379,9 @@ public:
 
     ValueKind valueKind() const override;
     bool setValue(const Value& value) override;
+
+    bool isDefault() const override;
+    bool isInRange() const override;
 
     bmcl::Option<T> rawValue() const;
     void setRawValue(T value);

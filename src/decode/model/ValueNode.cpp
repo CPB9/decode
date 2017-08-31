@@ -11,6 +11,7 @@
 #include "decode/ast/Field.h"
 #include "decode/core/Try.h"
 #include "decode/core/Foreach.h"
+#include "decode/core/RangeAttr.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Component.h"
 #include "decode/model/ValueInfoCache.h"
@@ -212,6 +213,17 @@ Rc<ValueNode> ValueNode::fromType(const Type* type, const ValueInfoCache* cache,
 {
     assert(cache);
     return createNodefromType(type, cache, parent);
+}
+
+Rc<ValueNode> ValueNode::fromField(const Field* field, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
+{
+    Rc<ValueNode> node = ValueNode::fromType(field->type(), cache, parent);
+    node->setShortDesc(field->shortDescription());
+    node->setFieldName(field->name());
+    if (field->type()->isBuiltin()) {
+        static_cast<BuiltinValueNode*>(node.get())->setRangeAttribute(field->rangeAttribute().data());
+    }
+    return node;
 }
 
 ContainerValueNode::ContainerValueNode(const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
@@ -431,9 +443,7 @@ StructValueNode::StructValueNode(const StructType* type, const ValueInfoCache* c
 {
     _values.reserve(type->fieldsRange().size());
     for (const Field* field : type->fieldsRange()) {
-        Rc<ValueNode> node = ValueNode::fromType(field->type(), _cache.get(), this);
-        node->setFieldName(field->name());
-        node->setShortDesc(field->shortDescription());
+        Rc<ValueNode> node = ValueNode::fromField(field, _cache.get(), this);
         _values.push_back(node);
     }
 }
@@ -560,8 +570,7 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
         }
         for (std::size_t i = 0; i < size; i++) {
             const Field* field = sField->fieldsBegin()[i];
-            _values[i] = ValueNode::fromType(field->type(), _cache.get(), this);
-            _values[i]->setFieldName(field->name());
+            _values[i] = ValueNode::fromField(field, _cache.get(), this);
         }
         TRY(ContainerValueNode::decode(src));
         break;
@@ -893,6 +902,10 @@ BuiltinValueNode::~BuiltinValueNode()
 {
 }
 
+void BuiltinValueNode::setRangeAttribute(const RangeAttr* attr)
+{
+    _rangeAttr.reset(attr);
+}
 
 Rc<BuiltinValueNode> BuiltinValueNode::fromType(const BuiltinType* type, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
@@ -1053,6 +1066,27 @@ template <typename T>
 void NumericValueNode<T>::setRawValue(T value)
 {
     updateOptionalValuePair(&_value, value);
+}
+
+template <typename T>
+bool NumericValueNode<T>::isDefault() const
+{
+    if (_value.isNone() || !_rangeAttr) {
+        return false;
+    }
+    return _rangeAttr->valueIsDefault(_value.unwrap().value());
+}
+
+template <typename T>
+bool NumericValueNode<T>::isInRange() const
+{
+    if (_value.isNone()) {
+        return false;
+    }
+    if (!_rangeAttr) {
+        return true;
+    }
+    return _rangeAttr->valueIsInRange(_value.unwrap().value());
 }
 
 template class NumericValueNode<std::uint8_t>;

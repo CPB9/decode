@@ -123,4 +123,13 @@ bmcl::Option<std::size_t> Node::indexInParent() const
     return _parent->childIndex(this);
 }
 
+bool Node::isDefault() const
+{
+    return false;
+}
+
+bool Node::isInRange() const
+{
+    return true;
+}
 }

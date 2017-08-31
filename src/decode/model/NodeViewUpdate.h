@@ -34,9 +34,21 @@ struct IndexAndNodeView {
     Rc<NodeView> child;
 };
 
+struct ValueUpdate {
+    ValueUpdate(Value&& value, bool isDefault, bool isInRange)
+        : value(std::move(value))
+        , isDefault(isDefault)
+        , isInRange(isInRange)
+    {
+    }
+    Value value;
+    bool isDefault;
+    bool isInRange;
+};
+
 using NodeViewUpdateBase =
     bmcl::Variant<NodeViewUpdateKind, NodeViewUpdateKind::None,
-        bmcl::VariantElementDesc<NodeViewUpdateKind, Value, NodeViewUpdateKind::Value>,
+        bmcl::VariantElementDesc<NodeViewUpdateKind, ValueUpdate, NodeViewUpdateKind::Value>,
         bmcl::VariantElementDesc<NodeViewUpdateKind, NodeViewVec, NodeViewUpdateKind::Extend>,
         bmcl::VariantElementDesc<NodeViewUpdateKind, std::size_t, NodeViewUpdateKind::Shrink>
     >;

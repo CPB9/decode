@@ -22,6 +22,7 @@
 namespace decode {
 
 class Type;
+class RangeAttr;
 
 enum class VariantFieldKind {
     Constant,
@@ -40,8 +41,12 @@ public:
     const Type* type() const;
     Type* type();
 
+    bmcl::OptionPtr<const RangeAttr> rangeAttribute() const;
+    void setRangeAttribute(RangeAttr* attr);
+
 private:
     Rc<Type> _type;
+    Rc<RangeAttr> _rangeAttr;
 };
 
 class VariantField : public NamedRc, public DocBlockMixin {

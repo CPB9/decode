@@ -50,6 +50,8 @@ public:
     virtual ValueKind valueKind() const;
     virtual bool canSetValue() const;
     virtual bool setValue(const Value& value);
+    virtual bool isDefault() const;
+    virtual bool isInRange() const;
 
     bmcl::Option<std::size_t> indexInParent() const;
 

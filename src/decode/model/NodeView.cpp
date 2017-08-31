@@ -7,6 +7,7 @@
  */
 
 #include "decode/model/NodeView.h"
+#include "decode/model/NodeViewUpdate.h"
 #include "decode/model/Node.h"
 
 namespace decode {
@@ -20,6 +21,8 @@ NodeView::NodeView(const Node* node, bmcl::OptionPtr<NodeView> parent, std::size
     , _indexInParent(indexInParent)
     , _id((uintptr_t)node)
     , _canHaveChildren(node->canHaveChildren())
+    , _isDefault(node->isDefault())
+    , _isInRange(node->isInRange())
 {
     initChildren(node);
 }
@@ -29,6 +32,13 @@ NodeView::~NodeView()
     for (const Rc<NodeView>& child : _children) {
         child->_parent = bmcl::None;
     }
+}
+
+void NodeView::setValueUpdate(ValueUpdate&& update)
+{
+    _value = std::move(update.value);
+    _isDefault = update.isDefault;
+    _isInRange = update.isInRange;
 }
 
 uintptr_t NodeView::id() const
@@ -124,4 +134,13 @@ void NodeView::setValue(Value&& value)
     _value = std::move(value);
 }
 
+bool NodeView::isDefault() const
+{
+    return _isDefault;
+}
+
+bool NodeView::isInRange() const
+{
+    return _isInRange;
+}
 }

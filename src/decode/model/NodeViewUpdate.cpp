@@ -7,11 +7,12 @@
  */
 
 #include "decode/model/NodeViewUpdate.h"
+#include "decode/model/Node.h"
 
 namespace decode {
 
 NodeViewUpdate::NodeViewUpdate(Value&& value, Node* parent)
-    : NodeViewUpdateBase(value)
+    : NodeViewUpdateBase(ValueUpdate(std::move(value), parent->isDefault(), parent->isInRange()))
     , _id(uintptr_t(parent))
 {
 }

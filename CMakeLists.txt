@@ -126,6 +126,8 @@ set(DECODE_CORE_SRC
     src/decode/core/PathUtils.h
     src/decode/core/ProgressPrinter.cpp
     src/decode/core/ProgressPrinter.h
+    src/decode/core/RangeAttr.cpp
+    src/decode/core/RangeAttr.h
     src/decode/core/Rc.h
     src/decode/core/Try.h
     src/decode/core/Utils.h

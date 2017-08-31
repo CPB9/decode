@@ -39,6 +39,7 @@ class VariantType;
 class ImportedType;
 class Type;
 class Report;
+class RangeAttr;
 class Diagnostics;
 class BuiltinType;
 class Field;
@@ -98,6 +99,7 @@ private:
     bool parseConstant();
     bool parseAttribute();
     Rc<CfgOption> parseCfgOption();
+    Rc<RangeAttr> parseRangeAttr();
 
     template <typename T, typename F>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);
@@ -160,7 +162,7 @@ private:
     void finishSplittingLines();
 
     Rc<DocBlock> createDocsFromComments();
-    void clearUnusedDocComments();
+    void clearUnusedDocCommentsAndAttributes();
 
     Rc<Report> reportCurrentTokenError(const char* msg);
     Rc<Report> reportTokenError(Token* tok, const char* msg);
@@ -177,5 +179,6 @@ private:
 
     const char* _lastLineStart;
     std::vector<bmcl::StringView> _docComments;
+    Rc<RangeAttr> _lastRangeAttr;
 };
 }

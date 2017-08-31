@@ -8,6 +8,7 @@
 
 #include "decode/ast/Field.h"
 #include "decode/ast/Type.h"
+#include "decode/core/RangeAttr.h"
 
 namespace decode {
 
@@ -29,6 +30,16 @@ const Type* Field::type() const
 Type* Field::type()
 {
     return _type.get();
+}
+
+bmcl::OptionPtr<const RangeAttr> Field::rangeAttribute() const
+{
+    return _rangeAttr.get();
+}
+
+void Field::setRangeAttribute(RangeAttr* attr)
+{
+    _rangeAttr.reset(attr);
 }
 
 VariantField::VariantField(VariantFieldKind kind, std::uintmax_t id, bmcl::StringView name)

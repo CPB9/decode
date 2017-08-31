@@ -18,4 +18,7 @@ namespace decode {
 
 void serializeString(bmcl::StringView str, bmcl::Buffer* dest);
 bmcl::Result<bmcl::StringView, std::string> deserializeString(bmcl::MemReader* src);
+
+bool doubleEq(double a, double b, unsigned int maxUlps = 4);
+
 }

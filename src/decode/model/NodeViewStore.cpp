@@ -44,7 +44,7 @@ bool NodeViewStore::apply(NodeViewUpdate* update)
         case NodeViewUpdateKind::None:
             break;
         case NodeViewUpdateKind::Value:
-            dest->setValue(std::move(update->as<Value>()));
+            dest->setValueUpdate(std::move(update->as<ValueUpdate>()));
             break;
         case NodeViewUpdateKind::Extend: {
             NodeViewVec& vec = update->as<NodeViewVec>();
