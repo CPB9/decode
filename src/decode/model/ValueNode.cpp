@@ -511,12 +511,14 @@ void VariantValueNode::collectUpdates(NodeViewUpdater* dest)
     }
 
     dest->addShrinkUpdate(std::size_t(0), this);
-    NodeViewVec vec;
-    vec.reserve(_values.size());
-    for (const Rc<ValueNode>& node : _values) {
-        vec.emplace_back(new NodeView(node.get()));
+    if (!_values.empty()) {
+        NodeViewVec vec;
+        vec.reserve(_values.size());
+        for (const Rc<ValueNode>& node : _values) {
+            vec.emplace_back(new NodeView(node.get()));
+        }
+        dest->addExtendUpdate(std::move(vec), this);
     }
-    dest->addExtendUpdate(std::move(vec), this);
     _currentId.unwrap().updateState();
 }
 
@@ -530,19 +532,19 @@ bool VariantValueNode::encode(bmcl::MemWriter* dest) const
     return ContainerValueNode::encode(dest);
 }
 
-bool VariantValueNode::decode(bmcl::MemReader* src)
+bool VariantValueNode::canSetValue() const
 {
-    uint64_t id;
-    TRY(src->readVarUint(&id));
-    if (id >= _type->fieldsRange().size()) {
-        //TODO: report error
-        return false;
-    }
+    return true;
+}
+
+void VariantValueNode::selectId(std::uint64_t id)
+{
     updateOptionalValuePair(&_currentId, id);
     //TODO: do not resize if type doesn't change
     const VariantField* field = _type->fieldsBegin()[id];
     switch (field->variantFieldKind()) {
     case VariantFieldKind::Constant:
+        _values.resize(0);
         break;
     case VariantFieldKind::Tuple: {
         const TupleVariantField* tField = static_cast<const TupleVariantField*>(field);
@@ -556,7 +558,6 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(tField->typesBegin()[i], _cache.get(), this);
         }
-        TRY(ContainerValueNode::decode(src));
         break;
     }
     case VariantFieldKind::Struct: {
@@ -572,14 +573,65 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
             const Field* field = sField->fieldsBegin()[i];
             _values[i] = ValueNode::fromField(field, _cache.get(), this);
         }
-        TRY(ContainerValueNode::decode(src));
         break;
     }
     default:
         assert(false);
     }
+}
 
+bool VariantValueNode::selectEnum(bmcl::StringView name)
+{
+    std::size_t i = 0;
+    for (const VariantField* field : _type->fieldsRange()) {
+        if (field->name() == name) {
+            selectId(i);
+            return true;
+        }
+        i++;
+    }
+    return false;
+}
+
+ValueKind VariantValueNode::valueKind() const
+{
+    return ValueKind::StringView;
+}
+
+bool VariantValueNode::decode(bmcl::MemReader* src)
+{
+    uint64_t id;
+    TRY(src->readVarUint(&id));
+    if (id >= _type->fieldsRange().size()) {
+        //TODO: report error
+        return false;
+    }
+    selectId(id);
+    TRY(ContainerValueNode::decode(src));
     return true;
+}
+
+bool VariantValueNode::setValue(const Value& value)
+{
+    switch (value.kind()) {
+    case ValueKind::String:
+        return selectEnum(value.asString());
+    case ValueKind::StringView:
+        return selectEnum(value.asStringView());
+    default:
+        return false;
+    }
+    return false;
+}
+
+bmcl::Option<std::vector<Value>> VariantValueNode::possibleValues() const
+{
+    std::vector<Value> values;
+    values.reserve(_type->fieldsRange().size());
+    for (const VariantField* field : _type->fieldsRange()) {
+        values.emplace_back(Value::makeStringView(field->name()));
+    }
+    return std::move(values);
 }
 
 const Type* VariantValueNode::type() const
@@ -845,7 +897,7 @@ void EnumValueNode::collectUpdates(NodeViewUpdater* dest)
 bool EnumValueNode::encode(bmcl::MemWriter* dest) const
 {
     if (_currentId.isSome()) {
-        TRY(dest->writeVarUint(_currentId.unwrap().value()));
+        TRY(dest->writeVarInt(_currentId.unwrap().value()));
         return true;
     }
     //TODO: report error
@@ -870,16 +922,55 @@ bool EnumValueNode::decode(bmcl::MemReader* src)
     return true;
 }
 
-decode::Value EnumValueNode::value() const
+bmcl::Option<std::vector<Value>> EnumValueNode::possibleValues() const
+{
+    std::vector<Value> values;
+    values.reserve(_type->constantsRange().size());
+    for (const EnumConstant* c : _type->constantsRange()) {
+        values.emplace_back(Value::makeStringView(c->name()));
+    }
+    return std::move(values);
+}
+
+Value EnumValueNode::value() const
 {
     if (_currentId.isSome()) {
-            auto it = _type->constantsRange().findIf([this](const EnumConstant* c) {
-                return c->value() == _currentId.unwrap().value();
-            });
+        auto it = _type->constantsRange().findIf([this](const EnumConstant* c) {
+            return c->value() == _currentId.unwrap().value();
+        });
         assert(it != _type->constantsEnd());
         return Value::makeStringView(it->name());
     }
     return Value::makeUninitialized();
+}
+
+ValueKind EnumValueNode::valueKind() const
+{
+    return ValueKind::StringView;
+}
+
+bool EnumValueNode::selectEnum(bmcl::StringView value)
+{
+    for (const EnumConstant* c : _type->constantsRange()) {
+        if (c->name() == value) {
+            _currentId.emplace(c->value());
+            return true;
+        }
+    }
+    return false;
+}
+
+bool EnumValueNode::setValue(const Value& value)
+{
+    switch (value.kind()) {
+    case ValueKind::String:
+        return selectEnum(value.asString());
+    case ValueKind::StringView:
+        return selectEnum(value.asStringView());
+    default:
+        return false;
+    }
+    return false;
 }
 
 bool EnumValueNode::isInitialized() const

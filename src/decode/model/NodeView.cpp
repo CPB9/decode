@@ -143,4 +143,9 @@ bool NodeView::isInRange() const
 {
     return _isInRange;
 }
+
+bmcl::Option<std::vector<Value>> NodeView::possibleValues() const
+{
+    return bmcl::None;
+}
 }

@@ -63,6 +63,7 @@ FirmwareWidget::FirmwareWidget(QWidget* parent)
     _scriptEditModel->setEditable(true);
     auto scriptEditWidget = new QTreeView;
     scriptEditWidget->setModel(_scriptEditModel.get());
+    scriptEditWidget->setItemDelegate(new QModelItemDelegate<Node>(scriptEditWidget));
     scriptEditWidget->setAlternatingRowColors(true);
     scriptEditWidget->setSelectionMode(QAbstractItemView::SingleSelection);
     scriptEditWidget->setSelectionBehavior(QAbstractItemView::SelectRows);

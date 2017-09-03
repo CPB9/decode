@@ -46,7 +46,10 @@ bool QNodeModel::setData(const QModelIndex& index, const QVariant& value, int ro
     if (v.isA(ValueKind::Uninitialized)) {
         return false;
     }
-    return node->setValue(v);
+    beginRemoveRows(index, 0, node->numChildren());
+    bool isOk = node->setValue(v);
+    endRemoveRows();
+    return isOk;
 }
 
 static QVector<int> allRoles = {Qt::DisplayRole, Qt::BackgroundRole};

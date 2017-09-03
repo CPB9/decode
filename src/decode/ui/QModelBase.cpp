@@ -4,6 +4,8 @@
 
 namespace decode {
 
+template class QModelItemDelegate<Node>;
+template class QModelItemDelegate<NodeView>;
 template class QModelBase<Node>;
 template class QModelBase<NodeView>;
 }

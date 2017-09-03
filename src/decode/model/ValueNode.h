@@ -220,10 +220,17 @@ public:
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
 
+    ValueKind valueKind() const override;
+    bool canSetValue() const override;
     const Type* type() const override;
     Value value() const override;
+    bool setValue(const Value& value) override;
+    bmcl::Option<std::vector<Value>> possibleValues() const override;
 
 private:
+    void selectId(std::uint64_t id);
+    bool selectEnum(bmcl::StringView name);
+
     Rc<const VariantType> _type;
     bmcl::Option<ValuePair<std::uint64_t>> _currentId;
 };
@@ -328,15 +335,21 @@ public:
     bool encode(bmcl::MemWriter* dest) const override;
     bool decode(bmcl::MemReader* src) override;
     decode::Value value() const override;
+    ValueKind valueKind() const override;
+
+    bool setValue(const Value& value) override;
 
     bool isInitialized() const override;
     const Type* type() const override;
+    bmcl::Option<std::vector<Value>> possibleValues() const override;
 
     //TODO: implement enum editing
     //ValueKind valueKind() const override;
     //bool setValue(const Value& value) override;
 
 private:
+    bool selectEnum(bmcl::StringView value);
+
     Rc<const EnumType> _type;
     bmcl::Option<ValuePair<int64_t>> _currentId;
 };

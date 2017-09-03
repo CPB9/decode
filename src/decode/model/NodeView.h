@@ -58,6 +58,7 @@ public:
     bmcl::Option<std::size_t> indexInParent() const;
     bmcl::OptionPtr<NodeView> childAt(std::size_t at);
     bmcl::OptionPtr<const NodeView> childAt(std::size_t at) const;
+    bmcl::Option<std::vector<Value>> possibleValues() const;
     bool isDefault() const;
     bool isInRange() const;
 

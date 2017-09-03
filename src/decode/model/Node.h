@@ -52,6 +52,7 @@ public:
     virtual bool setValue(const Value& value);
     virtual bool isDefault() const;
     virtual bool isInRange() const;
+    virtual bmcl::Option<std::vector<Value>> possibleValues() const;
 
     bmcl::Option<std::size_t> indexInParent() const;
 

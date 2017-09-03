@@ -19,6 +19,8 @@
 #include <bmcl/OptionPtr.h>
 
 #include <QAbstractItemModel>
+#include <QStyledItemDelegate>
+#include <QComboBox>
 #include <QColor>
 
 namespace decode {
@@ -31,6 +33,94 @@ enum ColumnDesc {
     ColumnValue = 2,
     ColumnInfo = 3,
 };
+
+template <typename T>
+class QModelItemDelegate : public QStyledItemDelegate {
+public:
+    QModelItemDelegate(QObject* parent = 0);
+    ~QModelItemDelegate();
+
+    QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override;
+    void setEditorData(QWidget* editor, const QModelIndex& index) const override;
+    void setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const override;
+};
+
+template <typename T>
+QModelItemDelegate<T>::QModelItemDelegate(QObject* parent)
+: QStyledItemDelegate(parent)
+{
+}
+
+template <typename T>
+QModelItemDelegate<T>::~QModelItemDelegate()
+{
+}
+
+static inline QString qstringFromValue(const Value& value)
+{
+    switch (value.kind()) {
+    case ValueKind::None:
+        return QString();
+    case ValueKind::Uninitialized:
+        return QString("???");
+    case ValueKind::Signed:
+        return QString::number(value.asSigned());
+    case ValueKind::Unsigned:
+        return QString::number(value.asUnsigned());
+    case ValueKind::Double:
+        return QString::number(value.asDouble());
+    case ValueKind::String:
+        return QString::fromStdString(value.asString());
+    case ValueKind::StringView: {
+        bmcl::StringView view = value.asStringView();
+        return QString::fromUtf8(view.data(), view.size());
+    }
+    }
+    return QString();
+}
+
+template <typename T>
+QWidget* QModelItemDelegate<T>::createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const
+{
+    T* node = (T*)index.internalPointer();
+    auto values = node->possibleValues();
+    if (values.isSome()) {
+        QComboBox* box = new QComboBox(parent);
+        for (const Value& value : values.unwrap()) {
+            box->addItem(qstringFromValue(value));
+        }
+        return box;
+    }
+    return QStyledItemDelegate::createEditor(parent, option, index);
+}
+
+template <typename T>
+void QModelItemDelegate<T>::setEditorData(QWidget* editor, const QModelIndex& index) const
+{
+    if (QComboBox* box = qobject_cast<QComboBox*>(editor)) {
+        T* node = (T*)index.internalPointer();
+        Value current = node->value();
+        if (current.isA(ValueKind::None) || current.isA(ValueKind::Uninitialized)) {
+            return;
+        }
+        int i = box->findText(qstringFromValue(current));
+        // if it is valid, adjust the combobox
+        if (i >= 0) {
+            box->setCurrentIndex(i);
+        }
+        return;
+    }
+    return QStyledItemDelegate::setEditorData(editor, index);
+}
+
+template <typename T>
+void QModelItemDelegate<T>::setModelData(QWidget* editor, QAbstractItemModel* model, const QModelIndex& index) const
+{
+    if (QComboBox* box = qobject_cast<QComboBox*>(editor)) {
+        model->setData(index, box->currentText(), Qt::EditRole);
+    }
+    QStyledItemDelegate::setModelData(editor, model, index);
+}
 
 template <typename T>
 class QModelBase : public QAbstractItemModel {
@@ -56,7 +146,6 @@ protected:
     static QVariant typeNameFromNode(const T* node);
     static QVariant shortDescFromNode(const T* node);
     static QVariant backgroundFromValue(const T* node, const Value& value);
-    static QString qstringFromValue(const Value& value);
     static Value valueFromQvariant(const QVariant& variant, ValueKind kind);
 
     Rc<T> _root;
@@ -105,29 +194,6 @@ QVariant QModelBase<T>::shortDescFromNode(const T* node)
     return QVariant();
 }
 
-template <typename T>
-QString QModelBase<T>::qstringFromValue(const Value& value)
-{
-    switch (value.kind()) {
-    case ValueKind::None:
-        return QString();
-    case ValueKind::Uninitialized:
-        return QString("???");
-    case ValueKind::Signed:
-        return QString::number(value.asSigned());
-    case ValueKind::Unsigned:
-        return QString::number(value.asUnsigned());
-    case ValueKind::Double:
-        return QString::number(value.asDouble());
-    case ValueKind::String:
-        return QString::fromStdString(value.asString());
-    case ValueKind::StringView: {
-        bmcl::StringView view = value.asStringView();
-        return QString::fromUtf8(view.data(), view.size());
-    }
-    }
-    return QString();
-}
 
 template <typename T>
 Value QModelBase<T>::valueFromQvariant(const QVariant& variant, ValueKind kind)
@@ -377,6 +443,8 @@ int QModelBase<T>::columnCount(const QModelIndex& parent) const
 class Node;
 class NodeView;
 
+extern template class QModelItemDelegate<Node>;
+extern template class QModelItemDelegate<NodeView>;
 extern template class QModelBase<Node>;
 extern template class QModelBase<NodeView>;
 }

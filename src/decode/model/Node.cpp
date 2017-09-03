@@ -132,4 +132,9 @@ bool Node::isInRange() const
 {
     return true;
 }
+
+bmcl::Option<std::vector<Value>> Node::possibleValues() const
+{
+    return bmcl::None;
+}
 }

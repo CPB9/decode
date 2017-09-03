@@ -27,7 +27,7 @@ void NodeViewUpdater::addValueUpdate(Value&& value, Node* parent)
 
 void NodeViewUpdater::addShrinkUpdate(std::size_t size, Node* parent)
 {
-    _updates.emplace_back(parent->value(), parent);
+    _updates.emplace_back(size, parent);
 }
 
 void NodeViewUpdater::addExtendUpdate(NodeViewVec&& vec, Node* parent)
