@@ -10,8 +10,9 @@ namespace decode {
 
 enum class TmParamKind {
     None,
-    LatLon,
+    Position,
     Orientation,
+    Velocity,
     RoutesInfo,
     Route,
 };
@@ -23,8 +24,9 @@ struct RouteTmParam {
 
 using TmParamUpdate =
     bmcl::Variant<TmParamKind, TmParamKind::None,
-        bmcl::VariantElementDesc<TmParamKind, LatLon, TmParamKind::LatLon>,
+        bmcl::VariantElementDesc<TmParamKind, Position, TmParamKind::Position>,
         bmcl::VariantElementDesc<TmParamKind, Orientation, TmParamKind::Orientation>,
+        bmcl::VariantElementDesc<TmParamKind, Velocity3, TmParamKind::Velocity>,
         bmcl::VariantElementDesc<TmParamKind, AllRoutesInfo, TmParamKind::RoutesInfo>,
         bmcl::VariantElementDesc<TmParamKind, RouteTmParam, TmParamKind::Route>
     >;

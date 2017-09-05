@@ -43,9 +43,13 @@ private:
     Rc<TmModel> _model;
     Rc<NumericValueNode<double>> _latNode;
     Rc<NumericValueNode<double>> _lonNode;
+    Rc<NumericValueNode<double>> _altNode;
     Rc<NumericValueNode<double>> _headingNode;
     Rc<NumericValueNode<double>> _pitchNode;
     Rc<NumericValueNode<double>> _rollNode;
+    Rc<NumericValueNode<double>> _velXNode;
+    Rc<NumericValueNode<double>> _velYNode;
+    Rc<NumericValueNode<double>> _velZNode;
     caf::actor _handler;
     TmFeatures _features;
 };

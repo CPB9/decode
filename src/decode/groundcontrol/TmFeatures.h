@@ -7,13 +7,15 @@ namespace decode {
 struct TmFeatures {
 public:
     TmFeatures()
-        : hasLatLon(false)
+        : hasPosition(false)
         , hasOrientation(false)
+        , hasVelocity(false)
     {
     }
 
-    bool hasLatLon;
+    bool hasPosition;
     bool hasOrientation;
+    bool hasVelocity;
 };
 
 }

@@ -75,11 +75,19 @@ void TmState::pushTmUpdates()
 {
     Rc<NodeViewUpdater> updater = new NodeViewUpdater;
     _model->collectUpdates(updater.get());
-    if (_features.hasLatLon) {
-        LatLon latLon;
-        updateParam(_latNode, &latLon.latitude);
-        updateParam(_lonNode, &latLon.longitude);
-        send(_handler, UpdateTmParams::value, TmParamUpdate(latLon));
+    if (_features.hasPosition) {
+        Position pos;
+        updateParam(_latNode, &pos.latLon.latitude);
+        updateParam(_lonNode, &pos.latLon.longitude);
+        updateParam(_altNode, &pos.altitude);
+        send(_handler, UpdateTmParams::value, TmParamUpdate(pos));
+    }
+    if (_features.hasVelocity) {
+        Velocity3 vel;
+        updateParam(_velXNode, &vel.x);
+        updateParam(_velYNode, &vel.y);
+        updateParam(_velZNode, &vel.z);
+        send(_handler, UpdateTmParams::value, TmParamUpdate(vel));
     }
     if (_features.hasOrientation) {
         Orientation orientation;
@@ -118,7 +126,12 @@ void TmState::initTmNodes()
 {
     initTypedNode("nav.latLon.latitude", &_latNode);
     initTypedNode("nav.latLon.longitude", &_lonNode);
-    _features.hasLatLon = _latNode || _lonNode;
+    initTypedNode("nav.altitude", &_altNode);
+    _features.hasPosition = _latNode || _lonNode || _altNode;
+    initTypedNode("nav.velocity.x", &_velXNode);
+    initTypedNode("nav.velocity.y", &_velYNode);
+    initTypedNode("nav.velocity.z", &_velZNode);
+    _features.hasVelocity = _velXNode || _velYNode || _velZNode;
     initTypedNode("nav.orientation.heading", &_headingNode);
     initTypedNode("nav.orientation.pitch", &_pitchNode);
     initTypedNode("nav.orientation.roll", &_rollNode);
