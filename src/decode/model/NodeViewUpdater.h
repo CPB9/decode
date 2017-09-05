@@ -29,6 +29,8 @@ public:
     void addExtendUpdate(NodeViewVec&& vec, Node* parent);
     void apply(NodeViewStore* dest);
 
+    const std::vector<NodeViewUpdate>& updates() const;
+
 private:
     std::vector<NodeViewUpdate> _updates;
 };

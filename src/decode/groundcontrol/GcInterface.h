@@ -94,6 +94,7 @@ private:
     Rc<const VariantType> _actionVariant;
     Rc<const VariantType> _optionalRouteIdStruct;
     Rc<const VariantType> _optionalIndexStruct;
+    Rc<const VariantType> _optionalF64Struct;
     Rc<const Function> _beginRouteCmd;
     Rc<const Function> _clearRouteCmd;
     Rc<const Function> _endRouteCmd;

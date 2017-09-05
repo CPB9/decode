@@ -32,5 +32,4 @@ private:
     Rc<NodeView> _root;
     HashMap<uintptr_t, Rc<NodeView>> _map;
 };
-
 }

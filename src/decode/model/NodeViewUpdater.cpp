@@ -41,4 +41,9 @@ void NodeViewUpdater::apply(NodeViewStore* dest)
         dest->apply(&update);
     }
 }
+
+const std::vector<NodeViewUpdate>& NodeViewUpdater::updates() const
+{
+    return _updates;
+}
 }

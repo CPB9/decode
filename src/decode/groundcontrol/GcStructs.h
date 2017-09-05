@@ -26,6 +26,12 @@ struct Vec3 {
     double z;
 };
 
+struct Velocity3 {
+    double x;
+    double y;
+    double z;
+};
+
 struct Position {
     LatLon latLon;
     double altitude;
@@ -98,6 +104,7 @@ using WaypointAction =
 
 struct Waypoint {
     Position position;
+    bmcl::Option<double> speed;
     WaypointAction action;
 };
 

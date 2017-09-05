@@ -262,6 +262,12 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     GC_TRY(findVariantField<StructVariantField>(_optionalRouteIdStruct.get(), "Some", &idField));
     GC_TRY(expectField(idField.get(), 0, "id", varuintType));
 
+    GC_TRY(findType<VariantType>(_navModule.get(), "OptionalF64", &_optionalF64Struct));
+    GC_TRY(findVariantField<ConstantVariantField>(_optionalF64Struct.get(), "None", &noneField));
+    Rc<const StructVariantField> valueField;
+    GC_TRY(findVariantField<StructVariantField>(_optionalF64Struct.get(), "Some", &valueField));
+    GC_TRY(expectField(valueField.get(), 0, "value", f64Type));
+
     GC_TRY(findType<VariantType>(_navModule.get(), "OptionalIndex", &_optionalIndexStruct));
     GC_TRY(findVariantField<ConstantVariantField>(_optionalIndexStruct.get(), "None", &noneField));
     GC_TRY(findVariantField<StructVariantField>(_optionalIndexStruct.get(), "Some", &idField));
@@ -284,9 +290,10 @@ bmcl::Option<std::string> WaypointGcInterface::init()
     GC_TRY(expectField(_allRoutesInfoStruct.get(), 1, "activeRoute", _optionalRouteIdStruct.get()));
 
     GC_TRY(findType<StructType>(_navModule.get(), "Waypoint", &_waypointStruct));
-    GC_TRY(expectFieldNum(_waypointStruct.get(), 2));
+    GC_TRY(expectFieldNum(_waypointStruct.get(), 3));
     GC_TRY(expectField(_waypointStruct.get(), 0, "position", _posStruct.get()));
-    GC_TRY(expectField(_waypointStruct.get(), 1, "action", _actionVariant.get()));
+    GC_TRY(expectField(_waypointStruct.get(), 1, "speed", _optionalF64Struct.get()));
+    GC_TRY(expectField(_waypointStruct.get(), 2, "action", _actionVariant.get()));
 
     if (_navModule->component().isNone()) {
         return std::string("`nav` module has no component");
@@ -446,6 +453,12 @@ bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t id, std::uintmax
     TRY(dest->writeF64(wp.position.latLon.latitude));
     TRY(dest->writeF64(wp.position.latLon.longitude));
     TRY(dest->writeF64(wp.position.altitude));
+    if (wp.speed.isSome()) {
+        TRY(dest->writeBool(true));
+        TRY(dest->writeF64(wp.speed.unwrap()));
+    } else {
+        TRY(dest->writeBool(false));
+    }
     switch (wp.action.kind()) {
     case WaypointActionKind::None:
         TRY(dest->writeVariantTag(0));
@@ -546,7 +559,14 @@ bool WaypointGcInterface::decodeGetRoutePointResponse(Decoder* src, Waypoint* de
     TRY(src->readF64(&dest->position.latLon.latitude));
     TRY(src->readF64(&dest->position.latLon.longitude));
     TRY(src->readF64(&dest->position.altitude));
-
+    bool hasSpeed;
+    TRY(src->readBool(&hasSpeed));
+    if (hasSpeed) {
+        dest->speed.emplace();
+        TRY(src->readF64(&dest->speed.unwrap()));
+    } else {
+        dest->speed = bmcl::None;
+    }
     int64_t actionKind;
     TRY(src->readVariantTag(&actionKind));
 
