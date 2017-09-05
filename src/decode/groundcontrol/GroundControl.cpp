@@ -140,10 +140,11 @@ begin:
 
 bool GroundControl::acceptPacket(bmcl::Bytes packet)
 {
-    if (packet.size() < 4) {
-        reportError("recieved packet with size < 4");
+    if (packet.size() < 6) {
+        reportError("recieved packet with size < 6");
         return false;
     }
+    packet = packet.sliceFrom(2);
 
     uint16_t payloadSize = le16dec(packet.data());
     if (payloadSize + 2 != packet.size()) {
@@ -204,6 +205,6 @@ SearchResult GroundControl::findPacket(const void* data, std::size_t size)
     if (it > end - expectedSize - 2) {
         return SearchResult(junkSize, 0);
     }
-    return SearchResult(junkSize + 2, 2 + expectedSize);
+    return SearchResult(junkSize, 4 + expectedSize);
 }
 }
