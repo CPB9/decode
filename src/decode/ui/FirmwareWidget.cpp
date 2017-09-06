@@ -30,11 +30,11 @@
 
 namespace decode {
 
-FirmwareWidget::FirmwareWidget(QWidget* parent)
+FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidget* parent)
     : QWidget(parent)
 {
     Rc<Node> emptyNode = new Node(bmcl::None);
-    _paramViewModel = bmcl::makeUnique<QNodeViewModel>(new NodeView(emptyNode.get()));
+    _paramViewModel = std::move(nodeView);
 
     auto buttonLayout = new QHBoxLayout;
     auto sendButton = new QPushButton("Send");

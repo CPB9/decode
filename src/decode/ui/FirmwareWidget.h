@@ -37,7 +37,7 @@ struct PacketResponse;
 class FirmwareWidget : public QWidget {
     Q_OBJECT
 public:
-    FirmwareWidget(QWidget* parent = nullptr);
+    FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidget* parent = nullptr);
     ~FirmwareWidget();
 
     void setRootTmNode(NodeView* root);
