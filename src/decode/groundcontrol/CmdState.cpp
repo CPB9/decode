@@ -223,7 +223,7 @@ public:
 
     virtual void end(const PacketResponse&)
     {
-        _promise.deliver(caf::none);
+        _promise.deliver(caf::unit);
         quit();
     }
 
