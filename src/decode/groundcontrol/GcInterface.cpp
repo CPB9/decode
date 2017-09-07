@@ -461,10 +461,10 @@ bool WaypointGcInterface::encodeSetRoutePointCmd(std::uintmax_t id, std::uintmax
     TRY(dest->writeF64(wp.position.latLon.longitude));
     TRY(dest->writeF64(wp.position.altitude));
     if (wp.speed.isSome()) {
-        TRY(dest->writeBool(true));
+        TRY(dest->writeVariantTag(1));
         TRY(dest->writeF64(wp.speed.unwrap()));
     } else {
-        TRY(dest->writeBool(false));
+        TRY(dest->writeVariantTag(0));
     }
     switch (wp.action.kind()) {
     case WaypointActionKind::None:
@@ -566,8 +566,8 @@ bool WaypointGcInterface::decodeGetRoutePointResponse(Decoder* src, Waypoint* de
     TRY(src->readF64(&dest->position.latLon.latitude));
     TRY(src->readF64(&dest->position.latLon.longitude));
     TRY(src->readF64(&dest->position.altitude));
-    bool hasSpeed;
-    TRY(src->readBool(&hasSpeed));
+    int64_t hasSpeed;
+    TRY(src->readVariantTag(&hasSpeed));
     if (hasSpeed) {
         dest->speed.emplace();
         TRY(src->readF64(&dest->speed.unwrap()));
