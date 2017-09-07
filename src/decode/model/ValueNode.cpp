@@ -528,7 +528,7 @@ bool VariantValueNode::encode(bmcl::MemWriter* dest) const
         //TODO: report error
         return false;
     }
-    TRY(dest->writeVarUint(_currentId.unwrap().value()));
+    TRY(dest->writeVarInt(_currentId.unwrap().value()));
     return ContainerValueNode::encode(dest);
 }
 
@@ -537,7 +537,7 @@ bool VariantValueNode::canSetValue() const
     return true;
 }
 
-void VariantValueNode::selectId(std::uint64_t id)
+void VariantValueNode::selectId(std::int64_t id)
 {
     updateOptionalValuePair(&_currentId, id);
     //TODO: do not resize if type doesn't change
@@ -600,8 +600,8 @@ ValueKind VariantValueNode::valueKind() const
 
 bool VariantValueNode::decode(bmcl::MemReader* src)
 {
-    uint64_t id;
-    TRY(src->readVarUint(&id));
+    int64_t id;
+    TRY(src->readVarInt(&id));
     if (id >= _type->fieldsRange().size()) {
         //TODO: report error
         return false;

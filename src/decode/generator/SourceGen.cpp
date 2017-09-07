@@ -164,7 +164,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
 {
     _output->appendIndent(1);
     _output->appendWithTryMacro([](SrcBuilder* output) {
-        output->append("PhotonWriter_WriteVaruint(dest, (uint64_t)self->type)");
+        output->append("PhotonWriter_WriteVarint(dest, (int64_t)self->type)");
     }, "Failed to write variant type");
 
     _output->append("    switch(self->type) {\n");

@@ -228,11 +228,11 @@ public:
     bmcl::Option<std::vector<Value>> possibleValues() const override;
 
 private:
-    void selectId(std::uint64_t id);
+    void selectId(std::int64_t id);
     bool selectEnum(bmcl::StringView name);
 
     Rc<const VariantType> _type;
-    bmcl::Option<ValuePair<std::uint64_t>> _currentId;
+    bmcl::Option<ValuePair<std::int64_t>> _currentId;
 };
 
 class NonContainerValueNode : public ValueNode {
