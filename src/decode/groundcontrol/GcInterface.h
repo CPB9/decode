@@ -23,6 +23,7 @@ class Ast;
 class Node;
 class Encoder;
 class Decoder;
+class Command;
 
 template <typename T>
 using GcInterfaceResult = bmcl::Result<Rc<T>, std::string>;
@@ -33,6 +34,7 @@ public:
 
     static GcInterfaceResult<CoreGcInterface> create(const Device* dev);
 
+    const BuiltinType* u8Type() const;
     const BuiltinType* u64Type() const;
     const BuiltinType* f64Type() const;
     const BuiltinType* varuintType() const;
@@ -43,6 +45,7 @@ public:
 private:
     CoreGcInterface();
 
+    Rc<const BuiltinType> _u8Type;
     Rc<const BuiltinType> _u64Type;
     Rc<const BuiltinType> _f64Type;
     Rc<const BuiltinType> _varuintType;
@@ -110,6 +113,33 @@ private:
     std::size_t _allRoutesInfoMaxSize;
 };
 
+class FileGcInterface : public RefCountable {
+public:
+    ~FileGcInterface();
+
+    static GcInterfaceResult<FileGcInterface> create(const Device* dev, const CoreGcInterface* coreIface);
+
+    bool encodeBeginFile(uintmax_t id, uintmax_t size, Encoder* dest) const;
+    bool encodeWriteFile(uintmax_t id, uintmax_t offset, bmcl::Bytes data, Encoder* dest) const;
+    bool encodeEndFile(uintmax_t id, uintmax_t size, Encoder* dest) const;
+
+    std::uintmax_t maxFileChunkSize() const;
+
+private:
+    FileGcInterface(const Device* dev, const CoreGcInterface* coreIface);
+    bmcl::Option<std::string> init();
+    bool beginCmd(const Function* func, Encoder* dest) const;
+
+    Rc<const Device> _dev;
+    Rc<const CoreGcInterface> _coreIface;
+    Rc<const Ast> _flModule;
+    Rc<const Component> _flComponent;
+    Rc<const Function> _beginFileCmd;
+    Rc<const Function> _writeFileCmd;
+    Rc<const Function> _endFileCmd;
+    std::uintmax_t _maxChunkSize;
+};
+
 class AllGcInterfaces : public RefCountable {
 public:
     AllGcInterfaces(const Device* dev);
@@ -117,11 +147,13 @@ public:
 
     bmcl::OptionPtr<const CoreGcInterface> coreInterface() const;
     bmcl::OptionPtr<const WaypointGcInterface> waypointInterface() const;
+    bmcl::OptionPtr<const FileGcInterface> fileInterface() const;
     const std::string& errors() const;
 
 private:
     Rc<CoreGcInterface> _coreIface;
     Rc<WaypointGcInterface> _waypointIface;
+    Rc<FileGcInterface> _fileIface;
     std::string _errors;
 };
 }

@@ -33,12 +33,18 @@ GcInterfaceResult<CoreGcInterface> CoreGcInterface::create(const Device* dev)
     Rc<CoreGcInterface> self = new CoreGcInterface;
     self->_cache = new ValueInfoCache(dev->package.get());
     //TODO: search for builtin types
+    self->_u8Type = new BuiltinType(BuiltinTypeKind::U8);
     self->_u64Type = new BuiltinType(BuiltinTypeKind::U64);
     self->_f64Type = new BuiltinType(BuiltinTypeKind::F64);
     self->_varuintType = new BuiltinType(BuiltinTypeKind::Varuint);
     self->_usizeType = new BuiltinType(BuiltinTypeKind::USize);
     self->_boolType = new BuiltinType(BuiltinTypeKind::Bool);
     return self;
+}
+
+const BuiltinType* CoreGcInterface::u8Type() const
+{
+    return _u8Type.get();
 }
 
 const BuiltinType* CoreGcInterface::u64Type() const
@@ -176,9 +182,10 @@ static bmcl::Option<std::string> expectField(const T* container, std::size_t i, 
     return bmcl::None;
 }
 
-static bmcl::Option<std::string> expectDynArrayField(const Field* dynArrayField, const Type* element, std::size_t* maxSize)
+template <typename T>
+static bmcl::Option<std::string> expectDynArrayField(const Field* dynArrayField, const Type* element, T* maxSize)
 {
-    const Type* dynArray = dynArrayField->type();
+    const Type* dynArray = dynArrayField->type()->resolveFinalType();
     if (!dynArray->isDynArray()) {
         return std::string(wrapWithQuotes(dynArrayField->name()) + " field is not a dyn array");
     }
@@ -605,6 +612,98 @@ bool WaypointGcInterface::decodeGetRoutePointResponse(Decoder* src, Waypoint* de
     return true;
 }
 
+FileGcInterface::FileGcInterface(const Device* dev, const CoreGcInterface* coreIface)
+    : _dev(dev)
+    , _coreIface(coreIface)
+{
+}
+
+FileGcInterface::~FileGcInterface()
+{
+}
+
+GcInterfaceResult<FileGcInterface> FileGcInterface::create(const Device* dev, const CoreGcInterface* coreIface)
+{
+    Rc<FileGcInterface> self = new FileGcInterface(dev, coreIface);
+    GC_TRY(self->init());
+    return self;
+}
+
+bmcl::Option<std::string> FileGcInterface::init()
+{
+    GC_TRY(findModule(_dev.get(), "fl", &_flModule));
+
+    const BuiltinType* varuintType = _coreIface->varuintType();
+    const BuiltinType* u8Type = _coreIface->u8Type();
+
+    if (_flModule->component().isNone()) {
+        return std::string("`fl` module has no component");
+    }
+    _flComponent = _flModule->component().unwrap();
+
+    GC_TRY(findCmd(_flComponent.get(), "beginFile", &_beginFileCmd));
+    GC_TRY(expectFieldNum(_beginFileCmd.get(), 2));
+    GC_TRY(expectField(_beginFileCmd.get(), 0, "id", varuintType));
+    GC_TRY(expectField(_beginFileCmd.get(), 1, "size", varuintType));
+
+    GC_TRY(findCmd(_flComponent.get(), "writeFile", &_writeFileCmd));
+    GC_TRY(expectFieldNum(_writeFileCmd.get(), 3));
+    GC_TRY(expectField(_writeFileCmd.get(), 0, "id", varuintType));
+    GC_TRY(expectField(_writeFileCmd.get(), 1, "offset", varuintType));
+    GC_TRY(expectDynArrayField(_writeFileCmd->fieldAt(2), u8Type, &_maxChunkSize));
+
+    GC_TRY(findCmd(_flComponent.get(), "endFile", &_endFileCmd));
+    GC_TRY(expectFieldNum(_endFileCmd.get(), 2));
+    GC_TRY(expectField(_endFileCmd.get(), 0, "id", varuintType));
+    GC_TRY(expectField(_endFileCmd.get(), 1, "size", varuintType));
+
+    return bmcl::None;
+}
+
+bool FileGcInterface::beginCmd(const Function* func, Encoder* dest) const
+{
+    //REFACT
+    TRY(dest->writeVarUint(_flComponent->number()));
+    auto it = std::find(_flComponent->cmdsBegin(), _flComponent->cmdsEnd(), func);
+    if (it == _flComponent->cmdsEnd()) {
+        //TODO: report error
+        return false;
+    }
+
+    return dest->writeVarUint(std::distance(_flComponent->cmdsBegin(), it));
+}
+
+bool FileGcInterface::encodeBeginFile(uintmax_t id, uintmax_t size, Encoder* dest) const
+{
+    TRY(beginCmd(_beginFileCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    return dest->writeVarUint(size);
+}
+
+bool FileGcInterface::encodeWriteFile(uintmax_t id, uintmax_t offset, bmcl::Bytes data, Encoder* dest) const
+{
+    if (data.size() >= _maxChunkSize) {
+        return false;
+    }
+    TRY(beginCmd(_writeFileCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    TRY(dest->writeVarUint(offset));
+    TRY(dest->writeDynArraySize(data.size()));
+    return dest->write(data);
+}
+
+bool FileGcInterface::encodeEndFile(uintmax_t id, uintmax_t size, Encoder* dest) const
+{
+    TRY(beginCmd(_endFileCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    return dest->writeVarUint(size);
+}
+
+std::uintmax_t FileGcInterface::maxFileChunkSize() const
+{
+    return _maxChunkSize;
+}
+
 AllGcInterfaces::AllGcInterfaces(const Device* dev)
 {
     auto coreIface = CoreGcInterface::create(dev);
@@ -613,12 +712,21 @@ AllGcInterfaces::AllGcInterfaces(const Device* dev)
         return;
     }
     _coreIface = coreIface.unwrap();
+
     auto waypointIface = WaypointGcInterface::create(dev, _coreIface.get());
     if (waypointIface.isOk()) {
         _waypointIface = waypointIface.unwrap();
     } else {
         _errors = waypointIface.unwrapErr();
-        return;
+        _errors += '\n';
+    }
+
+    auto fileIface = FileGcInterface::create(dev, _coreIface.get());
+    if (fileIface.isOk()) {
+        _fileIface = fileIface.unwrap();
+    } else {
+        _errors = fileIface.unwrapErr();
+        _errors += '\n';
     }
 }
 
@@ -634,6 +742,11 @@ bmcl::OptionPtr<const CoreGcInterface> AllGcInterfaces::coreInterface() const
 bmcl::OptionPtr<const WaypointGcInterface> AllGcInterfaces::waypointInterface() const
 {
     return _waypointIface.get();
+}
+
+bmcl::OptionPtr<const FileGcInterface> AllGcInterfaces::fileInterface() const
+{
+    return _fileIface.get();
 }
 
 const std::string& AllGcInterfaces::errors() const

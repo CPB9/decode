@@ -42,6 +42,7 @@ public:
 
     caf::behavior make_behavior() override;
     void on_exit() override;
+    const char* name() const override;
 
 private:
     Rc<CmdModel> _model;

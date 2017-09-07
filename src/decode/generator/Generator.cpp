@@ -641,6 +641,8 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         _hgen->startIncludeGuard(ast->moduleInfo()->moduleName(), "CONSTANTS");
         for (const Constant* c : ast->constantsRange()) {
             _output.append("#define PHOTON_");
+            _output.appendUpper(ast->moduleInfo()->moduleName());
+            _output.append('_');
             _output.append(c->name());
             _output.append(" ");
             _output.appendNumericValue(c->value());

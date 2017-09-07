@@ -11,6 +11,15 @@ Encoder::~Encoder()
 {
 }
 
+bool Encoder::write(bmcl::Bytes data)
+{
+    if (_writer.writableSize() < data.size()) {
+        return false;
+    }
+    _writer.write(data);
+    return true;
+}
+
 bool Encoder::writeBool(bool value)
 {
     return writeU8(value);

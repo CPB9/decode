@@ -113,6 +113,9 @@ set(DECODE_CORE_SRC
     src/decode/core/CfgOption.h
     src/decode/core/Configuration.cpp
     src/decode/core/Configuration.h
+    src/decode/core/DataReader.cpp
+    src/decode/core/DataReader.h
+    src/decode/core/Configuration.h
     src/decode/core/Diagnostics.cpp
     src/decode/core/Diagnostics.h
     src/decode/core/FileInfo.cpp

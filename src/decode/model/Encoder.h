@@ -14,6 +14,8 @@ public:
     Encoder(void* dest, std::size_t maxSize);
     ~Encoder();
 
+    bool write(bmcl::Bytes data);
+
     bool writeBool(bool value);
 
     bool writeU8(std::uint8_t value);

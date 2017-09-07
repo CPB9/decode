@@ -71,12 +71,13 @@ using SendStartRouteCmdAtom = caf::atom_constant<caf::atom("sendstrt")>;
 using SendClearRouteCmdAtom = caf::atom_constant<caf::atom("sendclrt")>;
 using SendEndRouteCmdAtom   = caf::atom_constant<caf::atom("sendenrt")>;
 
-class NavActorBase : public caf::event_based_actor {
+template <typename T>
+class GcActorBase : public caf::event_based_actor {
 public:
-    NavActorBase(caf::actor_config& cfg,
-                 caf::actor exchange,
-                 const WaypointGcInterface* iface,
-                 const caf::response_promise& promise)
+    GcActorBase(caf::actor_config& cfg,
+                caf::actor exchange,
+                const T* iface,
+                const caf::response_promise& promise)
         : caf::event_based_actor(cfg)
         , _exchange(exchange)
         , _iface(iface)
@@ -90,11 +91,12 @@ public:
     }
 
 protected:
-    template <typename T>
-    void action(T* actor, bool (T::* encode)(Encoder* dest) const, void (T::* next)(const PacketResponse& resp))
+    template <typename R>
+    void action(R* actor, bool (R::* encode)(Encoder* dest) const, void (R::* next)(const PacketResponse& resp))
     {
         auto rv = encodePacket(std::bind(encode, actor, std::placeholders::_1));
         if (rv.isErr()) {
+            BMCL_CRITICAL() << "error encoding packet";
             _promise.deliver(caf::sec::invalid_argument);
             quit();
             return;
@@ -116,9 +118,11 @@ protected:
     }
 
     caf::actor _exchange;
-    Rc<const WaypointGcInterface> _iface;
+    Rc<const T> _iface;
     caf::response_promise _promise;
 };
+
+using NavActorBase = GcActorBase<WaypointGcInterface>;
 
 class RouteUploadActor : public NavActorBase {
 public:
@@ -433,6 +437,80 @@ private:
     caf::actor _handler;
 };
 
+using SendBeginFileAtom     = caf::atom_constant<caf::atom("sendbef")>;
+using SendNextFileChunkAtom = caf::atom_constant<caf::atom("sendnfc")>;
+using SendEndFileAtom       = caf::atom_constant<caf::atom("sendenf")>;
+
+class UploadFileActor : public GcActorBase<FileGcInterface> {
+public:
+    UploadFileActor(caf::actor_config& cfg,
+                    caf::actor exchange,
+                    const FileGcInterface* iface,
+                    const caf::response_promise& promise,
+                    UploadFileGcCmd&& cmd)
+        : GcActorBase<FileGcInterface>(cfg, exchange, iface, promise)
+        , _reader(cmd.reader)
+        , _id(cmd.id)
+    {
+    }
+
+    bool encodeBeginFile(Encoder* dest) const
+    {
+        return _iface->encodeBeginFile(_id, _reader->size(), dest);
+    }
+
+    bool encodeEndFile(Encoder* dest) const
+    {
+        return _iface->encodeEndFile(_id, _reader->size(), dest);
+    }
+
+    bool encodeNextChunk(Encoder* dest) const
+    {
+        bmcl::Bytes chunk = _reader->readNext(_iface->maxFileChunkSize());
+        return _iface->encodeWriteFile(_id, _reader->offset(), chunk, dest);
+    }
+
+    void sendNextChunk(const PacketResponse&)
+    {
+        send(this, SendNextFileChunkAtom::value);
+    }
+
+    void endUpload(const PacketResponse&)
+    {
+        _promise.deliver(caf::unit);
+        quit();
+    }
+
+    const char* name() const override
+    {
+        return "FileUploadActor";
+    }
+
+    caf::behavior make_behavior() override
+    {
+        send(this, SendBeginFileAtom::value);
+        return caf::behavior{
+            [this](SendBeginFileAtom) {
+                action(this, &UploadFileActor::encodeBeginFile, &UploadFileActor::sendNextChunk);
+            },
+            [this](SendNextFileChunkAtom) {
+                if (_reader->hasData()) {
+                    action(this, &UploadFileActor::encodeNextChunk, &UploadFileActor::sendNextChunk);
+                    return;
+                }
+                send(this, SendEndFileAtom::value);
+            },
+            [this](SendEndFileAtom) {
+                action(this, &UploadFileActor::encodeEndFile, &UploadFileActor::endUpload);
+            },
+        };
+    }
+
+private:
+    Rc<DataReader> _reader;
+    std::uintmax_t _id;
+};
+
 caf::behavior CmdState::make_behavior()
 {
     return caf::behavior{
@@ -472,9 +550,17 @@ caf::behavior CmdState::make_behavior()
 //             DownloadRouteGcCmd cmd6;
 //             cmd6.id = 0;
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd6));
+//             UploadFileGcCmd cmd7;
+//             cmd7.id = 12;
+//             cmd7.reader = new MemDataReader({1,2,3,4,5});
+//             send(this, SendGcCommandAtom::value, GcCmd(cmd7));
         },
         [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {
+            //FIXME: check per command
             if (_ifaces->waypointInterface().isNone()) {
+                return caf::sec::invalid_argument;
+            }
+            if (_ifaces->fileInterface().isNone()) {
                 return caf::sec::invalid_argument;
             }
             caf::response_promise promise = make_response_promise();
@@ -501,6 +587,9 @@ caf::behavior CmdState::make_behavior()
             case GcCmdKind::DownloadRoute:
                 spawn<DownloadRouteActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<DownloadRouteGcCmd>()), _handler);
                 return promise;
+            case GcCmdKind::UploadFile:
+                spawn<UploadFileActor>(_exc, _ifaces->fileInterface().unwrap(), promise, std::move(cmd.as<UploadFileGcCmd>()));
+                return promise;
             };
             return caf::sec::invalid_argument;
         },
@@ -511,5 +600,10 @@ void CmdState::on_exit()
 {
     destroy(_exc);
     destroy(_handler);
+}
+
+const char* CmdState::name() const
+{
+    return "CmdStateActor";
 }
 }

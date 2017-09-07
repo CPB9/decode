@@ -3,6 +3,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/groundcontrol/GcStructs.h"
+#include "decode/core/DataReader.h"
 
 #include <bmcl/Variant.h>
 #include <bmcl/Option.h>
@@ -18,6 +19,7 @@ enum class GcCmdKind {
     SetRouteClosed,
     DownloadRouteInfo,
     DownloadRoute,
+    UploadFile,
 };
 
 struct SetActiveRouteGcCmd {
@@ -46,6 +48,11 @@ struct DownloadRouteGcCmd {
     uint64_t id;
 };
 
+struct UploadFileGcCmd {
+    uintmax_t id;
+    Rc<DataReader> reader;
+};
+
 using GcCmd =
     bmcl::Variant<GcCmdKind, GcCmdKind::None,
         bmcl::VariantElementDesc<GcCmdKind, Route, GcCmdKind::UploadRoute>,
@@ -54,6 +61,7 @@ using GcCmd =
         bmcl::VariantElementDesc<GcCmdKind, SetRouteInvertedGcCmd, GcCmdKind::SetRouteInverted>,
         bmcl::VariantElementDesc<GcCmdKind, SetRouteClosedGcCmd, GcCmdKind::SetRouteClosed>,
         bmcl::VariantElementDesc<GcCmdKind, DownloadRouteInfoGcCmd, GcCmdKind::DownloadRouteInfo>,
-        bmcl::VariantElementDesc<GcCmdKind, DownloadRouteGcCmd, GcCmdKind::DownloadRoute>
+        bmcl::VariantElementDesc<GcCmdKind, DownloadRouteGcCmd, GcCmdKind::DownloadRoute>,
+        bmcl::VariantElementDesc<GcCmdKind, UploadFileGcCmd, GcCmdKind::UploadFile>
     >;
 }

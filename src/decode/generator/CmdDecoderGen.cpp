@@ -198,10 +198,10 @@ void CmdDecoderGen::writeReturnOp(const Type* type)
         _output->append("&");
         break;
     case TypeKind::Imported:
-        writePointerOp(t->asImported()->link());
+        writeReturnOp(t->asImported()->link());
         break;
     case TypeKind::Alias:
-        writePointerOp(t->asAlias()->alias());
+        writeReturnOp(t->asAlias()->alias());
         break;
     }
 }
