@@ -195,7 +195,7 @@ public:
                 action(this, &RouteUploadActor::encodeClearRoute, &RouteUploadActor::sendFirstPoint);
             },
             [this](SendStartRouteCmdAtom) {
-                action(this, &RouteUploadActor::encodeBeginRoute, &RouteUploadActor::sendClearRoute);
+                action(this, &RouteUploadActor::encodeBeginRoute, &RouteUploadActor::sendFirstPoint);
             },
             [this](SendEndRouteCmdAtom) {
                 action(this, &RouteUploadActor::encodeEndRoute, &RouteUploadActor::endUpload);
