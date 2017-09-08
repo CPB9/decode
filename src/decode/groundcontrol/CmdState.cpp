@@ -557,6 +557,9 @@ caf::behavior CmdState::make_behavior()
         },
         [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {
             //FIXME: check per command
+            if (!_proj) {
+                return caf::sec::invalid_argument;
+            }
             if (_ifaces->waypointInterface().isNone()) {
                 return caf::sec::invalid_argument;
             }
