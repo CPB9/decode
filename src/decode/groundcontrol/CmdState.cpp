@@ -66,10 +66,13 @@ struct RouteUploadState {
     std::size_t routeIndex;
 };
 
-using SendNextPointCmdAtom  = caf::atom_constant<caf::atom("sendnxtp")>;
-using SendStartRouteCmdAtom = caf::atom_constant<caf::atom("sendstrt")>;
-using SendClearRouteCmdAtom = caf::atom_constant<caf::atom("sendclrt")>;
-using SendEndRouteCmdAtom   = caf::atom_constant<caf::atom("sendenrt")>;
+using SendNextPointCmdAtom          = caf::atom_constant<caf::atom("sendnxtp")>;
+using SendStartRouteCmdAtom         = caf::atom_constant<caf::atom("sendstrt")>;
+using SendClearRouteCmdAtom         = caf::atom_constant<caf::atom("sendclrt")>;
+using SendEndRouteCmdAtom           = caf::atom_constant<caf::atom("sendenrt")>;
+using SendSetPointActiveCmdAtom     = caf::atom_constant<caf::atom("sendspac")>;
+using SendSetRouteInvertedCmdAtom   = caf::atom_constant<caf::atom("sendsrti")>;
+using SendSetRouteClosedCmdAtom     = caf::atom_constant<caf::atom("sendsrtc")>;
 
 template <typename T>
 class GcActorBase : public caf::event_based_actor {
@@ -130,32 +133,31 @@ public:
                      caf::actor exchange,
                      const WaypointGcInterface* iface,
                      const caf::response_promise& promise,
-                     Route&& route)
+                     UploadRouteGcCmd&& route)
         : NavActorBase(cfg, exchange, iface, promise)
         , _route(std::move(route))
         , _currentIndex(0)
-        , _routeIndex(0)
     {
     }
 
     bool encodeRoutePoint(Encoder* dest) const
     {
-        return _iface->encodeSetRoutePointCmd(_routeIndex, _currentIndex, _route.waypoints[_currentIndex], dest);
+        return _iface->encodeSetRoutePointCmd(_route.id, _currentIndex, _route.waypoints[_currentIndex], dest);
     }
 
     bool encodeBeginRoute(Encoder* dest) const
     {
-        return _iface->encodeBeginRouteCmd(_routeIndex, _route.waypoints.size(), dest);
+        return _iface->encodeBeginRouteCmd(_route.id, _route.waypoints.size(), dest);
     }
 
     bool encodeClearRoute(Encoder* dest) const
     {
-        return _iface->encodeClearRouteCmd(_routeIndex, dest);
+        return _iface->encodeClearRouteCmd(_route.id, dest);
     }
 
     bool encodeEndRoute(Encoder* dest) const
     {
-        return _iface->encodeEndRouteCmd(_routeIndex, dest);
+        return _iface->encodeEndRouteCmd(_route.id, dest);
     }
 
     void sendFirstPoint(const PacketResponse&)
@@ -172,6 +174,36 @@ public:
     {
         _currentIndex++;
         send(this, SendNextPointCmdAtom::value);
+    }
+
+    void sendSetActivePoint(const PacketResponse&)
+    {
+        send(this, SendSetPointActiveCmdAtom::value);
+    }
+
+    void sendSetRouteClosed(const PacketResponse&)
+    {
+        send(this, SendSetRouteClosedCmdAtom::value);
+    }
+
+    void sendSetRouteInverted(const PacketResponse&)
+    {
+        send(this, SendSetRouteInvertedCmdAtom::value);
+    }
+
+    bool encodeSetActivePoint(Encoder* dest) const
+    {
+        return _iface->encodeSetRouteActivePointCmd(_route.id, _route.activePoint, dest);
+    }
+
+    bool encodeSetRouteClosed(Encoder* dest) const
+    {
+        return _iface->encodeSetRouteClosedCmd(_route.id, _route.isClosed, dest);
+    }
+
+    bool encodeSetRouteInverted(Encoder* dest) const
+    {
+        return _iface->encodeSetRouteInvertedCmd(_route.id, _route.isInverted, dest);
     }
 
     void endUpload(const PacketResponse&)
@@ -191,22 +223,27 @@ public:
                 }
                 action(this, &RouteUploadActor::encodeRoutePoint, &RouteUploadActor::sendNextPoint);
             },
-            [this](SendClearRouteCmdAtom) {
-                action(this, &RouteUploadActor::encodeClearRoute, &RouteUploadActor::sendFirstPoint);
-            },
             [this](SendStartRouteCmdAtom) {
                 action(this, &RouteUploadActor::encodeBeginRoute, &RouteUploadActor::sendFirstPoint);
             },
             [this](SendEndRouteCmdAtom) {
-                action(this, &RouteUploadActor::encodeEndRoute, &RouteUploadActor::endUpload);
+                action(this, &RouteUploadActor::encodeEndRoute, &RouteUploadActor::sendSetActivePoint);
+            },
+            [this](SendSetPointActiveCmdAtom) {
+                action(this, &RouteUploadActor::encodeSetActivePoint, &RouteUploadActor::sendSetRouteClosed);
+            },
+            [this](SendSetRouteClosedCmdAtom) {
+                action(this, &RouteUploadActor::encodeSetRouteClosed, &RouteUploadActor::sendSetRouteInverted);
+            },
+            [this](SendSetRouteInvertedCmdAtom) {
+                action(this, &RouteUploadActor::encodeSetRouteInverted, &RouteUploadActor::endUpload);
             },
         };
     }
 
 private:
-    Route _route;
+    UploadRouteGcCmd _route;
     std::size_t _currentIndex;
-    std::size_t _routeIndex;
 };
 
 class OneActionNavActor : public NavActorBase {
@@ -523,12 +560,17 @@ caf::behavior CmdState::make_behavior()
                 BMCL_CRITICAL() << _ifaces->errors();
             }
 //             assert(_ifaces->waypointInterface().isSome());
-//             Route rt;
+//             UploadRouteGcCmd rt;
 //             Waypoint wp;
 //             wp.position = Position{1,2,3};
+//             wp.speed.emplace(7);
 //             wp.action = SnakeWaypointAction{};
 //             rt.waypoints.push_back(wp);
 //             rt.waypoints.push_back(wp);
+//             rt.id = 0;
+//             rt.isClosed = true;
+//             rt.isInverted = true;
+//             rt.activePoint.emplace(2);
 //             send(this, SendGcCommandAtom::value, GcCmd(rt));
 //             SetActiveRouteGcCmd cmd;
 //             cmd.id.emplace(0);
@@ -571,7 +613,7 @@ caf::behavior CmdState::make_behavior()
             case GcCmdKind::None:
                 return caf::sec::invalid_argument;
             case GcCmdKind::UploadRoute:
-                spawn<RouteUploadActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<Route>()));
+                spawn<RouteUploadActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<UploadRouteGcCmd>()));
                 return promise;
             case GcCmdKind::SetActiveRoute:
                 spawn<SetActiveRouteActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetActiveRouteGcCmd>()));

@@ -53,9 +53,18 @@ struct UploadFileGcCmd {
     Rc<DataReader> reader;
 };
 
+struct UploadRouteGcCmd {
+    std::vector<Waypoint> waypoints;
+    std::uintmax_t id;
+    bool isClosed;
+    bool isInverted;
+    bool isReadOnly;
+    bmcl::Option<std::uintmax_t> activePoint;
+};
+
 using GcCmd =
     bmcl::Variant<GcCmdKind, GcCmdKind::None,
-        bmcl::VariantElementDesc<GcCmdKind, Route, GcCmdKind::UploadRoute>,
+        bmcl::VariantElementDesc<GcCmdKind, UploadRouteGcCmd, GcCmdKind::UploadRoute>,
         bmcl::VariantElementDesc<GcCmdKind, SetActiveRouteGcCmd, GcCmdKind::SetActiveRoute>,
         bmcl::VariantElementDesc<GcCmdKind, SetRouteActivePointGcCmd, GcCmdKind::SetRouteActivePoint>,
         bmcl::VariantElementDesc<GcCmdKind, SetRouteInvertedGcCmd, GcCmdKind::SetRouteInverted>,
