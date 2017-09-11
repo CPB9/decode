@@ -111,8 +111,8 @@ public:
     ReferenceType* asReference();
 
     TypeKind typeKind() const;
-
     const Type* resolveFinalType() const;
+    bmcl::Option<std::size_t> fixedSize() const;
 
     bool isArray() const;
     bool isDynArray() const;

@@ -24,6 +24,41 @@ class TypeReprGen;
 class SrcBuilder;
 class Type;
 
+class InlineCmdParamInspector : public InlineFieldInspector<InlineCmdParamInspector> {
+public:
+    InlineCmdParamInspector(SrcBuilder* dest)
+        : InlineFieldInspector<InlineCmdParamInspector>(dest)
+        , paramIndex(0)
+        , paramName("_p0")
+    {
+    }
+
+    void reset()
+    {
+        paramIndex = 0;
+        paramName.resize(2);
+    }
+
+    void beginField(const Field*)
+    {
+        paramName.appendNumericValue(paramIndex);
+    }
+
+    void endField(const Field*)
+    {
+        paramName.resize(2);
+        paramIndex++;
+    }
+
+    bmcl::StringView currentFieldName() const
+    {
+        return paramName.view();
+    }
+
+    std::size_t paramIndex;
+    StringBuilder paramName;
+};
+
 class CmdDecoderGen {
 public:
     CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output);
@@ -50,6 +85,6 @@ private:
     SrcBuilder* _output;
     InlineTypeSerializerGen _inlineSer;
     InlineTypeDeserializerGen _inlineDeser;
-    StringBuilder _paramName;
+    InlineCmdParamInspector _paramInspector;
 };
 }

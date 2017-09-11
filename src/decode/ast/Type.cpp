@@ -219,6 +219,47 @@ const Type* Type::resolveFinalType() const
     return this;
 }
 
+bmcl::Option<std::size_t> Type::fixedSize() const
+{
+    const Type* type = resolveFinalType();
+    if (type->isArray()) {
+        auto size = type->asArray()->elementType()->fixedSize();
+        if (size.isSome()) {
+            return size.unwrap() * type->asArray()->elementCount();
+        }
+        return bmcl::None;
+    }
+    if (!type->isBuiltin()) {
+        return bmcl::None;
+    }
+    switch (type->asBuiltin()->builtinTypeKind()) {
+        //TODO: calc usize/isize types depending on target
+    case BuiltinTypeKind::USize:
+    case BuiltinTypeKind::ISize:
+    case BuiltinTypeKind::Varint:
+    case BuiltinTypeKind::Varuint:
+    case BuiltinTypeKind::Void:
+        return bmcl::None;
+    case BuiltinTypeKind::Bool:
+    case BuiltinTypeKind::Char:
+    case BuiltinTypeKind::U8:
+    case BuiltinTypeKind::I8:
+        return 1;
+    case BuiltinTypeKind::U16:
+    case BuiltinTypeKind::I16:
+        return 2;
+    case BuiltinTypeKind::F32:
+    case BuiltinTypeKind::U32:
+    case BuiltinTypeKind::I32:
+        return 4;
+    case BuiltinTypeKind::U64:
+    case BuiltinTypeKind::I64:
+    case BuiltinTypeKind::F64:
+        return 8;
+    }
+    return bmcl::None;
+}
+
 template <typename R, typename C>
 bool compareRanges(R r1, R r2, C&& comparator)
 {

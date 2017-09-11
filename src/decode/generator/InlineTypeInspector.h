@@ -61,6 +61,60 @@ protected:
 };
 
 template <typename B>
+class InlineFieldInspector {
+public:
+    InlineFieldInspector(SrcBuilder* dest)
+        : _dest(dest)
+    {
+    }
+
+    B& base()
+    {
+        return *static_cast<B*>(this);
+    }
+
+    template <typename I>
+    void inspect(FieldVec::ConstRange fields, I* typeInspector)
+    {
+        InlineSerContext ctx;
+        auto begin = fields.begin();
+        auto it = begin;
+        auto end = fields.end();
+
+        while (it != end) {
+            bmcl::Option<std::size_t> totalSize;
+            while (it != end) {
+                bmcl::Option<std::size_t> size = it->type()->fixedSize();
+                if (size.isNone()) {
+                    break;
+                }
+                totalSize.emplace(totalSize.unwrapOr(0) + size.unwrap());
+                it++;
+            }
+            if (totalSize.isSome()) {
+                typeInspector->appendSizeCheck(ctx, std::to_string(totalSize.unwrap()), _dest);
+                for (auto jt = begin; jt < it; jt++) {
+                    base().beginField(*jt);
+                    typeInspector->inspect(jt->type(), ctx, base().currentFieldName(), false);
+                    base().endField(*jt);
+                }
+
+                totalSize.clear();
+            } else {
+                base().beginField(*it);
+                typeInspector->inspect(it->type(), ctx, base().currentFieldName());
+                base().endField(*it);
+                it++;
+                begin = it;
+            }
+        }
+    }
+
+private:
+    SrcBuilder* _dest;
+};
+
+template <typename B>
 inline bool InlineTypeInspector<B>::isSizeCheckEnabled() const
 {
     return _checkSizes;
@@ -131,13 +185,21 @@ inline bool InlineTypeInspector<B>::visitReferenceType(const ReferenceType* type
 template <typename B>
 bool InlineTypeInspector<B>::visitArrayType(const ArrayType* type)
 {
-    _output->appendLoopHeader(context(), type->elementCount());
-
     _argName.push_back('[');
     _argName.push_back(context().currentLoopVar());
     _argName.push_back(']');
+    bool oldCheckSizes = _checkSizes;
+    if (_checkSizes) {
+        _checkSizes = false;
+        auto size = type->elementType()->fixedSize();
+        if (size.isSome()) {
+            base().appendSizeCheck(context(), std::to_string(size.unwrap() * type->elementCount()), _output);
+        }
+    }
+    _output->appendLoopHeader(context(), type->elementCount());
     _ctxStack.push(context().indent().incLoopVar());
     base().traverseType(type->elementType());
+    _checkSizes = oldCheckSizes;
     popArgName(3);
     _ctxStack.pop();
     _output->appendIndent(context());

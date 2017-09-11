@@ -16,7 +16,7 @@ CmdDecoderGen::CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output)
     , _output(output)
     , _inlineSer(reprGen, _output)
     , _inlineDeser(reprGen, _output)
-    , _paramName("_p0")
+    , _paramInspector(_output)
 {
 }
 
@@ -144,17 +144,15 @@ void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
     _output->append("    return PhotonError_InvalidComponentId;\n}");
 }
 
+
 template <typename C>
 void CmdDecoderGen::foreachParam(const Function* func, C&& f)
 {
-    std::size_t fieldNum = 0;
-    _paramName.resize(2);
-    InlineSerContext ctx;
+    _paramInspector.reset();
     for (const Field* field : func->type()->argumentsRange()) {
-        _paramName.appendNumericValue(fieldNum);
-        f(field, _paramName.view());
-        _paramName.resize(2);
-        fieldNum++;
+        _paramInspector.beginField(field);
+        f(field, _paramInspector.paramName.view());
+        _paramInspector.endField(field);
     }
 }
 
@@ -233,10 +231,9 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     }
     _output->appendEol();
 
-    InlineSerContext ctx;
-    foreachParam(func, [this, ctx](const Field* field, bmcl::StringView name) {
-        _inlineDeser.inspect(field->type(), ctx, name);
-    });
+
+    _paramInspector.reset();
+    _paramInspector.inspect(func->fieldsRange(), &_inlineDeser);
     _output->appendEol();
 
     //TODO: gen command call
@@ -259,6 +256,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     }
     _output->append("), \"Failed to decode cmd\");\n\n");
 
+    InlineSerContext ctx;
     if (rv.isSome()) {
         _inlineSer.inspect(rv.unwrap(), ctx, "_rv");
     }
