@@ -89,6 +89,32 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->endIncludeGuard();
 }
 
+class SimpleInlineFieldInspector : public InlineFieldInspector<SimpleInlineFieldInspector> {
+public:
+    SimpleInlineFieldInspector(SrcBuilder* dest)
+        : InlineFieldInspector<SimpleInlineFieldInspector>(dest)
+        , _current(nullptr)
+    {
+    }
+
+    void beginField(const Field* field)
+    {
+        _current = field;
+    }
+
+    void endField(const Field*)
+    {
+    }
+
+    bmcl::StringView currentFieldName() const
+    {
+        return _current->name();
+    }
+
+private:
+    const Field* _current;
+};
+
 void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
 {
     _output->appendLocalIncludePath("CmdEncoder.Private"); //TODO: pass as argument
@@ -103,8 +129,6 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendTargetModIfdef(it->moduleName());
         _output->appendEol();
         for (const Function* jt : it->cmdsRange()) {
-            InlineSerContext ctx;
-
             appendEncoderPrototype(it, jt);
             _output->append("\n{\n");
 
@@ -116,9 +140,8 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
             _output->appendNumericValue(funcNum);
             _output->append("), \"Failed to write cmd number\");\n");
 
-            for (const Field* arg : jt->type()->argumentsRange()) {
-                _inlineSer.inspect(arg->type(), ctx, arg->name());
-            }
+            SimpleInlineFieldInspector inspector(_output);
+            inspector.inspect(jt->type()->argumentsRange(), &_inlineSer);
 
             _output->append("    return PhotonError_Ok;\n}\n\n");
             funcNum++;
