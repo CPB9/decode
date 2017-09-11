@@ -19,9 +19,16 @@ InlineTypeSerializerGen::~InlineTypeSerializerGen()
 {
 }
 
+void InlineTypeSerializerGen::appendSizeCheck(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest)
+{
+    dest->appendWritableSizeCheck(ctx, name);
+}
+
 void InlineTypeSerializerGen::inspectPointer(const Type* type)
 {
-    _output->appendWritableSizeCheck(context(), "sizeof(void*)");
+    if (isSizeCheckEnabled()) {
+        _output->appendWritableSizeCheck(context(), "sizeof(void*)");
+    }
     _output->appendIndent(context());
     _output->append("PhotonWriter_WritePtrLe(dest, (const void*)");
     appendArgumentName();
@@ -44,7 +51,9 @@ void InlineTypeSerializerGen::inspectNonInlineType(const Type* type)
 
 void InlineTypeSerializerGen::genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
 {
-    _output->appendWritableSizeCheck(context(), sizeCheck);
+    if (isSizeCheckEnabled()) {
+        _output->appendWritableSizeCheck(context(), sizeCheck);
+    }
     _output->appendIndent(context());
     _output->append("PhotonWriter_Write");
     _output->append(suffix);

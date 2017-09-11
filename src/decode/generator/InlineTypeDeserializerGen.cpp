@@ -19,9 +19,16 @@ InlineTypeDeserializerGen::~InlineTypeDeserializerGen()
 {
 }
 
+void InlineTypeDeserializerGen::appendSizeCheck(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest)
+{
+    dest->appendReadableSizeCheck(ctx, name);
+}
+
 void InlineTypeDeserializerGen::inspectPointer(const Type* type)
 {
-    _output->appendReadableSizeCheck(context(), "sizeof(void*)");
+    if (isSizeCheckEnabled()) {
+        _output->appendReadableSizeCheck(context(), "sizeof(void*)");
+    }
     _output->appendIndent(context());
     appendArgumentName();
     _output->append(" = (");
@@ -42,7 +49,9 @@ void InlineTypeDeserializerGen::inspectNonInlineType(const Type* type)
 
 void InlineTypeDeserializerGen::genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
 {
-    _output->appendReadableSizeCheck(context(), sizeCheck);
+    if (isSizeCheckEnabled()) {
+        _output->appendReadableSizeCheck(context(), sizeCheck);
+    }
     _output->appendIndent(context());
     appendArgumentName();
     _output->append(" = PhotonReader_Read");

@@ -23,7 +23,7 @@ class InlineTypeInspector : public ConstAstVisitor<B> {
 public:
     InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output);
 
-    void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName);
+    void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
 
     B& base();
 
@@ -47,20 +47,24 @@ public:
 protected:
 
     const InlineSerContext& context() const;
-
+    bool isSizeCheckEnabled() const;
     void appendArgumentName();
-
     bool appendTypeName(const Type* type);
-
     void popArgName(std::size_t n);
-
     void appendTypeRepr(const Type* type);
 
     std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
     SrcBuilder* _output;
     std::string _argName;
     Rc<TypeReprGen> _reprGen;
+    bool _checkSizes;
 };
+
+template <typename B>
+inline bool InlineTypeInspector<B>::isSizeCheckEnabled() const
+{
+    return _checkSizes;
+}
 
 template <typename B>
 inline void InlineTypeInspector<B>::appendArgumentName()
@@ -100,11 +104,12 @@ InlineTypeInspector<B>::InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* ou
 }
 
 template <typename B>
-void InlineTypeInspector<B>::inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName)
+void InlineTypeInspector<B>::inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes)
 {
     assert(_ctxStack.size() == 0);
     _ctxStack.push(ctx);
     _argName.assign(argName.begin(), argName.end());
+    _checkSizes = checkSizes;
     base().traverseType(type);
     _ctxStack.pop();
 }

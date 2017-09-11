@@ -18,6 +18,8 @@ public:
     InlineTypeSerializerGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~InlineTypeSerializerGen();
 
+    static void appendSizeCheck(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest);
+
     void inspectPointer(const Type* type);
     void inspectNonInlineType(const Type* type);
 

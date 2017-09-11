@@ -136,28 +136,85 @@ void SourceGen::appendEnumDeserializer(const EnumType* type)
     _output->append("    *self = result;\n");
 }
 
-void SourceGen::appendStructSerializer(const StructType* type)
+static bmcl::Option<std::size_t> typeFixedSize(const Type* type)
+{
+    if (!type->isBuiltin()) {
+        return bmcl::None;
+    }
+    switch (type->asBuiltin()->builtinTypeKind()) {
+        //TODO: calc usize/isize types depending on target
+    case BuiltinTypeKind::USize:
+    case BuiltinTypeKind::ISize:
+    case BuiltinTypeKind::Varint:
+    case BuiltinTypeKind::Varuint:
+    case BuiltinTypeKind::Void:
+        return bmcl::None;
+    case BuiltinTypeKind::Bool:
+    case BuiltinTypeKind::Char:
+    case BuiltinTypeKind::U8:
+    case BuiltinTypeKind::I8:
+        return 1;
+    case BuiltinTypeKind::U16:
+    case BuiltinTypeKind::I16:
+        return 2;
+    case BuiltinTypeKind::F32:
+    case BuiltinTypeKind::U32:
+    case BuiltinTypeKind::I32:
+        return 4;
+    case BuiltinTypeKind::U64:
+    case BuiltinTypeKind::I64:
+    case BuiltinTypeKind::F64:
+        return 8;
+    }
+    return bmcl::None;
+}
+
+template <typename I>
+void inspectStruct(const StructType* type, I* inspector, SrcBuilder* dest)
 {
     InlineSerContext ctx;
     StringBuilder argName("self->");
+    auto begin = type->fieldsBegin();
+    auto it = begin;
+    auto end = type->fieldsEnd();
 
-    for (const Field* field : type->fieldsRange()) {
-        argName.append(field->name().begin(), field->name().end());
-        _inlineSer.inspect(field->type(), ctx, argName.view());
-        argName.resize(6);
+    while (it != end) {
+        bmcl::Option<std::size_t> totalSize;
+        while (it != end) {
+            bmcl::Option<std::size_t> size = typeFixedSize(it->type());
+            if (size.isNone()) {
+                break;
+            }
+            totalSize.emplace(totalSize.unwrapOr(0) + size.unwrap());
+            it++;
+        }
+        if (totalSize.isSome()) {
+            inspector->appendSizeCheck(ctx, std::to_string(totalSize.unwrap()), dest);
+            for (auto jt = begin; jt < it; jt++) {
+                argName.append(jt->name().begin(), jt->name().end());
+                inspector->inspect(jt->type(), ctx, argName.view(), false);
+                argName.resize(6);
+            }
+
+            totalSize.clear();
+        } else {
+            argName.append(it->name().begin(), it->name().end());
+            inspector->inspect(it->type(), ctx, argName.view());
+            argName.resize(6);
+            it++;
+            begin = it;
+        }
     }
+}
+
+void SourceGen::appendStructSerializer(const StructType* type)
+{
+    inspectStruct(type, &_inlineSer, _output);
 }
 
 void SourceGen::appendStructDeserializer(const StructType* type)
 {
-    InlineSerContext ctx;
-    StringBuilder argName("self->");
-
-    for (const Field* field : type->fieldsRange()) {
-        argName.append(field->name().begin(), field->name().end());
-        _inlineDeser.inspect(field->type(), ctx, argName.view());
-        argName.resize(6);
-    }
+    inspectStruct(type, &_inlineDeser, _output);
 }
 
 void SourceGen::appendVariantSerializer(const VariantType* type)
