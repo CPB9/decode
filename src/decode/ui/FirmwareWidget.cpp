@@ -37,9 +37,12 @@ FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidg
     _paramViewModel = std::move(nodeView);
 
     auto buttonLayout = new QHBoxLayout;
+    auto clearButton = new QPushButton("Clear");
     auto sendButton = new QPushButton("Send");
     buttonLayout->setDirection(QBoxLayout::RightToLeft);
     buttonLayout->addWidget(sendButton);
+    buttonLayout->addStretch(1);
+    buttonLayout->addWidget(clearButton);
     buttonLayout->addStretch();
 
     _scriptNode.reset(new ScriptNode(bmcl::None));
@@ -76,6 +79,13 @@ FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidg
     scriptEditWidget->header()->setStretchLastSection(false);
     scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
     scriptEditWidget->expandToDepth(1);
+
+    connect(clearButton, &QPushButton::clicked, this,
+            [=]()
+    {
+        _scriptEditModel->reset();
+        scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
+    });
 
     _cmdViewModel = bmcl::makeUnique<QNodeModel>(emptyNode.get());
     _cmdViewWidget = new QTreeView;

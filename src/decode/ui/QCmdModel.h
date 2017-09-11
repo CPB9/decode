@@ -30,6 +30,8 @@ public:
     Qt::DropActions supportedDragActions() const override;
     Qt::DropActions supportedDropActions() const override;
 
+    void reset();
+
     const ScriptNode* scriptNode() const
     {
         return _cmds.get();

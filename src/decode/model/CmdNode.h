@@ -118,6 +118,8 @@ public:
 
     void swapNodes(std::size_t i1, std::size_t i2);
 
+    void clear();
+
 private:
     bmcl::StringView _fieldName;
 };

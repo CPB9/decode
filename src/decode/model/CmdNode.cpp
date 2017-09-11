@@ -119,6 +119,11 @@ void ScriptNode::swapNodes(std::size_t i1, std::size_t i2)
     std::swap(_nodes[i1], _nodes[i2]);
 }
 
+void ScriptNode::clear()
+{
+    _nodes.clear();
+}
+
 ScriptResultNode::ScriptResultNode(bmcl::OptionPtr<Node> parent)
     : GenericContainerNode<ValueNode, Node>(parent)
 {

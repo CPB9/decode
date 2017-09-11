@@ -127,4 +127,13 @@ Qt::DropActions QCmdModel::supportedDropActions() const
 {
     return Qt::CopyAction | Qt::MoveAction;
 }
+
+void QCmdModel::reset()
+{
+    if(_cmds.get()) {
+        beginResetModel();
+        _cmds.get()->clear();
+        endResetModel();
+    }
+}
 }
