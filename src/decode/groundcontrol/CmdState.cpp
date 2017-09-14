@@ -594,7 +594,7 @@ caf::behavior CmdState::make_behavior()
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd6));
 //             UploadFileGcCmd cmd7;
 //             cmd7.id = 12;
-//             cmd7.reader = new MemDataReader({1,2,3,4,5});
+//             cmd7.reader = new MemDataReader(std::vector<uint8_t>(3000, 4));
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd7));
         },
         [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {

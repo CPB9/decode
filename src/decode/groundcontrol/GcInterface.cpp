@@ -682,7 +682,7 @@ bool FileGcInterface::encodeBeginFile(uintmax_t id, uintmax_t size, Encoder* des
 
 bool FileGcInterface::encodeWriteFile(uintmax_t id, uintmax_t offset, bmcl::Bytes data, Encoder* dest) const
 {
-    if (data.size() >= _maxChunkSize) {
+    if (data.size() > _maxChunkSize) {
         return false;
     }
     TRY(beginCmd(_writeFileCmd.get(), dest));
