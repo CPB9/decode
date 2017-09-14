@@ -503,8 +503,9 @@ public:
 
     bool encodeNextChunk(Encoder* dest) const
     {
+        std::size_t offset = _reader->offset();
         bmcl::Bytes chunk = _reader->readNext(_iface->maxFileChunkSize());
-        return _iface->encodeWriteFile(_id, _reader->offset(), chunk, dest);
+        return _iface->encodeWriteFile(_id, offset, chunk, dest);
     }
 
     void sendNextChunk(const PacketResponse&)
