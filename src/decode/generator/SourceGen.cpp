@@ -343,7 +343,7 @@ void SourceGen::appendDynArrayDeserializer(const DynArrayType* type)
     _output->append("        return PhotonError_InvalidValue;\n    }\n");
     auto size = typeFixedSize(type->elementType());
     if (size.isSome()) {
-        _inlineDeser.appendSizeCheck(ctx, "self->size * " + std::to_string(size.unwrap()), _output);
+        _inlineDeser.appendSizeCheck(ctx, "size * " + std::to_string(size.unwrap()), _output);
     }
     _output->appendLoopHeader(ctx, "size");
     InlineSerContext lctx = ctx.indent();
