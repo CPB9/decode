@@ -51,6 +51,7 @@ public:
     void traverseVariantType(typename P<VariantType>::type variant);
     void traverseImportedType(typename P<ImportedType>::type u);
     void traverseAliasType(typename P<AliasType>::type alias);
+    void traverseGenericParameterType(typename P<GenericParameterType>::type generic);
 
     void traverseVariantField(typename P<VariantField>::type field);
     void traverseConstantVariantField(typename P<ConstantVariantField>::type field);
@@ -75,6 +76,7 @@ protected:
     bool visitVariantType(typename P<VariantType>::type variant);
     bool visitImportedType(typename P<ImportedType>::type u);
     bool visitAliasType(typename P<AliasType>::type alias);
+    bool visitGenericParameterType(typename P<GenericParameterType>::type generic);
 
     bool visitVariantField(typename P<VariantField>::type field);
     bool visitConstantVariantField(typename P<ConstantVariantField>::type field);
@@ -172,6 +174,13 @@ inline bool AstVisitorBase<B, P>::visitAliasType(typename P<AliasType>::type ali
 }
 
 template <typename B, template <typename> class P>
+inline bool AstVisitorBase<B, P>::visitGenericParameterType(typename P<GenericParameterType>::type generic)
+{
+    (void)generic;
+    return true;
+}
+
+template <typename B, template <typename> class P>
 inline bool AstVisitorBase<B, P>::visitVariantField(typename P<VariantField>::type field)
 {
     (void)field;
@@ -251,6 +260,11 @@ void AstVisitorBase<B, P>::ascendTypeOnce(typename P<Type>::type type)
     case TypeKind::Alias: {
         typename P<AliasType>::type alias = ptrCast<P, AliasType>(type);
         base().visitAliasType(alias);
+        break;
+    }
+    case TypeKind::GenericParameter: {
+        typename P<GenericParameterType>::type generic = ptrCast<P, GenericParameterType>(type);
+        base().visitGenericParameterType(generic);
         break;
     }
     }
@@ -413,6 +427,15 @@ void AstVisitorBase<B, P>::traverseAliasType(typename P<AliasType>::type alias)
 }
 
 template <typename B, template <typename> class P>
+void AstVisitorBase<B, P>::traverseGenericParameterType(typename P<GenericParameterType>::type generic)
+{
+    if (!base().visitGenericParameterType(generic)) {
+        return;
+    }
+    traverseType(generic->substitutedType());
+}
+
+template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
 {
     if (!base().visitType(type)) {
@@ -467,6 +490,11 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
     case TypeKind::Alias: {
         typename P<AliasType>::type alias = ptrCast<P, AliasType>(type);
         traverseAliasType(alias);
+        break;
+    }
+    case TypeKind::GenericParameter: {
+        typename P<GenericParameterType>::type generic = ptrCast<P, GenericParameterType>(type);
+        traverseGenericParameterType(generic);
         break;
     }
     }

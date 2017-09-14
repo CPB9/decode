@@ -407,8 +407,9 @@ bool Parser::parseModuleDecl()
 
 void Parser::clearUnusedDocCommentsAndAttributes()
 {
-    _docComments.clear();
     _lastRangeAttr.reset();
+    _docComments.clear();
+    _currentGenericParameters.clear();
 }
 
 bool Parser::parseImports()
@@ -1107,13 +1108,20 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         return it->second;
     }
     auto link = _ast->findTypeWithName(_currentToken.value());
-    if (link.isNone()) {
+    if (link.isSome()) {
+        consume();
+        return link.unwrap();
+    }
+    auto jt = std::find_if(_currentGenericParameters.begin(), _currentGenericParameters.end(), [this](const Rc<GenericParameterType>& type) {
+        return type->name() == _currentToken.value();
+    });
+    if (jt == _currentGenericParameters.end()) {
         std::string msg = "no type with name " + _currentToken.value().toStdString();
         reportCurrentTokenError(msg.c_str());
         return nullptr;
     }
     consume();
-    return link.unwrap();
+    return *jt;
 }
 
 Rc<Field> Parser::parseField()
@@ -1302,14 +1310,33 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
     consume();
     TRY(skipCommentsAndSpace());
     TRY(expectCurrentToken(TokenKind::Identifier));
-    Rc<T> type = new T(_currentToken.value(), _moduleInfo.get());
+
+    bmcl::StringView name = _currentToken.value();
+    Rc<T> type = new T(name, _moduleInfo.get());
     type->setDocs(docs.get());
     consumeAndSkipBlanks();
+
+    Rc<GenericTypeDecl> genericDecl;
+    if (currentTokenIs(TokenKind::LessThen)) {
+        TRY(parseList(TokenKind::LessThen, TokenKind::Comma, TokenKind::MoreThen, name, [this](bmcl::StringView) -> bool {
+            //TODO: check name conflicts
+            TRY(expectCurrentToken(TokenKind::Identifier));
+            _currentGenericParameters.emplace_back(new GenericParameterType(_currentToken.value(), _moduleInfo.get()));
+            consume();
+            return true;
+        }));
+        genericDecl = new GenericTypeDecl(name, _currentGenericParameters, type.get());
+        skipBlanks();
+    }
 
     TRY(parseBraceList(type.get(), std::forward<F>(fieldParser)));
     clearUnusedDocCommentsAndAttributes();
 
-    _ast->addTopLevelType(type.get());
+    if (genericDecl) {
+        _ast->addGenericTypeDecl(genericDecl.get());
+    } else {
+        _ast->addTopLevelType(type.get());
+    }
     return true;
 }
 

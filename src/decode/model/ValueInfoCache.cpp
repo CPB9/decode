@@ -189,6 +189,9 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
     case TypeKind::Alias:
         buildNamedTypeName(type->asAlias(), dest);
         return;
+    case TypeKind::GenericParameter:
+        assert(false);
+        return;
     }
     assert(false);
 }

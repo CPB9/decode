@@ -13,6 +13,7 @@
 #include "decode/core/Hash.h"
 #include "decode/parser/Token.h"
 #include "decode/core/Iterator.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/ResultFwd.h>
@@ -22,42 +23,40 @@
 
 namespace decode {
 
-enum class ReferenceKind;
-
-class Lexer;
-class Decl;
 class Ast;
-class ModuleDecl;
-class NamedDecl;
-class FileInfo;
-class ModuleInfo;
+class BuiltinType;
+class CfgOption;
+class Component;
+class Constant;
+class Decl;
+class Diagnostics;
+class DocBlock;
 class EnumConstant;
 class EnumType;
-class Component;
-class StructDecl;
-class VariantType;
-class ImportedType;
-class Type;
-class Report;
-class RangeAttr;
-class Diagnostics;
-class BuiltinType;
 class Field;
 class FieldVec;
-class StructType;
-class FunctionType;
-class TypeDecl;
-class Ast;
-class Constant;
-class CfgOption;
+class FileInfo;
 class Function;
-class DocBlock;
+class FunctionType;
+class GenericParameterType;
+class ImportedType;
+class Lexer;
+class ModuleDecl;
+class ModuleInfo;
+class NamedDecl;
+class RangeAttr;
+class Report;
+class StructDecl;
+class StructType;
+class Type;
+class TypeDecl;
+class VariantType;
+struct AllBuiltinTypes;
 
 enum class BuiltinTypeKind;
+enum class ReferenceKind;
 
 using ParseResult = bmcl::Result<Rc<Ast>, void>;
-
-struct AllBuiltinTypes;
 
 class DECODE_EXPORT Parser {
 public:
@@ -179,6 +178,7 @@ private:
 
     const char* _lastLineStart;
     std::vector<bmcl::StringView> _docComments;
+    RcVec<GenericParameterType> _currentGenericParameters;
     Rc<RangeAttr> _lastRangeAttr;
 };
 }

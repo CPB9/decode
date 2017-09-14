@@ -75,6 +75,11 @@ bool Type::isReference() const
     return _typeKind == TypeKind::Reference;
 }
 
+bool Type::isGenericParameter() const
+{
+    return _typeKind == TypeKind::GenericParameter;
+}
+
 bool Type::isBuiltinChar() const
 {
     if (isBuiltin()) {
@@ -148,6 +153,12 @@ const ReferenceType* Type::asReference() const
     return static_cast<const ReferenceType*>(this);
 }
 
+const GenericParameterType* Type::asGenericParemeter() const
+{
+    assert(isGenericParameter());
+    return static_cast<const GenericParameterType*>(this);
+}
+
 ArrayType* Type::asArray()
 {
     assert(isArray());
@@ -208,6 +219,12 @@ ReferenceType* Type::asReference()
     return static_cast<ReferenceType*>(this);
 }
 
+GenericParameterType* Type::asGenericParemeter()
+{
+    assert(isGenericParameter());
+    return static_cast<GenericParameterType*>(this);
+}
+
 const Type* Type::resolveFinalType() const
 {
     if (_typeKind == TypeKind::Alias) {
@@ -215,6 +232,9 @@ const Type* Type::resolveFinalType() const
     }
     if (_typeKind == TypeKind::Imported) {
         return asImported()->link()->resolveFinalType();
+    }
+    if (_typeKind == TypeKind::GenericParameter) {
+        return asGenericParemeter()->substitutedType()->resolveFinalType();
     }
     return this;
 }
@@ -373,6 +393,9 @@ bool Type::equals(const Type* other) const
         case TypeKind::Alias:
             assert(false);
             return false;
+        case TypeKind::GenericParameter:
+            assert(false);
+            return false;
     }
 
     return true;
@@ -412,6 +435,32 @@ void NamedType::setName(bmcl::StringView name)
 void NamedType::setModuleInfo(const ModuleInfo* info)
 {
     _moduleInfo.reset(info);
+}
+
+GenericParameterType::GenericParameterType(bmcl::StringView name, const ModuleInfo* info)
+    : NamedType(TypeKind::GenericParameter, name, info)
+{
+}
+
+GenericParameterType::~GenericParameterType()
+{
+}
+
+void GenericParameterType::substituteType(Type* type)
+{
+    _substitutedType.reset(type);
+}
+
+const Type* GenericParameterType::substitutedType() const
+{
+    assert(_substitutedType.get() != nullptr);
+    return _substitutedType.get();
+}
+
+Type* GenericParameterType::substitutedType()
+{
+    assert(_substitutedType.get() != nullptr);
+    return _substitutedType.get();
 }
 
 AliasType::AliasType(bmcl::StringView name, const ModuleInfo* info, Type* alias)

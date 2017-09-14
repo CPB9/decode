@@ -35,6 +35,7 @@ enum class TypeKind {
     Variant,
     Imported,
     Alias,
+    GenericParameter,
 };
 
 enum class BuiltinTypeKind {
@@ -78,6 +79,7 @@ class ImportedType;
 class VariantType;
 class EnumType;
 class ReferenceType;
+class GenericParameterType;
 class Field;
 class ModuleInfo;
 
@@ -98,6 +100,7 @@ public:
     const VariantType* asVariant() const;
     const EnumType* asEnum() const;
     const ReferenceType* asReference() const;
+    const GenericParameterType* asGenericParemeter() const;
 
     ArrayType* asArray();
     DynArrayType* asDynArray();
@@ -109,6 +112,7 @@ public:
     VariantType* asVariant();
     EnumType* asEnum();
     ReferenceType* asReference();
+    GenericParameterType* asGenericParemeter();
 
     TypeKind typeKind() const;
     const Type* resolveFinalType() const;
@@ -124,6 +128,8 @@ public:
     bool isVariant() const;
     bool isEnum() const;
     bool isReference() const;
+    bool isGenericParameter() const;
+
     bool isBuiltinChar() const;
 
     bool equals(const Type* other) const;
@@ -154,6 +160,23 @@ protected:
 private:
     bmcl::StringView _name;
     Rc<const ModuleInfo> _moduleInfo;
+};
+
+class GenericParameterType : public NamedType {
+public:
+    using Pointer = Rc<GenericParameterType>;
+    using ConstPointer = Rc<const GenericParameterType>;
+
+    GenericParameterType(bmcl::StringView name, const ModuleInfo* info);
+    ~GenericParameterType();
+
+    void substituteType(Type* type);
+
+    const Type* substitutedType() const;
+    Type* substitutedType();
+
+private:
+    Rc<Type> _substitutedType;
 };
 
 class AliasType : public NamedType {

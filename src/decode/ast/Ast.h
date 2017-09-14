@@ -27,6 +27,7 @@ class ImplBlock;
 class ImportedType;
 class Type;
 class NamedType;
+class GenericTypeDecl;
 class TypeDecl;
 class Component;
 class Constant;
@@ -37,6 +38,7 @@ public:
     using ConstPointer = Rc<const Ast>;
     using Types = RcVec<Type>;
     using NamedTypes = RcSecondUnorderedMap<bmcl::StringView, NamedType>;
+    using GenericDecls = RcSecondUnorderedMap<bmcl::StringView, GenericTypeDecl>;
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
     using Imports = RcVec<ImportDecl>;
     using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
@@ -57,6 +59,8 @@ public:
     Constants::ConstIterator constantsBegin() const;
     Constants::ConstIterator constantsEnd() const;
     Constants::ConstRange constantsRange() const;
+    GenericDecls::ConstRange genericTypeDeclsRange() const;
+    GenericDecls::Range genericTypeDeclsRange();
 
     bool hasConstants() const;
     const std::string& fileName() const;
@@ -66,6 +70,7 @@ public:
     bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<NamedType> findTypeWithName(bmcl::StringView name);
     bmcl::OptionPtr<const ImplBlock> findImplBlockWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<GenericTypeDecl> findGenericTypeDeclWithName(bmcl::StringView name);
 
     void setModuleDecl(ModuleDecl* decl);
     void addType(Type* type);
@@ -73,6 +78,7 @@ public:
     void addImplBlock(ImplBlock* block);
     void addTypeImport(ImportDecl* decl);
     void addConstant(Constant* constant);
+    void addGenericTypeDecl(GenericTypeDecl* decl);
     void setComponent(Component* comp);
 
 private:
@@ -84,6 +90,7 @@ private:
     Types _types;
     ImplBlocks _typeNameToImplBlock;
     Constants _constants;
+    GenericDecls _genericDecls;
     Rc<const ModuleInfo> _moduleInfo;
     Rc<ModuleDecl> _moduleDecl;
 };

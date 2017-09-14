@@ -12,6 +12,7 @@
 #include "decode/core/Rc.h"
 #include "decode/core/Location.h"
 #include "decode/core/Hash.h"
+#include "decode/core/NamedRc.h"
 #include "decode/parser/Containers.h"
 
 #include <bmcl/Option.h>
@@ -23,7 +24,10 @@ namespace decode {
 
 class ImportedType;
 class ModuleInfo;
+class NamedType;
 class Type;
+
+//TODO: refact
 
 class Decl : public RefCountable {
 public:
@@ -140,4 +144,17 @@ private:
     Functions _funcs;
 };
 
+class GenericParameterType;
+
+class GenericTypeDecl : public NamedRc {
+public:
+    GenericTypeDecl(bmcl::StringView name, const RcVec<GenericParameterType>& parameters, NamedType* genericType);
+    ~GenericTypeDecl();
+
+//     bmcl::Result<Rc<NamedType>, std::string> instantiate(const bmcl::ArrayView<Type>& types) const;
+
+private:
+    RcVec<GenericParameterType> _parameters;
+    Rc<NamedType> _type;
+};
 }

@@ -204,6 +204,9 @@ static Rc<ValueNode> createNodefromType(const Type* type, const ValueInfoCache* 
         return createNodefromType(type->asImported()->link(), cache, parent);
     case TypeKind::Alias:
         return createNodefromType(type->asAlias()->alias(), cache, parent);
+    case TypeKind::GenericParameter:
+        assert(false);
+        return nullptr;
     }
     assert(false);
     return nullptr;

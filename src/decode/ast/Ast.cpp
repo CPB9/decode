@@ -99,6 +99,16 @@ Ast::Constants::ConstRange Ast::constantsRange() const
     return _constants;
 }
 
+Ast::GenericDecls::ConstRange Ast::genericTypeDeclsRange() const
+{
+    return _genericDecls;
+}
+
+Ast::GenericDecls::Range Ast::genericTypeDeclsRange()
+{
+    return _genericDecls;
+}
+
 const ModuleInfo* Ast::moduleInfo() const
 {
     return _moduleInfo.get();
@@ -127,6 +137,11 @@ bmcl::OptionPtr<NamedType> Ast::findTypeWithName(bmcl::StringView name)
 bmcl::OptionPtr<const ImplBlock> Ast::findImplBlockWithName(bmcl::StringView name) const
 {
     return _typeNameToImplBlock.findValueWithKey(name);
+}
+
+bmcl::OptionPtr<GenericTypeDecl> Ast::findGenericTypeDeclWithName(bmcl::StringView name)
+{
+    return _genericDecls.findValueWithKey(name);
 }
 
 void Ast::setModuleDecl(ModuleDecl* decl)
@@ -163,6 +178,12 @@ void Ast::addTypeImport(ImportDecl* decl)
 void Ast::addConstant(Constant* constant)
 {
     auto it = _constants.emplace(constant->name(), constant);
+    assert(it.second); //TODO: check for top level type name conflicts
+}
+
+void Ast::addGenericTypeDecl(GenericTypeDecl* decl)
+{
+    auto it = _genericDecls.emplace(decl->name(), decl);
     assert(it.second); //TODO: check for top level type name conflicts
 }
 

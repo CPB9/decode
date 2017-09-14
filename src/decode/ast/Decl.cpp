@@ -12,6 +12,8 @@
 #include "decode/ast/ModuleInfo.h"
 #include "decode/ast/Field.h"
 
+#include <bmcl/Result.h>
+
 namespace decode {
 
 Decl::Decl(const ModuleInfo* info, Location start, Location end)
@@ -151,4 +153,22 @@ void ImplBlock::addFunction(Function* func)
 {
     _funcs.emplace_back(func);
 }
+
+GenericTypeDecl::GenericTypeDecl(bmcl::StringView name, const RcVec<GenericParameterType>& parameters, NamedType* genericType)
+    : NamedRc(name)
+    , _parameters(parameters)
+    , _type(genericType)
+{
+}
+
+GenericTypeDecl::~GenericTypeDecl()
+{
+}
+/*
+bmcl::Result<Rc<NamedType>, std::string> GenericTypeDecl::instantiate(const bmcl::ArrayView<Type>& types) const
+{
+    if (_parameters.size() != types.size()) {
+        return std::string("invalid number of parameters");
+    }
+}*/
 }

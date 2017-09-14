@@ -277,6 +277,9 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
         return wrapIntoPointerIfNeeded(type->asImported()->link());
     case TypeKind::Alias:
         return wrapIntoPointerIfNeeded(type->asAlias()->alias());
+    case TypeKind::GenericParameter:
+        assert(false);
+        return nullptr;
     }
     assert(false);
     return nullptr;
