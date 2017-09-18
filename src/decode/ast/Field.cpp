@@ -37,6 +37,11 @@ bmcl::OptionPtr<const RangeAttr> Field::rangeAttribute() const
     return _rangeAttr.get();
 }
 
+bmcl::OptionPtr<RangeAttr> Field::rangeAttribute()
+{
+    return _rangeAttr.get();
+}
+
 void Field::setRangeAttribute(RangeAttr* attr)
 {
     _rangeAttr.reset(attr);

@@ -29,6 +29,8 @@ class Component;
 template <typename T>
 class RcVec : public std::vector<Rc<T>> {
 public:
+    using std::vector<Rc<T>>::vector;
+
     using Iterator = SmartPtrIteratorAdaptor<typename std::vector<Rc<T>>::iterator>;
     using ConstIterator = SmartPtrIteratorAdaptor<typename std::vector<Rc<T>>::const_iterator>;
     using Range = IteratorRange<Iterator>;

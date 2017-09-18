@@ -42,6 +42,7 @@ public:
     Type* type();
 
     bmcl::OptionPtr<const RangeAttr> rangeAttribute() const;
+    bmcl::OptionPtr<RangeAttr> rangeAttribute();
     void setRangeAttribute(RangeAttr* attr);
 
 private:

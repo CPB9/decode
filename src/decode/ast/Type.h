@@ -35,6 +35,7 @@ enum class TypeKind {
     Variant,
     Imported,
     Alias,
+    Generic,
     GenericParameter,
 };
 
@@ -79,6 +80,7 @@ class ImportedType;
 class VariantType;
 class EnumType;
 class ReferenceType;
+class GenericType;
 class GenericParameterType;
 class Field;
 class ModuleInfo;
@@ -100,6 +102,7 @@ public:
     const VariantType* asVariant() const;
     const EnumType* asEnum() const;
     const ReferenceType* asReference() const;
+    const GenericType* asGeneric() const;
     const GenericParameterType* asGenericParemeter() const;
 
     ArrayType* asArray();
@@ -112,6 +115,7 @@ public:
     VariantType* asVariant();
     EnumType* asEnum();
     ReferenceType* asReference();
+    GenericType* asGeneric();
     GenericParameterType* asGenericParemeter();
 
     TypeKind typeKind() const;
@@ -128,6 +132,7 @@ public:
     bool isVariant() const;
     bool isEnum() const;
     bool isReference() const;
+    bool isGeneric() const;
     bool isGenericParameter() const;
 
     bool isBuiltinChar() const;
@@ -177,6 +182,23 @@ public:
 
 private:
     Rc<Type> _substitutedType;
+};
+
+class GenericType : public NamedType {
+public:
+    using Pointer = Rc<GenericType>;
+    using ConstPointer = Rc<const GenericType>;
+
+    GenericType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type);
+    ~GenericType();
+
+    bmcl::ArrayView<Rc<Type>> substitutedTypes();
+    const NamedType* type() const;
+    NamedType* type();
+
+private:
+    RcVec<Type> _substitutedTypes;
+    Rc<NamedType> _type;
 };
 
 class AliasType : public NamedType {
@@ -306,10 +328,11 @@ public:
     FieldVec::ConstIterator argumentsEnd() const;
     FieldVec::ConstRange argumentsRange() const;
     bmcl::Option<SelfArgument> selfArgument() const;
+    const ModuleInfo* moduleInfo() const;
 
     void addArgument(Field* field);
-    void setReturnValue(Type* type);
-    void setSelfArgument(SelfArgument arg);
+    void setReturnValue(bmcl::OptionPtr<Type> type);
+    void setSelfArgument(bmcl::Option<SelfArgument> arg);
 
 private:
     bmcl::Option<SelfArgument> _self;

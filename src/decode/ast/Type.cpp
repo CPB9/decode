@@ -75,6 +75,11 @@ bool Type::isReference() const
     return _typeKind == TypeKind::Reference;
 }
 
+bool Type::isGeneric() const
+{
+    return _typeKind == TypeKind::Generic;
+}
+
 bool Type::isGenericParameter() const
 {
     return _typeKind == TypeKind::GenericParameter;
@@ -153,6 +158,12 @@ const ReferenceType* Type::asReference() const
     return static_cast<const ReferenceType*>(this);
 }
 
+const GenericType* Type::asGeneric() const
+{
+    assert(isGeneric());
+    return static_cast<const GenericType*>(this);
+}
+
 const GenericParameterType* Type::asGenericParemeter() const
 {
     assert(isGenericParameter());
@@ -217,6 +228,12 @@ ReferenceType* Type::asReference()
 {
     assert(isReference());
     return static_cast<ReferenceType*>(this);
+}
+
+GenericType* Type::asGeneric()
+{
+    assert(isGeneric());
+    return static_cast<GenericType*>(this);
 }
 
 GenericParameterType* Type::asGenericParemeter()
@@ -463,6 +480,32 @@ Type* GenericParameterType::substitutedType()
     return _substitutedType.get();
 }
 
+GenericType::GenericType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type)
+    : NamedType(TypeKind::Generic, name, type->moduleInfo())
+    , _substitutedTypes(substitutedTypes.begin(), substitutedTypes.end())
+    , _type(type)
+{
+}
+
+GenericType::~GenericType()
+{
+}
+
+bmcl::ArrayView<Rc<Type>> GenericType::substitutedTypes()
+{
+    return _substitutedTypes;
+}
+
+const NamedType* GenericType::type() const
+{
+    return _type.get();
+}
+
+NamedType* GenericType::type()
+{
+    return _type.get();
+}
+
 AliasType::AliasType(bmcl::StringView name, const ModuleInfo* info, Type* alias)
     : NamedType(TypeKind::Alias, name, info)
     , _alias(alias)
@@ -704,19 +747,24 @@ bmcl::Option<SelfArgument> FunctionType::selfArgument() const
     return _self;
 }
 
+const ModuleInfo* FunctionType::moduleInfo() const
+{
+    return _modInfo.get();
+}
+
 void FunctionType::addArgument(Field* field)
 {
     _arguments.emplace_back(field);
 }
 
-void FunctionType::setReturnValue(Type* type)
+void FunctionType::setReturnValue(bmcl::OptionPtr<Type> type)
 {
-    _returnValue.reset(type);
+    _returnValue.reset(type.data());
 }
 
-void FunctionType::setSelfArgument(SelfArgument arg)
+void FunctionType::setSelfArgument(bmcl::Option<SelfArgument> arg)
 {
-    _self.emplace(arg);
+    _self = arg;
 }
 
 StructType::StructType(bmcl::StringView name, const ModuleInfo* info)

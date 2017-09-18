@@ -1102,25 +1102,54 @@ bool Parser::parseSignedInteger(std::intmax_t* dest)
 
 Rc<Type> Parser::parseBuiltinOrResolveType()
 {
-    auto it = _builtinTypes->btMap.find(_currentToken.value());
+    TRY(expectCurrentToken(TokenKind::Identifier));
+    Token tok = _currentToken;
+    bmcl::StringView name = _currentToken.value();
+    consume();
+
+    if (currentTokenIs(TokenKind::LessThen)) {
+        RcVec<Type> vec;
+        TRY(parseList(TokenKind::LessThen, TokenKind::Comma, TokenKind::MoreThen, &vec, [this](RcVec<Type>* vec){
+            Rc<Type> type = parseBuiltinOrResolveType();
+            if (!type) {
+                return false;
+            }
+            vec->push_back(std::move(type));
+            return true;
+        }));
+        auto it = _ast->findGenericTypeDeclWithName(name);
+        if (it.isNone()) {
+            std::string msg = "No generic type declaration '" + name.toStdString() + "' found";
+            reportTokenError(&tok, msg.c_str());
+            return nullptr;
+        }
+        auto rv = it.unwrap()->instantiate(vec);
+        if (rv.isErr()) {
+            std::string msg = "Failed to instantiate generic type '" + name.toStdString() + "': " + rv.unwrapErr();
+            reportTokenError(&tok, msg.c_str());
+            return nullptr;
+        }
+        Rc<GenericType> generic = new GenericType(bmcl::StringView(name.begin(), _currentToken.end()), vec, rv.unwrap().get());
+        _ast->addType(generic.get());
+        return generic;
+    }
+
+    auto it = _builtinTypes->btMap.find(name);
     if (it != _builtinTypes->btMap.end()) {
-        consume();
         return it->second;
     }
-    auto link = _ast->findTypeWithName(_currentToken.value());
+    auto link = _ast->findTypeWithName(name);
     if (link.isSome()) {
-        consume();
         return link.unwrap();
     }
-    auto jt = std::find_if(_currentGenericParameters.begin(), _currentGenericParameters.end(), [this](const Rc<GenericParameterType>& type) {
-        return type->name() == _currentToken.value();
+    auto jt = std::find_if(_currentGenericParameters.begin(), _currentGenericParameters.end(), [name](const Rc<GenericParameterType>& type) {
+        return type->name() == name;
     });
     if (jt == _currentGenericParameters.end()) {
-        std::string msg = "no type with name " + _currentToken.value().toStdString();
+        std::string msg = "no type with name " + name.toStdString();
         reportCurrentTokenError(msg.c_str());
         return nullptr;
     }
-    consume();
     return *jt;
 }
 
