@@ -177,8 +177,14 @@ void CmdDecoderGen::writePointerOp(const Type* type)
     case TypeKind::Alias:
         writePointerOp(t->asAlias()->alias());
         break;
+    case TypeKind::Generic:
+        assert(false);
+        break;
+    case TypeKind::GenericInstantiation:
+        writePointerOp(t->asGenericInstantiation()->instantiatedType());
+        break;
     case TypeKind::GenericParameter:
-        writePointerOp(t->asGenericParemeter()->substitutedType());
+        assert(false);
         break;
     }
 }
@@ -204,8 +210,14 @@ void CmdDecoderGen::writeReturnOp(const Type* type)
     case TypeKind::Alias:
         writeReturnOp(t->asAlias()->alias());
         break;
+    case TypeKind::Generic:
+        assert(false);
+        break;
+    case TypeKind::GenericInstantiation:
+        writeReturnOp(t->asGenericInstantiation()->instantiatedType());
+        break;
     case TypeKind::GenericParameter:
-        writeReturnOp(t->asGenericParemeter()->substitutedType());
+        assert(false);
         break;
     }
 }

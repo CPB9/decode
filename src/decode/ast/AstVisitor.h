@@ -51,6 +51,8 @@ public:
     void traverseVariantType(typename P<VariantType>::type variant);
     void traverseImportedType(typename P<ImportedType>::type u);
     void traverseAliasType(typename P<AliasType>::type alias);
+    void traverseGenericType(typename P<GenericType>::type generic);
+    void traverseGenericInstantiationType(typename P<GenericInstantiationType>::type generic);
     void traverseGenericParameterType(typename P<GenericParameterType>::type generic);
 
     void traverseVariantField(typename P<VariantField>::type field);
@@ -76,6 +78,8 @@ protected:
     bool visitVariantType(typename P<VariantType>::type variant);
     bool visitImportedType(typename P<ImportedType>::type u);
     bool visitAliasType(typename P<AliasType>::type alias);
+    bool visitGenericType(typename P<GenericType>::type generic);
+    bool visitGenericInstantiationType(typename P<GenericInstantiationType>::type generic);
     bool visitGenericParameterType(typename P<GenericParameterType>::type generic);
 
     bool visitVariantField(typename P<VariantField>::type field);
@@ -174,6 +178,20 @@ inline bool AstVisitorBase<B, P>::visitAliasType(typename P<AliasType>::type ali
 }
 
 template <typename B, template <typename> class P>
+inline bool AstVisitorBase<B, P>::visitGenericType(typename P<GenericType>::type generic)
+{
+    (void)generic;
+    return true;
+}
+
+template <typename B, template <typename> class P>
+inline bool AstVisitorBase<B, P>::visitGenericInstantiationType(typename P<GenericInstantiationType>::type generic)
+{
+    (void)generic;
+    return true;
+}
+
+template <typename B, template <typename> class P>
 inline bool AstVisitorBase<B, P>::visitGenericParameterType(typename P<GenericParameterType>::type generic)
 {
     (void)generic;
@@ -260,6 +278,16 @@ void AstVisitorBase<B, P>::ascendTypeOnce(typename P<Type>::type type)
     case TypeKind::Alias: {
         typename P<AliasType>::type alias = ptrCast<P, AliasType>(type);
         base().visitAliasType(alias);
+        break;
+    }
+    case TypeKind::Generic: {
+        typename P<GenericType>::type generic = ptrCast<P, GenericType>(type);
+        base().visitGenericType(generic);
+        break;
+    }
+    case TypeKind::GenericInstantiation: {
+        typename P<GenericInstantiationType>::type generic = ptrCast<P, GenericInstantiationType>(type);
+        base().visitGenericInstantiationType(generic);
         break;
     }
     case TypeKind::GenericParameter: {
@@ -427,12 +455,29 @@ void AstVisitorBase<B, P>::traverseAliasType(typename P<AliasType>::type alias)
 }
 
 template <typename B, template <typename> class P>
-void AstVisitorBase<B, P>::traverseGenericParameterType(typename P<GenericParameterType>::type generic)
+void AstVisitorBase<B, P>::traverseGenericType(typename P<GenericType>::type generic)
 {
-    if (!base().visitGenericParameterType(generic)) {
+    if(!base().visitGenericType(generic)) {
         return;
     }
-    traverseType(generic->substitutedType());
+    //TODO: visit parameters
+    traverseType(generic->innerType());
+}
+
+template <typename B, template <typename> class P>
+void AstVisitorBase<B, P>::traverseGenericInstantiationType(typename P<GenericInstantiationType>::type generic)
+{
+    if(!base().visitGenericInstantiationType(generic)) {
+        return;
+    }
+    //NOTE: no need to visit parameters
+    traverseType(generic->instantiatedType());
+}
+
+template <typename B, template <typename> class P>
+void AstVisitorBase<B, P>::traverseGenericParameterType(typename P<GenericParameterType>::type generic)
+{
+    base().visitGenericParameterType(generic);
 }
 
 template <typename B, template <typename> class P>
@@ -490,6 +535,16 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
     case TypeKind::Alias: {
         typename P<AliasType>::type alias = ptrCast<P, AliasType>(type);
         traverseAliasType(alias);
+        break;
+    }
+    case TypeKind::Generic: {
+        typename P<GenericType>::type generic = ptrCast<P, GenericType>(type);
+        traverseGenericType(generic);
+        break;
+    }
+    case TypeKind::GenericInstantiation: {
+        typename P<GenericInstantiationType>::type generic = ptrCast<P, GenericInstantiationType>(type);
+        traverseGenericInstantiationType(generic);
         break;
     }
     case TypeKind::GenericParameter: {

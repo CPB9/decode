@@ -66,7 +66,8 @@ private:
     bool addFile(const char* path, Parser* p);
     void addAst(Ast* ast);
     bool resolveAll();
-    bool resolveTypes(Ast* ast);
+    bool resolveImports(Ast* ast);
+    bool resolveGenerics(Ast* ast);
     bool resolveStatuses(Ast* ast);
     bool mapComponent(Ast* ast);
 

@@ -13,6 +13,8 @@
 #include "decode/ast/Function.h"
 #include "decode/generator/TypeNameGen.h"
 
+#include <bmcl/Logging.h>
+
 namespace decode {
 
 //TODO: refact
@@ -37,6 +39,7 @@ void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::Alias:
+    case TypeKind::GenericInstantiation:
         namedType = static_cast<const NamedType*>(type);
         break;
     default:
@@ -49,7 +52,9 @@ void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
     appendIncludesAndFwds(type);
     appendCommonIncludePaths();
     _typeDefGen.genTypeDef(type);
-    appendImplBlockIncludes(namedType);
+    if (!type->isGenericInstantiation()) {
+        appendImplBlockIncludes(namedType);
+    }
     _output->startCppGuard();
     appendFunctionPrototypes(namedType);
     if (type->typeKind() != TypeKind::Alias) {
@@ -277,8 +282,15 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
         return wrapIntoPointerIfNeeded(type->asImported()->link());
     case TypeKind::Alias:
         return wrapIntoPointerIfNeeded(type->asAlias()->alias());
+    case TypeKind::Generic:
+        assert(false);
+        return nullptr;
+    case TypeKind::GenericInstantiation:
+        return wrapIntoPointerIfNeeded(type->asGenericInstantiation()->instantiatedType());
+        return nullptr;
     case TypeKind::GenericParameter:
-        return wrapIntoPointerIfNeeded(type->asGenericParemeter()->substitutedType());
+        assert(false);
+        return nullptr;
     }
     assert(false);
     return nullptr;

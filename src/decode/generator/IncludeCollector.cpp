@@ -74,6 +74,26 @@ bool IncludeCollector::visitDynArrayType(const DynArrayType* dynArray)
     return false;
 }
 
+bool IncludeCollector::visitGenericInstantiationType(const GenericInstantiationType* type)
+{
+    if (type == _currentType) {
+        traverseType(type->instantiatedType());
+        return false;
+    }
+    SrcBuilder path;
+    path.append("_generic_/");
+    if (type->moduleName() != "core") {
+        path.appendWithFirstUpper(type->moduleName());
+    }
+    path.append(type->name());
+    TypeNameGen gen(&path);
+    for (const Type* t : type->substitutedTypesRange()) {
+        gen.genTypeName(t);
+    }
+    _dest->insert(std::move(path.result()));
+    return false;
+}
+
 void IncludeCollector::addInclude(const NamedType* type)
 {
     if (type == _currentType) {

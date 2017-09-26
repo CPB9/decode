@@ -13,6 +13,7 @@
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/generator/CmdDecoderGen.h"
 #include "decode/generator/CmdEncoderGen.h"
+#include "decode/generator/TypeNameGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -486,6 +487,7 @@ bool Generator::generateProject(const Project* project)
         }
     }
 
+    TRY(generateGenerics(package));
     TRY(generateConfig(project));
     TRY(generateDynArrays());
     TRY(generateTmPrivate(package));
@@ -579,16 +581,41 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
     return true;
 }
 
+bool Generator::generateGenerics(const Package* package)
+{
+    _photonPath.append("_generic_");
+    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
+    _photonPath.append('/');
+    for (const Ast* ast : package->modules()) {
+        SrcBuilder typeNameBuilder;
+        TypeNameGen typeNameGen(&typeNameBuilder);
+        for (const GenericInstantiationType* type : ast->genericInstantiationsRange()) {
+            typeNameGen.genTypeName(type);
+
+            _hgen->genTypeHeader(ast, type);
+            TRY(dump(typeNameBuilder.result(), ".h", &_photonPath));
+            _output.clear();
+
+            _sgen->genTypeSource(type);
+            TRY(dump(typeNameBuilder.result(), GEN_PREFIX ".c", &_photonPath));
+
+            _output.clear();
+            typeNameBuilder.clear();
+        }
+    }
+    _photonPath.removeFromBack(10);
+    return true;
+}
+
 bool Generator::generateTypesAndComponents(const Ast* ast)
 {
-    _currentAst = ast;
     if (ast->moduleInfo()->moduleName() != "core") {
         _output.setModName(ast->moduleInfo()->moduleName());
     } else {
         _output.setModName(bmcl::StringView::empty());
     }
 
-    _photonPath.append(_currentAst->moduleInfo()->moduleName());
+    _photonPath.append(ast->moduleInfo()->moduleName());
     TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
 
@@ -598,8 +625,11 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         if (type->typeKind() == TypeKind::Imported) {
             continue;
         }
+        if (type->typeKind() == TypeKind::Generic) {
+            continue;
+        }
 
-        _hgen->genTypeHeader(_currentAst.get(), type);
+        _hgen->genTypeHeader(ast, type);
         TRY(dump(type->name(), ".h", &_photonPath));
         _output.clear();
 
@@ -613,7 +643,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         bmcl::OptionPtr<const Component> comp = ast->component();
         coll.collectUniqueDynArrays(comp.unwrap(), &_dynArrays);
 
-        _hgen->genComponentHeader(_currentAst.get(), comp.unwrap());
+        _hgen->genComponentHeader(ast, comp.unwrap());
         TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_photonPath));
         _output.clear();
 
@@ -654,9 +684,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         _output.clear();
     }
 
-    _photonPath.removeFromBack(_currentAst->moduleInfo()->moduleName().size() + 1);
-
-    _currentAst = nullptr;
+    _photonPath.removeFromBack(ast->moduleInfo()->moduleName().size() + 1);
     return true;
 }
 }

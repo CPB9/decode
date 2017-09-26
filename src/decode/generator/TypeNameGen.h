@@ -15,11 +15,11 @@
 
 namespace decode {
 
-class StringBuilder;
+class SrcBuilder;
 
 class TypeNameGen : public NameVisitor<TypeNameGen> {
 public:
-    TypeNameGen(StringBuilder* dest);
+    TypeNameGen(SrcBuilder* dest);
     ~TypeNameGen();
 
     static std::string genTypeNameAsString(const Type* type);
@@ -30,10 +30,11 @@ public:
     bool visitArrayType(const ArrayType* type);
     bool visitReferenceType(const ReferenceType* type);
     bool visitDynArrayType(const DynArrayType* type);
+    bool visitGenericInstantiationType(const GenericInstantiationType* type);
 
     bool appendTypeName(const NamedType* type);
 
 private:
-    StringBuilder* _output;
+    SrcBuilder* _output;
 };
 }

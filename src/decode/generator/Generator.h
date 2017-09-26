@@ -47,6 +47,7 @@ private:
     bool generateStatusMessages(const Package* package);
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
+    bool generateGenerics(const Package* package);
     bool generateSerializedPackage(const Project* project);
     bool generateDeviceFiles(const Project* project);
     bool generateConfig(const Project* project);
@@ -63,7 +64,6 @@ private:
     Rc<Diagnostics> _diag;
     std::string _savePath;
     SrcBuilder _output;
-    Rc<const Ast> _currentAst;
     std::unique_ptr<HeaderGen> _hgen;
     std::unique_ptr<SourceGen> _sgen;
     Rc<TypeReprGen> _reprGen;

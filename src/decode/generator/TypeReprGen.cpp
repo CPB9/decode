@@ -103,6 +103,15 @@ inline bool TypeReprGen::visitFunctionType(const FunctionType* type)
     return false;
 }
 
+bool TypeReprGen::visitGenericInstantiationType(const GenericInstantiationType* type)
+{
+    _hasPrefix = true;
+    _typeName.setModName(bmcl::StringView::empty());
+    TypeNameGen sng(&_typeName);
+    sng.genTypeName(type);
+    return false;
+}
+
 inline bool TypeReprGen::appendTypeName(const NamedType* type)
 {
     _hasPrefix = true;

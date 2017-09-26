@@ -36,6 +36,7 @@ enum class TypeKind {
     Imported,
     Alias,
     Generic,
+    GenericInstantiation,
     GenericParameter,
 };
 
@@ -81,6 +82,7 @@ class VariantType;
 class EnumType;
 class ReferenceType;
 class GenericType;
+class GenericInstantiationType;
 class GenericParameterType;
 class Field;
 class ModuleInfo;
@@ -103,6 +105,7 @@ public:
     const EnumType* asEnum() const;
     const ReferenceType* asReference() const;
     const GenericType* asGeneric() const;
+    const GenericInstantiationType* asGenericInstantiation() const;
     const GenericParameterType* asGenericParemeter() const;
 
     ArrayType* asArray();
@@ -116,6 +119,7 @@ public:
     EnumType* asEnum();
     ReferenceType* asReference();
     GenericType* asGeneric();
+    GenericInstantiationType* asGenericInstantiation();
     GenericParameterType* asGenericParemeter();
 
     TypeKind typeKind() const;
@@ -133,6 +137,7 @@ public:
     bool isEnum() const;
     bool isReference() const;
     bool isGeneric() const;
+    bool isGenericInstantiation() const;
     bool isGenericParameter() const;
 
     bool isBuiltinChar() const;
@@ -174,27 +179,44 @@ public:
 
     GenericParameterType(bmcl::StringView name, const ModuleInfo* info);
     ~GenericParameterType();
-
-    void substituteType(Type* type);
-
-    const Type* substitutedType() const;
-    Type* substitutedType();
-
-private:
-    Rc<Type> _substitutedType;
 };
 
-class GenericType : public NamedType {
+class GenericType: public NamedType {
 public:
-    using Pointer = Rc<GenericType>;
-    using ConstPointer = Rc<const GenericType>;
-
-    GenericType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type);
+    GenericType(bmcl::StringView name, bmcl::ArrayView<Rc<GenericParameterType>> parameters, NamedType* genericType);
     ~GenericType();
 
+    NamedType* innerType();
+    const NamedType* innerType() const;
+    bmcl::ArrayView<Rc<GenericParameterType>> parameters();
+
+    bmcl::Result<Rc<NamedType>, std::string> instantiate(bmcl::ArrayView<Rc<Type>> types);
+
+private:
+    Rc<Type> cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> types);
+    Rc<VariantField> cloneAndSubstitute(VariantField* field, bmcl::ArrayView<Rc<Type>> types);
+    Rc<Field> cloneAndSubstitute(Field* field, bmcl::ArrayView<Rc<Type>> types);
+
+    RcVec<GenericParameterType> _parameters;
+    Rc<NamedType> _type;
+};
+
+class GenericInstantiationType : public NamedType {
+public:
+    using Pointer = Rc<GenericInstantiationType>;
+    using ConstPointer = Rc<const GenericInstantiationType>;
+
+    GenericInstantiationType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type);
+    ~GenericInstantiationType();
+
     bmcl::ArrayView<Rc<Type>> substitutedTypes();
-    const NamedType* type() const;
-    NamedType* type();
+
+    RcVec<Type>::ConstRange substitutedTypesRange() const;
+    RcVec<Type>::Range substitutedTypesRange();
+
+    const NamedType* instantiatedType() const;
+    NamedType* instantiatedType();
+    void setInstantiatedType(NamedType* type);
 
 private:
     RcVec<Type> _substitutedTypes;

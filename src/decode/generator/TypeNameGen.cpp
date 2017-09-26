@@ -14,7 +14,7 @@
 
 namespace decode {
 
-TypeNameGen::TypeNameGen(StringBuilder* dest)
+TypeNameGen::TypeNameGen(SrcBuilder* dest)
     : _output(dest)
 {
 }
@@ -102,6 +102,18 @@ inline bool TypeNameGen::visitDynArrayType(const DynArrayType* type)
     return false;
 }
 
+inline bool TypeNameGen::visitGenericInstantiationType(const GenericInstantiationType* type)
+{
+    if (type->moduleName() != "core") {
+        _output->appendWithFirstUpper(type->moduleName());
+    }
+    _output->append(type->name().toStdString());
+    for (const Type* t : type->substitutedTypesRange()) {
+        ascendTypeOnce(t);
+    }
+    return false;
+}
+
 inline bool TypeNameGen::appendTypeName(const NamedType* type)
 {
     _output->appendWithFirstUpper(type->moduleName());
@@ -116,7 +128,7 @@ void TypeNameGen::genTypeName(const Type* type)
 
 std::string TypeNameGen::genTypeNameAsString(const Type* type)
 {
-    StringBuilder output;
+    SrcBuilder output;
     TypeNameGen gen(&output);
     gen.genTypeName(type);
     return std::move(output.result());

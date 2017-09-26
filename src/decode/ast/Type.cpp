@@ -13,6 +13,7 @@
 #include <bmcl/Logging.h>
 #include <bmcl/OptionPtr.h>
 #include <bmcl/Option.h>
+#include <bmcl/Result.h>
 
 namespace decode {
 
@@ -78,6 +79,11 @@ bool Type::isReference() const
 bool Type::isGeneric() const
 {
     return _typeKind == TypeKind::Generic;
+}
+
+bool Type::isGenericInstantiation() const
+{
+    return _typeKind == TypeKind::GenericInstantiation;
 }
 
 bool Type::isGenericParameter() const
@@ -164,6 +170,12 @@ const GenericType* Type::asGeneric() const
     return static_cast<const GenericType*>(this);
 }
 
+const GenericInstantiationType* Type::asGenericInstantiation() const
+{
+    assert(isGenericInstantiation());
+    return static_cast<const GenericInstantiationType*>(this);
+}
+
 const GenericParameterType* Type::asGenericParemeter() const
 {
     assert(isGenericParameter());
@@ -236,6 +248,12 @@ GenericType* Type::asGeneric()
     return static_cast<GenericType*>(this);
 }
 
+GenericInstantiationType* Type::asGenericInstantiation()
+{
+    assert(isGenericInstantiation());
+    return static_cast<GenericInstantiationType*>(this);
+}
+
 GenericParameterType* Type::asGenericParemeter()
 {
     assert(isGenericParameter());
@@ -249,9 +267,6 @@ const Type* Type::resolveFinalType() const
     }
     if (_typeKind == TypeKind::Imported) {
         return asImported()->link()->resolveFinalType();
-    }
-    if (_typeKind == TypeKind::GenericParameter) {
-        return asGenericParemeter()->substitutedType()->resolveFinalType();
     }
     return this;
 }
@@ -410,9 +425,15 @@ bool Type::equals(const Type* other) const
         case TypeKind::Alias:
             assert(false);
             return false;
+        case TypeKind::Generic: {
+            const GenericType* l = first->asGeneric();
+            const GenericType* r = second->asGeneric();
+            return l->innerType()->equals(r->innerType());
+        }
+        case TypeKind::GenericInstantiation:
+            return first->asGenericInstantiation()->instantiatedType()->equals(second->asGenericInstantiation()->instantiatedType());
         case TypeKind::GenericParameter:
-            assert(false);
-            return false;
+            return first->asGenericParemeter()->name() == second->asGenericParemeter()->name();
     }
 
     return true;
@@ -463,47 +484,45 @@ GenericParameterType::~GenericParameterType()
 {
 }
 
-void GenericParameterType::substituteType(Type* type)
-{
-    _substitutedType.reset(type);
-}
-
-const Type* GenericParameterType::substitutedType() const
-{
-    assert(_substitutedType.get() != nullptr);
-    return _substitutedType.get();
-}
-
-Type* GenericParameterType::substitutedType()
-{
-    assert(_substitutedType.get() != nullptr);
-    return _substitutedType.get();
-}
-
-GenericType::GenericType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type)
-    : NamedType(TypeKind::Generic, name, type->moduleInfo())
+GenericInstantiationType::GenericInstantiationType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type)
+    : NamedType(TypeKind::GenericInstantiation, name, type->moduleInfo())
     , _substitutedTypes(substitutedTypes.begin(), substitutedTypes.end())
     , _type(type)
 {
 }
 
-GenericType::~GenericType()
+GenericInstantiationType::~GenericInstantiationType()
 {
 }
 
-bmcl::ArrayView<Rc<Type>> GenericType::substitutedTypes()
+bmcl::ArrayView<Rc<Type>> GenericInstantiationType::substitutedTypes()
 {
     return _substitutedTypes;
 }
 
-const NamedType* GenericType::type() const
+RcVec<Type>::ConstRange GenericInstantiationType:: substitutedTypesRange() const
+{
+    return _substitutedTypes;
+}
+
+RcVec<Type>::Range GenericInstantiationType::substitutedTypesRange()
+{
+    return _substitutedTypes;
+}
+
+const NamedType* GenericInstantiationType::instantiatedType() const
 {
     return _type.get();
 }
 
-NamedType* GenericType::type()
+NamedType* GenericInstantiationType::instantiatedType()
 {
     return _type.get();
+}
+
+void GenericInstantiationType::setInstantiatedType(NamedType* type)
+{
+    _type.reset(type);
 }
 
 AliasType::AliasType(bmcl::StringView name, const ModuleInfo* info, Type* alias)
@@ -924,5 +943,167 @@ VariantType::Fields::Range VariantType::fieldsRange()
 void VariantType::addField(VariantField* field)
 {
     _fields.emplace_back(field);
+}
+
+GenericType::GenericType(bmcl::StringView name, bmcl::ArrayView<Rc<GenericParameterType>> parameters, NamedType* genericType)
+    : NamedType(TypeKind::Generic, name, genericType->moduleInfo())
+    , _parameters(parameters.begin(), parameters.end())
+    , _type(genericType)
+{
+}
+
+GenericType::~GenericType()
+{
+}
+
+NamedType* GenericType::innerType()
+{
+    return _type.get();
+}
+
+const NamedType* GenericType::innerType() const
+{
+    return _type.get();
+}
+
+bmcl::ArrayView<Rc<GenericParameterType>> GenericType::parameters()
+{
+    return _parameters;
+}
+
+bmcl::Result<Rc<NamedType>, std::string> GenericType::instantiate(const bmcl::ArrayView<Rc<Type>> types)
+{
+    if (_parameters.size() != types.size()) {
+        return std::string("invalid number of parameters");
+    }
+
+    Rc<Type> cloned = cloneAndSubstitute(_type.get(), types);
+    if (!cloned) {
+        return std::string("failed to substitute generic parameters");
+    }
+    return Rc<NamedType>(static_cast<NamedType*>(cloned.get()));
+}
+
+Rc<Field> GenericType::cloneAndSubstitute(Field* field, bmcl::ArrayView<Rc<Type>> types)
+{
+    Rc<Type> clonedType = cloneAndSubstitute(field->type(), types);
+    Rc<Field> clonedField = new Field(field->name(), clonedType.get());
+    if (field->rangeAttribute().isSome()) {
+        clonedField->setRangeAttribute(field->rangeAttribute().unwrap());
+    }
+    return clonedField;
+}
+
+Rc<VariantField> GenericType::cloneAndSubstitute(VariantField* varField, bmcl::ArrayView<Rc<Type>> types)
+{
+    switch (varField->variantFieldKind()) {
+    case VariantFieldKind::Constant:
+        return varField;
+    case VariantFieldKind::Tuple: {
+        TupleVariantField* f = static_cast<TupleVariantField*>(varField);
+        Rc<TupleVariantField> newField = new TupleVariantField(f->id(), f->name());
+        for (Type* type : f->typesRange()) {
+            Rc<Type> cloned = cloneAndSubstitute(type, types);
+            newField->addType(cloned.get());
+        }
+        return newField;
+    }
+    case VariantFieldKind::Struct: {
+        StructVariantField* f = static_cast<StructVariantField*>(varField);
+        Rc<StructVariantField> newField = new StructVariantField(f->id(), f->name());
+        for (Field* field : f->fieldsRange()) {
+            Rc<Field> cloned = cloneAndSubstitute(field, types);
+            newField->addField(cloned.get());
+        }
+        return newField;
+    }
+    }
+}
+
+Rc<Type> GenericType::cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> types)
+{
+    switch (type->typeKind()) {
+        case TypeKind::Builtin:
+            return type;
+        case TypeKind::Reference: {
+            ReferenceType* ref = type->asReference();
+            Rc<Type> cloned = cloneAndSubstitute(ref->pointee(), types);
+            return new ReferenceType(ref->referenceKind(), ref->isMutable(), cloned.get());
+        }
+        case TypeKind::Array: {
+            ArrayType* array = type->asArray();
+            Rc<Type> cloned = cloneAndSubstitute(array->elementType(), types);
+            return new ArrayType(array->elementCount(), cloned.get());
+        }
+        case TypeKind::DynArray: {
+            DynArrayType* dynArray = type->asDynArray();
+            Rc<Type> cloned = cloneAndSubstitute(dynArray->elementType(), types);
+            return new DynArrayType(dynArray->moduleInfo(), dynArray->maxSize(), cloned.get());
+        }
+        case TypeKind::Function: {
+            FunctionType* func = type->asFunction();
+            Rc<FunctionType> newFunc = new FunctionType(func->moduleInfo());
+            if (func->hasReturnValue()) {
+                Rc<Type> cloned = cloneAndSubstitute(func->returnValue().unwrap(), types);
+                newFunc->setReturnValue(cloned.get());
+            }
+            newFunc->setSelfArgument(func->selfArgument());
+            for (Field* field : func->argumentsRange()) {
+                Rc<Field> cloned = cloneAndSubstitute(field, types);
+                newFunc->addArgument(cloned.get());
+            }
+            return newFunc;
+        }
+        case TypeKind::Enum: {
+            return type;
+        }
+        case TypeKind::Struct: {
+            StructType* structType = type->asStruct();
+            Rc<StructType> newStruct = new StructType(structType->name(), structType->moduleInfo());
+            for (Field* field : structType->fieldsRange()) {
+                Rc<Field> cloned = cloneAndSubstitute(field, types);
+                newStruct->addField(cloned.get());
+            }
+            return newStruct;
+        }
+        case TypeKind::Variant: {
+            VariantType* variant = type->asVariant();
+            Rc<VariantType> newVariant = new VariantType(variant->name(), variant->moduleInfo());
+            for (VariantField* field : variant->fieldsRange()) {
+                Rc<VariantField> cloned = cloneAndSubstitute(field, types);
+                newVariant->addField(cloned.get());
+            }
+            return newVariant;
+
+        }
+        case TypeKind::Imported: {
+            return type;
+        }
+        case TypeKind::Alias: {
+            AliasType* alias = type->asAlias();
+            Rc<Type> cloned = cloneAndSubstitute(alias->alias(), types);
+            return new AliasType(alias->name(), alias->moduleInfo(), cloned.get());
+        }
+        case TypeKind::Generic: {
+            assert(false);
+            return nullptr;
+        }
+        case TypeKind::GenericInstantiation: {
+            GenericInstantiationType* generic = type->asGenericInstantiation();
+            Rc<Type> cloned = cloneAndSubstitute(generic->instantiatedType(), types);
+            return new GenericInstantiationType(generic->name(), generic->substitutedTypes(), static_cast<NamedType*>(cloned.get()));
+        }
+        case TypeKind::GenericParameter: {
+            GenericParameterType* genericParam = type->asGenericParemeter();
+            auto it = std::find_if(_parameters.begin(), _parameters.end(), [genericParam](const Rc<GenericParameterType>& type) {
+                return type->name() == genericParam->name();
+            });
+            if (it == _parameters.end()) {
+                return nullptr;
+            }
+            std::size_t index = it - _parameters.begin();
+            return types[index];
+        }
+    }
 }
 }

@@ -40,6 +40,7 @@ public:
     bool visitDynArrayType(const DynArrayType* dynArray);
     bool visitAliasType(const AliasType* alias);
     bool visitFunctionType(const FunctionType* func);
+    bool visitGenericInstantiationType(const GenericInstantiationType* type);
 
 private:
     void addInclude(const NamedType* type);

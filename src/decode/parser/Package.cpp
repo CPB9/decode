@@ -139,7 +139,32 @@ bool Package::addFile(const char* path, Parser* p)
     return true;
 }
 
-bool Package::resolveTypes(Ast* ast)
+bool Package::resolveGenerics(Ast* ast)
+{
+    bool isOk = true;
+    for (GenericInstantiationType* type : ast->genericInstantiationsRange()) {
+        NamedType* t = type->instantiatedType();
+        if (t->isImported()) {
+            t = t->asImported()->link();
+        }
+        if (t->isGeneric()) {
+            auto rv = t->asGeneric()->instantiate(type->substitutedTypes());
+            if (rv.isErr()) {
+                BMCL_CRITICAL() << "failed to instantiate type " + type->name().toStdString() + ": " + rv.unwrapErr();
+                isOk = false;
+                continue;
+            }
+            type->setModuleInfo(t->moduleInfo());
+            type->setInstantiatedType(rv.unwrap().get());
+        } else {
+            BMCL_CRITICAL() << "Type " + type->name().toStdString() + " is not generic";
+            isOk = false;
+        }
+    }
+    return isOk;
+}
+
+bool Package::resolveImports(Ast* ast)
 {
     bool isOk = true;
     for (ImportDecl* import : ast->importsRange()) {
@@ -281,7 +306,8 @@ bool Package::resolveAll()
     for (Ast* modifiedAst : modules()) {
         //BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
         TRY(mapComponent(modifiedAst));
-        isOk &= resolveTypes(modifiedAst);
+        isOk &= resolveImports(modifiedAst);
+        isOk &= resolveGenerics(modifiedAst);
         isOk &= resolveStatuses(modifiedAst);
     }
     if (!isOk) {

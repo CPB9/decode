@@ -143,23 +143,4 @@ private:
 
     Functions _funcs;
 };
-
-class GenericParameterType;
-class GenericType;
-
-class GenericTypeDecl : public NamedRc {
-public:
-    GenericTypeDecl(bmcl::StringView name, bmcl::ArrayView<Rc<GenericParameterType>> parameters, NamedType* genericType);
-    ~GenericTypeDecl();
-
-    bmcl::Result<Rc<NamedType>, std::string> instantiate(bmcl::ArrayView<Rc<Type>> types);
-
-private:
-    Rc<Type> cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> types);
-    Rc<VariantField> cloneAndSubstitute(VariantField* field, bmcl::ArrayView<Rc<Type>> types);
-    Rc<Field> cloneAndSubstitute(Field* field, bmcl::ArrayView<Rc<Type>> types);
-
-    RcVec<GenericParameterType> _parameters;
-    Rc<NamedType> _type;
-};
 }

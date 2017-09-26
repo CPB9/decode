@@ -1117,21 +1117,21 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
             vec->push_back(std::move(type));
             return true;
         }));
-        auto it = _ast->findGenericTypeDeclWithName(name);
-        if (it.isNone()) {
-            std::string msg = "No generic type declaration '" + name.toStdString() + "' found";
-            reportTokenError(&tok, msg.c_str());
+        auto type = _ast->findTypeWithName(name);
+        if (type.isNone()) {
+            std::string msg = "No type with name " + name.toStdString();
+            reportCurrentTokenError(msg.c_str());
             return nullptr;
         }
-        auto rv = it.unwrap()->instantiate(vec);
-        if (rv.isErr()) {
-            std::string msg = "Failed to instantiate generic type '" + name.toStdString() + "': " + rv.unwrapErr();
-            reportTokenError(&tok, msg.c_str());
+        if (type->isImported() || type->isGeneric()) {
+            Rc<GenericInstantiationType> generic = new GenericInstantiationType(name, vec, type.unwrap());
+            _ast->addGenericInstantiation(generic.get());
+            return generic;
+        } else {
+            std::string msg = "Type " + name.toStdString() + " is not generic";
+            reportCurrentTokenError(msg.c_str());
             return nullptr;
         }
-        Rc<GenericType> generic = new GenericType(bmcl::StringView(name.begin(), _currentToken.end()), vec, rv.unwrap().get());
-        _ast->addType(generic.get());
-        return generic;
     }
 
     auto it = _builtinTypes->btMap.find(name);
@@ -1146,7 +1146,7 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         return type->name() == name;
     });
     if (jt == _currentGenericParameters.end()) {
-        std::string msg = "no type with name " + name.toStdString();
+        std::string msg = "No type with name " + name.toStdString();
         reportCurrentTokenError(msg.c_str());
         return nullptr;
     }
@@ -1345,7 +1345,7 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
     type->setDocs(docs.get());
     consumeAndSkipBlanks();
 
-    Rc<GenericTypeDecl> genericDecl;
+    Rc<GenericType> genericType;
     if (currentTokenIs(TokenKind::LessThen)) {
         TRY(parseList(TokenKind::LessThen, TokenKind::Comma, TokenKind::MoreThen, name, [this](bmcl::StringView) -> bool {
             //TODO: check name conflicts
@@ -1354,15 +1354,15 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
             consume();
             return true;
         }));
-        genericDecl = new GenericTypeDecl(name, _currentGenericParameters, type.get());
+        genericType = new GenericType(name, _currentGenericParameters, type.get());
         skipBlanks();
     }
 
     TRY(parseBraceList(type.get(), std::forward<F>(fieldParser)));
     clearUnusedDocCommentsAndAttributes();
 
-    if (genericDecl) {
-        _ast->addGenericTypeDecl(genericDecl.get());
+    if (genericType) {
+        _ast->addTopLevelType(genericType.get());
     } else {
         _ast->addTopLevelType(type.get());
     }
