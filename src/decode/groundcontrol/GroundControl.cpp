@@ -18,6 +18,7 @@
 
 #include <bmcl/Logging.h>
 #include <bmcl/Bytes.h>
+#include <bmcl/MemReader.h>
 #include <bmcl/SharedBytes.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
@@ -29,13 +30,14 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::GcCmd);
 
 namespace decode {
 
-GroundControl::GroundControl(caf::actor_config& cfg, const caf::actor& sink, const caf::actor& eventHandler)
+GroundControl::GroundControl(caf::actor_config& cfg, uint64_t selfAddress, uint64_t destAddress,
+                             const caf::actor& sink, const caf::actor& eventHandler)
     : caf::event_based_actor(cfg)
     , _sink(sink)
     , _handler(eventHandler)
     , _isRunning(false)
 {
-    _exc = spawn<Exchange, caf::linked>(this, _sink, _handler);
+    _exc = spawn<Exchange, caf::linked>(selfAddress, destAddress, this, _sink, _handler);
     _cmd = spawn<CmdState, caf::linked>(_exc, _handler);
 }
 
@@ -152,14 +154,6 @@ bool GroundControl::acceptPacket(bmcl::Bytes packet)
         return false;
     }
 
-    uint16_t encodedCrc = le16dec(packet.data() + payloadSize);
-    Crc16 calculatedCrc;
-    calculatedCrc.update(packet.data(), packet.size() - 2);
-    if (calculatedCrc.get() != encodedCrc) {
-        reportError("recieved packet with invalid crc");
-        return false;
-    }
-
     send(_exc, RecvPayloadAtom::value, bmcl::SharedBytes::create(packet.data() + 2, payloadSize - 2));
     return true;
 }
@@ -205,6 +199,36 @@ SearchResult GroundControl::findPacket(const void* data, std::size_t size)
     if (it > end - expectedSize - 2) {
         return SearchResult(junkSize, 0);
     }
+
+    uint16_t encodedCrc = le16dec(it + expectedSize);
+    Crc16 calculatedCrc;
+    calculatedCrc.update(it, expectedSize);
+    if (calculatedCrc.get() != encodedCrc) {
+        return SearchResult(junkSize + 1, 0);
+    }
+
     return SearchResult(junkSize, 4 + expectedSize);
+}
+
+bmcl::Option<PacketAddress> GroundControl::extractPacketAddress(const void* data, std::size_t size)
+{
+    PacketAddress addr;
+    bmcl::MemReader reader((const uint8_t*)data, size);
+    if (size < 4) {
+        return bmcl::None;
+    }
+    reader.skip(4);
+    if (!reader.readVarUint(&addr.srcAddress)) {
+        return bmcl::None;
+    }
+    if (!reader.readVarUint(&addr.destAddress)) {
+        return bmcl::None;
+    }
+    return addr;
+}
+
+bmcl::Option<PacketAddress> GroundControl::extractPacketAddress(bmcl::Bytes data)
+{
+    return GroundControl::extractPacketAddress(data.data(), data.size());
 }
 }

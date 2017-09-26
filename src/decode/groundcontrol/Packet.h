@@ -33,8 +33,9 @@ enum class ReceiptType : uint8_t {
 };
 
 struct PacketHeader {
-    uint64_t deviceId;
     uint64_t tickTime;
+    uint64_t srcAddress;
+    uint64_t destAddress;
     uint16_t counter;
     StreamDirection streamDirection;
     PacketType packetType;
@@ -49,7 +50,6 @@ struct PacketResponse {
 };
 
 struct PacketRequest {
-    uint64_t deviceId;
     bmcl::SharedBytes payload;
     StreamType streamType;
 };

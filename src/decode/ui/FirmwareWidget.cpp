@@ -51,7 +51,6 @@ FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidg
         bmcl::MemWriter dest(tmp, sizeof(tmp));
         if (_scriptNode->encode(&dest)) {
             PacketRequest req;
-            req.deviceId = 0;
             req.streamType = StreamType::CmdTelem;
             req.payload = bmcl::SharedBytes::create(dest.writenData());
             setEnabled(false);

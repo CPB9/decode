@@ -67,7 +67,8 @@ struct StreamState {
 
 class Exchange : public caf::event_based_actor {
 public:
-    Exchange(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler);
+    Exchange(caf::actor_config& cfg, uint64_t selfAddress, uint64_t destAddress,
+             const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler);
     ~Exchange();
 
     caf::behavior make_behavior() override;
@@ -103,6 +104,7 @@ private:
     caf::actor _sink;
     caf::actor _handler;
     uint64_t _selfAddress;
+    uint64_t _deviceAddress;
     bool _isRunning;
     bool _dataReceived;
 };

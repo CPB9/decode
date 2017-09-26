@@ -31,7 +31,8 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::StreamState*);
 
 namespace decode {
 
-Exchange::Exchange(caf::actor_config& cfg, const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler)
+Exchange::Exchange(caf::actor_config& cfg, uint64_t selfAddress, uint64_t destAddress,
+                   const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler)
     : caf::event_based_actor(cfg)
     , _fwtStream(StreamType::Firmware)
     , _cmdTmStream(StreamType::CmdTelem)
@@ -39,7 +40,8 @@ Exchange::Exchange(caf::actor_config& cfg, const caf::actor& gc, const caf::acto
     , _gc(gc)
     , _sink(dataSink)
     , _handler(handler)
-    , _selfAddress(0)
+    , _selfAddress(selfAddress)
+    , _deviceAddress(destAddress)
     , _isRunning(false)
     , _dataReceived(false)
 {
@@ -98,7 +100,6 @@ caf::behavior Exchange::make_behavior()
             }
             if (!_dataReceived) {
                 PacketRequest req;
-                req.deviceId = 0;
                 req.streamType = StreamType::CmdTelem;
                 send(this, SendUnreliablePacketAtom::value, req);
             }
@@ -152,14 +153,12 @@ bool Exchange::handlePayload(bmcl::Bytes data)
 
     PacketHeader header;
     bmcl::MemReader reader(data);
-    uint64_t srcAddress;
-    if (!reader.readVarUint(&srcAddress)) {
-        reportError("recieved src address");
+    if (!reader.readVarUint(&header.srcAddress) || header.srcAddress != _deviceAddress) {
+        reportError("recieved invalid src address");
         return false;
     }
-    uint64_t destAddress;
-    if (!reader.readVarUint(&destAddress)) {
-        reportError("recieved src address");
+    if (!reader.readVarUint(&header.destAddress) || header.destAddress != _selfAddress) {
+        reportError("recieved invalid dest address");
         return false;
     }
     int64_t direction;
@@ -347,7 +346,7 @@ bmcl::SharedBytes Exchange::packPacket(const PacketRequest& req, PacketType pack
     uint8_t header[8 + 8 + 8 + 8 + 8 + 2 + 8];
     bmcl::MemWriter headerWriter(header, sizeof(header));
     headerWriter.writeVarUint(_selfAddress);
-    headerWriter.writeVarUint(req.deviceId);
+    headerWriter.writeVarUint(_deviceAddress);
     headerWriter.writeVarInt((int64_t)StreamDirection::Uplink);
     headerWriter.writeVarInt((int64_t)packetType);
     headerWriter.writeVarInt((int64_t)req.streamType);

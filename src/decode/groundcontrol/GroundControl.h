@@ -41,9 +41,21 @@ public:
     std::size_t dataSize;
 };
 
+struct PacketAddress {
+    PacketAddress(uint64_t srcAddress = 0, uint64_t destAddress = 0)
+        : srcAddress(srcAddress)
+        , destAddress(destAddress)
+    {
+    }
+
+    uint64_t srcAddress;
+    uint64_t destAddress;
+};
+
 class GroundControl : public caf::event_based_actor {
 public:
-    GroundControl(caf::actor_config& cfg, const caf::actor& sink, const caf::actor& eventHandler);
+    GroundControl(caf::actor_config& cfg, uint64_t selfAddress, uint64_t deviceAddress,
+                  const caf::actor& sink, const caf::actor& eventHandler);
     ~GroundControl();
 
     caf::behavior make_behavior() override;
@@ -52,6 +64,9 @@ public:
 
     static SearchResult findPacket(const void* data, std::size_t size);
     static SearchResult findPacket(bmcl::Bytes data);
+
+    static bmcl::Option<PacketAddress> extractPacketAddress(const void* data, std::size_t size);
+    static bmcl::Option<PacketAddress> extractPacketAddress(bmcl::Bytes data);
 
 private:
     void sendUnreliablePacket(const PacketRequest& packet);

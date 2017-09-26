@@ -196,7 +196,6 @@ inline void FwtState::packAndSendPacket(C&& enc, A&&... args)
     bmcl::MemWriter writer(_temp, sizeof(_temp));
     (this->*enc)(&writer, std::forward<A>(args)...);
     PacketRequest req;
-    req.deviceId = 0; //FIXME
     req.streamType = StreamType::Firmware;
     req.payload = bmcl::SharedBytes::create(writer.writenData());
     send(_exc, SendUnreliablePacketAtom::value, req);
