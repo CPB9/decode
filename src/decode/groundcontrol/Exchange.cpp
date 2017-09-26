@@ -39,6 +39,7 @@ Exchange::Exchange(caf::actor_config& cfg, const caf::actor& gc, const caf::acto
     , _gc(gc)
     , _sink(dataSink)
     , _handler(handler)
+    , _selfAddress(0)
     , _isRunning(false)
     , _dataReceived(false)
 {
@@ -151,6 +152,16 @@ bool Exchange::handlePayload(bmcl::Bytes data)
 
     PacketHeader header;
     bmcl::MemReader reader(data);
+    uint64_t srcAddress;
+    if (!reader.readVarUint(&srcAddress)) {
+        reportError("recieved src address");
+        return false;
+    }
+    uint64_t destAddress;
+    if (!reader.readVarUint(&destAddress)) {
+        reportError("recieved src address");
+        return false;
+    }
     int64_t direction;
     if (!reader.readVarInt(&direction)) {
         reportError("recieved invalid stream direction");
@@ -333,15 +344,23 @@ bool Exchange::acceptPacket(const PacketHeader& header, bmcl::Bytes payload, Str
 
 bmcl::SharedBytes Exchange::packPacket(const PacketRequest& req, PacketType packetType, uint16_t counter)
 {
-    bmcl::SharedBytes packet = bmcl::SharedBytes::create(2 + 2 + 1 + 1 + 1 + 2 + 1 + req.payload.size() + 2);
+    uint8_t header[8 + 8 + 8 + 8 + 8 + 2 + 8];
+    bmcl::MemWriter headerWriter(header, sizeof(header));
+    headerWriter.writeVarUint(_selfAddress);
+    headerWriter.writeVarUint(req.deviceId);
+    headerWriter.writeVarInt((int64_t)StreamDirection::Uplink);
+    headerWriter.writeVarInt((int64_t)packetType);
+    headerWriter.writeVarInt((int64_t)req.streamType);
+    headerWriter.writeUint16Le(counter);
+    headerWriter.writeVarUint(0); //time
+
+    //TODO: check overflow
+    std::size_t packetSize = headerWriter.writenData().size() + req.payload.size() + 2;
+    bmcl::SharedBytes packet = bmcl::SharedBytes::create(4 + packetSize);
     bmcl::MemWriter packWriter(packet.data(), packet.size());
     packWriter.writeUint16Be(0x9c3e);
-    packWriter.writeUint16Le(1 + 1 + 1 + 2 + 1 + req.payload.size() + 2); //HACK: data type
-    packWriter.writeVarInt((int64_t)StreamDirection::Uplink);
-    packWriter.writeVarInt((int64_t)packetType);
-    packWriter.writeVarInt((int64_t)req.streamType);
-    packWriter.writeUint16Le(counter);
-    packWriter.writeVarUint(0); //time
+    packWriter.writeUint16Le(packetSize);
+    packWriter.write(headerWriter.writenData());
     packWriter.write(req.payload.view());
     Crc16 crc;
     crc.update(packWriter.writenData().sliceFrom(2));

@@ -102,6 +102,7 @@ private:
     caf::actor _gc;
     caf::actor _sink;
     caf::actor _handler;
+    uint64_t _selfAddress;
     bool _isRunning;
     bool _dataReceived;
 };
