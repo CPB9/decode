@@ -128,6 +128,32 @@ Qt::DropActions QCmdModel::supportedDropActions() const
     return Qt::CopyAction | Qt::MoveAction;
 }
 
+void QCmdModel::resizeNode(const QModelIndex& index, size_t size)
+{
+    Node* node = static_cast<Node*>(index.internalPointer());
+    auto maxSize = node->canBeResized();
+    if (maxSize.isNone())
+        return;
+
+    size_t currentSize = node->numChildren();
+
+    if (size > *maxSize || currentSize == size)
+        return;
+
+    if (size > currentSize)
+    {
+        beginInsertRows(index, currentSize, size);
+        node->resizeNode(size);
+        endInsertRows();
+    }
+    else
+    {
+        beginRemoveRows(index, size, currentSize);
+        node->resizeNode(size);
+        endRemoveRows();
+    }
+}
+
 void QCmdModel::reset()
 {
     if(_cmds.get()) {
