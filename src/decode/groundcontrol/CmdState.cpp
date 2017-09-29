@@ -80,17 +80,31 @@ public:
     GcActorBase(caf::actor_config& cfg,
                 caf::actor exchange,
                 const T* iface,
-                const caf::response_promise& promise)
+                const caf::response_promise& promise,
+                const std::string& name
+                )
         : caf::event_based_actor(cfg)
+        , _name(name)
         , _exchange(exchange)
         , _iface(iface)
         , _promise(promise)
     {
+        monitor(exchange);
+        set_down_handler([this](caf::down_msg& dm) {
+            quit();
+        });
     }
 
     void on_exit() override
     {
+        if (_promise.pending())
+            _promise.deliver(caf::sec::request_receiver_down);
         destroy(_exchange);
+    }
+
+    virtual const char* name() const
+    {
+        return _name.c_str();
     }
 
 protected:
@@ -120,6 +134,7 @@ protected:
         });
     }
 
+    std::string _name;
     caf::actor _exchange;
     Rc<const T> _iface;
     caf::response_promise _promise;
@@ -134,7 +149,7 @@ public:
                      const WaypointGcInterface* iface,
                      const caf::response_promise& promise,
                      UploadRouteGcCmd&& route)
-        : NavActorBase(cfg, exchange, iface, promise)
+        : NavActorBase(cfg, exchange, iface, promise, "RouteUploadActor")
         , _route(std::move(route))
         , _currentIndex(0)
     {
@@ -251,8 +266,9 @@ public:
     OneActionNavActor(caf::actor_config& cfg,
                       caf::actor exchange,
                       const WaypointGcInterface* iface,
-                      const caf::response_promise& promise)
-        : NavActorBase(cfg, exchange, iface, promise)
+                      const caf::response_promise& promise,
+                      const std::string& name)
+        : NavActorBase(cfg, exchange, iface, promise, name)
     {
     }
 
@@ -282,7 +298,7 @@ public:
                         const WaypointGcInterface* iface,
                         const caf::response_promise& promise,
                         SetActiveRouteGcCmd&& cmd)
-        : OneActionNavActor(cfg, exchange, iface, promise)
+        : OneActionNavActor(cfg, exchange, iface, promise, "SetActiveRouteActor")
         , _cmd(std::move(cmd))
     {
     }
@@ -303,7 +319,7 @@ public:
                              const WaypointGcInterface* iface,
                              const caf::response_promise& promise,
                              SetRouteActivePointGcCmd&& cmd)
-        : OneActionNavActor(cfg, exchange, iface, promise)
+        : OneActionNavActor(cfg, exchange, iface, promise, "SetRouteActivePointActor")
         , _cmd(std::move(cmd))
     {
     }
@@ -324,7 +340,7 @@ public:
                           const WaypointGcInterface* iface,
                           const caf::response_promise& promise,
                           SetRouteInvertedGcCmd&& cmd)
-        : OneActionNavActor(cfg, exchange, iface, promise)
+        : OneActionNavActor(cfg, exchange, iface, promise, "SetRouteInvertedActor")
         , _cmd(std::move(cmd))
     {
     }
@@ -345,7 +361,7 @@ public:
                         const WaypointGcInterface* iface,
                         const caf::response_promise& promise,
                         SetRouteClosedGcCmd&& cmd)
-        : OneActionNavActor(cfg, exchange, iface, promise)
+        : OneActionNavActor(cfg, exchange, iface, promise, "SetRouteClosedActor")
         , _cmd(std::move(cmd))
     {
     }
@@ -366,7 +382,7 @@ public:
                            const WaypointGcInterface* iface,
                            const caf::response_promise& promise,
                            caf::actor handler)
-        : OneActionNavActor(cfg, exchange, iface, promise)
+        : OneActionNavActor(cfg, exchange, iface, promise, "DownloadRouteInfoActor")
         , _handler(handler)
     {
     }
@@ -404,7 +420,7 @@ public:
                        const caf::response_promise& promise,
                        DownloadRouteGcCmd&& cmd,
                        caf::actor handler)
-        : NavActorBase(cfg, exchange, iface, promise)
+        : NavActorBase(cfg, exchange, iface, promise, "DownloadRouteActor")
         , _currentIndex(0)
         , _handler(handler)
     {
@@ -485,7 +501,7 @@ public:
                     const FileGcInterface* iface,
                     const caf::response_promise& promise,
                     UploadFileGcCmd&& cmd)
-        : GcActorBase<FileGcInterface>(cfg, exchange, iface, promise)
+        : GcActorBase<FileGcInterface>(cfg, exchange, iface, promise, "UploadFileActor")
         , _reader(cmd.reader)
         , _id(cmd.id)
     {

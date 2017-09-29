@@ -134,9 +134,12 @@ const char* Exchange::name() const
 
 void Exchange::on_exit()
 {
+    destroy(_gc);
     destroy(_sink);
+    destroy(_handler);
     destroy(_fwtStream.client);
     destroy(_cmdTmStream.client);
+    destroy(_userStream.client);
 }
 
 void Exchange::reportError(std::string&& msg)
