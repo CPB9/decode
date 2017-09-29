@@ -47,12 +47,15 @@ public:
 
     void acceptPacketResponse(const PacketResponse& response);
 
+private slots:
+    void nodeContextMenuRequested(const QPoint& pos);
 signals:
     void unreliablePacketQueued(const PacketRequest& packet);
     void reliablePacketQueued(const PacketRequest& packet);
 
 private:
     QTreeView* _paramViewWidget;
+    QTreeView* _scriptEditWidget;
     QTreeView* _scriptResultWidget;
     QTreeView* _cmdViewWidget;
     Rc<ScriptNode> _scriptNode;

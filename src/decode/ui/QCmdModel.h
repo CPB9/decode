@@ -37,6 +37,7 @@ public:
         return _cmds.get();
     }
 
+    void resizeNode(const QModelIndex& index, size_t size);
 private:
     static bmcl::OptionPtr<CmdNode> decodeQModelDrop(const QMimeData* data);
     static bmcl::OptionPtr<CmdNode> decodeQCmdModelDrop(const QMimeData* data, const QModelIndex& parent);

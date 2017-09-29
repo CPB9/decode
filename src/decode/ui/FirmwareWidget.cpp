@@ -22,6 +22,8 @@
 #include <QTreeView>
 #include <QMessageBox>
 #include <QHeaderView>
+#include <QMenu>
+#include <QInputDialog>
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
@@ -63,27 +65,29 @@ FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidg
 
     _scriptEditModel = bmcl::makeUnique<QCmdModel>(_scriptNode.get());
     _scriptEditModel->setEditable(true);
-    auto scriptEditWidget = new QTreeView;
-    scriptEditWidget->setModel(_scriptEditModel.get());
-    scriptEditWidget->setItemDelegate(new QModelItemDelegate<Node>(scriptEditWidget));
-    scriptEditWidget->setAlternatingRowColors(true);
-    scriptEditWidget->setSelectionMode(QAbstractItemView::SingleSelection);
-    scriptEditWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
-    scriptEditWidget->setDropIndicatorShown(true);
-    scriptEditWidget->setDragEnabled(true);
-    scriptEditWidget->setDragDropMode(QAbstractItemView::DragDrop);
-    scriptEditWidget->viewport()->setAcceptDrops(true);
-    scriptEditWidget->setAcceptDrops(true);
-    scriptEditWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    scriptEditWidget->header()->setStretchLastSection(false);
-    scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
-    scriptEditWidget->expandToDepth(1);
+    _scriptEditWidget = new QTreeView();
+    _scriptEditWidget->setModel(_scriptEditModel.get());
+    _scriptEditWidget->setItemDelegate(new QModelItemDelegate<Node>(_scriptEditWidget));
+    _scriptEditWidget->setAlternatingRowColors(true);
+    _scriptEditWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    _scriptEditWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
+    _scriptEditWidget->setDropIndicatorShown(true);
+    _scriptEditWidget->setDragEnabled(true);
+    _scriptEditWidget->setDragDropMode(QAbstractItemView::DragDrop);
+    _scriptEditWidget->viewport()->setAcceptDrops(true);
+    _scriptEditWidget->setAcceptDrops(true);
+    _scriptEditWidget->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
+    _scriptEditWidget->header()->setStretchLastSection(false);
+    _scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
+    _scriptEditWidget->expandToDepth(1);
+    _scriptEditWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(_scriptEditWidget, &QWidget::customContextMenuRequested, this, &FirmwareWidget::nodeContextMenuRequested);
 
     connect(clearButton, &QPushButton::clicked, this,
             [=]()
     {
         _scriptEditModel->reset();
-        scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
+        _scriptEditWidget->setRootIndex(_scriptEditModel->index(0, 0));
     });
 
     _cmdViewModel = bmcl::makeUnique<QNodeModel>(emptyNode.get());
@@ -115,7 +119,7 @@ FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidg
     auto rightLayout = new QVBoxLayout;
     auto cmdLayout = new QVBoxLayout;
     cmdLayout->addWidget(_cmdViewWidget);
-    cmdLayout->addWidget(scriptEditWidget);
+    cmdLayout->addWidget(_scriptEditWidget);
     cmdLayout->addWidget(_scriptResultWidget);
     rightLayout->addLayout(cmdLayout);
     rightLayout->addLayout(buttonLayout);
@@ -132,7 +136,7 @@ FirmwareWidget::FirmwareWidget(std::unique_ptr<QNodeViewModel>&& nodeView, QWidg
     _paramViewWidget->header()->setStretchLastSection(false);
     _paramViewWidget->setModel(_paramViewModel.get());
 
-    QObject::connect(scriptEditWidget, &QTreeView::expanded, scriptEditWidget, [scriptEditWidget]() { scriptEditWidget->resizeColumnToContents(0); });
+    QObject::connect(_scriptEditWidget, &QTreeView::expanded, _scriptEditWidget, [this]() { _scriptEditWidget->resizeColumnToContents(0); });
     QObject::connect(_paramViewWidget, &QTreeView::expanded, _paramViewWidget, [this]() {
         _paramViewWidget->resizeColumnToContents(0); });
 
@@ -155,6 +159,30 @@ void FirmwareWidget::acceptPacketResponse(const PacketResponse& response)
     _scriptResultModel->setRoot(_scriptResultNode.get());
     _scriptResultWidget->expandAll();
     setEnabled(true);
+}
+
+void FirmwareWidget::nodeContextMenuRequested(const QPoint& pos)
+{
+    auto index = _scriptEditWidget->indexAt(pos);
+    if (!index.isValid())
+        return;
+
+    Node* cmdNode = static_cast<Node*>(index.internalPointer());
+    auto maxSize = cmdNode->canBeResized();
+    if (maxSize.isNone())
+        return;
+
+    QMenu contextMenu;
+    auto resizeAction = contextMenu.addAction("&Resize...");
+
+    if (contextMenu.exec(_scriptEditWidget->mapToGlobal(pos)) == resizeAction)
+    {
+        bool ok = false;
+        int newSize = QInputDialog::getInt(this, "Resize array", "New array size:", cmdNode->numChildren(), 0, *maxSize, 1, &ok);
+        if (!ok)
+            return;
+        _scriptEditModel->resizeNode(index, newSize);
+    }
 }
 
 void FirmwareWidget::setRootTmNode(NodeView* root)
