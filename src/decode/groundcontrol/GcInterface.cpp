@@ -16,6 +16,7 @@
 
 #include <bmcl/Result.h>
 #include <bmcl/OptionPtr.h>
+#include <bmcl/IpAddress.h>
 
 namespace decode {
 
@@ -34,6 +35,7 @@ GcInterfaceResult<CoreGcInterface> CoreGcInterface::create(const Device* dev)
     self->_cache = new ValueInfoCache(dev->package.get());
     //TODO: search for builtin types
     self->_u8Type = new BuiltinType(BuiltinTypeKind::U8);
+    self->_u16Type = new BuiltinType(BuiltinTypeKind::U16);
     self->_u64Type = new BuiltinType(BuiltinTypeKind::U64);
     self->_f64Type = new BuiltinType(BuiltinTypeKind::F64);
     self->_varuintType = new BuiltinType(BuiltinTypeKind::Varuint);
@@ -45,6 +47,11 @@ GcInterfaceResult<CoreGcInterface> CoreGcInterface::create(const Device* dev)
 const BuiltinType* CoreGcInterface::u8Type() const
 {
     return _u8Type.get();
+}
+
+const BuiltinType* CoreGcInterface::u16Type() const
+{
+    return _u16Type.get();
 }
 
 const BuiltinType* CoreGcInterface::u64Type() const
@@ -193,6 +200,21 @@ static bmcl::Option<std::string> expectDynArrayField(const Field* dynArrayField,
         return std::string(wrapWithQuotes(dynArrayField->name()) + " field dyn array element has invalid type");
     }
     *maxSize = dynArray->asDynArray()->maxSize();
+    return bmcl::None;
+}
+
+static bmcl::Option<std::string> expectArrayField(const Field* arrayField, const Type* element, std::size_t size)
+{
+    const Type* array = arrayField->type()->resolveFinalType();
+    if (!array->isArray()) {
+        return std::string(wrapWithQuotes(arrayField->name()) + " field is not a array");
+    }
+    if (!array->asArray()->elementType()->equals(element)) {
+        return std::string(wrapWithQuotes(arrayField->name()) + " field element has invalid type");
+    }
+    if (array->asArray()->elementCount() != size) {
+        return std::string(wrapWithQuotes(arrayField->name()) + " field has invalid number of elements");
+    }
     return bmcl::None;
 }
 
@@ -704,6 +726,72 @@ std::uintmax_t FileGcInterface::maxFileChunkSize() const
     return _maxChunkSize;
 }
 
+UdpGcInterface::UdpGcInterface(const Device* dev, const CoreGcInterface* coreIface)
+    : _dev(dev)
+    , _coreIface(coreIface)
+{
+}
+
+UdpGcInterface::~UdpGcInterface()
+{
+}
+
+GcInterfaceResult<UdpGcInterface> UdpGcInterface::create(const Device* dev, const CoreGcInterface* coreIface)
+{
+    Rc<UdpGcInterface> self = new UdpGcInterface(dev, coreIface);
+    GC_TRY(self->init());
+    return self;
+}
+
+bmcl::Option<std::string> UdpGcInterface::init()
+{
+    GC_TRY(findModule(_dev.get(), "udp", &_udpModule));
+
+    const BuiltinType* varuintType = _coreIface->varuintType();
+    const BuiltinType* u8Type = _coreIface->u8Type();
+    const BuiltinType* u16Type = _coreIface->u16Type();
+
+    if (_udpModule->component().isNone()) {
+        return std::string("`udp` module has no component");
+    }
+    _comp = _udpModule->component().unwrap();
+
+    GC_TRY(findType<StructType>(_udpModule.get(), "IpAddress", &_ipAddressStruct));
+    GC_TRY(expectFieldNum(_ipAddressStruct.get(), 1));
+    GC_TRY(expectArrayField(_ipAddressStruct->fieldAt(0), u8Type, 4));
+
+    GC_TRY(findCmd(_comp.get(), "addClient", &_addClientCmd));
+    GC_TRY(expectFieldNum(_addClientCmd.get(), 3));
+    GC_TRY(expectField(_addClientCmd.get(), 0, "address", varuintType));
+    GC_TRY(expectField(_addClientCmd.get(), 1, "ip", _ipAddressStruct.get()));
+    GC_TRY(expectField(_addClientCmd.get(), 2, "port", u16Type));
+
+    return bmcl::None;
+}
+
+bool UdpGcInterface::beginCmd(const Function* func, Encoder* dest) const
+{
+    //REFACT
+    TRY(dest->writeVarUint(_comp->number()));
+    auto it = std::find(_comp->cmdsBegin(), _comp->cmdsEnd(), func);
+    if (it == _comp->cmdsEnd()) {
+        //TODO: report error
+        return false;
+    }
+
+    return dest->writeVarUint(std::distance(_comp->cmdsBegin(), it));
+}
+
+bool UdpGcInterface::encodeAddClient(uintmax_t id, bmcl::SocketAddressV4 address, Encoder* dest) const
+{
+    TRY(beginCmd(_addClientCmd.get(), dest));
+    TRY(dest->writeVarUint(id));
+    auto arr = address.address().toArray();
+    TRY(dest->write(arr));
+    TRY(dest->writeU16(address.port()));
+    return true;
+}
+
 AllGcInterfaces::AllGcInterfaces(const Device* dev)
 {
     auto coreIface = CoreGcInterface::create(dev);
@@ -720,12 +808,18 @@ AllGcInterfaces::AllGcInterfaces(const Device* dev)
         _errors = waypointIface.unwrapErr();
         _errors += '\n';
     }
-
     auto fileIface = FileGcInterface::create(dev, _coreIface.get());
     if (fileIface.isOk()) {
         _fileIface = fileIface.unwrap();
     } else {
         _errors = fileIface.unwrapErr();
+        _errors += '\n';
+    }
+    auto udpIface = UdpGcInterface::create(dev, _coreIface.get());
+    if (udpIface.isOk()) {
+        _udpIface = udpIface.unwrap();
+    } else {
+        _errors = udpIface.unwrapErr();
         _errors += '\n';
     }
 }
@@ -747,6 +841,11 @@ bmcl::OptionPtr<const WaypointGcInterface> AllGcInterfaces::waypointInterface() 
 bmcl::OptionPtr<const FileGcInterface> AllGcInterfaces::fileInterface() const
 {
     return _fileIface.get();
+}
+
+bmcl::OptionPtr<const UdpGcInterface> AllGcInterfaces::udpInterface() const
+{
+    return _udpIface.get();
 }
 
 const std::string& AllGcInterfaces::errors() const

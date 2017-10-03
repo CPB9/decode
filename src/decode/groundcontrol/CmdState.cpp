@@ -81,8 +81,7 @@ public:
                 caf::actor exchange,
                 const T* iface,
                 const caf::response_promise& promise,
-                const std::string& name
-                )
+                const std::string& name)
         : caf::event_based_actor(cfg)
         , _name(name)
         , _exchange(exchange)
@@ -102,7 +101,7 @@ public:
         destroy(_exchange);
     }
 
-    virtual const char* name() const
+    const char* name() const override
     {
         return _name.c_str();
     }
@@ -261,14 +260,15 @@ private:
     std::size_t _currentIndex;
 };
 
-class OneActionNavActor : public NavActorBase {
+template <typename T>
+class OneActionActor : public GcActorBase<T> {
 public:
-    OneActionNavActor(caf::actor_config& cfg,
-                      caf::actor exchange,
-                      const WaypointGcInterface* iface,
-                      const caf::response_promise& promise,
-                      const std::string& name)
-        : NavActorBase(cfg, exchange, iface, promise, name)
+    OneActionActor(caf::actor_config& cfg,
+                   caf::actor exchange,
+                   const T* iface,
+                   const caf::response_promise& promise,
+                   const std::string& name)
+        : GcActorBase<T>(cfg, exchange, iface, promise, name)
     {
     }
 
@@ -276,20 +276,22 @@ public:
 
     virtual void end(const PacketResponse&)
     {
-        _promise.deliver(caf::unit);
-        quit();
+        this->_promise.deliver(caf::unit);
+        this->quit();
     }
 
     caf::behavior make_behavior() override
     {
-        send(this, StartAtom::value);
+        this->send(this, StartAtom::value);
         return caf::behavior{
             [this](StartAtom) {
-                action(this, &OneActionNavActor::encode, &OneActionNavActor::end);
+                this->action(this, &OneActionActor<T>::encode, &OneActionActor<T>::end);
             },
         };
     }
 };
+
+using OneActionNavActor = OneActionActor<WaypointGcInterface>;
 
 class SetActiveRouteActor : public OneActionNavActor {
 public:
@@ -407,6 +409,34 @@ public:
 
 private:
     caf::actor _handler;
+};
+
+class AddClientActor : public OneActionActor<UdpGcInterface> {
+public:
+    AddClientActor(caf::actor_config& cfg,
+                   caf::actor exchange,
+                   const UdpGcInterface* iface,
+                   const caf::response_promise& promise,
+                   AddClientGcCmd&& cmd)
+        : OneActionActor<UdpGcInterface>(cfg, exchange, iface, promise, "AddClientActor")
+        , _cmd(std::move(cmd))
+    {
+    }
+
+    bool encode(Encoder* dest) const override
+    {
+        return this->_iface->encodeAddClient(_cmd.id, _cmd.address, dest);
+    }
+
+    void end(const PacketResponse& resp) override
+    {
+        (void)resp;
+        this->_promise.deliver(caf::unit);
+        this->quit();
+    }
+
+private:
+    AddClientGcCmd _cmd;
 };
 
 using SendGetInfoAtom       = caf::atom_constant<caf::atom("sendgein")>;
@@ -651,6 +681,9 @@ caf::behavior CmdState::make_behavior()
                 return promise;
             case GcCmdKind::UploadFile:
                 spawn<UploadFileActor>(_exc, _ifaces->fileInterface().unwrap(), promise, std::move(cmd.as<UploadFileGcCmd>()));
+                return promise;
+            case GcCmdKind::AddClient:
+                spawn<AddClientActor>(_exc, _ifaces->udpInterface().unwrap(), promise, std::move(cmd.as<AddClientGcCmd>()));
                 return promise;
             };
             return caf::sec::invalid_argument;

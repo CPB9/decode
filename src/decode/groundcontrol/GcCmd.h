@@ -7,6 +7,7 @@
 
 #include <bmcl/Variant.h>
 #include <bmcl/Option.h>
+#include <bmcl/IpAddress.h>
 
 namespace decode {
 
@@ -20,6 +21,7 @@ enum class GcCmdKind {
     DownloadRouteInfo,
     DownloadRoute,
     UploadFile,
+    AddClient,
 };
 
 struct SetActiveRouteGcCmd {
@@ -62,6 +64,11 @@ struct UploadRouteGcCmd {
     bmcl::Option<std::uintmax_t> activePoint;
 };
 
+struct AddClientGcCmd {
+    std::uintmax_t id;
+    bmcl::SocketAddressV4 address;
+};
+
 using GcCmd =
     bmcl::Variant<GcCmdKind, GcCmdKind::None,
         bmcl::VariantElementDesc<GcCmdKind, UploadRouteGcCmd, GcCmdKind::UploadRoute>,
@@ -71,6 +78,7 @@ using GcCmd =
         bmcl::VariantElementDesc<GcCmdKind, SetRouteClosedGcCmd, GcCmdKind::SetRouteClosed>,
         bmcl::VariantElementDesc<GcCmdKind, DownloadRouteInfoGcCmd, GcCmdKind::DownloadRouteInfo>,
         bmcl::VariantElementDesc<GcCmdKind, DownloadRouteGcCmd, GcCmdKind::DownloadRoute>,
-        bmcl::VariantElementDesc<GcCmdKind, UploadFileGcCmd, GcCmdKind::UploadFile>
+        bmcl::VariantElementDesc<GcCmdKind, UploadFileGcCmd, GcCmdKind::UploadFile>,
+        bmcl::VariantElementDesc<GcCmdKind, AddClientGcCmd, GcCmdKind::AddClient>
     >;
 }

@@ -35,6 +35,7 @@ public:
     static GcInterfaceResult<CoreGcInterface> create(const Device* dev);
 
     const BuiltinType* u8Type() const;
+    const BuiltinType* u16Type() const;
     const BuiltinType* u64Type() const;
     const BuiltinType* f64Type() const;
     const BuiltinType* varuintType() const;
@@ -46,6 +47,7 @@ private:
     CoreGcInterface();
 
     Rc<const BuiltinType> _u8Type;
+    Rc<const BuiltinType> _u16Type;
     Rc<const BuiltinType> _u64Type;
     Rc<const BuiltinType> _f64Type;
     Rc<const BuiltinType> _varuintType;
@@ -140,6 +142,27 @@ private:
     std::uintmax_t _maxChunkSize;
 };
 
+class UdpGcInterface : public RefCountable {
+public:
+    ~UdpGcInterface();
+
+    static GcInterfaceResult<UdpGcInterface> create(const Device* dev, const CoreGcInterface* coreIface);
+
+    bool encodeAddClient(uintmax_t id, bmcl::SocketAddressV4 address, Encoder* dest) const;
+
+private:
+    UdpGcInterface(const Device* dev, const CoreGcInterface* coreIface);
+    bmcl::Option<std::string> init();
+    bool beginCmd(const Function* func, Encoder* dest) const;
+
+    Rc<const Device> _dev;
+    Rc<const Component> _comp;
+    Rc<const Ast> _udpModule;
+    Rc<const Function> _addClientCmd;
+    Rc<const StructType> _ipAddressStruct;
+    Rc<const CoreGcInterface> _coreIface;
+};
+
 class AllGcInterfaces : public RefCountable {
 public:
     AllGcInterfaces(const Device* dev);
@@ -148,12 +171,14 @@ public:
     bmcl::OptionPtr<const CoreGcInterface> coreInterface() const;
     bmcl::OptionPtr<const WaypointGcInterface> waypointInterface() const;
     bmcl::OptionPtr<const FileGcInterface> fileInterface() const;
+    bmcl::OptionPtr<const UdpGcInterface> udpInterface() const;
     const std::string& errors() const;
 
 private:
     Rc<CoreGcInterface> _coreIface;
     Rc<WaypointGcInterface> _waypointIface;
     Rc<FileGcInterface> _fileIface;
+    Rc<UdpGcInterface> _udpIface;
     std::string _errors;
 };
 }
