@@ -174,6 +174,7 @@ SearchResult GroundControl::findPacket(const void* data, std::size_t size)
     const uint8_t* end = it + size;
     const uint8_t* next;
 
+beginSearch:
     while (true) {
         it = std::find(it, end, firstSepPart);
         next = it + 1;
@@ -204,7 +205,7 @@ SearchResult GroundControl::findPacket(const void* data, std::size_t size)
     Crc16 calculatedCrc;
     calculatedCrc.update(it, expectedSize);
     if (calculatedCrc.get() != encodedCrc) {
-        return SearchResult(junkSize + 1, 0);
+        goto beginSearch;
     }
 
     return SearchResult(junkSize, 4 + expectedSize);
