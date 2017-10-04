@@ -26,11 +26,13 @@ struct RouteTmParam {
 };
 
 struct GroupDeviceStateTmParam {
-    bmcl::Option<uintmax_t> groudId;
+    bmcl::Option<uintmax_t> groupId;
     bmcl::Option<uintmax_t> leaderId;
 };
 
 struct GroupStateTmParam {
+    uintmax_t groupId;
+    bmcl::Option<uintmax_t> leaderId;
     std::vector<uintmax_t> groupIds;
 };
 
