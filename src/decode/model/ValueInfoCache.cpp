@@ -58,7 +58,7 @@ static void buildNamedTypeName(const NamedType* type, StringBuilder* dest)
     dest->append(type->name());
 }
 
-static void buildTypeName(const Type* type, StringBuilder* dest)
+static bool buildTypeName(const Type* type, StringBuilder* dest)
 {
     switch (type->typeKind()) {
     case TypeKind::Builtin: {
@@ -66,55 +66,55 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         switch (builtin->builtinTypeKind()) {
         case BuiltinTypeKind::USize:
             dest->append("usize");
-            return;
+            return true;
         case BuiltinTypeKind::ISize:
             dest->append("isize");
-            return;
+            return true;
         case BuiltinTypeKind::Varuint:
             dest->append("varuint");
-            return;
+            return true;
         case BuiltinTypeKind::Varint:
             dest->append( "varint");
-            return;
+            return true;
         case BuiltinTypeKind::U8:
             dest->append( "u8");
-            return;
+            return true;
         case BuiltinTypeKind::I8:
             dest->append( "i8");
-            return;
+            return true;
         case BuiltinTypeKind::U16:
             dest->append( "u16");
-            return;
+            return true;
         case BuiltinTypeKind::I16:
             dest->append( "i16");
-            return;
+            return true;
         case BuiltinTypeKind::U32:
             dest->append( "u32");
-            return;
+            return true;
         case BuiltinTypeKind::I32:
             dest->append( "i32");
-            return;
+            return true;
         case BuiltinTypeKind::U64:
             dest->append( "u64");
-            return;
+            return true;
         case BuiltinTypeKind::I64:
             dest->append( "i64");
-            return;
+            return true;
         case BuiltinTypeKind::F32:
             dest->append( "f32");
-            return;
+            return true;
         case BuiltinTypeKind::F64:
             dest->append( "f64");
-            return;
+            return true;
         case BuiltinTypeKind::Bool:
             dest->append( "bool");
-            return;
+            return true;
         case BuiltinTypeKind::Void:
             dest->append("void");
-            return;
+            return true;
         case BuiltinTypeKind::Char:
             dest->append("char");
-            return;
+            return true;
         }
         assert(false);
         break;
@@ -135,7 +135,7 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
             }
         }
         buildTypeName(ref->pointee(), dest);
-        return;
+        return true;
     }
     case TypeKind::Array: {
         const ArrayType* array = type->asArray();
@@ -144,7 +144,7 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         dest->append("; ");
         dest->appendNumericValue(array->elementCount());
         dest->append(']');
-        return;
+        return true;
     }
     case TypeKind::DynArray: {
         const DynArrayType* dynArray = type->asDynArray();
@@ -153,7 +153,7 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         dest->append("; ");
         dest->appendNumericValue(dynArray->maxSize());
         dest->append(']');
-        return;
+        return true;
     }
     case TypeKind::Function: {
         const FunctionType* func = type->asFunction();
@@ -172,26 +172,42 @@ static void buildTypeName(const Type* type, StringBuilder* dest)
         } else {
             dest->append(')');
         }
-        return;
+        return true;
     }
     case TypeKind::Enum:
         buildNamedTypeName(type->asEnum(), dest);
-        return;
+        return true;
     case TypeKind::Struct:
         buildNamedTypeName(type->asStruct(), dest);
-        return;
+        return true;
     case TypeKind::Variant:
         buildNamedTypeName(type->asVariant(), dest);
-        return;
+        return true;
     case TypeKind::Imported:
         buildNamedTypeName(type->asImported(), dest);
-        return;
+        return true;
     case TypeKind::Alias:
         buildNamedTypeName(type->asAlias(), dest);
-        return;
+        return true;
+    case TypeKind::Generic:
+        return false;
+    case TypeKind::GenericInstantiation: {
+        const GenericInstantiationType* t = type->asGenericInstantiation();
+        dest->append(t->moduleName());
+        dest->append("::");
+        dest->append(t->genericName());
+        dest->append("<");
+        foreachList(t->substitutedTypesRange(), [dest](const Type* type) {
+            buildTypeName(type, dest);
+        }, [dest](const Type* type) {
+            dest->append(", ");
+        });
+        dest->append(">");
+        return false;
+    }
     case TypeKind::GenericParameter:
-        buildNamedTypeName(type->asGenericParemeter(), dest);
-        return;
+        assert(false);
+        return false;
     }
     assert(false);
 }
@@ -210,13 +226,17 @@ public:
 
     bool visitType(const Type* type)
     {
+        bool rv = true;
         auto pair = _dest->emplace(type, std::string());
         if (pair.second) {
             StringBuilder b;
-            buildTypeName(type, &b);
+            rv = buildTypeName(type, &b);
             pair.first->second = std::move(b.result());
+            if (type->isGenericInstantiation()) {
+                _dest->emplace(type->asGenericInstantiation()->instantiatedType(), pair.first->second);
+            }
         }
-        return true;
+        return rv;
     }
 
 private:

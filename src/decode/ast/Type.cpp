@@ -526,6 +526,21 @@ bmcl::StringView GenericInstantiationType::genericName() const
     return _genericName;
 }
 
+const GenericType* GenericInstantiationType::genericType() const
+{
+    return _genericType.get();
+}
+
+GenericType* GenericInstantiationType::genericType()
+{
+    return _genericType.get();
+}
+
+void GenericInstantiationType::setGenericType(GenericType* type)
+{
+    _genericType.reset(type);
+}
+
 const NamedType* GenericInstantiationType::instantiatedType() const
 {
     return _type.get();

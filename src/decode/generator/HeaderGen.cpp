@@ -295,6 +295,7 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
     case TypeKind::DynArray:
     case TypeKind::Struct:
     case TypeKind::Variant:
+    case TypeKind::GenericInstantiation:
         return new ReferenceType(ReferenceKind::Pointer, false, type);
     case TypeKind::Imported:
         return wrapIntoPointerIfNeeded(type->asImported()->link());
@@ -302,9 +303,6 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
         return wrapIntoPointerIfNeeded(type->asAlias()->alias());
     case TypeKind::Generic:
         assert(false);
-        return nullptr;
-    case TypeKind::GenericInstantiation:
-        return wrapIntoPointerIfNeeded(type->asGenericInstantiation()->instantiatedType());
         return nullptr;
     case TypeKind::GenericParameter:
         assert(false);

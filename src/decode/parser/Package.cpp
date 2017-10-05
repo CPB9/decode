@@ -156,6 +156,7 @@ bool Package::resolveGenerics(Ast* ast)
             }
             type->setModuleInfo(t->moduleInfo());
             type->setInstantiatedType(rv.unwrap().get());
+            type->setGenericType(t->asGeneric());
         } else {
             BMCL_CRITICAL() << "Type " + type->genericName().toStdString() + " is not generic";
             isOk = false;

@@ -228,15 +228,20 @@ public:
     RcVec<Type>::ConstRange substitutedTypesRange() const;
     RcVec<Type>::Range substitutedTypesRange();
 
-    bmcl::StringView genericName() const;
     const NamedType* instantiatedType() const;
     NamedType* instantiatedType();
     void setInstantiatedType(NamedType* type);
+
+    bmcl::StringView genericName() const;
+    const GenericType* genericType() const;
+    GenericType* genericType();
+    void setGenericType(GenericType* type);
 
 private:
     bmcl::StringView _genericName;
     RcVec<Type> _substitutedTypes;
     Rc<NamedType> _type;
+    Rc<GenericType> _genericType;
 };
 
 class AliasType : public NamedType {
