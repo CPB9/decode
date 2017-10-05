@@ -151,25 +151,39 @@ private:
     TypeKind _typeKind;
 };
 
-class NamedType : public Type {
+class TopLevelType : public Type {
+public:
+    using Pointer = Rc<TopLevelType>;
+    using ConstPointer = Rc<const TopLevelType>;
+
+    ~TopLevelType();
+
+    const ModuleInfo* moduleInfo() const;
+    bmcl::StringView moduleName() const;
+    void setModuleInfo(const ModuleInfo* info);
+
+protected:
+    TopLevelType(TypeKind kind, const ModuleInfo* info);
+
+private:
+    Rc<const ModuleInfo> _moduleInfo;
+};
+
+class NamedType : public TopLevelType {
 public:
     using Pointer = Rc<NamedType>;
     using ConstPointer = Rc<const NamedType>;
 
     ~NamedType();
 
-    const ModuleInfo* moduleInfo() const;
-    bmcl::StringView moduleName() const;
     bmcl::StringView name() const;
     void setName(bmcl::StringView name);
-    void setModuleInfo(const ModuleInfo* info);
 
 protected:
     NamedType(TypeKind kind, bmcl::StringView name, const ModuleInfo* info);
 
 private:
     bmcl::StringView _name;
-    Rc<const ModuleInfo> _moduleInfo;
 };
 
 class GenericParameterType : public NamedType {
@@ -201,7 +215,7 @@ private:
     Rc<NamedType> _type;
 };
 
-class GenericInstantiationType : public NamedType {
+class GenericInstantiationType : public TopLevelType {
 public:
     using Pointer = Rc<GenericInstantiationType>;
     using ConstPointer = Rc<const GenericInstantiationType>;
@@ -214,11 +228,13 @@ public:
     RcVec<Type>::ConstRange substitutedTypesRange() const;
     RcVec<Type>::Range substitutedTypesRange();
 
+    bmcl::StringView genericName() const;
     const NamedType* instantiatedType() const;
     NamedType* instantiatedType();
     void setInstantiatedType(NamedType* type);
 
 private:
+    bmcl::StringView _genericName;
     RcVec<Type> _substitutedTypes;
     Rc<NamedType> _type;
 };

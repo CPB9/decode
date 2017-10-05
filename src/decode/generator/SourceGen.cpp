@@ -29,48 +29,11 @@ SourceGen::~SourceGen()
 {
 }
 
-inline bool SourceGen::visitBuiltinType(const BuiltinType* type)
+void SourceGen::appendIncludes(bmcl::StringView modName)
 {
-    (void)type;
-    return false;
-}
-
-inline bool SourceGen::visitReferenceType(const ReferenceType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool SourceGen::visitArrayType(const ArrayType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool SourceGen::visitFunctionType(const FunctionType* type)
-{
-    (void)type;
-    return false;
-}
-
-
-inline bool SourceGen::visitImportedType(const ImportedType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool SourceGen::visitAliasType(const AliasType* type)
-{
-    (void)type;
-    return false;
-}
-
-void SourceGen::appendIncludes(const NamedType* type)
-{
-    StringBuilder path(type->moduleName().toStdString());
+    StringBuilder path(modName.toStdString());
     path.append('/');
-    path.append(type->name());
+    path.append(_name);
     _output->appendLocalIncludePath(path.view());
     _output->appendLocalIncludePath("core/Try");
     _output->appendLocalIncludePath("core/Logging");
@@ -86,7 +49,7 @@ void SourceGen::appendEnumSerializer(const EnumType* type)
     for (const EnumConstant* c : type->constantsRange()) {
         _output->append("    case ");
         _output->appendModPrefix();
-        _output->append(type->name());
+        _output->append(_name);
         _output->append("_");
         _output->append(c->name());
         _output->append(":\n");
@@ -107,7 +70,7 @@ void SourceGen::appendEnumDeserializer(const EnumType* type)
     _output->appendVarDecl("int64_t", "value");
     _output->appendIndent(1);
     _output->appendModPrefix();
-    _output->appendVarDecl(type->name(), "result");
+    _output->appendVarDecl(_name, "result");
     _output->appendIndent(1);
     _output->appendWithTryMacro([](SrcBuilder* output) {
         output->append("PhotonReader_ReadVarint(src, &");
@@ -122,7 +85,7 @@ void SourceGen::appendEnumDeserializer(const EnumType* type)
         _output->append(":\n");
         _output->append("        result = ");
         _output->appendModPrefix();
-        _output->append(type->name());
+        _output->append(_name);
         _output->append("_");
         _output->append(c->name());
         _output->append(";\n");
@@ -192,7 +155,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
     for (const VariantField* field : type->fieldsRange()) {
         _output->append("    case ");
         _output->appendModPrefix();
-        _output->append(type->name());
+        _output->append(_name);
         _output->append("Type");
         _output->append("_");
         _output->appendWithFirstUpper(field->name());
@@ -207,7 +170,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
             std::size_t j = 1;
             for (const Type* t : tupField->typesRange()) {
                 argName.appendWithFirstLower(field->name());
-                argName.append(type->name());
+                argName.append(_name);
                 argName.append("._");
                 argName.appendNumericValue(j);
                 _inlineSer.inspect(t, ctx, argName.view());
@@ -220,7 +183,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
             const StructVariantField* varField = static_cast<const StructVariantField*>(field);
             for (const Field* f : varField->fieldsRange()) {
                 argName.appendWithFirstLower(field->name());
-                argName.append(type->name());
+                argName.append(_name);
                 argName.append(".");
                 argName.append(f->name());
                 _inlineSer.inspect(f->type(), ctx, argName.view());
@@ -260,7 +223,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
         _output->append(": {\n");
         _output->append("        self->type = ");
         _output->appendModPrefix();
-        _output->append(type->name());
+        _output->append(_name);
         _output->append("Type");
         _output->append("_");
         _output->appendWithFirstUpper(field->name());
@@ -275,7 +238,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
             std::size_t j = 1;
             for (const Type* t : tupField->typesRange()) {
                     argName.appendWithFirstLower(field->name());
-                    argName.append(type->name());
+                    argName.append(_name);
                     argName.append("._");
                     argName.appendNumericValue(j);
                     _inlineDeser.inspect(t, ctx, argName.view());
@@ -288,7 +251,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
             const StructVariantField* varField = static_cast<const StructVariantField*>(field);
             for (const Field* f : varField->fieldsRange()) {
                 argName.appendWithFirstLower(field->name());
-                argName.append(type->name());
+                argName.append(_name);
                 argName.append(".");
                 argName.append(f->name());
                 _inlineDeser.inspect(f->type(), ctx, argName.view());
@@ -358,15 +321,14 @@ void SourceGen::appendDynArrayDeserializer(const DynArrayType* type)
 template <typename T, typename F>
 void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 {
-    appendIncludes(type);
     _output->appendEol();
-    _prototypeGen.appendSerializerFuncDecl(type);
+    _prototypeGen.appendSerializerFuncDecl(_baseType);
     _output->append("\n{\n");
     (this->*serGen)(type);
     _output->append("    return PhotonError_Ok;\n");
     _output->append("}\n");
     _output->appendEol();
-    _prototypeGen.appendDeserializerFuncDecl(type);
+    _prototypeGen.appendDeserializerFuncDecl(_baseType);
     _output->append("\n{\n");
     (this->*deserGen)(type);
     _output->append("    return PhotonError_Ok;\n");
@@ -420,8 +382,45 @@ bool SourceGen::visitVariantType(const VariantType* type)
     return false;
 }
 
-void SourceGen::genTypeSource(const Type* type)
+void SourceGen::genTypeSource(const NamedType* type)
 {
-    traverseType(type);
+    _name = type->name();
+    _baseType = type;
+    genSource(type, type->moduleName());
+}
+
+void SourceGen::genTypeSource(const GenericInstantiationType* instantiation, bmcl::StringView name)
+{
+    _name = name;
+    _baseType = instantiation;
+    const Type* type = instantiation->instantiatedType()->resolveFinalType();
+    genSource(type, "_generic_");
+
+}
+
+void SourceGen::genSource(const Type* type, bmcl::StringView modName)
+{
+    switch (type->typeKind()) {
+        case TypeKind::Variant:
+            appendIncludes(modName);
+            visitVariantType(type->asVariant());
+            return;
+        case TypeKind::Struct:
+            appendIncludes(modName);
+            visitStructType(type->asStruct());
+            return;
+        case TypeKind::Enum:
+            appendIncludes(modName);
+            visitEnumType(type->asEnum());
+            return;
+        default:
+            return;
+    }
+}
+
+void SourceGen::genTypeSource(const DynArrayType* type)
+{
+    _baseType = type;
+    visitDynArrayType(type);
 }
 }

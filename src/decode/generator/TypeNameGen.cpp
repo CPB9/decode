@@ -107,7 +107,7 @@ inline bool TypeNameGen::visitGenericInstantiationType(const GenericInstantiatio
     if (type->moduleName() != "core") {
         _output->appendWithFirstUpper(type->moduleName());
     }
-    _output->append(type->name().toStdString());
+    _output->append(type->genericName().toStdString());
     for (const Type* t : type->substitutedTypesRange()) {
         ascendTypeOnce(t);
     }

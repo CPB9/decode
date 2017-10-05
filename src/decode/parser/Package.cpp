@@ -150,14 +150,14 @@ bool Package::resolveGenerics(Ast* ast)
         if (t->isGeneric()) {
             auto rv = t->asGeneric()->instantiate(type->substitutedTypes());
             if (rv.isErr()) {
-                BMCL_CRITICAL() << "failed to instantiate type " + type->name().toStdString() + ": " + rv.unwrapErr();
+                BMCL_CRITICAL() << "failed to instantiate type " + type->genericName().toStdString() + ": " + rv.unwrapErr();
                 isOk = false;
                 continue;
             }
             type->setModuleInfo(t->moduleInfo());
             type->setInstantiatedType(rv.unwrap().get());
         } else {
-            BMCL_CRITICAL() << "Type " + type->name().toStdString() + " is not generic";
+            BMCL_CRITICAL() << "Type " + type->genericName().toStdString() + " is not generic";
             isOk = false;
         }
     }

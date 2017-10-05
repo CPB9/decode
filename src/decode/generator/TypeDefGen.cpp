@@ -54,8 +54,9 @@ inline bool TypeDefGen::visitImportedType(const ImportedType* type)
     return false;
 }
 
-void TypeDefGen::genTypeDef(const Type* type)
+void TypeDefGen::genTypeDef(const Type* type, bmcl::StringView name)
 {
+    _name = name;
     traverseType(type);
 }
 
@@ -141,7 +142,7 @@ void TypeDefGen::appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView na
 
 void TypeDefGen::appendStruct(const StructType* type)
 {
-    appendFieldVec(type->fieldsRange(), type->name());
+    appendFieldVec(type->fieldsRange(), _name);
 }
 
 void TypeDefGen::appendEnum(const EnumType* type)
@@ -151,7 +152,7 @@ void TypeDefGen::appendEnum(const EnumType* type)
     for (const EnumConstant* c : type->constantsRange()) {
         _output->appendIndent(1);
         _output->appendModPrefix();
-        _output->append(type->name());
+        _output->append(_name);
         _output->append("_");
         _output->append(c->name().toStdString());
         if (c->isUserSet()) {
@@ -161,7 +162,7 @@ void TypeDefGen::appendEnum(const EnumType* type)
         _output->append(",\n");
     }
 
-    _output->appendTagFooter(type->name());
+    _output->appendTagFooter(_name);
     _output->appendEol();
 }
 
@@ -174,7 +175,7 @@ void TypeDefGen::appendVariant(const VariantType* type)
     for (const VariantField* field : type->fieldsRange()) {
         _output->appendIndent(1);
         _output->appendModPrefix();
-        _output->append(type->name());
+        _output->append(_name);
         _output->append("Type_");
         _output->append(field->name());
         _output->append(",\n");
@@ -182,7 +183,7 @@ void TypeDefGen::appendVariant(const VariantType* type)
 
     _output->append("} ");
     _output->appendModPrefix();
-    _output->append(type->name());
+    _output->append(_name);
     _output->append("Type;\n");
     _output->appendEol();
 
@@ -193,14 +194,14 @@ void TypeDefGen::appendVariant(const VariantType* type)
             case VariantFieldKind::Tuple: {
                 auto types = static_cast<const TupleVariantField*>(field)->typesRange();
                 std::string name = field->name().toStdString();
-                name.append(type->name().begin(), type->name().end());
+                name.append(_name.begin(), _name.end());
                 appendFieldVec(types, name);
                 break;
             }
             case VariantFieldKind::Struct: {
                 auto fields = static_cast<const StructVariantField*>(field)->fieldsRange();
                 std::string name = field->name().toStdString();
-                name.append(type->name().begin(), type->name().end());
+                name.append(_name.begin(), _name.end());
                 appendFieldVec(fields, name);
                 break;
             }
@@ -217,21 +218,21 @@ void TypeDefGen::appendVariant(const VariantType* type)
         _output->append("        ");
         _output->appendModPrefix();
         _output->append(field->name());
-        _output->append(type->name());
+        _output->append(_name);
         _output->appendSpace();
         _output->appendWithFirstLower(field->name());
-        _output->append(type->name());
+        _output->append(_name);
         _output->append(";\n");
     }
 
     _output->append("    } data;\n");
     _output->appendIndent(1);
     _output->appendModPrefix();
-    _output->append(type->name());
+    _output->append(_name);
     _output->append("Type");
     _output->append(" type;\n");
 
-    _output->appendTagFooter(type->name());
+    _output->appendTagFooter(_name);
     _output->appendEol();
 }
 
@@ -246,13 +247,13 @@ bool TypeDefGen::visitAliasType(const AliasType* type)
     if (link->isFunction()) {
         StringBuilder typedefName("Photon");
         typedefName.appendWithFirstUpper(modName);
-        typedefName.append(type->name());
+        typedefName.append(_name);
         _typeReprGen->genTypeRepr(link, typedefName.result());
     } else {
         _typeReprGen->genTypeRepr(link);
         _output->append(" Photon");
         _output->appendWithFirstUpper(modName);
-        _output->append(type->name());
+        _output->append(_name);
     }
     _output->append(";\n\n");
     return false;

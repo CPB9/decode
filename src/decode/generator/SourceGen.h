@@ -9,7 +9,6 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/ast/AstVisitor.h"
 #include "decode/generator/FuncPrototypeGen.h"
 #include "decode/generator/InlineTypeDeserializerGen.h"
 #include "decode/generator/InlineTypeSerializerGen.h"
@@ -20,28 +19,28 @@ namespace decode {
 
 class SrcBuilder;
 class TypeReprGen;
+class DynArrayType;
+class GenericInstantiationType;
 
-class SourceGen : public ConstAstVisitor<SourceGen> {
+class SourceGen {
 public:
     SourceGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~SourceGen();
 
-    void genTypeSource(const Type* type);
-
-    bool visitBuiltinType(const BuiltinType* type);
-    bool visitReferenceType(const ReferenceType* type);
-    bool visitArrayType(const ArrayType* type);
-    bool visitDynArrayType(const DynArrayType* type);
-    bool visitFunctionType(const FunctionType* type);
-    bool visitEnumType(const EnumType* type);
-    bool visitStructType(const StructType* type);
-    bool visitVariantType(const VariantType* type);
-    bool visitImportedType(const ImportedType* type);
-    bool visitAliasType(const AliasType* type);
+    void genTypeSource(const NamedType* type);
+    void genTypeSource(const GenericInstantiationType* type, bmcl::StringView name);
+    void genTypeSource(const DynArrayType* type);
 
 private:
     template <typename T, typename F>
     void genSource(const T* type, F&& serGen, F&& deserGen);
+
+    void genSource(const Type* type, bmcl::StringView modName);
+
+    bool visitDynArrayType(const DynArrayType* type);
+    bool visitEnumType(const EnumType* type);
+    bool visitStructType(const StructType* type);
+    bool visitVariantType(const VariantType* type);
 
     void appendEnumSerializer(const EnumType* type);
     void appendEnumDeserializer(const EnumType* type);
@@ -52,13 +51,15 @@ private:
     void appendDynArraySerializer(const DynArrayType* type);
     void appendDynArrayDeserializer(const DynArrayType* type);
 
-    void appendIncludes(const NamedType* type);
+    void appendIncludes(bmcl::StringView modName);
 
     SrcBuilder* _output;
     Rc<TypeReprGen> _typeReprGen;
     InlineTypeSerializerGen _inlineSer;
     InlineTypeDeserializerGen _inlineDeser;
     FuncPrototypeGen _prototypeGen;
+    bmcl::StringView _name;
+    const Type* _baseType;
 };
 
 }

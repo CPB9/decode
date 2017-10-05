@@ -36,6 +36,9 @@ inline bool IncludeCollector::visitVariantType(const VariantType* variant)
 
 inline bool IncludeCollector::visitImportedType(const ImportedType* u)
 {
+    if (u->link()->isGeneric()) {
+        return false;
+    }
     addInclude(u->link());
     return false;
 }
@@ -58,6 +61,12 @@ bool IncludeCollector::visitFunctionType(const FunctionType* func)
     return true;
 }
 
+bool IncludeCollector::visitGenericType(const GenericType* type)
+{
+    (void)type;
+    return false;
+}
+
 bool IncludeCollector::visitDynArrayType(const DynArrayType* dynArray)
 {
     if (dynArray == _currentType) {
@@ -77,7 +86,8 @@ bool IncludeCollector::visitDynArrayType(const DynArrayType* dynArray)
 bool IncludeCollector::visitGenericInstantiationType(const GenericInstantiationType* type)
 {
     if (type == _currentType) {
-        traverseType(type->instantiatedType());
+        _currentType = type->instantiatedType();
+        traverseType(_currentType);
         return false;
     }
     SrcBuilder path;
@@ -85,7 +95,7 @@ bool IncludeCollector::visitGenericInstantiationType(const GenericInstantiationT
     if (type->moduleName() != "core") {
         path.appendWithFirstUpper(type->moduleName());
     }
-    path.append(type->name());
+    path.append(type->genericName());
     TypeNameGen gen(&path);
     for (const Type* t : type->substitutedTypesRange()) {
         gen.genTypeName(t);

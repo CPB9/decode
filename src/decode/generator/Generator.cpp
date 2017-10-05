@@ -592,11 +592,11 @@ bool Generator::generateGenerics(const Package* package)
         for (const GenericInstantiationType* type : ast->genericInstantiationsRange()) {
             typeNameGen.genTypeName(type);
 
-            _hgen->genTypeHeader(ast, type);
+            _hgen->genTypeHeader(ast, type, typeNameBuilder.result());
             TRY(dump(typeNameBuilder.result(), ".h", &_photonPath));
             _output.clear();
 
-            _sgen->genTypeSource(type);
+            _sgen->genTypeSource(type, typeNameBuilder.result());
             TRY(dump(typeNameBuilder.result(), GEN_PREFIX ".c", &_photonPath));
 
             _output.clear();
@@ -629,7 +629,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
             continue;
         }
 
-        _hgen->genTypeHeader(ast, type);
+        _hgen->genTypeHeader(ast, type, type->name());
         TRY(dump(type->name(), ".h", &_photonPath));
         _output.clear();
 

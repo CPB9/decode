@@ -439,10 +439,34 @@ bool Type::equals(const Type* other) const
     return true;
 }
 
-NamedType::NamedType(TypeKind kind, bmcl::StringView name, const ModuleInfo* info)
+TopLevelType::TopLevelType(TypeKind kind, const ModuleInfo* info)
     : Type(kind)
-    , _name(name)
     , _moduleInfo(info)
+{
+}
+
+TopLevelType::~TopLevelType()
+{
+}
+
+const ModuleInfo* TopLevelType::moduleInfo() const
+{
+    return _moduleInfo.get();
+}
+
+bmcl::StringView TopLevelType::moduleName() const
+{
+    return _moduleInfo->moduleName();
+}
+
+void TopLevelType::setModuleInfo(const ModuleInfo* info)
+{
+    _moduleInfo.reset(info);
+}
+
+NamedType::NamedType(TypeKind kind, bmcl::StringView name, const ModuleInfo* info)
+    : TopLevelType(kind, info)
+    , _name(name)
 {
 }
 
@@ -450,15 +474,6 @@ NamedType::~NamedType()
 {
 }
 
-const ModuleInfo* NamedType::moduleInfo() const
-{
-    return _moduleInfo.get();
-}
-
-bmcl::StringView NamedType::moduleName() const
-{
-    return _moduleInfo->moduleName();
-}
 
 bmcl::StringView NamedType::name() const
 {
@@ -468,11 +483,6 @@ bmcl::StringView NamedType::name() const
 void NamedType::setName(bmcl::StringView name)
 {
     _name = name;
-}
-
-void NamedType::setModuleInfo(const ModuleInfo* info)
-{
-    _moduleInfo.reset(info);
 }
 
 GenericParameterType::GenericParameterType(bmcl::StringView name, const ModuleInfo* info)
@@ -485,7 +495,8 @@ GenericParameterType::~GenericParameterType()
 }
 
 GenericInstantiationType::GenericInstantiationType(bmcl::StringView name, bmcl::ArrayView<Rc<Type>> substitutedTypes, NamedType* type)
-    : NamedType(TypeKind::GenericInstantiation, name, type->moduleInfo())
+    : TopLevelType(TypeKind::GenericInstantiation, type->moduleInfo())
+    , _genericName(name)
     , _substitutedTypes(substitutedTypes.begin(), substitutedTypes.end())
     , _type(type)
 {
@@ -508,6 +519,11 @@ RcVec<Type>::ConstRange GenericInstantiationType:: substitutedTypesRange() const
 RcVec<Type>::Range GenericInstantiationType::substitutedTypesRange()
 {
     return _substitutedTypes;
+}
+
+bmcl::StringView GenericInstantiationType::genericName() const
+{
+    return _genericName;
 }
 
 const NamedType* GenericInstantiationType::instantiatedType() const
@@ -1091,7 +1107,7 @@ Rc<Type> GenericType::cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> t
         case TypeKind::GenericInstantiation: {
             GenericInstantiationType* generic = type->asGenericInstantiation();
             Rc<Type> cloned = cloneAndSubstitute(generic->instantiatedType(), types);
-            return new GenericInstantiationType(generic->name(), generic->substitutedTypes(), static_cast<NamedType*>(cloned.get()));
+            return new GenericInstantiationType(generic->genericName(), generic->substitutedTypes(), static_cast<NamedType*>(cloned.get()));
         }
         case TypeKind::GenericParameter: {
             GenericParameterType* genericParam = type->asGenericParemeter();

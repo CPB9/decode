@@ -28,7 +28,7 @@ public:
     HeaderGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~HeaderGen();
 
-    void genTypeHeader(const Ast* ast, const Type* type);
+    void genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::StringView name);
     void genDynArrayHeader(const DynArrayType* type);
     void genComponentHeader(const Ast* ast, const Component* type);
 
@@ -40,10 +40,12 @@ private:
     void appendSerializerFuncPrototypes(const Component* comp);
 
     void startIncludeGuard(const NamedType* type);
+    void startIncludeGuard(const TopLevelType* type, bmcl::StringView name);
     void startIncludeGuard(const Component* comp);
     void startIncludeGuard(const DynArrayType* type);
 
     void appendIncludes(const HashSet<std::string>& src);
+    void appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name);
     void appendImplBlockIncludes(const NamedType* topLevelType);
     void appendImplBlockIncludes(const Component* comp);
     void appendImplBlockIncludes(const DynArrayType* dynArray);
@@ -53,6 +55,7 @@ private:
 
     void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
+    void appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name);
     void appendFunctionPrototypes(const Component* comp);
     void appendCommandPrototypes(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);

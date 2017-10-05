@@ -40,6 +40,7 @@ public:
     bool visitDynArrayType(const DynArrayType* dynArray);
     bool visitAliasType(const AliasType* alias);
     bool visitFunctionType(const FunctionType* func);
+    bool visitGenericType(const GenericType* type);
     bool visitGenericInstantiationType(const GenericInstantiationType* type);
 
 private:

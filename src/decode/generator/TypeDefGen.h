@@ -25,7 +25,7 @@ public:
     TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~TypeDefGen();
 
-    void genTypeDef(const Type* type);
+    void genTypeDef(const Type* type, bmcl::StringView name = bmcl::StringView::empty());
     void genComponentDef(const Component* comp);
 
     bool visitBuiltinType(const BuiltinType* type);
@@ -46,6 +46,7 @@ private:
     void appendEnum(const EnumType* type);
     void appendVariant(const VariantType* type);
 
+    bmcl::StringView _name;
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
 };

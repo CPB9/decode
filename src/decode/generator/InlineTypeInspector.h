@@ -37,6 +37,7 @@ public:
     bool visitBuiltinType(const BuiltinType* type);
     bool visitAliasType(const AliasType* type);
     bool visitImportedType(const ImportedType* type);
+    bool visitGenericInstantiationType(const GenericInstantiationType* type);
 
     void inspectPointer(const Type* type);
     void inspectNonInlineType(const Type* type);
@@ -230,6 +231,13 @@ inline bool InlineTypeInspector<B>::visitEnumType(const EnumType* type)
 
 template <typename B>
 inline bool InlineTypeInspector<B>::visitDynArrayType(const DynArrayType* type)
+{
+    base().inspectNonInlineType(type);
+    return false;
+}
+
+template <typename B>
+inline bool InlineTypeInspector<B>::visitGenericInstantiationType(const GenericInstantiationType* type)
 {
     base().inspectNonInlineType(type);
     return false;

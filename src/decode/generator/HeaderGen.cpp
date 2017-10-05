@@ -31,34 +31,37 @@ HeaderGen::~HeaderGen()
 {
 }
 
-void HeaderGen::genTypeHeader(const Ast* ast, const Type* type)
+void HeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::StringView name)
 {
-    const NamedType* namedType;
     switch (type->typeKind()) {
     case TypeKind::Enum:
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::Alias:
     case TypeKind::GenericInstantiation:
-        namedType = static_cast<const NamedType*>(type);
         break;
     default:
         return;
     }
+    if (type->moduleName() != "core") {
+        _output->setModName(type->moduleName());
+    } else {
+        _output->setModName("");
+    }
     _ast = ast;
-    startIncludeGuard(namedType);
+    startIncludeGuard(type, name);
     _output->appendLocalIncludePath("Config");
     _output->appendEol();
     appendIncludesAndFwds(type);
     appendCommonIncludePaths();
-    _typeDefGen.genTypeDef(type);
+    _typeDefGen.genTypeDef(type, name);
     if (!type->isGenericInstantiation()) {
-        appendImplBlockIncludes(namedType);
+        appendImplBlockIncludes(type, name);
     }
     _output->startCppGuard();
-    appendFunctionPrototypes(namedType);
+    appendFunctionPrototypes(type, name);
     if (type->typeKind() != TypeKind::Alias) {
-        appendSerializerFuncPrototypes(namedType);
+        appendSerializerFuncPrototypes(type);
     }
     _output->endCppGuard();
     endIncludeGuard();
@@ -161,6 +164,11 @@ void HeaderGen::startIncludeGuard(const Component* comp)
     _output->startIncludeGuard("COMPONENT", comp->moduleName());
 }
 
+void HeaderGen::startIncludeGuard(const TopLevelType* type, bmcl::StringView name)
+{
+    _output->startIncludeGuard(type->moduleName(), name);
+}
+
 void HeaderGen::startIncludeGuard(const NamedType* type)
 {
     _output->startIncludeGuard(type->moduleName(), type->name());
@@ -197,9 +205,9 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
     appendIncludes(dest);
 }
 
-void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
+void HeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name)
 {
-    bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlockWithName(topLevelType->name());
+    bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlockWithName(name);
     HashSet<std::string> dest;
     if (impl.isSome()) {
         for (const Function* fn : impl->functionsRange()) {
@@ -210,6 +218,11 @@ void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
     dest.insert("core/Writer");
     dest.insert("core/Error");
     appendIncludes(dest);
+}
+
+void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
+{
+    appendImplBlockIncludes(topLevelType, topLevelType->name());
 }
 
 void HeaderGen::appendIncludes(const HashSet<std::string>& src)
@@ -256,13 +269,18 @@ void HeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl
     }
 }
 
-void HeaderGen::appendFunctionPrototypes(const NamedType* type)
+void HeaderGen::appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name)
 {
-    bmcl::OptionPtr<const ImplBlock> block = _ast->findImplBlockWithName(type->name());
+    bmcl::OptionPtr<const ImplBlock> block = _ast->findImplBlockWithName(name);
     if (block.isNone()) {
         return;
     }
-    appendFunctionPrototypes(block.unwrap()->functionsRange(), type->name());
+    appendFunctionPrototypes(block.unwrap()->functionsRange(), name);
+}
+
+void HeaderGen::appendFunctionPrototypes(const NamedType* type)
+{
+    appendFunctionPrototypes(type, type->name());
 }
 
 static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
