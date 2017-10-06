@@ -21,6 +21,10 @@ enum class GcCmdKind {
     DownloadRouteInfo,
     DownloadRoute,
     UploadFile,
+    GroupCreate,
+    GroupRemove,
+    GroupAttach,
+    GroupDetach,
     AddClient,
 };
 
@@ -64,6 +68,25 @@ struct UploadRouteGcCmd {
     bmcl::Option<std::uintmax_t> activePoint;
 };
 
+struct GroupCreateGcCmd {
+    std::uintmax_t groupId;
+    std::vector<std::uintmax_t> deviceIds;
+};
+
+struct GroupAttachGcCmd {
+    std::uintmax_t groupId;
+    std::uintmax_t deviceId;
+};
+
+struct GroupDetachGcCmd {
+    std::uintmax_t groupId;
+    std::uintmax_t deviceId;
+};
+
+struct GroupRemoveGcCmd {
+    std::uintmax_t groupId;
+};
+
 struct AddClientGcCmd {
     std::uintmax_t id;
     bmcl::SocketAddressV4 address;
@@ -79,6 +102,10 @@ using GcCmd =
         bmcl::VariantElementDesc<GcCmdKind, DownloadRouteInfoGcCmd, GcCmdKind::DownloadRouteInfo>,
         bmcl::VariantElementDesc<GcCmdKind, DownloadRouteGcCmd, GcCmdKind::DownloadRoute>,
         bmcl::VariantElementDesc<GcCmdKind, UploadFileGcCmd, GcCmdKind::UploadFile>,
+        bmcl::VariantElementDesc<GcCmdKind, GroupCreateGcCmd, GcCmdKind::GroupCreate>,
+        bmcl::VariantElementDesc<GcCmdKind, GroupRemoveGcCmd, GcCmdKind::GroupRemove>,
+        bmcl::VariantElementDesc<GcCmdKind, GroupAttachGcCmd, GcCmdKind::GroupAttach>,
+        bmcl::VariantElementDesc<GcCmdKind, GroupDetachGcCmd, GcCmdKind::GroupDetach>,
         bmcl::VariantElementDesc<GcCmdKind, AddClientGcCmd, GcCmdKind::AddClient>
     >;
 }

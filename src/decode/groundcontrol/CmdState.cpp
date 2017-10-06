@@ -682,6 +682,11 @@ caf::behavior CmdState::make_behavior()
             case GcCmdKind::UploadFile:
                 spawn<UploadFileActor>(_exc, _ifaces->fileInterface().unwrap(), promise, std::move(cmd.as<UploadFileGcCmd>()));
                 return promise;
+            case GcCmdKind::GroupCreate:
+            case GcCmdKind::GroupRemove:
+            case GcCmdKind::GroupAttach:
+            case GcCmdKind::GroupDetach:
+                return caf::sec::invalid_argument;
             case GcCmdKind::AddClient:
                 spawn<AddClientActor>(_exc, _ifaces->udpInterface().unwrap(), promise, std::move(cmd.as<AddClientGcCmd>()));
                 return promise;
