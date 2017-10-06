@@ -91,7 +91,6 @@ bool TypeReprGen::visitReferenceType(const ReferenceType* type)
 bool TypeReprGen::visitDynArrayType(const DynArrayType* type)
 {
     _hasPrefix = true;
-    _typeName.setModName(bmcl::StringView::empty());
     TypeNameGen sng(&_typeName);
     sng.genTypeName(type);
     return false;
@@ -106,7 +105,6 @@ inline bool TypeReprGen::visitFunctionType(const FunctionType* type)
 bool TypeReprGen::visitGenericInstantiationType(const GenericInstantiationType* type)
 {
     _hasPrefix = true;
-    _typeName.setModName(bmcl::StringView::empty());
     TypeNameGen sng(&_typeName);
     sng.genTypeName(type);
     return false;
@@ -115,12 +113,8 @@ bool TypeReprGen::visitGenericInstantiationType(const GenericInstantiationType* 
 inline bool TypeReprGen::appendTypeName(const NamedType* type)
 {
     _hasPrefix = true;
-    if (type->moduleName() == "core") {
-        _typeName.setModName(bmcl::StringView::empty());
-    } else {
-        _typeName.setModName(type->moduleName());
-    }
-    _typeName.append(type->name());
+    TypeNameGen sng(&_typeName);
+    sng.genTypeName(type);
     return false;
 }
 
@@ -137,11 +131,12 @@ void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
     _pointers.clear();
     _arrayIndices.clear();
     traverseType(type);
+    bmcl::StringView modName;
 
     auto writeTypeName = [&]() {
         if (_hasPrefix) {
             _output->append("Photon");
-            _output->appendWithFirstUpper(_typeName.modName());
+            //_output->appendWithFirstUpper(_typeName.modName());
         }
         _output->append(_typeName.result());
     };

@@ -33,7 +33,7 @@ void SourceGen::appendIncludes(bmcl::StringView modName)
 {
     StringBuilder path(modName.toStdString());
     path.append('/');
-    path.append(_name);
+    path.append(_fileName);
     _output->appendLocalIncludePath(path.view());
     _output->appendLocalIncludePath("core/Try");
     _output->appendLocalIncludePath("core/Logging");
@@ -48,7 +48,7 @@ void SourceGen::appendEnumSerializer(const EnumType* type)
     _output->append("    switch(self) {\n");
     for (const EnumConstant* c : type->constantsRange()) {
         _output->append("    case ");
-        _output->appendModPrefix();
+        _output->append("Photon");
         _output->append(_name);
         _output->append("_");
         _output->append(c->name());
@@ -69,7 +69,7 @@ void SourceGen::appendEnumDeserializer(const EnumType* type)
     _output->appendIndent(1);
     _output->appendVarDecl("int64_t", "value");
     _output->appendIndent(1);
-    _output->appendModPrefix();
+    _output->append("Photon");
     _output->appendVarDecl(_name, "result");
     _output->appendIndent(1);
     _output->appendWithTryMacro([](SrcBuilder* output) {
@@ -84,7 +84,7 @@ void SourceGen::appendEnumDeserializer(const EnumType* type)
         _output->appendNumericValue(c->value());
         _output->append(":\n");
         _output->append("        result = ");
-        _output->appendModPrefix();
+        _output->append("Photon");
         _output->append(_name);
         _output->append("_");
         _output->append(c->name());
@@ -154,7 +154,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
     StringBuilder argName("self->data.");
     for (const VariantField* field : type->fieldsRange()) {
         _output->append("    case ");
-        _output->appendModPrefix();
+        _output->append("Photon");
         _output->append(_name);
         _output->append("Type");
         _output->append("_");
@@ -222,7 +222,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
         i++;
         _output->append(": {\n");
         _output->append("        self->type = ");
-        _output->appendModPrefix();
+        _output->append("Photon");
         _output->append(_name);
         _output->append("Type");
         _output->append("_");
@@ -382,9 +382,10 @@ bool SourceGen::visitVariantType(const VariantType* type)
     return false;
 }
 
-void SourceGen::genTypeSource(const NamedType* type)
+void SourceGen::genTypeSource(const NamedType* type, bmcl::StringView name)
 {
-    _name = type->name();
+    _name = name;
+    _fileName = type->name();
     _baseType = type;
     genSource(type, type->moduleName());
 }
@@ -392,6 +393,7 @@ void SourceGen::genTypeSource(const NamedType* type)
 void SourceGen::genTypeSource(const GenericInstantiationType* instantiation, bmcl::StringView name)
 {
     _name = name;
+    _fileName = name;
     _baseType = instantiation;
     const Type* type = instantiation->instantiatedType()->resolveFinalType();
     genSource(type, "_generic_");

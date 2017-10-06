@@ -162,6 +162,7 @@ private:
 
     Rc<DocBlock> createDocsFromComments();
     void clearUnusedDocCommentsAndAttributes();
+    void clearGenericParameters();
 
     Rc<Report> reportCurrentTokenError(const char* msg);
     Rc<Report> reportTokenError(Token* tok, const char* msg);

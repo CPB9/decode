@@ -409,6 +409,10 @@ void Parser::clearUnusedDocCommentsAndAttributes()
 {
     _lastRangeAttr.reset();
     _docComments.clear();
+}
+
+void Parser::clearGenericParameters()
+{
     _currentGenericParameters.clear();
 }
 
@@ -1360,6 +1364,7 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
 
     TRY(parseBraceList(type.get(), std::forward<F>(fieldParser)));
     clearUnusedDocCommentsAndAttributes();
+    clearGenericParameters();
 
     if (genericType) {
         _ast->addTopLevelType(genericType.get());

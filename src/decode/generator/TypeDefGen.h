@@ -9,7 +9,6 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/ast/AstVisitor.h"
 #include "decode/generator/IncludeCollector.h"
 
 #include <string>
@@ -20,33 +19,25 @@ class Component;
 class SrcBuilder;
 class TypeReprGen;
 
-class TypeDefGen : public ConstAstVisitor<TypeDefGen> {
+class TypeDefGen {
 public:
     TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~TypeDefGen();
 
-    void genTypeDef(const Type* type, bmcl::StringView name = bmcl::StringView::empty());
+    void genTypeDef(const TopLevelType* type, bmcl::StringView name);
+    void genTypeDef(const DynArrayType* type);
     void genComponentDef(const Component* comp);
 
-    bool visitBuiltinType(const BuiltinType* type);
-    bool visitReferenceType(const ReferenceType* type);
-    bool visitArrayType(const ArrayType* type);
-    bool visitDynArrayType(const DynArrayType* type);
-    bool visitFunctionType(const FunctionType* type);
-    bool visitEnumType(const EnumType* type);
-    bool visitStructType(const StructType* type);
-    bool visitVariantType(const VariantType* type);
-    bool visitImportedType(const ImportedType* type);
-    bool visitAliasType(const AliasType* type);
 
 private:
     void appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView name);
     void appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView name);
-    void appendStruct(const StructType* type);
-    void appendEnum(const EnumType* type);
-    void appendVariant(const VariantType* type);
+    void appendStruct(const StructType* type, bmcl::StringView name);
+    void appendEnum(const EnumType* type, bmcl::StringView name);
+    void appendVariant(const VariantType* type, bmcl::StringView name);
+    void appendAlias(const AliasType* type, bmcl::StringView name);
+    void appendDynArray(const DynArrayType* type);
 
-    bmcl::StringView _name;
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
 };

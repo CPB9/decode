@@ -14,16 +14,6 @@ SrcBuilder::~SrcBuilder()
 {
 }
 
-void SrcBuilder::setModName(bmcl::StringView modName)
-{
-    _modName = modName;
-}
-
-bmcl::StringView SrcBuilder::modName() const
-{
-    return _modName;
-}
-
 void SrcBuilder::appendModIfdef(bmcl::StringView name)
 {
     append("#ifdef PHOTON_HAS_MODULE_");
@@ -48,12 +38,6 @@ void SrcBuilder::appendTargetModIfdef(bmcl::StringView name)
 void SrcBuilder::appendEndif()
 {
     append("#endif\n");
-}
-
-void SrcBuilder::appendModPrefix()
-{
-    append("Photon");
-    appendWithFirstUpper(_modName);
 }
 
 void SrcBuilder::appendModPrefix(bmcl::StringView name)
@@ -169,11 +153,11 @@ void SrcBuilder::appendTagHeader(bmcl::StringView name)
     append(" {\n");
 }
 
-void SrcBuilder::appendTagFooter(bmcl::StringView typeName)
+void SrcBuilder::appendTagFooter(bmcl::StringView name)
 {
     append("} ");
-    appendModPrefix();
-    append(typeName);
+    append("Photon");
+    appendWithFirstUpper(name);
     append(";\n");
 }
 

@@ -24,40 +24,33 @@ TypeDefGen::~TypeDefGen()
 {
 }
 
-inline bool TypeDefGen::visitBuiltinType(const BuiltinType* type)
+void TypeDefGen::genTypeDef(const TopLevelType* type, bmcl::StringView name)
 {
-    (void)type;
-    return false;
+    name = name;
+    switch (type->typeKind()) {
+    case TypeKind::Struct:
+        appendStruct(type->asStruct(), name);
+        break;
+    case TypeKind::Enum:
+        appendEnum(type->asEnum(), name);
+        break;
+    case TypeKind::Variant:
+        appendVariant(type->asVariant(), name);
+        break;
+    case TypeKind::Alias:
+        appendAlias(type->asAlias(), name);
+        break;
+    case TypeKind::GenericInstantiation:
+        genTypeDef(type->asGenericInstantiation()->instantiatedType(), name);
+        break;
+    default:
+        return;
+    }
 }
 
-inline bool TypeDefGen::visitReferenceType(const ReferenceType* type)
+void TypeDefGen::genTypeDef(const DynArrayType* type)
 {
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitArrayType(const ArrayType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitFunctionType(const FunctionType* type)
-{
-    (void)type;
-    return false;
-}
-
-inline bool TypeDefGen::visitImportedType(const ImportedType* type)
-{
-    (void)type;
-    return false;
-}
-
-void TypeDefGen::genTypeDef(const Type* type, bmcl::StringView name)
-{
-    _name = name;
-    traverseType(type);
+    appendDynArray(type);
 }
 
 void TypeDefGen::genComponentDef(const Component* comp)
@@ -65,28 +58,10 @@ void TypeDefGen::genComponentDef(const Component* comp)
     if (!comp->hasParams()) {
         return;
     }
-    appendFieldVec(comp->paramsRange(), bmcl::StringView::empty());
+    appendFieldVec(comp->paramsRange(), comp->name());
 }
 
-bool TypeDefGen::visitEnumType(const EnumType* type)
-{
-    appendEnum(type);
-    return false;
-}
-
-bool TypeDefGen::visitStructType(const StructType* type)
-{
-    appendStruct(type);
-    return false;
-}
-
-bool TypeDefGen::visitVariantType(const VariantType* type)
-{
-    appendVariant(type);
-    return false;
-}
-
-bool TypeDefGen::visitDynArrayType(const DynArrayType* type)
+void TypeDefGen::appendDynArray(const DynArrayType* type)
 {
     TypeNameGen gen(_output);
     _output->appendTagHeader("struct");
@@ -107,7 +82,6 @@ bool TypeDefGen::visitDynArrayType(const DynArrayType* type)
     gen.genTypeName(type);
     _output->append(";\n");
     _output->appendEol();
-    return false;
 }
 
 void TypeDefGen::appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView name)
@@ -140,19 +114,19 @@ void TypeDefGen::appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView na
     _output->appendEol();
 }
 
-void TypeDefGen::appendStruct(const StructType* type)
+void TypeDefGen::appendStruct(const StructType* type, bmcl::StringView name)
 {
-    appendFieldVec(type->fieldsRange(), _name);
+    appendFieldVec(type->fieldsRange(), name);
 }
 
-void TypeDefGen::appendEnum(const EnumType* type)
+void TypeDefGen::appendEnum(const EnumType* type, bmcl::StringView name)
 {
     _output->appendTagHeader("enum");
 
     for (const EnumConstant* c : type->constantsRange()) {
         _output->appendIndent(1);
-        _output->appendModPrefix();
-        _output->append(_name);
+        _output->append("Photon");
+        _output->append(name);
         _output->append("_");
         _output->append(c->name().toStdString());
         if (c->isUserSet()) {
@@ -162,11 +136,11 @@ void TypeDefGen::appendEnum(const EnumType* type)
         _output->append(",\n");
     }
 
-    _output->appendTagFooter(_name);
+    _output->appendTagFooter(name);
     _output->appendEol();
 }
 
-void TypeDefGen::appendVariant(const VariantType* type)
+void TypeDefGen::appendVariant(const VariantType* type, bmcl::StringView name)
 {
     std::vector<bmcl::StringView> fieldNames;
 
@@ -174,16 +148,16 @@ void TypeDefGen::appendVariant(const VariantType* type)
 
     for (const VariantField* field : type->fieldsRange()) {
         _output->appendIndent(1);
-        _output->appendModPrefix();
-        _output->append(_name);
+        _output->append("Photon");
+        _output->append(name);
         _output->append("Type_");
         _output->append(field->name());
         _output->append(",\n");
     }
 
     _output->append("} ");
-    _output->appendModPrefix();
-    _output->append(_name);
+    _output->append("Photon");
+    _output->append(name);
     _output->append("Type;\n");
     _output->appendEol();
 
@@ -193,16 +167,16 @@ void TypeDefGen::appendVariant(const VariantType* type)
                 break;
             case VariantFieldKind::Tuple: {
                 auto types = static_cast<const TupleVariantField*>(field)->typesRange();
-                std::string name = field->name().toStdString();
-                name.append(_name.begin(), _name.end());
-                appendFieldVec(types, name);
+                std::string fieldName = field->name().toStdString();
+                fieldName.append(name.begin(), name.end());
+                appendFieldVec(types, fieldName);
                 break;
             }
             case VariantFieldKind::Struct: {
                 auto fields = static_cast<const StructVariantField*>(field)->fieldsRange();
-                std::string name = field->name().toStdString();
-                name.append(_name.begin(), _name.end());
-                appendFieldVec(fields, name);
+                std::string fieldName = field->name().toStdString();
+                fieldName.append(name.begin(), name.end());
+                appendFieldVec(fields, fieldName);
                 break;
             }
         }
@@ -216,46 +190,39 @@ void TypeDefGen::appendVariant(const VariantType* type)
             continue;
         }
         _output->append("        ");
-        _output->appendModPrefix();
+        _output->append("Photon");
         _output->append(field->name());
-        _output->append(_name);
+        _output->append(name);
         _output->appendSpace();
         _output->appendWithFirstLower(field->name());
-        _output->append(_name);
+        _output->append(name);
         _output->append(";\n");
     }
 
     _output->append("    } data;\n");
     _output->appendIndent(1);
-    _output->appendModPrefix();
-    _output->append(_name);
+    _output->append("Photon");
+    _output->append(name);
     _output->append("Type");
     _output->append(" type;\n");
 
-    _output->appendTagFooter(_name);
+    _output->appendTagFooter(name);
     _output->appendEol();
 }
 
-bool TypeDefGen::visitAliasType(const AliasType* type)
+void TypeDefGen::appendAlias(const AliasType* type, bmcl::StringView name)
 {
     _output->append("typedef ");
-    bmcl::StringView modName;
-    if (type->moduleName() != "core") {
-        modName = type->moduleName();
-    }
     const Type* link = type->alias();
     if (link->isFunction()) {
         StringBuilder typedefName("Photon");
-        typedefName.appendWithFirstUpper(modName);
-        typedefName.append(_name);
+        typedefName.append(name);
         _typeReprGen->genTypeRepr(link, typedefName.result());
     } else {
         _typeReprGen->genTypeRepr(link);
         _output->append(" Photon");
-        _output->appendWithFirstUpper(modName);
-        _output->append(_name);
+        _output->append(name);
     }
     _output->append(";\n\n");
-    return false;
 }
 }

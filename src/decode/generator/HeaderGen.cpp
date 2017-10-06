@@ -43,11 +43,6 @@ void HeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::St
     default:
         return;
     }
-    if (type->moduleName() != "core") {
-        _output->setModName(type->moduleName());
-    } else {
-        _output->setModName("");
-    }
     _ast = ast;
     startIncludeGuard(type, name);
     _output->appendLocalIncludePath("Config");
@@ -256,7 +251,7 @@ void HeaderGen::appendFunctionPrototypes(const Component* comp)
     if (impl.isNone()) {
         return;
     }
-    appendFunctionPrototypes(impl.unwrap()->functionsRange(), bmcl::StringView::empty());
+    appendFunctionPrototypes(impl.unwrap()->functionsRange(), comp->name());
 }
 
 void HeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName)
@@ -359,8 +354,8 @@ void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView t
     } else {
         _output->append("void ");
     }
-    _output->appendModPrefix();
-    _output->append(typeName);
+    _output->append("Photon");
+    _output->appendWithFirstUpper(typeName);
     _output->append('_');
     _output->appendWithFirstUpper(func->name());
     _output->append('(');
@@ -371,12 +366,12 @@ void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView t
         case SelfArgument::Reference:
             _output->append("const ");
         case SelfArgument::MutReference:
-            _output->appendModPrefix();
+            _output->append("Photon");
             _output->append(typeName);
             _output->append("* self");
             break;
         case SelfArgument::Value:
-            _output->appendModPrefix();
+            _output->append("Photon");
             _output->append(typeName);
             _output->append(" self");
             break;

@@ -65,13 +65,13 @@ static bmcl::StringView builtinToName(const BuiltinType* type)
     return nullptr;
 }
 
-inline bool TypeNameGen::visitBuiltinType(const BuiltinType* type)
+bool TypeNameGen::visitBuiltinType(const BuiltinType* type)
 {
     _output->append(builtinToName(type));
     return false;
 }
 
-inline bool TypeNameGen::visitArrayType(const ArrayType* type)
+bool TypeNameGen::visitArrayType(const ArrayType* type)
 {
     _output->append("ArrOf");
     return true;
@@ -93,7 +93,7 @@ bool TypeNameGen::visitReferenceType(const ReferenceType* type)
     return true;
 }
 
-inline bool TypeNameGen::visitDynArrayType(const DynArrayType* type)
+bool TypeNameGen::visitDynArrayType(const DynArrayType* type)
 {
     _output->append("DynArrayOf");
     traverseType(type->elementType());
@@ -102,7 +102,7 @@ inline bool TypeNameGen::visitDynArrayType(const DynArrayType* type)
     return false;
 }
 
-inline bool TypeNameGen::visitGenericInstantiationType(const GenericInstantiationType* type)
+bool TypeNameGen::visitGenericInstantiationType(const GenericInstantiationType* type)
 {
     if (type->moduleName() != "core") {
         _output->appendWithFirstUpper(type->moduleName());
@@ -114,9 +114,11 @@ inline bool TypeNameGen::visitGenericInstantiationType(const GenericInstantiatio
     return false;
 }
 
-inline bool TypeNameGen::appendTypeName(const NamedType* type)
+bool TypeNameGen::appendTypeName(const NamedType* type)
 {
-    _output->appendWithFirstUpper(type->moduleName());
+    if (type->moduleName() != "core") {
+        _output->appendWithFirstUpper(type->moduleName());
+    }
     _output->append(type->name());
     return false;
 }

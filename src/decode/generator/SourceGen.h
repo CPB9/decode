@@ -27,7 +27,7 @@ public:
     SourceGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~SourceGen();
 
-    void genTypeSource(const NamedType* type);
+    void genTypeSource(const NamedType* type, bmcl::StringView name);
     void genTypeSource(const GenericInstantiationType* type, bmcl::StringView name);
     void genTypeSource(const DynArrayType* type);
 
@@ -59,6 +59,7 @@ private:
     InlineTypeDeserializerGen _inlineDeser;
     FuncPrototypeGen _prototypeGen;
     bmcl::StringView _name;
+    bmcl::StringView _fileName;
     const Type* _baseType;
 };
 

@@ -586,9 +586,9 @@ bool Generator::generateGenerics(const Package* package)
     _photonPath.append("_generic_");
     TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
+    SrcBuilder typeNameBuilder;
+    TypeNameGen typeNameGen(&typeNameBuilder);
     for (const Ast* ast : package->modules()) {
-        SrcBuilder typeNameBuilder;
-        TypeNameGen typeNameGen(&typeNameBuilder);
         for (const GenericInstantiationType* type : ast->genericInstantiationsRange()) {
             typeNameGen.genTypeName(type);
 
@@ -609,17 +609,13 @@ bool Generator::generateGenerics(const Package* package)
 
 bool Generator::generateTypesAndComponents(const Ast* ast)
 {
-    if (ast->moduleInfo()->moduleName() != "core") {
-        _output.setModName(ast->moduleInfo()->moduleName());
-    } else {
-        _output.setModName(bmcl::StringView::empty());
-    }
-
     _photonPath.append(ast->moduleInfo()->moduleName());
     TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
 
     DynArrayCollector coll;
+    SrcBuilder typeNameBuilder;
+    TypeNameGen typeNameGen(&typeNameBuilder);
     for (const NamedType* type : ast->namedTypesRange()) {
         coll.collectUniqueDynArrays(type, &_dynArrays);
         if (type->typeKind() == TypeKind::Imported) {
@@ -628,15 +624,17 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         if (type->typeKind() == TypeKind::Generic) {
             continue;
         }
+        typeNameGen.genTypeName(type);
 
-        _hgen->genTypeHeader(ast, type, type->name());
+        _hgen->genTypeHeader(ast, type, typeNameBuilder.result());
         TRY(dump(type->name(), ".h", &_photonPath));
         _output.clear();
 
-        _sgen->genTypeSource(type);
+        _sgen->genTypeSource(type, typeNameBuilder.result());
         TRY(dump(type->name(), GEN_PREFIX ".c", &_photonPath));
 
         _output.clear();
+        typeNameBuilder.clear();
     }
 
     if (ast->component().isSome()) {

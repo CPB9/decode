@@ -28,9 +28,6 @@ public:
     SrcBuilder(A&&... args);
     ~SrcBuilder();
 
-    void setModName(bmcl::StringView modName);
-
-    void appendModPrefix();
     void appendModPrefix(bmcl::StringView name);
     void appendIndent(std::size_t n = 1);
     void appendIndent(const InlineSerContext& ctx);
@@ -63,11 +60,6 @@ public:
 
     template <typename... A>
     void appendInclude(A&&... args);
-
-    bmcl::StringView modName() const;
-
-private:
-    bmcl::StringView _modName; //TODO: remove
 };
 
 template <typename... A>
