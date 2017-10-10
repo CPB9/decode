@@ -15,6 +15,7 @@ namespace decode {
 ProgressPrinter::ProgressPrinter(bool verbose)
     : _isVerbose(verbose)
 {
+    (void)_isVerbose;
 }
 
 void ProgressPrinter::printActionProgress(bmcl::StringView actionMsgPart, bmcl::StringView additionalMsgPart)

@@ -355,20 +355,28 @@ void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView t
         _output->append("void ");
     }
     _output->append("Photon");
-    _output->appendWithFirstUpper(typeName);
+    if (typeName != "core") {
+        _output->appendWithFirstUpper(typeName);
+    }
     _output->append('_');
     _output->appendWithFirstUpper(func->name());
     _output->append('(');
+
+    auto appendSelfArg = [this](bmcl::StringView typeName) {
+        _output->append("Photon");
+        _output->append(typeName);
+        _output->append("* self");
+    };
 
     if (type->selfArgument().isSome()) {
         SelfArgument self = type->selfArgument().unwrap();
         switch(self) {
         case SelfArgument::Reference:
             _output->append("const ");
+            appendSelfArg(typeName);
+            break;
         case SelfArgument::MutReference:
-            _output->append("Photon");
-            _output->append(typeName);
-            _output->append("* self");
+            appendSelfArg(typeName);
             break;
         case SelfArgument::Value:
             _output->append("Photon");

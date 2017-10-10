@@ -206,7 +206,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
                 addParseError(path, "device id cannot be negative (" + std::to_string(id) + ")", diag);
                 return ProjectResult();
             }
-            if (id == proj->_mccId) {
+            if (uint64_t(id) == proj->_mccId) {
                 addParseError(path, "device id cannot be the same as mcc_id (" + std::to_string(id) + ")", diag);
                 return ProjectResult();
             }

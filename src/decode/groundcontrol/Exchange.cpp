@@ -21,6 +21,7 @@
 #include <bmcl/Buffer.h>
 #include <bmcl/SharedBytes.h>
 #include <bmcl/String.h>
+#include <bmcl/Panic.h>
 
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(bmcl::SharedBytes);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
@@ -440,5 +441,6 @@ caf::response_promise Exchange::queueReliablePacket(const PacketRequest& req)
     case StreamType::User:
         return queueReliablePacket(req, &_userStream);
     }
+    bmcl::panic("unreachable"); //TODO: add macro
 }
 }

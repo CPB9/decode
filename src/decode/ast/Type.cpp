@@ -14,6 +14,7 @@
 #include <bmcl/OptionPtr.h>
 #include <bmcl/Option.h>
 #include <bmcl/Result.h>
+#include <bmcl/Panic.h>
 
 namespace decode {
 
@@ -1049,6 +1050,7 @@ Rc<VariantField> GenericType::cloneAndSubstitute(VariantField* varField, bmcl::A
         return newField;
     }
     }
+    bmcl::panic("unreachable"); //FIXME: add macro
 }
 
 Rc<Type> GenericType::cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> types)
@@ -1136,5 +1138,6 @@ Rc<Type> GenericType::cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> t
             return types[index];
         }
     }
+    bmcl::panic("unreachable"); //FIXME: add macro
 }
 }

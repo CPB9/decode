@@ -149,7 +149,7 @@ bool GroundControl::acceptPacket(bmcl::Bytes packet)
     packet = packet.sliceFrom(2);
 
     uint16_t payloadSize = le16dec(packet.data());
-    if (payloadSize + 2 != packet.size()) {
+    if ((payloadSize + 2u) != packet.size()) {
         reportError("recieved packet with invalid size");
         return false;
     }

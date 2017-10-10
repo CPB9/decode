@@ -400,8 +400,8 @@ public:
     void setRawValue(T value);
 
 protected:
-    bool emplace(int64_t value);
-    bool emplace(uint64_t value);
+    bool emplace(intmax_t value);
+    bool emplace(uintmax_t value);
     bool emplace(double value);
 
     bmcl::Option<ValuePair<T>> _value;

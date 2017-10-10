@@ -62,10 +62,13 @@ caf::behavior TmState::make_behavior()
             pushTmUpdates();
         },
         [this](StartAtom) {
+            (void)this;
         },
         [this](StopAtom) {
+            (void)this;
         },
         [this](EnableLoggindAtom, bool isEnabled) {
+            (void)this;
             (void)isEnabled;
         },
     };

@@ -610,7 +610,11 @@ bool VariantValueNode::decode(bmcl::MemReader* src)
 {
     int64_t id;
     TRY(src->readVarInt(&id));
-    if (id >= _type->fieldsRange().size()) {
+    if (id < 0) {
+        //TODO: report error
+        return false;
+    }
+    if (uint64_t(id) >= _type->fieldsRange().size()) {
         //TODO: report error
         return false;
     }
@@ -1110,17 +1114,28 @@ ValueKind NumericValueNode<T>::valueKind() const
 }
 
 template <typename T>
-bool NumericValueNode<T>::emplace(int64_t value)
+bool NumericValueNode<T>::emplace(intmax_t value)
 {
-    if (value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max()) {
-        _value.emplace(value);
-        return true;
+    if (std::is_unsigned<T>()) {
+        if (value < 0) {
+            return false;
+        }
+        if (uintmax_t(value) >= std::numeric_limits<T>::min() && uintmax_t(value) <= std::numeric_limits<T>::max()) {
+            _value.emplace(value);
+            return true;
+        }
+        return false;
+    } else {
+        if (value >= std::numeric_limits<T>::min() && value <= std::numeric_limits<T>::max()) {
+            _value.emplace(value);
+            return true;
+        }
+        return false;
     }
-    return false;
 }
 
 template <typename T>
-bool NumericValueNode<T>::emplace(uint64_t value)
+bool NumericValueNode<T>::emplace(uintmax_t value)
 {
     if (value <= std::numeric_limits<T>::max()) {
         _value.emplace(value);

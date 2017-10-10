@@ -673,6 +673,7 @@ caf::behavior CmdState::make_behavior()
                 return promise;
             case GcCmdKind::SetRouteClosed:
                 spawn<SetRouteClosedActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, std::move(cmd.as<SetRouteClosedGcCmd>()));
+                return promise;
             case GcCmdKind::DownloadRouteInfo:
                 spawn<DownloadRouteInfoActor>(_exc, _ifaces->waypointInterface().unwrap(), promise, _handler);
                 return promise;

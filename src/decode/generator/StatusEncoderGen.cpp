@@ -111,7 +111,6 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
         return;
     }
     assert(part->accessorsBegin()->accessorKind() == AccessorKind::Field);
-    AccessorKind lastKind = AccessorKind::Field;
 
     InlineSerContext ctx;
     StringBuilder currentField("_photon");
@@ -195,7 +194,6 @@ void StatusEncoderGen::appendInlineSerializer(const Component* comp, const Statu
         default:
             assert(false);
         }
-        lastKind = acc->accessorKind();
     }
     _inlineSer.inspect(lastType, ctx, currentField.view());
     for (std::size_t indent = ctx.indentLevel; indent > 1; indent--) {

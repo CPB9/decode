@@ -6,6 +6,8 @@
 
 #include <bmcl/Variant.h>
 
+#include <functional>
+
 namespace decode {
 
 enum class NumberVariantKind {
@@ -34,9 +36,23 @@ public:
         case NumberVariantKind::None:
             return false;
         case NumberVariantKind::Signed:
-            return value == _default.as<std::intmax_t>();
+            if (std::is_unsigned<T>()) {
+                if (_default.as<std::intmax_t>() < 0) {
+                    return false;
+                }
+                return value == uintmax_t(_default.as<std::intmax_t>());
+            } else {
+                return value == _default.as<std::intmax_t>();
+            }
         case NumberVariantKind::Unsigned:
-            return value == _default.as<std::uintmax_t>();
+            if (std::is_signed<T>()) {
+                if (value < 0) {
+                    return false;
+                }
+                return uintmax_t(value) == _default.as<std::uintmax_t>();
+            } else {
+                return value == _default.as<std::uintmax_t>();
+            }
         case NumberVariantKind::Double:
             return doubleEq(value, _default.as<double>());
         }
@@ -52,10 +68,26 @@ public:
             isInRangeLeft = true;
             break;
         case NumberVariantKind::Signed:
-            isInRangeLeft = value >= _min.as<std::intmax_t>();
+            if (std::is_unsigned<T>()) {
+                if (_min.as<std::intmax_t>() < 0) {
+                    isInRangeLeft = true;
+                } else {
+                    isInRangeLeft = value >= std::uintmax_t(_min.as<std::intmax_t>());
+                }
+            } else {
+                isInRangeLeft = value >= _min.as<std::intmax_t>();
+            }
             break;
         case NumberVariantKind::Unsigned:
-            isInRangeLeft = value >= _min.as<std::uintmax_t>();
+            if (std::is_signed<T>()) {
+                if (value < 0) {
+                    isInRangeLeft = false;
+                } else {
+                    isInRangeLeft = std::uintmax_t(value) >= _min.as<std::uintmax_t>();
+                }
+            } else {
+                isInRangeLeft = value >= _min.as<std::uintmax_t>();
+            }
             break;
         case NumberVariantKind::Double:
             isInRangeLeft = value >= _min.as<double>();
@@ -67,13 +99,29 @@ public:
             isInRangeRight = true;
             break;
         case NumberVariantKind::Signed:
-            isInRangeRight = value <= _max.as<std::intmax_t>();
+            if (std::is_unsigned<T>()) {
+                if (_max.as<std::intmax_t>() < 0) {
+                    isInRangeRight = false;
+                } else {
+                    isInRangeRight = value >= std::uintmax_t(_max.as<std::intmax_t>());
+                }
+            } else {
+                isInRangeRight = value >= _max.as<std::intmax_t>();
+            }
             break;
         case NumberVariantKind::Unsigned:
-            isInRangeRight = value <= _max.as<std::uintmax_t>();
+            if (std::is_signed<T>()) {
+                if (value < 0) {
+                    isInRangeRight = true;
+                } else {
+                    isInRangeRight = std::uintmax_t(value) >= _max.as<std::uintmax_t>();
+                }
+            } else {
+                isInRangeRight = value >= _max.as<std::uintmax_t>();
+            }
             break;
         case NumberVariantKind::Double:
-            isInRangeRight = value <= _max.as<double>();
+            isInRangeRight = value >= _max.as<double>();
             break;
         }
         return isInRangeLeft && isInRangeRight;

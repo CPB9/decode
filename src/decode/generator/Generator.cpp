@@ -193,7 +193,7 @@ static bool copyFile(const char* from, const char* to, Diagnostics* diag)
             break;
         }
 
-        std::size_t total = 0;
+        ssize_t total = 0;
         while(total < size) {
             ssize_t written = write(fdTo, &temp[total], size);
             if (written == -1) {

@@ -21,8 +21,8 @@
 namespace decode {
 
 Report::Report()
-    : _highlightMessage(false)
-    , _locSize(1)
+    : _locSize(1)
+    , _highlightMessage(false)
 {
 }
 

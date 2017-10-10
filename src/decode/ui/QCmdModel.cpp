@@ -102,7 +102,7 @@ bool QCmdModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int r
         if (row == -1) {
             row = 0;
         }
-        if (row > 0 && row >= _cmds->numChildren()) {
+        if (row > 0 && std::size_t(row) >= _cmds->numChildren()) {
             row = _cmds->numChildren() - 1;
         }
         bmcl::Option<std::size_t> currentRow = _cmds->childIndex(cmdNode.unwrap());

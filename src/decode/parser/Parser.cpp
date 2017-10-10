@@ -30,6 +30,7 @@
 #include <bmcl/FileUtils.h>
 #include <bmcl/Logging.h>
 #include <bmcl/Result.h>
+#include <bmcl/Panic.h>
 
 #include <string>
 #include <functional>
@@ -189,6 +190,7 @@ static std::string tokenKindToString(TokenKind kind)
     case TokenKind::Eof:
         return "end of file";
     }
+    bmcl::panic("unreachable"); //TODO: add macro
 }
 
 void Parser::finishSplittingLines()
@@ -1083,10 +1085,8 @@ bool Parser::parseUnsignedInteger(std::uintmax_t* dest)
 
 bool Parser::parseSignedInteger(std::intmax_t* dest)
 {
-    bool isNegative = false;
     const char* start = _currentToken.begin();
     if (currentTokenIs(TokenKind::Dash)) {
-        isNegative = true;
         consume();
         TRY(expectCurrentToken(TokenKind::Number, "expected integer after sign"));
     }
@@ -1107,7 +1107,6 @@ bool Parser::parseSignedInteger(std::intmax_t* dest)
 Rc<Type> Parser::parseBuiltinOrResolveType()
 {
     TRY(expectCurrentToken(TokenKind::Identifier));
-    Token tok = _currentToken;
     bmcl::StringView name = _currentToken.value();
     consume();
 
@@ -1518,7 +1517,7 @@ bool Parser::parseStatuses(Component* parent)
         consumeAndSkipBlanks();
         TRY(expectCurrentToken(TokenKind::Colon));
         consumeAndSkipBlanks();
-        auto parseOneRegexp = [this, comp](StatusMsg* msg) -> bool {
+        auto parseOneRegexp = [this](StatusMsg* msg) -> bool {
             TRY(expectCurrentToken(TokenKind::Identifier, "regular expression must begin with an identifier"));
             Rc<StatusRegexp> re = new StatusRegexp;
 
