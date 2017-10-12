@@ -14,6 +14,7 @@
 #include "decode/ast/Decl.h"
 #include "decode/ast/Constant.h"
 #include "decode/ast/Component.h"
+#include "decode/ast/CmdTrait.h"
 #include "decode/core/Hash.h"
 
 #include <bmcl/Option.h>
@@ -180,6 +181,12 @@ void Ast::addGenericInstantiation(GenericInstantiationType* type)
 {
     _genericInstantiations.emplace_back(type);
     addType(type);
+}
+
+void Ast::addCmdTrait(CmdTrait* trait)
+{
+    auto it = _cmdTraits.emplace(trait->name(), trait);
+    assert(it.second); //TODO: check for conflicts
 }
 
 void Ast::setComponent(Component* comp)

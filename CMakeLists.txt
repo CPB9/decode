@@ -146,6 +146,8 @@ set(DECODE_AST_SRC
     src/decode/ast/AstVisitor.h
     src/decode/ast/Constant.cpp
     src/decode/ast/Constant.h
+    src/decode/ast/CmdTrait.cpp
+    src/decode/ast/CmdTrait.h
     src/decode/ast/Decl.cpp
     src/decode/ast/Decl.h
     src/decode/ast/Component.cpp

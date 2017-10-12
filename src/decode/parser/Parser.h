@@ -97,11 +97,15 @@ private:
     bool parseAlias();
     bool parseConstant();
     bool parseAttribute();
+    bool parseCmdTrait();
     Rc<CfgOption> parseCfgOption();
     Rc<RangeAttr> parseRangeAttr();
 
     template <typename T, typename F>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);
+
+    template <typename T, typename F>
+    bool parseList2(TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);
 
     template <typename T, typename F>
     bool parseBraceList(T&& parent, F&& fieldParser);

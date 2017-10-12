@@ -20,6 +20,7 @@
 	</list>
 	<list name="keywords">
 		<item> const </item>
+		<item> cmdtrait </item>
 		<item> enum </item>
 		<item> self </item>
 		<item> variant </item>

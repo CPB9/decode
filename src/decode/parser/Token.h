@@ -24,6 +24,7 @@ enum class TokenKind {
     Blank,
     Comma,
     Colon,
+    CmdTrait,
     DoubleColon,
     SemiColon,
     LBracket,

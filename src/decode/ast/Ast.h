@@ -31,6 +31,7 @@ class GenericInstantiationType;
 class TypeDecl;
 class Component;
 class Constant;
+class CmdTrait;
 
 class Ast : public RefCountable {
 public:
@@ -42,6 +43,7 @@ public:
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
     using Imports = RcVec<ImportDecl>;
     using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
+    using CmdTraits = RcSecondUnorderedMap<bmcl::StringView, CmdTrait>;
 
     Ast();
     ~Ast();
@@ -78,6 +80,7 @@ public:
     void addTypeImport(ImportDecl* decl);
     void addConstant(Constant* constant);
     void addGenericInstantiation(GenericInstantiationType* type);
+    void addCmdTrait(CmdTrait* trait);
     void setComponent(Component* comp);
 
 private:
@@ -88,6 +91,7 @@ private:
     ImplBlocks _typeNameToImplBlock;
     Constants _constants;
     GenericInstantiations _genericInstantiations;
+    CmdTraits _cmdTraits;
     Rc<const ModuleInfo> _moduleInfo;
     Rc<ModuleDecl> _moduleDecl;
 };

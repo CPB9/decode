@@ -53,6 +53,7 @@ KEYWORD_RULE(Impl,       "impl");
 KEYWORD_RULE(Fn,         "fn");
 KEYWORD_RULE(UpperFn,    "Fn");
 KEYWORD_RULE(Self,       "self");
+KEYWORD_RULE(CmdTrait,       "cmdtrait");
 
 // chars
 
@@ -185,6 +186,7 @@ struct Grammar
                  Fn,
                  UpperFn,
                  Const,
+                 CmdTrait,
                  Identifier,
                  Number
                  > {};
@@ -247,6 +249,7 @@ RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Commands);
 RULE_TO_TOKEN(Mut);
 RULE_TO_TOKEN(Const);
+RULE_TO_TOKEN(CmdTrait);
 
 template <>
 struct Action<pegtl::eof> {

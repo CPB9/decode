@@ -24,6 +24,7 @@
 #include "decode/parser/Lexer.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/ast/Type.h"
+#include "decode/ast/CmdTrait.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/Constant.h"
 
@@ -109,6 +110,8 @@ static std::string tokenKindToString(TokenKind kind)
         return "','";
     case TokenKind::Colon:
         return "':'";
+    case TokenKind::CmdTrait:
+        return "'cmdtrait'";
     case TokenKind::DoubleColon:
         return "'::'";
     case TokenKind::SemiColon:
@@ -502,6 +505,9 @@ bool Parser::parseTopLevelDecls()
             case TokenKind::Const:
                 TRY(parseConstant());
                 break;
+            case TokenKind::CmdTrait:
+                TRY(parseCmdTrait());
+                break;
             //case TokenKind::Eol:
             //    return true;
             case TokenKind::Eof:
@@ -591,6 +597,26 @@ bool Parser::parseAttribute()
 
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
+    return true;
+}
+
+bool Parser::parseCmdTrait()
+{
+    TRY(expectCurrentToken(TokenKind::CmdTrait));
+    consumeAndSkipBlanks();
+    TRY(expectCurrentToken(TokenKind::Identifier));
+
+    Rc<CmdTrait> trait = new CmdTrait(_currentToken.value());
+    consumeAndSkipBlanks();
+
+    TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, trait, [this](const Rc<CmdTrait>& trait) -> bool {
+        Rc<Function> func = parseFunction<Function>(false);
+        trait->addFunction(func.get());
+        return true;
+    }));
+
+    _ast->addCmdTrait(trait.get());
+
     return true;
 }
 
@@ -1286,6 +1312,13 @@ bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken,
     TRY(expectCurrentToken(openToken));
     consume();
 
+    return parseList2(sep, closeToken, std::forward<T>(decl), std::forward<F>(fieldParser));
+}
+
+template <typename T, typename F>
+bool Parser::parseList2(TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser)
+{
+
     TRY(skipCommentsAndSpace());
 
     while (true) {
@@ -1409,7 +1442,22 @@ bool Parser::parseCommands(Component* parent)
         reportCurrentTokenError("component can have only one commands declaration");
         return false;
     }
-    TRY(parseNamelessTag(TokenKind::Commands, TokenKind::Eol, parent, [this](Component* comp) {
+    TRY(expectCurrentToken(TokenKind::Commands));
+    consumeAndSkipBlanks();
+
+    if (currentTokenIs(TokenKind::Colon)) {
+        TRY(parseList(TokenKind::Colon, TokenKind::Comma, TokenKind::LBrace, parent, [this](Component* comp) -> bool {
+            TRY(expectCurrentToken(TokenKind::Identifier));
+
+
+            consumeAndSkipBlanks();
+            return true;
+        }));
+    } else {
+        TRY(expectCurrentToken(TokenKind::LBrace));
+        consumeAndSkipBlanks();
+    }
+    TRY(parseList2(TokenKind::Eol, TokenKind::RBrace, parent, [this](Component* comp) {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Command> fn = parseFunction<Command>(false);
         if (!fn) {
