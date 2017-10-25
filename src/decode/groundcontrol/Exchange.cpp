@@ -36,7 +36,8 @@ Exchange::Exchange(caf::actor_config& cfg, uint64_t selfAddress, uint64_t destAd
                    const caf::actor& gc, const caf::actor& dataSink, const caf::actor& handler)
     : caf::event_based_actor(cfg)
     , _fwtStream(StreamType::Firmware)
-    , _cmdTmStream(StreamType::CmdTelem)
+    , _cmdStream(StreamType::Cmd)
+    , _tmStream(StreamType::Telem)
     , _userStream(StreamType::User)
     , _gc(gc)
     , _sink(dataSink)
@@ -47,7 +48,7 @@ Exchange::Exchange(caf::actor_config& cfg, uint64_t selfAddress, uint64_t destAd
     , _dataReceived(false)
 {
     _fwtStream.client = spawn<FwtState, caf::linked>(this, _handler);
-    _cmdTmStream.client = spawn<TmState, caf::linked>(_handler);
+    _tmStream.client = spawn<TmState, caf::linked>(_handler);
 }
 
 Exchange::~Exchange()
@@ -58,7 +59,8 @@ template <typename... A>
 void Exchange::sendAllStreams(A&&... args)
 {
     send(_fwtStream.client, std::forward<A>(args)...);
-    send(_cmdTmStream.client, std::forward<A>(args)...);
+    send(_cmdStream.client, std::forward<A>(args)...);
+    send(_tmStream.client, std::forward<A>(args)...);
     send(_userStream.client, std::forward<A>(args)...);
 }
 
@@ -77,8 +79,11 @@ caf::behavior Exchange::make_behavior()
             case StreamType::Firmware:
                 state = &_fwtStream;
                 break;
-            case StreamType::CmdTelem:
-                state = &_cmdTmStream;
+            case StreamType::Cmd:
+                state = &_cmdStream;
+                break;
+            case StreamType::Telem:
+                state = &_tmStream;
                 break;
             case StreamType::User:
                 state = &_userStream;
@@ -101,7 +106,7 @@ caf::behavior Exchange::make_behavior()
             }
             if (!_dataReceived) {
                 PacketRequest req;
-                req.streamType = StreamType::CmdTelem;
+                req.streamType = StreamType::Cmd;
                 send(this, SendUnreliablePacketAtom::value, req);
             }
             _dataReceived = false;
@@ -139,7 +144,8 @@ void Exchange::on_exit()
     destroy(_sink);
     destroy(_handler);
     destroy(_fwtStream.client);
-    destroy(_cmdTmStream.client);
+    destroy(_cmdStream.client);
+    destroy(_tmStream.client);
     destroy(_userStream.client);
 }
 
@@ -209,9 +215,12 @@ bool Exchange::handlePayload(bmcl::Bytes data)
         header.streamType = StreamType::Firmware;
         break;
     case 1:
-        header.streamType = StreamType::CmdTelem;
+        header.streamType = StreamType::Cmd;
         break;
     case 2:
+        header.streamType = StreamType::Telem;
+        break;
+    case 3:
         header.streamType = StreamType::User;
         break;
     default:
@@ -234,8 +243,10 @@ bool Exchange::handlePayload(bmcl::Bytes data)
     switch (header.streamType) {
     case StreamType::Firmware:
         return acceptPacket(header, userData, &_fwtStream);
-    case StreamType::CmdTelem:
-        return acceptPacket(header, userData, &_cmdTmStream);
+    case StreamType::Cmd:
+        return acceptPacket(header, userData, &_cmdStream);
+    case StreamType::Telem:
+        return acceptPacket(header, userData, &_tmStream);
     case StreamType::User:
         return acceptPacket(header, userData, &_userStream);
     default:
@@ -422,8 +433,11 @@ void Exchange::sendUnreliablePacket(const PacketRequest& req)
     case StreamType::Firmware:
         sendUnreliablePacket(req, &_fwtStream);
         return;
-    case StreamType::CmdTelem:
-        sendUnreliablePacket(req, &_cmdTmStream);
+    case StreamType::Cmd:
+        sendUnreliablePacket(req, &_cmdStream);
+        return;
+    case StreamType::Telem:
+        sendUnreliablePacket(req, &_tmStream);
         return;
     case StreamType::User:
         sendUnreliablePacket(req, &_userStream);
@@ -436,8 +450,10 @@ caf::response_promise Exchange::queueReliablePacket(const PacketRequest& req)
     switch (req.streamType) {
     case StreamType::Firmware:
         return queueReliablePacket(req, &_fwtStream);
-    case StreamType::CmdTelem:
-        return queueReliablePacket(req, &_cmdTmStream);
+    case StreamType::Cmd:
+        return queueReliablePacket(req, &_cmdStream);
+    case StreamType::Telem:
+        return queueReliablePacket(req, &_tmStream);
     case StreamType::User:
         return queueReliablePacket(req, &_userStream);
     }

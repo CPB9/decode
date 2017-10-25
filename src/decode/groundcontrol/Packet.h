@@ -15,8 +15,9 @@ enum class StreamDirection {
 
 enum class StreamType : uint8_t {
     Firmware = 0,
-    CmdTelem = 1,
-    User = 2,
+    Cmd = 1,
+    Telem = 2,
+    User = 3,
 };
 
 enum class PacketType : uint8_t {

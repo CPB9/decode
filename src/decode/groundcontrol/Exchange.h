@@ -98,7 +98,8 @@ private:
     void handleReceipt(const PacketHeader& header, ReceiptType type, bmcl::Bytes payload, StreamState* state, QueuedPacket* packet);
 
     StreamState _fwtStream;
-    StreamState _cmdTmStream;
+    StreamState _cmdStream;
+    StreamState _tmStream;
     StreamState _userStream;
     caf::actor _gc;
     caf::actor _sink;
