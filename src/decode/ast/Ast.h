@@ -42,7 +42,7 @@ public:
     using GenericInstantiations = RcVec<GenericInstantiationType>;
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
     using Imports = RcVec<ImportDecl>;
-    using ImplBlocks = RcSecondUnorderedMap<bmcl::StringView, ImplBlock>;
+    using ImplBlocks = RcSecondUnorderedMap<Rc<Type>, ImplBlock>;
     using CmdTraits = RcSecondUnorderedMap<bmcl::StringView, CmdTrait>;
 
     Ast();
@@ -71,12 +71,12 @@ public:
     bmcl::OptionPtr<Component> component();
     bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<NamedType> findTypeWithName(bmcl::StringView name);
-    bmcl::OptionPtr<const ImplBlock> findImplBlockWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<const ImplBlock> findImplBlock(const Type* type) const;
 
     void setModuleDecl(ModuleDecl* decl);
     void addType(Type* type);
     void addTopLevelType(NamedType* type);
-    void addImplBlock(ImplBlock* block);
+    void addImplBlock(Type* type, ImplBlock* block);
     void addTypeImport(ImportDecl* decl);
     void addConstant(Constant* constant);
     void addGenericInstantiation(GenericInstantiationType* type);
@@ -88,7 +88,7 @@ private:
     Rc<Component> _component;
     NamedTypes _typeNameToType;
     Types _types;
-    ImplBlocks _typeNameToImplBlock;
+    ImplBlocks _typeToImplBlock;
     Constants _constants;
     GenericInstantiations _genericInstantiations;
     CmdTraits _cmdTraits;

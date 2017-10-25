@@ -41,7 +41,7 @@ CmdState::~CmdState()
 static CmdState::EncodeResult encodePacket(CmdState::EncodeHandler handler)
 {
     PacketRequest req;
-    req.streamType = StreamType::CmdTelem;
+    req.streamType = StreamType::Cmd;
     uint8_t tmp[1024];
     Encoder writer(tmp, sizeof(tmp));
     if (!handler(&writer)) {

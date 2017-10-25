@@ -863,7 +863,7 @@ bool Parser::parseImplBlock()
     }
 
     //TODO: check conflicts
-    _ast->addImplBlock(block.get());
+    _ast->addImplBlock(type.unwrap(), block.get());
 
     clearUnusedDocCommentsAndAttributes();
     return true;

@@ -135,9 +135,13 @@ bmcl::OptionPtr<NamedType> Ast::findTypeWithName(bmcl::StringView name)
     return _typeNameToType.findValueWithKey(name);
 }
 
-bmcl::OptionPtr<const ImplBlock> Ast::findImplBlockWithName(bmcl::StringView name) const
+bmcl::OptionPtr<const ImplBlock> Ast::findImplBlock(const Type* type) const
 {
-    return _typeNameToImplBlock.findValueWithKey(name);
+    auto it = _typeToImplBlock.find(Rc<Type>(const_cast<Type*>(type))); //HACK
+    if (it == _typeToImplBlock.end()) {
+        return bmcl::None;
+    }
+    return it->second.get();
 }
 
 void Ast::setModuleDecl(ModuleDecl* decl)
@@ -158,9 +162,9 @@ void Ast::addTopLevelType(NamedType* type)
     _types.emplace_back(type);
 }
 
-void Ast::addImplBlock(ImplBlock* block)
+void Ast::addImplBlock(Type* type, ImplBlock* block)
 {
-    _typeNameToImplBlock.emplace(block->name(), block);
+    _typeToImplBlock.emplace(type, block);
 }
 
 void Ast::addTypeImport(ImportDecl* decl)

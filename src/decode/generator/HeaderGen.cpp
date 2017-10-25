@@ -202,7 +202,7 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
 
 void HeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name)
 {
-    bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlockWithName(name);
+    bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlock(topLevelType);
     HashSet<std::string> dest;
     if (impl.isSome()) {
         for (const Function* fn : impl->functionsRange()) {
@@ -266,7 +266,7 @@ void HeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl
 
 void HeaderGen::appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name)
 {
-    bmcl::OptionPtr<const ImplBlock> block = _ast->findImplBlockWithName(name);
+    bmcl::OptionPtr<const ImplBlock> block = _ast->findImplBlock(type);
     if (block.isNone()) {
         return;
     }
