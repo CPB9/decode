@@ -137,6 +137,7 @@ static bool saveOutput(const char* path, SrcBuilder* output, Diagnostics* diag)
         return false;
     }
     assert(output->result().size() == bytesWritten);
+    CloseHandle(handle);
 #endif
     return true;
 }
