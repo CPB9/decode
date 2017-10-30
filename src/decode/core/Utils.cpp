@@ -7,11 +7,22 @@
  */
 
 #include "decode/core/Utils.h"
+#include "decode/core/Diagnostics.h"
 
 #include <bmcl/Buffer.h>
 #include <bmcl/MemReader.h>
 #include <bmcl/Result.h>
 #include <bmcl/StringView.h>
+
+#if defined(__linux__)
+# include <sys/stat.h>
+# include <fcntl.h>
+# include <unistd.h>
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+# include <windows.h>
+#else
+# error "Unsupported OS"
+#endif
 
 namespace decode {
 
@@ -55,5 +66,164 @@ bool doubleEq(double a, double b, unsigned int maxUlps)
         return true;
     }
     return false;
+}
+
+bool makeDirectory(const char* path, Diagnostics* diag)
+{
+#if defined(__linux__)
+    int rv = mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+    if (rv == -1) {
+        int rn = errno;
+        if (rn == EEXIST) {
+            return true;
+        }
+        diag->buildSystemFileErrorReport("failed to create directory", rn, path);
+        return false;
+    }
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+    bool isOk = CreateDirectory(path, NULL);
+    if (!isOk) {
+        auto rn = GetLastError();
+        if (rn != ERROR_ALREADY_EXISTS) {
+            diag->buildSystemFileErrorReport("failed to create directory", rn, path);
+            return false;
+        }
+    }
+#endif
+    return true;
+}
+
+bool saveOutput(const char* path, bmcl::StringView output, Diagnostics* diag)
+{
+#if defined(__linux__)
+    int fd;
+    while (true) {
+        fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fd == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            diag->buildSystemFileErrorReport("failed to create file", rn, path);
+            return false;
+        }
+        break;
+    }
+
+    std::size_t size = output.size();
+    std::size_t total = 0;
+    while(total < size) {
+        ssize_t written = write(fd, output.data() + total, size - total);
+        if (written == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            diag->buildSystemFileErrorReport("failed to write file", rn, path);
+            close(fd);
+            return false;
+        }
+        total += written;
+    }
+
+    close(fd);
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+    HANDLE handle = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (handle == INVALID_HANDLE_VALUE) {
+        diag->buildSystemFileErrorReport("failed to create file", GetLastError(), path);
+        return false;
+    }
+    DWORD bytesWritten;
+    bool isOk = WriteFile(handle, output.data(), output.size(), &bytesWritten, NULL);
+    if (!isOk) {
+        diag->buildSystemFileErrorReport("failed to write file", GetLastError(), path);
+        return false;
+    }
+    assert(output.size() == bytesWritten);
+    CloseHandle(handle);
+#endif
+    return true;
+}
+
+bool copyFile(const char* from, const char* to, Diagnostics* diag)
+{
+#if defined(__linux__)
+    int fdFrom;
+    while (true) {
+        fdFrom = open(from, O_RDONLY);
+        if (fdFrom == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            diag->buildSystemFileErrorReport("failed to open file", rn, from);
+            return false;
+        }
+        break;
+    }
+    int fdTo;
+    while (true) {
+        fdTo = open(to, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        if (fdTo == -1) {
+            int rn = errno;
+            if (rn == EINTR) {
+                continue;
+            }
+            diag->buildSystemFileErrorReport("failed to open file", rn, to);
+            return false;
+        }
+        break;
+    }
+
+    bool isOk = true;
+    while (true) {
+        char temp[4096];
+
+        ssize_t size;
+        while(true) {
+            size = read(fdFrom, temp, sizeof(temp));
+            if (size == 0) {
+                goto end;
+            }
+            if (size == -1) {
+                int rn = errno;
+                if (rn == EINTR) {
+                    continue;
+                }
+                diag->buildSystemFileErrorReport("failed to read file", rn, from);
+                isOk = false;
+                goto end;
+            }
+            break;
+        }
+
+        ssize_t total = 0;
+        while(total < size) {
+            ssize_t written = write(fdTo, &temp[total], size);
+            if (written == -1) {
+                int rn = errno;
+                if (rn == EINTR) {
+                    continue;
+                }
+                diag->buildSystemFileErrorReport("failed to write file", rn, to);
+                isOk = false;
+                goto end;
+            }
+            total += written;
+        }
+    }
+
+end:
+    close(fdFrom);
+    close(fdTo);
+    return isOk;
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+    if (!CopyFile(from, to, false)) {
+        //TODO: extend error message
+        diag->buildSystemFileErrorReport("failed to copy file", GetLastError(), from);
+        return false;
+    }
+    return true;
+#endif
 }
 }
