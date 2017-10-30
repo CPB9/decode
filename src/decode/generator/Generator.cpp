@@ -53,7 +53,7 @@ Generator::~Generator()
 
 void Generator::setOutPath(bmcl::StringView path)
 {
-    _savePath = path.toStdString();
+    _savePath.assign(path.begin(), path.end());
 }
 
 bool Generator::generateTmPrivate(const Package* package)
@@ -87,7 +87,7 @@ bool Generator::generateTmPrivate(const Package* package)
 
     _output.append("#define _PHOTON_TM_MSG_COUNT sizeof(_messageDesc) / sizeof(_messageDesc[0])\n\n");
 
-    std::string tmDetailPath = _savePath + "/photon/Tm.Private.inc.c";
+    std::string tmDetailPath = _onboardPath + "/photon/Tm.Private.inc.c"; //FIXME: joinPath
     TRY(saveOutput(tmDetailPath.c_str(), _output.view(), _diag.get()));
     _output.clear();
 
@@ -126,7 +126,7 @@ bool Generator::generateSerializedPackage(const Project* project)
         _output.appendEol();
     }
 
-    std::string packageDetailPath = _savePath + "/photon/Package.Private.inc.c";
+    std::string packageDetailPath = _onboardPath + "/photon/Package.Private.inc.c"; //FIXME: joinPath
     TRY(saveOutput(packageDetailPath.c_str(), _output.view(), _diag.get()));
     _output.clear();
 
@@ -154,7 +154,7 @@ bool Generator::generateDeviceFiles(const Project* project)
             continue;
         }
 
-        std::string dest = _savePath;
+        std::string dest = _onboardPath;
         joinPath(&dest, src->relativeDest);
         std::size_t destSize = dest.size();
 
@@ -283,8 +283,8 @@ bool Generator::generateDeviceFiles(const Project* project)
         appendBundledSources(dev, ".h");
 
         SrcBuilder path;
-        path.append(_savePath);
-        path.append("/Photon");
+        path.append(_onboardPath);
+        path.append("/Photon"); //FIXME: joinPath
         path.appendWithFirstUpper(dev->name);
         path.appendWithFirstUpper(".h");
         TRY(saveOutput(path.result().c_str(), _output.view(), _diag.get()));
@@ -334,7 +334,11 @@ bool Generator::generateConfig(const Project* project)
 bool Generator::generateProject(const Project* project)
 {
     _photonPath.append(_savePath);
-    _photonPath.append("/photon");
+    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
+    joinPath(&_photonPath.result(), "onboard");
+    _onboardPath = _photonPath.result();
+    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
+    joinPath(&_photonPath.result(), "photon");
     TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
     _photonPath.append('/');
     const Package* package = project->package();

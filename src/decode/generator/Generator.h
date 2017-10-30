@@ -63,6 +63,7 @@ private:
     SrcBuilder _photonPath;
     Rc<Diagnostics> _diag;
     std::string _savePath;
+    std::string _onboardPath;
     SrcBuilder _output;
     std::unique_ptr<HeaderGen> _hgen;
     std::unique_ptr<SourceGen> _sgen;
