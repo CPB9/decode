@@ -118,7 +118,10 @@ private:
 void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
 {
     _output->appendLocalIncludePath("CmdEncoder.Private"); //TODO: pass as argument
+    _output->appendLocalIncludePath("core/Logging");
     _output->append("\n");
+
+    _output->append("#define _PHOTON_FNAME \"CmdDecoder.Private.c\"\n\n");
 
     for (const Component* it : comps) {
         if (!it->hasCmds()) {
@@ -149,5 +152,7 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendEndif();
         _output->appendEol();
     }
+
+    _output->append("#undef _PHOTON_FNAME\n");
 }
 }

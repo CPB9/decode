@@ -44,7 +44,7 @@ public:
 private:
     bool generateTypesAndComponents(const Ast* ast);
     bool generateDynArrays();
-    bool generateStatusMessages(const Package* package);
+    bool generateStatusMessages(const Project* package);
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
     bool generateGenerics(const Package* package);

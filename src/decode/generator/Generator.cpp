@@ -135,7 +135,8 @@ bool Generator::generateSerializedPackage(const Project* project)
 
 void Generator::appendBuiltinSources(bmcl::StringView ext)
 {
-    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private", "StatusEncoder.Private"};
+    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private",
+                                                       "StatusEncoder.Private", "StatusDecoder.Private"};
     for (bmcl::StringView str : builtin) {
         _output.append("#include \"photon/");
         _output.append(str);
@@ -196,6 +197,7 @@ bool Generator::generateDeviceFiles(const Project* project)
             coll.collect(module.get(), &types);
         }
         HashSet<Rc<Ast>> targetMods;
+        HashSet<Rc<Ast>> sourceMods;
 
         for (const Rc<Device>& dep : dev->cmdTargets) {
             for (const Rc<Ast>& module : dep->modules) {
@@ -206,9 +208,9 @@ bool Generator::generateDeviceFiles(const Project* project)
                 coll.collectCmds(module->component()->cmdsRange(), &types);
             }
         }
-
         for (const Rc<Device>& dep : dev->tmSources) {
             for (const Rc<Ast>& module : dep->modules) {
+                sourceMods.emplace(module);
                 if (module->component().isNone()) {
                     continue;
                 }
@@ -223,6 +225,27 @@ bool Generator::generateDeviceFiles(const Project* project)
         _output.append("#define PHOTON_DEVICE_");
         _output.appendUpper(dev->name);
         _output.append("\n\n");
+
+        _output.appendNumericValueDefine("PHOTON_DEVICE_ID", dev->id);
+        for (const Device* d : project->devices()) {
+            _output.append("#define PHOTON_DEVICE_ID_");
+            _output.appendUpper(d->name);
+            _output.appendSpace();
+            _output.appendNumericValue(d->id);
+            _output.append("\n");
+        }
+        _output.appendEol();
+
+        for (const Rc<Device>& dep : dev->cmdTargets) {
+            _output.append("#define PHOTON_HAS_DEVICE_TARGET_");
+            _output.appendUpper(dep->name);
+            _output.appendEol();
+        }
+        for (const Rc<Device>& dep : dev->tmSources) {
+            _output.append("#define PHOTON_HAS_DEVICE_SOURCE_");
+            _output.appendUpper(dep->name);
+            _output.appendEol();
+        }
         for (const Rc<Ast>& module : dev->modules) {
             _output.append("#define PHOTON_HAS_MODULE_");
             _output.appendUpper(module->moduleInfo()->moduleName());
@@ -230,6 +253,11 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
         for (const Rc<Ast>& module : targetMods) {
             _output.append("#define PHOTON_HAS_CMD_TARGET_");
+            _output.appendUpper(module->moduleInfo()->moduleName());
+            _output.appendEol();
+        }
+        for (const Rc<Ast>& module : sourceMods) {
+            _output.append("#define PHOTON_HAS_TM_SOURCE_");
             _output.appendUpper(module->moduleInfo()->moduleName());
             _output.appendEol();
         }
@@ -325,7 +353,7 @@ bool Generator::generateProject(const Project* project)
     TRY(generateDynArrays());
     TRY(generateTmPrivate(package));
     TRY(generateSerializedPackage(project));
-    TRY(generateStatusMessages(package));
+    TRY(generateStatusMessages(project));
     TRY(generateCommands(package));
     TRY(generateDeviceFiles(project));
 
@@ -360,15 +388,23 @@ bool Generator::generateDynArrays()
     return true;
 }
 
-bool Generator::generateStatusMessages(const Package* package)
+bool Generator::generateStatusMessages(const Project* project)
 {
     StatusEncoderGen gen(_reprGen.get(), &_output);
-    gen.generateHeader(package->statusMsgs());
+    gen.generateEncoderHeader(project);
     TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_photonPath));
     _output.clear();
 
-    gen.generateSource(package->statusMsgs());
+    gen.generateEncoderSource(project);
     TRY(dumpIfNotEmpty("StatusEncoder.Private", ".c", &_photonPath));
+    _output.clear();
+
+    gen.generateDecoderHeader(project);
+    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".h", &_photonPath));
+    _output.clear();
+
+    gen.generateDecoderSource(project);
+    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".c", &_photonPath));
     _output.clear();
 
     return true;
@@ -477,12 +513,8 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         _hgen->genComponentHeader(ast, comp.unwrap());
         TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_photonPath));
         _output.clear();
-
-        _output.append("#include \"photon/");
-        _output.append(comp->moduleName());
-        _output.append("/");
-        _output.appendWithFirstUpper(comp->moduleName());
-        _output.append(".Component.h\"\n\n");
+        _output.appendComponentInclude(comp->moduleName());
+        _output.appendEol();
         if (comp->hasParams()) {
             _output.append("Photon");
             _output.appendWithFirstUpper(comp->moduleName());

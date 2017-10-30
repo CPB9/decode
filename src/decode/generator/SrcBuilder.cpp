@@ -28,9 +28,30 @@ void SrcBuilder::appendDeviceIfDef(bmcl::StringView name)
     append("\n");
 }
 
+void SrcBuilder::appendTargetDeviceIfdef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_HAS_DEVICE_TARGET_");
+    appendUpper(name);
+    append("\n");
+}
+
 void SrcBuilder::appendTargetModIfdef(bmcl::StringView name)
 {
-    append("#ifdef PHOTON_HAS_TARGET_MODULE_");
+    append("#ifdef PHOTON_HAS_CMD_TARGET_");
+    appendUpper(name);
+    append("\n");
+}
+
+void SrcBuilder::appendSourceDeviceIfdef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_HAS_DEVICE_SOURCE_");
+    appendUpper(name);
+    append("\n");
+}
+
+void SrcBuilder::appendSourceModIfdef(bmcl::StringView name)
+{
+    append("#ifdef PHOTON_HAS_TM_SOURCE_");
     appendUpper(name);
     append("\n");
 }
@@ -102,6 +123,11 @@ void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, bmcl::StringView 
 void SrcBuilder::appendLoopHeader(const InlineSerContext& ctx, std::size_t loopSize)
 {
     appendLoopHeader(ctx, std::to_string(loopSize));
+}
+
+void SrcBuilder::appendIndent()
+{
+    append("    ");
 }
 
 void SrcBuilder::appendIndent(std::size_t n)

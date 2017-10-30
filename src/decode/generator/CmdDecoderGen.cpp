@@ -71,13 +71,8 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 
     for (const Component* it : comps) {
         _output->appendModIfdef(it->moduleName());
-        _output->append("#include \"photon/");
-        _output->append(it->moduleName());
-        _output->append("/");
-        _output->appendWithFirstUpper(it->moduleName());
-        _output->appendWithFirstUpper(".Component.h\"\n");
+        _output->appendComponentInclude(it->moduleName());
         _output->appendEndif();
-        _output->appendEol();
     }
 
     for (const Component* it : comps) {

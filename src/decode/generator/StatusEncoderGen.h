@@ -10,9 +10,9 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/parser/Containers.h"
 #include "decode/generator/FuncPrototypeGen.h"
 #include "decode/generator/InlineTypeSerializerGen.h"
+#include "decode/generator/InlineTypeDeserializerGen.h"
 
 #include <vector>
 
@@ -21,6 +21,7 @@ namespace decode {
 struct ComponentAndMsg;
 class TypeReprGen;
 class SrcBuilder;
+class Project;
 class Type;
 
 class StatusEncoderGen {
@@ -28,15 +29,20 @@ public:
     StatusEncoderGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~StatusEncoderGen();
 
-    void generateHeader(CompAndMsgVecConstRange messages);
-    void generateSource(CompAndMsgVecConstRange messages);
+    void generateDecoderHeader(const Project* project);
+    void generateDecoderSource(const Project* project);
+
+    void generateEncoderHeader(const Project* project);
+    void generateEncoderSource(const Project* project);
 
 private:
-    void appendInlineSerializer(const Component* comp, const StatusRegexp* part);
+    void appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer);
+    void appendTmDecoderPrototype(bmcl::StringView name);
 
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
     InlineTypeSerializerGen _inlineSer;
+    InlineTypeDeserializerGen _inlineDeser;
     FuncPrototypeGen _prototypeGen;
 };
 }

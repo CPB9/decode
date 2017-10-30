@@ -29,7 +29,8 @@ public:
     ~SrcBuilder();
 
     void appendModPrefix(bmcl::StringView name);
-    void appendIndent(std::size_t n = 1);
+    void appendIndent();
+    void appendIndent(std::size_t n);
     void appendIndent(const InlineSerContext& ctx);
     void appendReadableSizeCheck(const InlineSerContext& ctx, std::size_t size);
     void appendWritableSizeCheck(const InlineSerContext& ctx, std::size_t size);
@@ -52,7 +53,10 @@ public:
     void endCppGuard();
     void appendModIfdef(bmcl::StringView name);
     void appendDeviceIfDef(bmcl::StringView name);
+    void appendTargetDeviceIfdef(bmcl::StringView name);
+    void appendSourceDeviceIfdef(bmcl::StringView name);
     void appendTargetModIfdef(bmcl::StringView name);
+    void appendSourceModIfdef(bmcl::StringView name);
     void appendEndif();
 
     template <typename T>
