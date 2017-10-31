@@ -60,6 +60,9 @@ caf::behavior GroundControl::make_behavior()
         [this](SendGcCommandAtom atom, const GcCmd& cmd) {
             return delegate(_cmd, atom, cmd);
         },
+        [this](SubscribeTmAtom atom, const std::string& path, const caf::actor& dest) {
+            send(_exc, atom, path, dest);
+        },
         [this](StartAtom) {
             _isRunning = true;
             send(_exc, StartAtom::value);
@@ -102,9 +105,9 @@ void GroundControl::updateProject(const Project* project, const Device* dev)
 {
     _project.reset(project);
     _dev.reset(dev);
-    send(_handler, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
     send(_cmd, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
     send(_exc, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
+    send(_handler, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
 }
 
 void GroundControl::sendUnreliablePacket(const PacketRequest& packet)

@@ -9,6 +9,7 @@
 #include "decode/groundcontrol/TmState.h"
 #include "decode/groundcontrol/Atoms.h"
 
+#include "decode/ast/Type.h"
 #include "decode/parser/Project.h"
 #include "decode/model/TmModel.h"
 #include "decode/model/NodeView.h"
@@ -27,8 +28,19 @@
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::NodeView::Pointer);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::NodeViewUpdater::Pointer);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::TmParamUpdate);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Value);
 
 namespace decode {
+
+TmState::Sub::Sub(const BuiltinValueNode* node, const caf::actor& dest)
+    : node(node)
+    , actor(dest)
+{
+}
+
+TmState::Sub::~Sub()
+{
+}
 
 TmState::TmState(caf::actor_config& cfg, const caf::actor& handler)
     : caf::event_based_actor(cfg)
@@ -53,13 +65,20 @@ caf::behavior TmState::make_behavior()
             initTmNodes();
             Rc<NodeView> view = new NodeView(_model.get());
             send(_handler, SetTmViewAtom::value, view);
-            delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
+            _updateCount++;
+            delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value, _updateCount);
         },
         [this](RecvPacketPayloadAtom, const bmcl::SharedBytes& data) {
             acceptData(data.view());
         },
-        [this](PushTmUpdatesAtom) {
+        [this](PushTmUpdatesAtom, uint64_t count) {
+            if (count != _updateCount) {
+                return;
+            }
             pushTmUpdates();
+        },
+        [this](SubscribeTmAtom, const std::string& path, const caf::actor& dest) {
+            subscribeTm(path, dest);
         },
         [this](StartAtom) {
             (void)this;
@@ -72,6 +91,20 @@ caf::behavior TmState::make_behavior()
             (void)isEnabled;
         },
     };
+}
+
+void TmState::subscribeTm(bmcl::StringView path, const caf::actor& dest)
+{
+    auto rv = findNode(_model.get(), path);
+    if (rv.isErr()) {
+        return;
+    }
+    Node* node = rv.unwrap().get();
+    BuiltinValueNode* builtinNode = dynamic_cast<BuiltinValueNode*>(node);
+    if (!builtinNode) {
+        return;
+    }
+    _subscriptions.emplace_back(builtinNode, dest);
 }
 
 void TmState::pushTmUpdates()
@@ -100,7 +133,11 @@ void TmState::pushTmUpdates()
         send(_handler, UpdateTmParams::value, TmParamUpdate(orientation));
     }
     send(_handler, UpdateTmViewAtom::value, updater);
-    delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value);
+    for (const Sub& sub : _subscriptions) {
+        send(sub.actor, sub.node->value());
+    }
+    _updateCount++;
+    delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value, _updateCount);
 }
 
 template <typename T>

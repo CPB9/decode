@@ -19,6 +19,7 @@
 namespace decode {
 
 class TmModel;
+class BuiltinValueNode;
 
 template <typename T>
 class NumericValueNode;
@@ -32,6 +33,14 @@ public:
     void on_exit() override;
 
 private:
+    struct Sub {
+        Sub(const BuiltinValueNode* node, const caf::actor& dest);
+        ~Sub();
+
+        Rc<const BuiltinValueNode> node;
+        caf::actor actor;
+    };
+
     void acceptData(bmcl::Bytes packet);
     void initTmNodes();
     template <typename T>
@@ -39,6 +48,7 @@ private:
     void pushTmUpdates();
     template <typename T>
     void updateParam(const Rc<NumericValueNode<T>>& src, T* dest, T defaultValue = 0);
+    void subscribeTm(bmcl::StringView path, const caf::actor& dest);
 
     Rc<TmModel> _model;
     Rc<NumericValueNode<double>> _latNode;
@@ -52,5 +62,7 @@ private:
     Rc<NumericValueNode<double>> _velZNode;
     caf::actor _handler;
     TmFeatures _features;
+    std::vector<Sub> _subscriptions;
+    uint64_t _updateCount;
 };
 }
