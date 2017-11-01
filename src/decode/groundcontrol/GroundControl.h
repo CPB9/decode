@@ -28,6 +28,7 @@ class Project;
 class Model;
 struct Device;
 struct PacketRequest;
+struct ProjectUpdate;
 
 struct SearchResult {
 public:
@@ -74,7 +75,7 @@ private:
     bool acceptPacket(bmcl::Bytes packet);
     void reportError(std::string&& msg);
 
-    void updateProject(const Project* project, const Device* dev);
+    void updateProject(const ProjectUpdate& update);
 
     caf::actor _sink;
     caf::actor _handler;

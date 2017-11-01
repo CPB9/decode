@@ -16,6 +16,7 @@
 #include "decode/groundcontrol/Crc.h"
 #include "decode/groundcontrol/CmdState.h"
 #include "decode/groundcontrol/GcCmd.h"
+#include "decode/groundcontrol/ProjectUpdate.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/Bytes.h>
@@ -77,11 +78,11 @@ caf::behavior GroundControl::make_behavior()
             _isRunning = false;
             send(_exc, StopAtom::value);
         },
-        [this](SetProjectAtom, const Project::ConstPointer& proj, const Device::ConstPointer& dev) {
-            if (_project == proj && _dev == dev) {
+        [this](SetProjectAtom, const ProjectUpdate& update) {
+            if (_project == update.project && _dev == update.device) {
                 return;
             }
-            updateProject(proj.get(), dev.get());
+            updateProject(update);
         },
         [this](EnableLoggindAtom, bool isEnabled) {
             send(_exc, EnableLoggindAtom::value, isEnabled);
@@ -107,13 +108,13 @@ void GroundControl::on_exit()
     destroy(_cmd);
 }
 
-void GroundControl::updateProject(const Project* project, const Device* dev)
+void GroundControl::updateProject(const ProjectUpdate& update)
 {
-    _project.reset(project);
-    _dev.reset(dev);
-    send(_cmd, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
-    send(_exc, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
-    send(_handler, SetProjectAtom::value, Rc<const Project>(project), Rc<const Device>(dev));
+    _project = update.project;
+    _dev = update.device;
+    send(_cmd, SetProjectAtom::value, update);
+    send(_exc, SetProjectAtom::value, update);
+    send(_handler, SetProjectAtom::value, update);
 }
 
 void GroundControl::sendUnreliablePacket(const PacketRequest& packet)

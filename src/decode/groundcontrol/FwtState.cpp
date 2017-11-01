@@ -11,9 +11,11 @@
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/core/Diagnostics.h"
 #include "decode/parser/Project.h"
+#include "decode/model/ValueInfoCache.h"
 #include "decode/core/Utils.h"
 #include "decode/groundcontrol/Atoms.h"
 #include "decode/groundcontrol/Packet.h"
+#include "decode/groundcontrol/ProjectUpdate.h"
 
 #include <bmcl/MemWriter.h>
 #include <bmcl/MemReader.h>
@@ -101,8 +103,8 @@ caf::behavior FwtState::make_behavior()
             _isRunning = false;
             stopDownload();
         },
-        [this](SetProjectAtom, const Project::ConstPointer& proj, const Device::ConstPointer& dev) {
-            setProject(proj.get(), dev.get());
+        [this](SetProjectAtom, const ProjectUpdate& update) {
+            setProject(update.project.get(), update.device.get(), update.cache.get());
         },
         [this](EnableLoggindAtom, bool isEnabled) {
             _isLoggingEnabled = isEnabled;
@@ -121,15 +123,16 @@ bool FwtState::hashMatches(const HashContainer& hash, bmcl::Bytes data)
     return hash == bmcl::Bytes(calculatedHash.data(), calculatedHash.size());
 }
 
-void FwtState::setProject(const Project* proj, const Device* dev)
+void FwtState::setProject(const Project* proj, const Device* dev, const ValueInfoCache* cache)
 {
     FWT_LOG("setting project");
-    if (_project == proj && _device == dev) {
+    if (_project == proj && _device == dev && _cache == cache) {
         FWT_LOG("no need to update project");
         return;
     }
     _project = proj;
     _device = dev;
+    _cache = cache;
     if (_downloadedHash.isNone()) {
         FWT_LOG("project set");
         Project::HashType state;
@@ -409,7 +412,8 @@ void FwtState::readFirmware()
     _downloadedHash = _hash.unwrap();
     _project = project.unwrap();
     _device = dev.unwrap();
-    send(_exc, SetProjectAtom::value, Rc<const Project>(project.take()), Rc<const Device>(dev.take()));
+    _cache = new ValueInfoCache(project.unwrap()->package());
+    send(_exc, SetProjectAtom::value, ProjectUpdate(project.unwrap().get(), dev.unwrap(), _cache.get()));
     stopDownload();
 }
 
@@ -477,7 +481,7 @@ void FwtState::acceptHashResponse(bmcl::MemReader* src)
     }
 
     send(_handler, FirmwareDownloadFinishedEventAtom::value);
-    send(_exc, SetProjectAtom::value, Rc<const Project>(_project.get()), Rc<const Device>(_device.get()));
+    send(_exc, SetProjectAtom::value, ProjectUpdate(_project.get(), _device.get(), _cache.get()));
     FWT_LOG("hash matches, no need to download");
     stopDownload();
 }

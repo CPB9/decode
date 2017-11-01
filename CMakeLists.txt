@@ -224,6 +224,8 @@ set(DECODE_GROUNDCONTROL_SRC
     src/decode/groundcontrol/GroundControl.h
     src/decode/groundcontrol/MemIntervalSet.cpp
     src/decode/groundcontrol/MemIntervalSet.h
+    src/decode/groundcontrol/ProjectUpdate.cpp
+    src/decode/groundcontrol/ProjectUpdate.h
     src/decode/groundcontrol/TmParamUpdate.h
     src/decode/groundcontrol/TmState.cpp
     src/decode/groundcontrol/TmState.h

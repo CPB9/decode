@@ -153,7 +153,7 @@ FirmwareWidget::~FirmwareWidget()
 void FirmwareWidget::acceptPacketResponse(const PacketResponse& response)
 {
     bmcl::MemReader reader(response.payload.view());
-    _scriptResultNode = ScriptResultNode::fromScriptNode(_scriptNode.get(), bmcl::None);
+    _scriptResultNode = ScriptResultNode::fromScriptNode(_scriptNode.get(), _cache.get(), bmcl::None);
     //TODO: check errors
     _scriptResultNode->decode(&reader);
     _scriptResultModel->setRoot(_scriptResultNode.get());
@@ -191,10 +191,12 @@ void FirmwareWidget::setRootTmNode(NodeView* root)
     _paramViewWidget->expandToDepth(0);
 }
 
-void FirmwareWidget::setRootCmdNode(Node* root)
+
+void FirmwareWidget::setRootCmdNode(const ValueInfoCache* cache, Node* root)
 {
     _cmdViewModel->setRoot(root);
     _cmdViewWidget->expandToDepth(0);
+    _cache.reset(cache);
 }
 
 void FirmwareWidget::applyTmUpdates(NodeViewUpdater* updater)

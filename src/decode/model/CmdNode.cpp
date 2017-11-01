@@ -133,7 +133,7 @@ ScriptResultNode::~ScriptResultNode()
 {
 }
 
-Rc<ScriptResultNode> ScriptResultNode::fromScriptNode(const ScriptNode* node, bmcl::OptionPtr<Node> parent)
+Rc<ScriptResultNode> ScriptResultNode::fromScriptNode(const ScriptNode* node, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent)
 {
     Rc<ScriptResultNode> resultNode = new ScriptResultNode(parent);
     std::size_t n = 0;
@@ -141,8 +141,8 @@ Rc<ScriptResultNode> ScriptResultNode::fromScriptNode(const ScriptNode* node, bm
         const Function* func = cmdNode->function();
         auto rv = func->type()->returnValue();
         if (rv.isSome()) {
-            Rc<ValueNode> valueNode = ValueNode::fromType(rv.unwrap(), cmdNode->cache(), resultNode.get());
-            valueNode->setFieldName(resultNode->_indexCache.arrayIndex(n));
+            Rc<ValueNode> valueNode = ValueNode::fromType(rv.unwrap(), cache, resultNode.get());
+            valueNode->setFieldName(cache->arrayIndex(n));
             n++;
             resultNode->_nodes.emplace_back(valueNode);
         }

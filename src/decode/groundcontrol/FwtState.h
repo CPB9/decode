@@ -26,6 +26,7 @@ namespace decode {
 class Sender;
 class Scheduler;
 class Project;
+class ValueInfoCache;
 struct StartCmdRndGen;
 struct Device;
 
@@ -71,7 +72,7 @@ private:
 
     void startDownload();
     void stopDownload();
-    void setProject(const Project* proj, const Device* dev);
+    void setProject(const Project* proj, const Device* dev, const ValueInfoCache* cache);
 
     bool hashMatches(const HashContainer& hash, bmcl::Bytes data);
 
@@ -93,5 +94,6 @@ private:
     caf::actor _handler;
     Rc<const Project> _project;
     Rc<const Device> _device;
+    Rc<const ValueInfoCache> _cache;
 };
 }

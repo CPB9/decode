@@ -17,6 +17,7 @@
 #include "decode/groundcontrol/Packet.h"
 #include "decode/groundcontrol/GcCmd.h"
 #include "decode/groundcontrol/TmParamUpdate.h"
+#include "decode/groundcontrol/ProjectUpdate.h"
 
 #include <bmcl/Logging.h>
 #include <bmcl/MemWriter.h>
@@ -604,12 +605,12 @@ private:
 caf::behavior CmdState::make_behavior()
 {
     return caf::behavior{
-        [this](SetProjectAtom, Project::ConstPointer& proj, Device::ConstPointer& dev) {
-            _valueInfoCache = new ValueInfoCache(proj->package());
-            _model = new CmdModel(dev.get(), _valueInfoCache.get(), bmcl::None);
-            _proj = proj;
-            _dev = dev;
-            _ifaces = new AllGcInterfaces(dev.get());
+        [this](SetProjectAtom, const ProjectUpdate& update) {
+            _valueInfoCache = update.cache;
+            _model = new CmdModel(update.device.get(), update.cache.get(), bmcl::None);
+            _proj = update.project;
+            _dev = update.device;
+            _ifaces = new AllGcInterfaces(update.device.get(), update.cache.get());
             if (!_ifaces->errors().empty()) {
                 BMCL_CRITICAL() << _ifaces->errors();
             }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <type_traits>
+#include <caf/allowed_unsafe_message_type.hpp>
 
 #define DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(...)                             \
 namespace caf {                                                           \

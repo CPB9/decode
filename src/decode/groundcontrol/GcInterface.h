@@ -24,6 +24,7 @@ class Node;
 class Encoder;
 class Decoder;
 class Command;
+class ValueInfoCache;
 
 template <typename T>
 using GcInterfaceResult = bmcl::Result<Rc<T>, std::string>;
@@ -32,7 +33,7 @@ class CoreGcInterface : public RefCountable {
 public:
     ~CoreGcInterface();
 
-    static GcInterfaceResult<CoreGcInterface> create(const Device* dev);
+    static GcInterfaceResult<CoreGcInterface> create(const Device* dev, const ValueInfoCache* cache);
 
     const BuiltinType* u8Type() const;
     const BuiltinType* u16Type() const;
@@ -165,7 +166,7 @@ private:
 
 class AllGcInterfaces : public RefCountable {
 public:
-    AllGcInterfaces(const Device* dev);
+    AllGcInterfaces(const Device* dev, const ValueInfoCache* cache);
     ~AllGcInterfaces();
 
     bmcl::OptionPtr<const CoreGcInterface> coreInterface() const;

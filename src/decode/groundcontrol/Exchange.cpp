@@ -13,6 +13,7 @@
 #include "decode/groundcontrol/Packet.h"
 #include "decode/groundcontrol/FwtState.h"
 #include "decode/groundcontrol/TmState.h"
+#include "decode/groundcontrol/ProjectUpdate.h"
 #include "decode/parser/Project.h"
 
 #include <bmcl/Logging.h>
@@ -129,9 +130,9 @@ caf::behavior Exchange::make_behavior()
             (void)isEnabled;
             sendAllStreams(EnableLoggindAtom::value, isEnabled);
         },
-        [this](SetProjectAtom, const Project::ConstPointer& proj, const Device::ConstPointer& dev) {
-            sendAllStreams(SetProjectAtom::value, proj, dev);
-            send(_gc, SetProjectAtom::value, proj, dev);
+        [this](SetProjectAtom, const ProjectUpdate& update) {
+            sendAllStreams(SetProjectAtom::value, update);
+            send(_gc, SetProjectAtom::value, update);
         },
     };
 }

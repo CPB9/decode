@@ -31,6 +31,7 @@ class Node;
 class Model;
 class NodeView;
 class NodeViewUpdater;
+class ValueInfoCache;
 struct PacketRequest;
 struct PacketResponse;
 
@@ -43,7 +44,7 @@ public:
     void setRootTmNode(NodeView* root);
     void applyTmUpdates(NodeViewUpdater* updater);
 
-    void setRootCmdNode(Node* root);
+    void setRootCmdNode(const ValueInfoCache* cache, Node* root);
 
     void acceptPacketResponse(const PacketResponse& response);
 
@@ -60,6 +61,7 @@ private:
     QTreeView* _cmdViewWidget;
     Rc<ScriptNode> _scriptNode;
     Rc<ScriptResultNode> _scriptResultNode;
+    Rc<const ValueInfoCache> _cache;
     std::unique_ptr<QNodeViewModel> _paramViewModel;
     std::unique_ptr<QCmdModel> _scriptEditModel;
     std::unique_ptr<QNodeModel> _cmdViewModel;

@@ -10,6 +10,7 @@
 #include "decode/ast/Type.h"
 #include "decode/parser/Package.h"
 #include "decode/ast/AstVisitor.h"
+#include "decode/ast/Component.h"
 #include "decode/generator/StringBuilder.h"
 #include "decode/core/Foreach.h"
 
@@ -17,38 +18,19 @@
 
 namespace decode {
 
-StrIndexCache::StrIndexCache()
-{
-}
-
-StrIndexCache::~StrIndexCache()
-{
-    for (bmcl::StringView view : _arrayIndexes) {
-        delete [] view.data();
-    }
-}
-
 // vector<string> when relocating copies strings instead of moving for some reason
 // using allocated const char* instead
-void StrIndexCache::updateIndexes(std::size_t newSize)
+static void updateIndexes(ValueInfoCache::StringVecType* dest, std::size_t newSize)
 {
-    _arrayIndexes.reserve(newSize);
-    for (std::size_t i = _arrayIndexes.size(); i < newSize; i++) {
+    dest->reserve(newSize);
+    for (std::size_t i = dest->size(); i < newSize; i++) {
         char* buf = (char*)alloca(sizeof(std::size_t) * 4);
         int stringSize = std::sprintf(buf, "%zu", i);
         assert(stringSize > 0);
         char* allocatedBuf  = new char[stringSize];
         std::memcpy(allocatedBuf, buf, stringSize);
-        _arrayIndexes.push_back(bmcl::StringView(allocatedBuf, stringSize));
+        dest->push_back(bmcl::StringView(allocatedBuf, stringSize));
     }
-}
-
-bmcl::StringView StrIndexCache::arrayIndex(std::size_t idx)
-{
-    if (idx >= _arrayIndexes.size()) {
-        updateIndexes(idx + 1);
-    }
-    return _arrayIndexes[idx];
 }
 
 static void buildNamedTypeName(const NamedType* type, StringBuilder* dest)
@@ -212,11 +194,12 @@ static bool buildTypeName(const Type* type, StringBuilder* dest)
     assert(false);
 }
 
-class NameBuilder : public ConstAstVisitor<NameBuilder> {
+class CacheCollector : public ConstAstVisitor<CacheCollector> {
 public:
-    void collectNames(const Package* package, ValueInfoCache::MapType* dest)
+    void collectNames(const Package* package, ValueInfoCache::MapType* typeNameMap, ValueInfoCache::StringVecType* strIndexes)
     {
-        _dest = dest;
+        _typeNameMap = typeNameMap;
+        _strIndexes = strIndexes;
         for (const Ast* ast : package->modules()) {
             for (const Type* type : ast->typesRange()) {
                 traverseType(type);
@@ -224,33 +207,63 @@ public:
         }
     }
 
+    bool visitArrayType(const ArrayType* type)
+    {
+        updateIndexes(_strIndexes, type->elementCount());
+        return true;
+    }
+
+    bool visitDynArrayType(const DynArrayType* type)
+    {
+        updateIndexes(_strIndexes, type->maxSize());
+        return true;
+    }
+
+    bool visitTupleVariantField(const TupleVariantField* field)
+    {
+        updateIndexes(_strIndexes, field->typesRange().size());
+        return true;
+    }
+
     bool visitType(const Type* type)
     {
         bool rv = true;
-        auto pair = _dest->emplace(type, std::string());
+        auto pair = _typeNameMap->emplace(type, std::string());
         if (pair.second) {
             StringBuilder b;
             rv = buildTypeName(type, &b);
             pair.first->second = std::move(b.result());
             if (type->isGenericInstantiation()) {
-                _dest->emplace(type->asGenericInstantiation()->instantiatedType(), pair.first->second);
+                _typeNameMap->emplace(type->asGenericInstantiation()->instantiatedType(), pair.first->second);
             }
         }
         return rv;
     }
 
 private:
-    ValueInfoCache::MapType* _dest;
+    ValueInfoCache::MapType* _typeNameMap;
+    ValueInfoCache::StringVecType* _strIndexes;
 };
 
 ValueInfoCache::ValueInfoCache(const Package* package)
 {
-    NameBuilder b;
-    b.collectNames(package, &_names);
+    CacheCollector b;
+    updateIndexes(&_arrayIndexes, 64); //HACK: limit maximum number of commands
+    b.collectNames(package, &_names, &_arrayIndexes);
+
 }
 
 ValueInfoCache::~ValueInfoCache()
 {
+    for (bmcl::StringView view : _arrayIndexes) {
+        delete [] view.data();
+    }
+}
+
+bmcl::StringView ValueInfoCache::arrayIndex(std::size_t idx) const
+{
+    assert(idx < _arrayIndexes.size());
+    return _arrayIndexes[idx];
 }
 
 bmcl::StringView ValueInfoCache::nameForType(const Type* type) const

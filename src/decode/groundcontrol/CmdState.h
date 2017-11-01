@@ -54,7 +54,7 @@ private:
     Rc<CmdModel> _model;
     Rc<const Device> _dev;
     Rc<const Project> _proj;
-    Rc<ValueInfoCache> _valueInfoCache;
+    Rc<const ValueInfoCache> _valueInfoCache;
     caf::actor _exc;
     caf::actor _handler;
     Rc<const AllGcInterfaces> _ifaces;

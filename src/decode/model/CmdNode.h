@@ -131,13 +131,10 @@ public:
     ScriptResultNode(bmcl::OptionPtr<Node> parent);
     ~ScriptResultNode();
 
-    static Rc<ScriptResultNode> fromScriptNode(const ScriptNode* node, bmcl::OptionPtr<Node> parent);
+    static Rc<ScriptResultNode> fromScriptNode(const ScriptNode* node, const ValueInfoCache* cache, bmcl::OptionPtr<Node> parent);
 
     bool decode(bmcl::MemReader* src);
 
     bmcl::StringView fieldName() const override;
-
-private:
-    StrIndexCache _indexCache;
 };
 }

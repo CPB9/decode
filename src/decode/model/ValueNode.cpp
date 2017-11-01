@@ -316,7 +316,7 @@ ArrayValueNode::ArrayValueNode(const ArrayType* type, const ValueInfoCache* cach
     _values.reserve(count);
     for (std::size_t i = 0; i < count; i++) {
         Rc<ValueNode> node = ValueNode::fromType(type->elementType(), _cache.get(), this);
-        node->setFieldName(_indexCache.arrayIndex(i));
+        node->setFieldName(_cache->arrayIndex(i));
         _values.push_back(node);
     }
 }
@@ -435,7 +435,7 @@ void DynArrayValueNode::resizeDynArray(std::size_t size)
         _values.reserve(size);
         for (std::size_t i = 0; i < (size - currentSize); i++) {
             Rc<ValueNode> node = ValueNode::fromType(_type->elementType(), _cache.get(), this);
-            node->setFieldName(_indexCache.arrayIndex(currentSize + i));
+            node->setFieldName(_cache->arrayIndex(currentSize + i));
             _values.push_back(node);
         }
     } else if (size < currentSize) {
@@ -565,7 +565,7 @@ void VariantValueNode::selectId(std::int64_t id)
         }
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(tField->typesBegin()[i], _cache.get(), this);
-            _values[i]->setFieldName(_indexCache.arrayIndex(i));
+            _values[i]->setFieldName(_cache->arrayIndex(i));
         }
         break;
     }

@@ -120,7 +120,6 @@ public:
 
 private:
     Rc<const ArrayType> _type;
-    StrIndexCache _indexCache; //TODO: share
     bool _changedSinceUpdate;
 };
 
@@ -146,7 +145,6 @@ public:
 
 private:
     Rc<const DynArrayType> _type;
-    StrIndexCache _indexCache; //TODO: share
     std::size_t _minSizeSinceUpdate;
     std::size_t _lastUpdateSize;
 };
@@ -233,7 +231,6 @@ private:
 
     Rc<const VariantType> _type;
     bmcl::Option<ValuePair<std::int64_t>> _currentId;
-    StrIndexCache _indexCache;
 };
 
 class NonContainerValueNode : public ValueNode {

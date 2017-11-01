@@ -19,6 +19,7 @@
 #include "decode/model/FindNode.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/groundcontrol/TmParamUpdate.h"
+#include "decode/groundcontrol/ProjectUpdate.h"
 
 #include <bmcl/MemReader.h>
 #include <bmcl/Logging.h>
@@ -61,8 +62,8 @@ void TmState::on_exit()
 caf::behavior TmState::make_behavior()
 {
     return caf::behavior{
-        [this](SetProjectAtom, Project::ConstPointer& proj, Device::ConstPointer& dev) {
-            _model = new TmModel(dev.get(), new ValueInfoCache(proj->package()));
+        [this](SetProjectAtom, const ProjectUpdate& update) {
+            _model = new TmModel(update.device.get(), update.cache.get()); //TODO: reuse valueinfocache
             initTmNodes();
             Rc<NodeView> view = new NodeView(_model.get());
             send(_handler, SetTmViewAtom::value, view);

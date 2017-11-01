@@ -28,11 +28,11 @@ CoreGcInterface::~CoreGcInterface()
 {
 }
 
-GcInterfaceResult<CoreGcInterface> CoreGcInterface::create(const Device* dev)
+GcInterfaceResult<CoreGcInterface> CoreGcInterface::create(const Device* dev, const ValueInfoCache* cache)
 {
     (void)dev;
     Rc<CoreGcInterface> self = new CoreGcInterface;
-    self->_cache = new ValueInfoCache(dev->package.get());
+    self->_cache.reset(cache);
     //TODO: search for builtin types
     self->_u8Type = new BuiltinType(BuiltinTypeKind::U8);
     self->_u16Type = new BuiltinType(BuiltinTypeKind::U16);
@@ -792,9 +792,9 @@ bool UdpGcInterface::encodeAddClient(uintmax_t id, bmcl::SocketAddressV4 address
     return true;
 }
 
-AllGcInterfaces::AllGcInterfaces(const Device* dev)
+AllGcInterfaces::AllGcInterfaces(const Device* dev, const ValueInfoCache* cache)
 {
-    auto coreIface = CoreGcInterface::create(dev);
+    auto coreIface = CoreGcInterface::create(dev, cache);
     if (!coreIface.isOk()) {
         _errors = coreIface.unwrapErr();
         return;

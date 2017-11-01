@@ -21,19 +21,6 @@ namespace decode {
 class Type;
 class Package;
 
-class StrIndexCache {
-public:
-    StrIndexCache();
-    ~StrIndexCache();
-
-    bmcl::StringView arrayIndex(std::size_t idx);
-
-private:
-    void updateIndexes(std::size_t newSize);
-
-    std::vector<bmcl::StringView> _arrayIndexes;
-};
-
 class ValueInfoCache : public RefCountable {
 public:
     using Pointer = Rc<ValueInfoCache>;
@@ -47,13 +34,16 @@ public:
     };
 
     using MapType = HashMap<Rc<const Type>, std::string, Hasher>;
+    using StringVecType = std::vector<bmcl::StringView>;
 
     ValueInfoCache(const Package* package);
     ~ValueInfoCache();
 
+    bmcl::StringView arrayIndex(std::size_t idx) const;
     bmcl::StringView nameForType(const Type* type) const;
 
 private:
+    StringVecType _arrayIndexes;
     MapType _names;
 };
 }
