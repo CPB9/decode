@@ -233,6 +233,7 @@ private:
 
     Rc<const VariantType> _type;
     bmcl::Option<ValuePair<std::int64_t>> _currentId;
+    StrIndexCache _indexCache;
 };
 
 class NonContainerValueNode : public ValueNode {

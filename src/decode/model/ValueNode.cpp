@@ -565,6 +565,7 @@ void VariantValueNode::selectId(std::int64_t id)
         }
         for (std::size_t i = 0; i < size; i++) {
             _values[i] = ValueNode::fromType(tField->typesBegin()[i], _cache.get(), this);
+            _values[i]->setFieldName(_indexCache.arrayIndex(i));
         }
         break;
     }
