@@ -71,6 +71,7 @@ public:
     bmcl::OptionPtr<Component> component();
     bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<NamedType> findTypeWithName(bmcl::StringView name);
+    bmcl::OptionPtr<CmdTrait> findCmdTraitWithName(bmcl::StringView name);
     bmcl::OptionPtr<const ImplBlock> findImplBlock(const Type* type) const;
 
     void setModuleDecl(ModuleDecl* decl);

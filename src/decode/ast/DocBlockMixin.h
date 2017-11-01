@@ -16,7 +16,7 @@ public:
     ~DocBlockMixin();
 
     bmcl::OptionPtr<const DocBlock> docs() const;
-    void setDocs(const DocBlock* docs);
+    void setDocs(bmcl::OptionPtr<const DocBlock> docs);
     bmcl::StringView shortDescription() const;
 
 private:

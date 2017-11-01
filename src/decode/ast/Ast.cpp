@@ -135,6 +135,11 @@ bmcl::OptionPtr<NamedType> Ast::findTypeWithName(bmcl::StringView name)
     return _typeNameToType.findValueWithKey(name);
 }
 
+bmcl::OptionPtr<CmdTrait> Ast::findCmdTraitWithName(bmcl::StringView name)
+{
+    return _cmdTraits.findValueWithKey(name);
+}
+
 bmcl::OptionPtr<const ImplBlock> Ast::findImplBlock(const Type* type) const
 {
     auto it = _typeToImplBlock.find(Rc<Type>(const_cast<Type*>(type))); //HACK

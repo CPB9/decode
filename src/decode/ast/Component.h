@@ -196,7 +196,9 @@ public:
     const ModuleInfo* moduleInfo() const;
     bmcl::StringView name() const;
     std::size_t number() const;
-    bmcl::OptionPtr<Field> paramWithName(bmcl::StringView name);
+
+    bmcl::OptionPtr<const Field> paramWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<const Command> cmdWithName(bmcl::StringView name) const;
 
     void addParam(Field* param);
     void addCommand(Command* func);

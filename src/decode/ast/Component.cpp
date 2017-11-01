@@ -395,9 +395,19 @@ std::size_t Component::number() const
     return _number;
 }
 
-bmcl::OptionPtr<Field> Component::paramWithName(bmcl::StringView name)
+bmcl::OptionPtr<const Field> Component::paramWithName(bmcl::StringView name) const
 {
     return _params.fieldWithName(name);
+}
+
+bmcl::OptionPtr<const Command> Component::cmdWithName(bmcl::StringView name) const
+{
+    for (const Rc<Command>& value : _cmds) {
+        if (value->name() == name) {
+            return value.get();
+        }
+    }
+    return bmcl::None;
 }
 
 void Component::addParam(Field* param)

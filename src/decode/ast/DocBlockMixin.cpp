@@ -26,9 +26,9 @@ bmcl::OptionPtr<const DocBlock> DocBlockMixin::docs() const
     return _docs.get();
 }
 
-void DocBlockMixin::setDocs(const DocBlock* docs)
+void DocBlockMixin::setDocs(bmcl::OptionPtr<const DocBlock> docs)
 {
-    _docs = docs;
+    _docs = docs.data();
 }
 
 bmcl::StringView DocBlockMixin::shortDescription() const

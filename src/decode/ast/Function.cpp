@@ -22,6 +22,11 @@ const FunctionType* Function::type() const
     return _type.get();
 }
 
+FunctionType* Function::type()
+{
+    return _type.get();
+}
+
 FieldVec::ConstRange Function::fieldsRange() const
 {
     return _type->argumentsRange();

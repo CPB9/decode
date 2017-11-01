@@ -326,6 +326,15 @@ bmcl::OptionPtr<Ast> Package::moduleWithName(bmcl::StringView name)
     return it->second.get();
 }
 
+bmcl::OptionPtr<const Ast> Package::moduleWithName(bmcl::StringView name) const
+{
+    auto it = _modNameToAstMap.find(name);
+    if (it == _modNameToAstMap.end()) {
+        return bmcl::None;
+    }
+    return it->second.get();
+}
+
 ComponentMap::ConstRange Package::components() const
 {
     return _components;

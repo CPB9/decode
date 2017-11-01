@@ -76,6 +76,7 @@ public:
 class FieldVec : public RcVec<Field> {
 public:
     bmcl::OptionPtr<Field> fieldWithName(bmcl::StringView name);
+    bmcl::OptionPtr<const Field> fieldWithName(bmcl::StringView name) const;
 };
 
 using ComponentMap = RcSecondMap<std::size_t, Component>;

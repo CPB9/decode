@@ -59,6 +59,7 @@ public:
     CompAndMsgVecConstRange statusMsgs() const;
 
     bmcl::OptionPtr<Ast> moduleWithName(bmcl::StringView name);
+    bmcl::OptionPtr<const Ast> moduleWithName(bmcl::StringView name) const;
 
 private:
     Package(Configuration* cfg, Diagnostics* diag);

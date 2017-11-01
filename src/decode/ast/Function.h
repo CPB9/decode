@@ -34,6 +34,7 @@ public:
 
     FieldVec::ConstRange fieldsRange() const;
     const FunctionType* type() const;
+    FunctionType* type();
     const Field* fieldAt(std::size_t index) const;
 
 private:

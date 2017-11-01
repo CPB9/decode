@@ -24,4 +24,14 @@ bmcl::OptionPtr<Field> FieldVec::fieldWithName(bmcl::StringView name)
     }
     return bmcl::None;
 }
+
+bmcl::OptionPtr<const Field> FieldVec::fieldWithName(bmcl::StringView name) const
+{
+    for (const Rc<Field>& value : *this) {
+        if (value->name() == name) {
+            return value.get();
+        }
+    }
+    return bmcl::None;
+}
 }

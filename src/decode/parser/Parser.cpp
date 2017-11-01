@@ -386,6 +386,11 @@ Rc<Report> Parser::reportCurrentTokenError(const char* msg)
     return reportTokenError(&_currentToken, msg);
 }
 
+Rc<Report> Parser::reportCurrentTokenError(const std::string& str)
+{
+    return reportTokenError(&_currentToken, str.c_str());
+}
+
 bool Parser::parseModuleDecl()
 {
     Rc<DocBlock> docs = createDocsFromComments();
@@ -1449,6 +1454,18 @@ bool Parser::parseCommands(Component* parent)
         TRY(parseList(TokenKind::Colon, TokenKind::Comma, TokenKind::LBrace, parent, [this](Component* comp) -> bool {
             TRY(expectCurrentToken(TokenKind::Identifier));
 
+            auto trait = _ast->findCmdTraitWithName(_currentToken.value());
+            if (trait.isNone()) {
+                reportCurrentTokenError("no cmd trait with name: " + _currentToken.value().toStdString());
+                return false;
+            }
+
+            for (Function* func : trait.unwrap()->functions()) {
+                Rc<Command> cmd = new Command(func->name(), func->type());
+                cmd->setDocs(func->docs());
+                cmd->setNumber(comp->cmdsRange().size());
+                comp->addCommand(cmd.get());
+            }
 
             consumeAndSkipBlanks();
             return true;

@@ -169,6 +169,7 @@ private:
     void clearGenericParameters();
 
     Rc<Report> reportCurrentTokenError(const char* msg);
+    Rc<Report> reportCurrentTokenError(const std::string& str);
     Rc<Report> reportTokenError(Token* tok, const char* msg);
 
     Rc<Diagnostics> _diag;
