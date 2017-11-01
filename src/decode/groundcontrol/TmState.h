@@ -34,10 +34,11 @@ public:
 
 private:
     struct Sub {
-        Sub(const BuiltinValueNode* node, const caf::actor& dest);
+        Sub(const BuiltinValueNode* node, const std::string& path, const caf::actor& dest);
         ~Sub();
 
         Rc<const BuiltinValueNode> node;
+        std::string path;
         caf::actor actor;
     };
 
@@ -48,7 +49,7 @@ private:
     void pushTmUpdates();
     template <typename T>
     void updateParam(const Rc<NumericValueNode<T>>& src, T* dest, T defaultValue = 0);
-    bool subscribeTm(bmcl::StringView path, const caf::actor& dest);
+    bool subscribeTm(const std::string& path, const caf::actor& dest);
 
     Rc<TmModel> _model;
     Rc<NumericValueNode<double>> _latNode;

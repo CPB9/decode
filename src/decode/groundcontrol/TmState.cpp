@@ -32,8 +32,9 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Value);
 
 namespace decode {
 
-TmState::Sub::Sub(const BuiltinValueNode* node, const caf::actor& dest)
+TmState::Sub::Sub(const BuiltinValueNode* node, const std::string& path,const caf::actor& dest)
     : node(node)
+    , path(path)
     , actor(dest)
 {
 }
@@ -93,7 +94,7 @@ caf::behavior TmState::make_behavior()
     };
 }
 
-bool TmState::subscribeTm(bmcl::StringView path, const caf::actor& dest)
+bool TmState::subscribeTm(const std::string& path, const caf::actor& dest)
 {
     auto rv = findNode(_model.get(), path);
     if (rv.isErr()) {
@@ -104,7 +105,7 @@ bool TmState::subscribeTm(bmcl::StringView path, const caf::actor& dest)
     if (!builtinNode) {
         return false;
     }
-    _subscriptions.emplace_back(builtinNode, dest);
+    _subscriptions.emplace_back(builtinNode, path, dest);
     return true;
 }
 
@@ -135,7 +136,7 @@ void TmState::pushTmUpdates()
     }
     send(_handler, UpdateTmViewAtom::value, updater);
     for (const Sub& sub : _subscriptions) {
-        send(sub.actor, sub.node->value());
+        send(sub.actor, sub.node->value(), sub.path);
     }
     _updateCount++;
     delayed_send(this, std::chrono::milliseconds(1000), PushTmUpdatesAtom::value, _updateCount);
