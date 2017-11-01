@@ -9,6 +9,7 @@
 #include "decode/model/FieldsNode.h"
 #include "decode/ast/Component.h"
 #include "decode/model/ValueNode.h"
+#include "decode/model/Value.h"
 #include "decode/ast/Field.h"
 
 namespace decode {
@@ -77,5 +78,19 @@ bool FieldsNode::encodeFields(bmcl::MemWriter* dest) const
 void FieldsNode::collectUpdates(NodeViewUpdater* dest)
 {
     return collectUpdatesGeneric(_nodes, dest);
+}
+
+bool FieldsNode::setValues(bmcl::ArrayView<Value> values)
+{
+    if (values.size() != _nodes.size()) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < _nodes.size(); i++) {
+        if (!_nodes[i]->setValue(values[i])) {
+            return false;
+        }
+    }
+    return true;
 }
 }

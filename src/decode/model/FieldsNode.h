@@ -46,6 +46,7 @@ public:
     std::size_t numChildren() const override;
     bmcl::Option<std::size_t> childIndex(const Node* node) const override;
     bmcl::OptionPtr<Node> childAt(std::size_t idx) override;
+    bool setValues(bmcl::ArrayView<Value> values);
 
 public:
     HashMap<bmcl::StringView, Rc<ValueNode>> _nameToNodeMap; //TODO: remove

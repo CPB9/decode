@@ -113,7 +113,7 @@ caf::behavior Exchange::make_behavior()
             delayed_send(this, std::chrono::seconds(1), PingAtom::value);
         },
         [this](SubscribeTmAtom atom, const std::string& path, const caf::actor& dest) {
-            send(_tmStream.client, atom, path, dest);
+            return delegate(_tmStream.client, atom, path, dest);
         },
         [this](StartAtom) {
             _isRunning = true;

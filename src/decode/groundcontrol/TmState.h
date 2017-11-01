@@ -48,7 +48,7 @@ private:
     void pushTmUpdates();
     template <typename T>
     void updateParam(const Rc<NumericValueNode<T>>& src, T* dest, T defaultValue = 0);
-    void subscribeTm(bmcl::StringView path, const caf::actor& dest);
+    bool subscribeTm(bmcl::StringView path, const caf::actor& dest);
 
     Rc<TmModel> _model;
     Rc<NumericValueNode<double>> _latNode;

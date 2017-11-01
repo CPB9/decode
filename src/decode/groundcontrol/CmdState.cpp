@@ -3,11 +3,16 @@
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Ast.h"
+#include "decode/ast/Component.h"
+#include "decode/ast/Function.h"
+#include "decode/parser/Package.h"
 #include "decode/parser/Project.h"
 #include "decode/model/CmdModel.h"
 #include "decode/model/ValueInfoCache.h"
 #include "decode/model/Encoder.h"
 #include "decode/model/Decoder.h"
+#include "decode/model/Value.h"
+#include "decode/model/CmdNode.h"
 #include "decode/groundcontrol/GcInterface.h"
 #include "decode/groundcontrol/Packet.h"
 #include "decode/groundcontrol/GcCmd.h"
@@ -24,6 +29,7 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::TmParamUpdate);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketRequest);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketResponse);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::GcCmd);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Value);
 
 namespace decode {
 
@@ -599,7 +605,8 @@ caf::behavior CmdState::make_behavior()
 {
     return caf::behavior{
         [this](SetProjectAtom, Project::ConstPointer& proj, Device::ConstPointer& dev) {
-            _model = new CmdModel(dev.get(), new ValueInfoCache(proj->package()), bmcl::None);
+            _valueInfoCache = new ValueInfoCache(proj->package());
+            _model = new CmdModel(dev.get(), _valueInfoCache.get(), bmcl::None);
             _proj = proj;
             _dev = dev;
             _ifaces = new AllGcInterfaces(dev.get());
@@ -643,6 +650,9 @@ caf::behavior CmdState::make_behavior()
 //             cmd7.id = 12;
 //             cmd7.reader = new MemDataReader(std::vector<uint8_t>(3000, 4));
 //             send(this, SendGcCommandAtom::value, GcCmd(cmd7));
+        },
+        [this](SendCustomCommandAtom, const std::string& compName, const std::string& cmdName, const std::vector<Value>& args) {
+            return sendCustomCmd(compName, cmdName, args);
         },
         [this](SendGcCommandAtom, GcCmd& cmd) -> caf::result<void> {
             //FIXME: check per command
@@ -695,6 +705,49 @@ caf::behavior CmdState::make_behavior()
             return caf::sec::invalid_argument;
         },
     };
+}
+
+caf::result<PacketResponse> CmdState::sendCustomCmd(bmcl::StringView compName, bmcl::StringView cmdName, const std::vector<Value>& args)
+{
+    if (!_proj) {
+        return caf::error();
+    }
+    auto mod = _proj->package()->moduleWithName(compName);
+    if (mod.isNone()) {
+        return caf::error();
+    }
+
+    auto comp = mod.unwrap()->component();
+    if (comp.isNone()) {
+        return caf::error();
+    }
+
+    auto cmd = comp.unwrap()->cmdWithName(cmdName);
+    if (cmd.isNone()) {
+        return caf::error();
+    }
+
+    Rc<CmdNode> cmdNode = new CmdNode(comp.unwrap(), cmd.unwrap(), _valueInfoCache.get(), bmcl::None);
+    if (!cmdNode->setValues(args)) {
+        return caf::error();
+    }
+
+    uint8_t tmp[2048]; //TODO: temp
+    bmcl::MemWriter dest(tmp, sizeof(tmp));
+    if (cmdNode->encode(&dest)) {
+        PacketRequest req;
+        req.streamType = StreamType::Cmd;
+        req.payload = bmcl::SharedBytes::create(dest.writenData());
+        caf::response_promise promise = make_response_promise();
+        request(_exc, caf::infinite, SendReliablePacketAtom::value, req).then([promise](const PacketResponse& response) mutable {
+            promise.deliver(response);
+        },
+        [promise](const caf::error& err) mutable {
+            promise.deliver(err);
+        });
+        return promise;
+    }
+    return caf::error();
 }
 
 void CmdState::on_exit()

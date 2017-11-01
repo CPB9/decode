@@ -78,7 +78,7 @@ caf::behavior TmState::make_behavior()
             pushTmUpdates();
         },
         [this](SubscribeTmAtom, const std::string& path, const caf::actor& dest) {
-            subscribeTm(path, dest);
+            return subscribeTm(path, dest);
         },
         [this](StartAtom) {
             (void)this;
@@ -93,18 +93,19 @@ caf::behavior TmState::make_behavior()
     };
 }
 
-void TmState::subscribeTm(bmcl::StringView path, const caf::actor& dest)
+bool TmState::subscribeTm(bmcl::StringView path, const caf::actor& dest)
 {
     auto rv = findNode(_model.get(), path);
     if (rv.isErr()) {
-        return;
+        return false;
     }
     Node* node = rv.unwrap().get();
     BuiltinValueNode* builtinNode = dynamic_cast<BuiltinValueNode*>(node);
     if (!builtinNode) {
-        return;
+        return false;
     }
     _subscriptions.emplace_back(builtinNode, dest);
+    return true;
 }
 
 void TmState::pushTmUpdates()

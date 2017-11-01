@@ -16,6 +16,7 @@
 #include <caf/event_based_actor.hpp>
 
 #include <functional>
+#include <vector>
 
 namespace decode {
 
@@ -27,7 +28,10 @@ class StructType;
 class BuiltinType;
 class Ast;
 class AllGcInterfaces;
+class ValueInfoCache;
 struct PacketRequest;
+struct PacketResponse;
+class Value;
 
 template <typename T>
 class NumericValueNode;
@@ -45,9 +49,12 @@ public:
     const char* name() const override;
 
 private:
+    caf::result<PacketResponse> sendCustomCmd(bmcl::StringView compName, bmcl::StringView cmdName, const std::vector<Value>& args);
+
     Rc<CmdModel> _model;
     Rc<const Device> _dev;
     Rc<const Project> _proj;
+    Rc<ValueInfoCache> _valueInfoCache;
     caf::actor _exc;
     caf::actor _handler;
     Rc<const AllGcInterfaces> _ifaces;

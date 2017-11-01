@@ -9,6 +9,7 @@
 #include "decode/groundcontrol/GroundControl.h"
 #include "decode/groundcontrol/Exchange.h"
 #include "decode/parser/Project.h"
+#include "decode/model/Value.h"
 #include "decode/groundcontrol/Atoms.h"
 #include "decode/groundcontrol/AllowUnsafeMessageType.h"
 #include "decode/groundcontrol/Packet.h"
@@ -27,6 +28,8 @@ DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::PacketResponse);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Project::ConstPointer);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Device::ConstPointer);
 DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::GcCmd);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(decode::Value);
+DECODE_ALLOW_UNSAFE_MESSAGE_TYPE(std::vector<decode::Value>);
 
 namespace decode {
 
@@ -61,7 +64,10 @@ caf::behavior GroundControl::make_behavior()
             return delegate(_cmd, atom, cmd);
         },
         [this](SubscribeTmAtom atom, const std::string& path, const caf::actor& dest) {
-            send(_exc, atom, path, dest);
+            return delegate(_exc, atom, path, dest);
+        },
+        [this](SendCustomCommandAtom atom, const std::string& compName, const std::string& cmdName, const std::vector<Value>& args) {
+            return delegate(_cmd, atom, compName, cmdName, args);
         },
         [this](StartAtom) {
             _isRunning = true;
