@@ -1230,7 +1230,7 @@ bool Parser::parseRecordField(T* parent)
     return true;
 }
 
-bool Parser::parseEnumConstant(EnumType* parent)
+bool Parser::parseEnumConstant(EnumType* parent, std::intmax_t* current)
 {
     TRY(skipCommentsAndSpace());
     Rc<DocBlock> docs = createDocsFromComments();
@@ -1238,22 +1238,19 @@ bool Parser::parseEnumConstant(EnumType* parent)
     bmcl::StringView name = _currentToken.value();
     consumeAndSkipBlanks();
 
+    bool isUserSet;
     if (currentTokenIs(TokenKind::Equality)) {
         consumeAndSkipBlanks();
-        intmax_t value;
-        TRY(parseSignedInteger(&value));
-        //TODO: check value
-        Rc<EnumConstant> constant = new EnumConstant(name, value, true);
-        constant->setDocs(docs.get());
-        if (!parent->addConstant(constant.get())) {
-            reportCurrentTokenError("enum constant redefinition");
-            return false;
-        }
+        TRY(parseSignedInteger(current));
+        isUserSet = true;
     } else {
-        reportCurrentTokenError("expected '='");
-        return false;
+        isUserSet = false;
     }
+    Rc<EnumConstant> constant = new EnumConstant(name, *current, isUserSet);
+    constant->setDocs(docs.get());
+    parent->addConstant(constant.get());
 
+    *current = *current + 1;
     return true;
 }
 
@@ -1311,17 +1308,17 @@ static std::string tokKindToString(TokenKind kind)
     }
 }*/
 
-template <typename T, typename F>
-bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser)
+template <typename T, typename F, typename... A>
+bool Parser::parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser, A&&... args)
 {
     TRY(expectCurrentToken(openToken));
     consume();
 
-    return parseList2(sep, closeToken, std::forward<T>(decl), std::forward<F>(fieldParser));
+    return parseList2(sep, closeToken, std::forward<T>(decl), std::forward<F>(fieldParser), std::forward<A>(args)...);
 }
 
-template <typename T, typename F>
-bool Parser::parseList2(TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser)
+template <typename T, typename F, typename... A>
+bool Parser::parseList2(TokenKind sep, TokenKind closeToken, T&& decl, F&& fieldParser, A&&... args)
 {
 
     TRY(skipCommentsAndSpace());
@@ -1332,7 +1329,7 @@ bool Parser::parseList2(TokenKind sep, TokenKind closeToken, T&& decl, F&& field
             return true;
         }
 
-        if (!fieldParser(std::forward<T>(decl))) {
+        if (!fieldParser(std::forward<T>(decl), std::forward<A>(args)...)) {
             return false;
         }
 
@@ -1346,32 +1343,14 @@ bool Parser::parseList2(TokenKind sep, TokenKind closeToken, T&& decl, F&& field
     return true;
 }
 
-template <typename T, typename F>
-bool Parser::parseBraceList(T&& parent, F&& fieldParser)
+template <typename T, typename F, typename... A>
+bool Parser::parseBraceList(T&& parent, F&& fieldParser, A&&... args)
 {
-    return parseList(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace, std::forward<T>(parent), std::forward<F>(fieldParser));
+    return parseList(TokenKind::LBrace, TokenKind::Comma, TokenKind::RBrace, std::forward<T>(parent), std::forward<F>(fieldParser), std::forward<A>(args)...);
 }
 
-template <typename T, bool genericAllowed, typename F>
-bool Parser::parseTag(TokenKind startToken, F&& fieldParser)
-{
-    TRY(skipCommentsAndSpace());
-    TRY(expectCurrentToken(startToken));
-
-    consume();
-    TRY(skipCommentsAndSpace());
-    TRY(expectCurrentToken(TokenKind::Identifier));
-    Rc<T> type = beginNamedType<T>(_currentToken.value());
-    consumeAndSkipBlanks();
-
-    TRY(parseBraceList(type, std::forward<F>(fieldParser)));
-
-    _ast->addTopLevelType(type.get());
-    return true;
-}
-
-template <typename T, bool genericAllowed, typename F>
-bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
+template <typename T, bool genericAllowed, typename F, typename... A>
+bool Parser::parseTag(TokenKind startToken, F&& fieldParser, A&&... args)
 {
     TRY(skipCommentsAndSpace());
     Rc<DocBlock> docs = createDocsFromComments();
@@ -1399,7 +1378,7 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
         skipBlanks();
     }
 
-    TRY(parseBraceList(type.get(), std::forward<F>(fieldParser)));
+    TRY(parseBraceList(type.get(), std::forward<F>(fieldParser), std::forward<A>(args)...));
     clearUnusedDocCommentsAndAttributes();
     clearGenericParameters();
 
@@ -1413,17 +1392,18 @@ bool Parser::parseTag2(TokenKind startToken, F&& fieldParser)
 
 bool Parser::parseVariant()
 {
-    return parseTag2<VariantType, true>(TokenKind::Variant, std::bind(&Parser::parseVariantField, this, std::placeholders::_1));
+    return parseTag<VariantType, true>(TokenKind::Variant, std::bind(&Parser::parseVariantField, this, std::placeholders::_1));
 }
 
 bool Parser::parseEnum()
 {
-    return parseTag2<EnumType, false>(TokenKind::Enum, std::bind(&Parser::parseEnumConstant, this, std::placeholders::_1));
+    std::intmax_t currentConstant = 0;
+    return parseTag<EnumType, false>(TokenKind::Enum, std::bind(&Parser::parseEnumConstant, this, std::placeholders::_1, &currentConstant));
 }
 
 bool Parser::parseStruct()
 {
-    return parseTag2<StructType, true>(TokenKind::Struct, [this](StructType* decl) {
+    return parseTag<StructType, true>(TokenKind::Struct, [this](StructType* decl) {
         if (!parseRecordField(decl)) {
             return false;
         }

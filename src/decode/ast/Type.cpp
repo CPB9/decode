@@ -927,10 +927,9 @@ EnumType::Constants::ConstRange EnumType::constantsRange() const
     return _constantDecls;
 }
 
-bool EnumType::addConstant(EnumConstant* constant)
+void EnumType::addConstant(EnumConstant* constant)
 {
-    auto pair = _constantDecls.emplace(constant->value(), constant);
-    return pair.second;
+    _constantDecls.emplace_back(constant);
 }
 
 VariantType::VariantType(bmcl::StringView name, const ModuleInfo* info)

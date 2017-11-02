@@ -101,20 +101,17 @@ private:
     Rc<CfgOption> parseCfgOption();
     Rc<RangeAttr> parseRangeAttr();
 
-    template <typename T, typename F>
-    bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);
+    template <typename T, typename F, typename... A>
+    bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser, A&&... args);
 
-    template <typename T, typename F>
-    bool parseList2(TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser);
+    template <typename T, typename F, typename... A>
+    bool parseList2(TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser, A&&... args);
 
-    template <typename T, typename F>
-    bool parseBraceList(T&& parent, F&& fieldParser);
+    template <typename T, typename F, typename... A>
+    bool parseBraceList(T&& parent, F&& fieldParser, A&&... args);
 
-    template <typename T, bool genericAllowed, typename F>
-    bool parseTag(TokenKind startToken, F&& fieldParser);
-
-    template <typename T, bool genericAllowed, typename F>
-    bool parseTag2(TokenKind startToken, F&& fieldParser);
+    template <typename T, bool genericAllowed, typename F, typename... A>
+    bool parseTag(TokenKind startToken, F&& fieldParser, A&&... args);
 
     template<typename T, typename F>
     bool parseNamelessTag(TokenKind startToken, TokenKind sep, T* dest, F&& parser);
@@ -123,7 +120,7 @@ private:
 
     template <typename T>
     bool parseRecordField(T* parent);
-    bool parseEnumConstant(EnumType* parent);
+    bool parseEnumConstant(EnumType* parent, std::intmax_t* current);
     bool parseVariantField(VariantType* parent);
     bool parseComponentField(Component* parent);
 

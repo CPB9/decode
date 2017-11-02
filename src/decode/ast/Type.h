@@ -432,7 +432,7 @@ class EnumType : public NamedType {
 public:
     using Pointer = Rc<EnumType>;
     using ConstPointer = Rc<const EnumType>;
-    using Constants = RcSecondMap<std::int64_t, EnumConstant>;
+    using Constants = RcVec<EnumConstant>;
 
     EnumType(bmcl::StringView name, const ModuleInfo* info);
     ~EnumType();
@@ -441,7 +441,7 @@ public:
     Constants::ConstIterator constantsEnd() const;
     Constants::ConstRange constantsRange() const;
 
-    bool addConstant(EnumConstant* constant);
+    void addConstant(EnumConstant* constant);
 
 private:
     Constants _constantDecls;
