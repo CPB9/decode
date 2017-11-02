@@ -23,10 +23,10 @@ class Component;
 class FunctionType;
 class Function;
 
-class HeaderGen {
+class OnboardTypeHeaderGen {
 public:
-    HeaderGen(TypeReprGen* reprGen, SrcBuilder* output);
-    ~HeaderGen();
+    OnboardTypeHeaderGen(TypeReprGen* reprGen, SrcBuilder* output);
+    ~OnboardTypeHeaderGen();
 
     void genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::StringView name);
     void genDynArrayHeader(const DynArrayType* type);

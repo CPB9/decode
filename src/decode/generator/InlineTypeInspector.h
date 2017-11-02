@@ -21,7 +21,7 @@ namespace decode {
 template <typename B>
 class InlineTypeInspector : public ConstAstVisitor<B> {
 public:
-    InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output);
+    InlineTypeInspector(SrcBuilder* output);
 
     void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
 
@@ -34,7 +34,6 @@ public:
     bool visitStructType(const StructType* type);
     bool visitVariantType(const VariantType* type);
     bool visitDynArrayType(const DynArrayType* type);
-    bool visitBuiltinType(const BuiltinType* type);
     bool visitAliasType(const AliasType* type);
     bool visitImportedType(const ImportedType* type);
     bool visitGenericInstantiationType(const GenericInstantiationType* type);
@@ -50,14 +49,11 @@ protected:
     const InlineSerContext& context() const;
     bool isSizeCheckEnabled() const;
     void appendArgumentName();
-    bool appendTypeName(const Type* type);
     void popArgName(std::size_t n);
-    void appendTypeRepr(const Type* type);
 
     std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
     SrcBuilder* _output;
     std::string _argName;
-    Rc<TypeReprGen> _reprGen;
     bool _checkSizes;
 };
 
@@ -140,21 +136,14 @@ inline const InlineSerContext& InlineTypeInspector<B>::context() const
 }
 
 template <typename B>
-inline void InlineTypeInspector<B>::appendTypeRepr(const Type* type)
-{
-    _reprGen->genTypeRepr(type);
-}
-
-template <typename B>
 inline B& InlineTypeInspector<B>::base()
 {
     return *static_cast<B*>(this);
 }
 
 template <typename B>
-InlineTypeInspector<B>::InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output)
+InlineTypeInspector<B>::InlineTypeInspector(SrcBuilder* output)
     : _output(output)
-    , _reprGen(reprGen)
 {
 }
 
@@ -232,7 +221,7 @@ inline bool InlineTypeInspector<B>::visitEnumType(const EnumType* type)
 template <typename B>
 inline bool InlineTypeInspector<B>::visitDynArrayType(const DynArrayType* type)
 {
-    base().inspectNonInlineType(type);
+    base().inspectDynArrayType(type);
     return false;
 }
 
@@ -254,68 +243,6 @@ template <typename B>
 inline bool InlineTypeInspector<B>::visitImportedType(const ImportedType* type)
 {
     base().traverseType(type->link());
-    return false;
-}
-
-template <typename B>
-bool InlineTypeInspector<B>::visitBuiltinType(const BuiltinType* type)
-{
-    switch (type->builtinTypeKind()) {
-    case BuiltinTypeKind::USize:
-        base().genSizedSer("sizeof(void*)", "USizeLe");
-        break;
-    case BuiltinTypeKind::ISize:
-        base().genSizedSer("sizeof(void*)", "USizeLe");
-        break;
-    case BuiltinTypeKind::U8:
-        base().genSizedSer("sizeof(uint8_t)", "U8");
-        break;
-    case BuiltinTypeKind::I8:
-        base().genSizedSer("sizeof(uint8_t)", "U8");
-        break;
-    case BuiltinTypeKind::U16:
-        base().genSizedSer("sizeof(uint16_t)", "U16Le");
-        break;
-    case BuiltinTypeKind::I16:
-        base().genSizedSer("sizeof(uint16_t)", "U16Le");
-        break;
-    case BuiltinTypeKind::U32:
-        base().genSizedSer("sizeof(uint32_t)", "U32Le");
-        break;
-    case BuiltinTypeKind::I32:
-        base().genSizedSer("sizeof(uint32_t)", "U32Le");
-        break;
-    case BuiltinTypeKind::U64:
-        base().genSizedSer("sizeof(uint64_t)", "U64Le");
-        break;
-    case BuiltinTypeKind::I64:
-        base().genSizedSer("sizeof(uint64_t)", "U64Le");
-        break;
-    case BuiltinTypeKind::F32:
-        base().genSizedSer("sizeof(float)", "F32Le");
-        break;
-    case BuiltinTypeKind::F64:
-        base().genSizedSer("sizeof(double)", "F64Le");
-        break;
-    case BuiltinTypeKind::Bool:
-        base().genSizedSer("sizeof(uint8_t)", "U8");
-        break;
-    case BuiltinTypeKind::Char:
-        base().genSizedSer("sizeof(char)", "Char");
-        break;
-    case BuiltinTypeKind::Varuint:
-        base().genVarSer("Varuint");
-        break;
-    case BuiltinTypeKind::Varint:
-        base().genVarSer("Varint");
-        break;
-    case BuiltinTypeKind::Void:
-        //TODO: disallow
-        assert(false);
-        break;
-    default:
-        assert(false);
-    }
     return false;
 }
 

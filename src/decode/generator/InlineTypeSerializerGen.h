@@ -9,11 +9,11 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/generator/InlineTypeInspector.h"
+#include "decode/generator/OnboardInlineTypeInspector.h"
 
 namespace decode {
 
-class InlineTypeSerializerGen : public InlineTypeInspector<InlineTypeSerializerGen> {
+class InlineTypeSerializerGen : public OnboardInlineTypeInspector<InlineTypeSerializerGen> {
 public:
     InlineTypeSerializerGen(TypeReprGen* reprGen, SrcBuilder* output);
     ~InlineTypeSerializerGen();
@@ -25,6 +25,9 @@ public:
 
     void genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix);
     void genVarSer(bmcl::StringView suffix);
+
+private:
+    Rc<TypeReprGen> _reprGen;
 };
 
 }

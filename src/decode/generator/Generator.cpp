@@ -7,13 +7,14 @@
  */
 
 #include "decode/generator/Generator.h"
-#include "decode/generator/HeaderGen.h"
-#include "decode/generator/SourceGen.h"
+#include "decode/generator/OnboardTypeHeaderGen.h"
+#include "decode/generator/OnboardTypeSourceGen.h"
 #include "decode/generator/DynArrayCollector.h"
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/generator/CmdDecoderGen.h"
 #include "decode/generator/CmdEncoderGen.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/generator/GcTypeGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -320,32 +321,37 @@ bool Generator::generateDeviceFiles(const Project* project)
 
 bool Generator::generateConfig(const Project* project)
 {
-    _photonPath.append('/');
+    _onboardPhotonPath.append('/');
 
     _output.append("#include \"photon/core/Config.h\"");
 
-    TRY(dump("Config", ".h", &_photonPath));
-    _output.clear();
+    TRY(dump("Config", ".h", &_onboardPhotonPath));
 
-    _photonPath.removeFromBack(1);
+    _onboardPhotonPath.removeFromBack(1);
     return true;
 }
 
 bool Generator::generateProject(const Project* project)
 {
-    _photonPath.append(_savePath);
-    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
-    joinPath(&_photonPath.result(), "onboard");
-    _onboardPath = _photonPath.result();
-    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
-    joinPath(&_photonPath.result(), "photon");
-    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
-    _photonPath.append('/');
+    TRY(makeDirectory(_savePath.c_str(), _diag.get()));
+    _onboardPath = joinPath(_savePath, "onboard");
+    TRY(makeDirectory(_onboardPath.c_str(), _diag.get()));
+    _gcPath = joinPath(_savePath, "groundcontrol");
+    TRY(makeDirectory(_gcPath.c_str(), _diag.get()));
+    _onboardPhotonPath.result() = joinPath(_onboardPath, "photon");
+    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    _gcPhotonPath.result() = joinPath(_gcPath, "photon");
+    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+
+
+    _onboardPhotonPath.append('/'); //FIXME: remove
+    _gcPhotonPath.append('/'); //FIXME: remove
+
     const Package* package = project->package();
 
     _reprGen = new TypeReprGen(&_output);
-    _hgen.reset(new HeaderGen(_reprGen.get(), &_output));
-    _sgen.reset(new SourceGen(_reprGen.get(), &_output));
+    _onboardHgen.reset(new OnboardTypeHeaderGen(_reprGen.get(), &_output));
+    _onboardSgen.reset(new OnboardTypeSourceGen(_reprGen.get(), &_output));
     for (const Ast* it : package->modules()) {
         if (!generateTypesAndComponents(it)) {
             return false;
@@ -362,11 +368,13 @@ bool Generator::generateProject(const Project* project)
     TRY(generateDeviceFiles(project));
 
     _output.resize(0);
-    _hgen.reset();
-    _sgen.reset();
+    _onboardHgen.reset();
+    _onboardSgen.reset();
     _reprGen.reset();
     _dynArrays.clear();
-    _photonPath.resize(0);
+    _onboardPhotonPath.resize(0);
+    _onboardPath.clear();
+    _gcPath.clear();
     return true;
 }
 
@@ -374,21 +382,19 @@ bool Generator::generateProject(const Project* project)
 
 bool Generator::generateDynArrays()
 {
-    _photonPath.append("_dynarray_");
-    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
-    _photonPath.append('/');
+    _onboardPhotonPath.append("_dynarray_");
+    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    _onboardPhotonPath.append('/');
 
     for (const auto& it : _dynArrays) {
-        _hgen->genDynArrayHeader(it.second.get());
-        TRY(dumpIfNotEmpty(it.first, ".h", &_photonPath));
-        _output.clear();
+        _onboardHgen->genDynArrayHeader(it.second.get());
+        TRY(dumpIfNotEmpty(it.first, ".h", &_onboardPhotonPath));
 
-        _sgen->genTypeSource(it.second.get());
-        TRY(dumpIfNotEmpty(it.first, GEN_PREFIX ".c", &_photonPath));
-        _output.clear();
+        _onboardSgen->genTypeSource(it.second.get());
+        TRY(dumpIfNotEmpty(it.first, GEN_PREFIX ".c", &_onboardPhotonPath));
     }
 
-    _photonPath.removeFromBack(std::strlen("_dynarray_/"));
+    _onboardPhotonPath.removeFromBack(std::strlen("_dynarray_/"));
     return true;
 }
 
@@ -396,20 +402,16 @@ bool Generator::generateStatusMessages(const Project* project)
 {
     StatusEncoderGen gen(_reprGen.get(), &_output);
     gen.generateEncoderHeader(project);
-    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_onboardPhotonPath));
 
     gen.generateEncoderSource(project);
-    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".c", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".c", &_onboardPhotonPath));
 
     gen.generateDecoderHeader(project);
-    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".h", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".h", &_onboardPhotonPath));
 
     gen.generateDecoderSource(project);
-    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".c", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".c", &_onboardPhotonPath));
 
     return true;
 }
@@ -418,21 +420,17 @@ bool Generator::generateCommands(const Package* package)
 {
     CmdDecoderGen decGen(_reprGen.get(), &_output);
     decGen.generateHeader(package->components());
-    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".h", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".h", &_onboardPhotonPath));
 
     decGen.generateSource(package->components());
-    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".c", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".c", &_onboardPhotonPath));
 
     CmdEncoderGen encGen(_reprGen.get(), &_output);
     encGen.generateHeader(package->components());
-    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".h", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".h", &_onboardPhotonPath));
 
     encGen.generateSource(package->components());
-    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".c", &_photonPath));
-    _output.clear();
+    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".c", &_onboardPhotonPath));
 
     return true;
 }
@@ -451,72 +449,75 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
     currentPath->append(ext);
     TRY(saveOutput(currentPath->result().c_str(), _output.view(), _diag.get()));
     currentPath->removeFromBack(name.size() + ext.size());
+    _output.clear();
     return true;
 }
 
 bool Generator::generateGenerics(const Package* package)
 {
-    _photonPath.append("_generic_");
-    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
-    _photonPath.append('/');
+    _onboardPhotonPath.append("_generic_");
+    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    _onboardPhotonPath.append('/');
     SrcBuilder typeNameBuilder;
     TypeNameGen typeNameGen(&typeNameBuilder);
     for (const Ast* ast : package->modules()) {
         for (const GenericInstantiationType* type : ast->genericInstantiationsRange()) {
             typeNameGen.genTypeName(type);
 
-            _hgen->genTypeHeader(ast, type, typeNameBuilder.result());
-            TRY(dump(typeNameBuilder.result(), ".h", &_photonPath));
-            _output.clear();
+            _onboardHgen->genTypeHeader(ast, type, typeNameBuilder.result());
+            TRY(dump(typeNameBuilder.result(), ".h", &_onboardPhotonPath));
 
-            _sgen->genTypeSource(type, typeNameBuilder.result());
-            TRY(dump(typeNameBuilder.result(), GEN_PREFIX ".c", &_photonPath));
+            _onboardSgen->genTypeSource(type, typeNameBuilder.result());
+            TRY(dump(typeNameBuilder.result(), GEN_PREFIX ".c", &_onboardPhotonPath));
 
-            _output.clear();
             typeNameBuilder.clear();
         }
     }
-    _photonPath.removeFromBack(10);
+    _onboardPhotonPath.removeFromBack(10);
     return true;
 }
 
 bool Generator::generateTypesAndComponents(const Ast* ast)
 {
-    _photonPath.append(ast->moduleInfo()->moduleName());
-    TRY(makeDirectory(_photonPath.result().c_str(), _diag.get()));
-    _photonPath.append('/');
+    _onboardPhotonPath.append(ast->moduleInfo()->moduleName());
+    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    _onboardPhotonPath.append('/'); //FIXME: joinPath
+
+    _gcPhotonPath.append(ast->moduleInfo()->moduleName());
+    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    _gcPhotonPath.append('/'); //FIXME: joinPath
 
     DynArrayCollector coll;
     SrcBuilder typeNameBuilder;
     TypeNameGen typeNameGen(&typeNameBuilder);
+    GcTypeGen gcTypeGen(&_output);
     for (const NamedType* type : ast->namedTypesRange()) {
         coll.collectUniqueDynArrays(type, &_dynArrays);
         if (type->typeKind() == TypeKind::Imported) {
             continue;
         }
-        if (type->typeKind() == TypeKind::Generic) {
-            continue;
+        if (type->typeKind() != TypeKind::Generic) {
+            typeNameGen.genTypeName(type);
+
+            _onboardHgen->genTypeHeader(ast, type, typeNameBuilder.result());
+            TRY(dump(type->name(), ".h", &_onboardPhotonPath));
+
+            _onboardSgen->genTypeSource(type, typeNameBuilder.result());
+            TRY(dump(type->name(), GEN_PREFIX ".c", &_onboardPhotonPath));
+
+            typeNameBuilder.clear();
         }
-        typeNameGen.genTypeName(type);
+        gcTypeGen.generateHeader(type);
+        TRY(dump(type->name(), ".hpp", &_gcPhotonPath));
 
-        _hgen->genTypeHeader(ast, type, typeNameBuilder.result());
-        TRY(dump(type->name(), ".h", &_photonPath));
-        _output.clear();
-
-        _sgen->genTypeSource(type, typeNameBuilder.result());
-        TRY(dump(type->name(), GEN_PREFIX ".c", &_photonPath));
-
-        _output.clear();
-        typeNameBuilder.clear();
     }
 
     if (ast->component().isSome()) {
         bmcl::OptionPtr<const Component> comp = ast->component();
         coll.collectUniqueDynArrays(comp.unwrap(), &_dynArrays);
 
-        _hgen->genComponentHeader(ast, comp.unwrap());
-        TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_photonPath));
-        _output.clear();
+        _onboardHgen->genComponentHeader(ast, comp.unwrap());
+        TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_onboardPhotonPath));
         _output.appendComponentInclude(comp->moduleName());
         _output.appendEol();
         if (comp->hasParams()) {
@@ -526,16 +527,14 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
             _output.appendWithFirstUpper(comp->moduleName());
             _output.append(';');
         }
-        TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.c", &_photonPath));
-        _output.clear();
+        TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.c", &_onboardPhotonPath));
 
         //sgen->genTypeSource(type);
         //TRY(dump(type->name(), GEN_PREFIX ".c", &photonPath));
-        _output.clear();
     }
 
     if (ast->hasConstants()) {
-        _hgen->startIncludeGuard(ast->moduleInfo()->moduleName(), "CONSTANTS");
+        _onboardHgen->startIncludeGuard(ast->moduleInfo()->moduleName(), "CONSTANTS");
         for (const Constant* c : ast->constantsRange()) {
             _output.append("#define PHOTON_");
             _output.appendUpper(ast->moduleInfo()->moduleName());
@@ -546,12 +545,12 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
             _output.appendEol();
         }
         _output.appendEol();
-        _hgen->endIncludeGuard();
-        TRY(dumpIfNotEmpty(ast->moduleInfo()->moduleName(), ".Constants.h", &_photonPath));
-        _output.clear();
+        _onboardHgen->endIncludeGuard();
+        TRY(dumpIfNotEmpty(ast->moduleInfo()->moduleName(), ".Constants.h", &_onboardPhotonPath));
     }
 
-    _photonPath.removeFromBack(ast->moduleInfo()->moduleName().size() + 1);
+    _onboardPhotonPath.removeFromBack(ast->moduleInfo()->moduleName().size() + 1);
+    _gcPhotonPath.removeFromBack(ast->moduleInfo()->moduleName().size() + 1);
     return true;
 }
 }

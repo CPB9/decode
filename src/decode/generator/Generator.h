@@ -23,8 +23,8 @@ class Ast;
 class Diagnostics;
 class Package;
 class Project;
-class HeaderGen;
-class SourceGen;
+class OnboardTypeHeaderGen;
+class OnboardTypeSourceGen;
 class NamedType;
 class DynArrayType;
 class TypeReprGen;
@@ -60,13 +60,15 @@ private:
 
     void appendBuiltinSources(bmcl::StringView ext);
 
-    SrcBuilder _photonPath;
+    SrcBuilder _onboardPhotonPath;
+    SrcBuilder _gcPhotonPath;
     Rc<Diagnostics> _diag;
     std::string _savePath;
     std::string _onboardPath;
+    std::string _gcPath;
     SrcBuilder _output;
-    std::unique_ptr<HeaderGen> _hgen;
-    std::unique_ptr<SourceGen> _sgen;
+    std::unique_ptr<OnboardTypeHeaderGen> _onboardHgen;
+    std::unique_ptr<OnboardTypeSourceGen> _onboardSgen;
     Rc<TypeReprGen> _reprGen;
     RcSecondUnorderedMap<std::string, const DynArrayType> _dynArrays;
 };

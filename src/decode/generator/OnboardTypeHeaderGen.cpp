@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "decode/generator/HeaderGen.h"
+#include "decode/generator/OnboardTypeHeaderGen.h"
 #include "decode/core/Foreach.h"
 #include "decode/core/HashSet.h"
 #include "decode/ast/Component.h"
@@ -19,7 +19,7 @@ namespace decode {
 
 //TODO: refact
 
-HeaderGen::HeaderGen(TypeReprGen* reprGen, SrcBuilder* output)
+OnboardTypeHeaderGen::OnboardTypeHeaderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _typeDefGen(reprGen, output)
     , _prototypeGen(reprGen, output)
@@ -27,11 +27,11 @@ HeaderGen::HeaderGen(TypeReprGen* reprGen, SrcBuilder* output)
 {
 }
 
-HeaderGen::~HeaderGen()
+OnboardTypeHeaderGen::~OnboardTypeHeaderGen()
 {
 }
 
-void HeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::StringView name)
+void OnboardTypeHeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::StringView name)
 {
     switch (type->typeKind()) {
     case TypeKind::Enum:
@@ -45,7 +45,7 @@ void HeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::St
     }
     _ast = ast;
     startIncludeGuard(type, name);
-    _output->appendLocalIncludePath("Config");
+    _output->appendOnboardIncludePath("Config");
     _output->appendEol();
     appendIncludesAndFwds(type);
     appendCommonIncludePaths();
@@ -62,11 +62,11 @@ void HeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::St
     endIncludeGuard();
 }
 
-void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
+void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
 {
     _ast = ast;
     startIncludeGuard(comp);
-    _output->appendLocalIncludePath("Config");
+    _output->appendOnboardIncludePath("Config");
     _output->appendEol();
 
     _output->append("#define PHOTON_");
@@ -114,13 +114,13 @@ void HeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
     endIncludeGuard();
 }
 
-void HeaderGen::genDynArrayHeader(const DynArrayType* dynArray)
+void OnboardTypeHeaderGen::genDynArrayHeader(const DynArrayType* dynArray)
 {
     _dynArrayName.clear();
     TypeNameGen gen(&_dynArrayName);
     gen.genTypeName(dynArray);
     startIncludeGuard(dynArray);
-    _output->appendLocalIncludePath("Config");
+    _output->appendOnboardIncludePath("Config");
     _output->appendEol();
     appendIncludesAndFwds(dynArray);
     appendCommonIncludePaths();
@@ -132,11 +132,11 @@ void HeaderGen::genDynArrayHeader(const DynArrayType* dynArray)
     endIncludeGuard();
 }
 
-void HeaderGen::appendSerializerFuncPrototypes(const Component*)
+void OnboardTypeHeaderGen::appendSerializerFuncPrototypes(const Component*)
 {
 }
 
-void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
+void OnboardTypeHeaderGen::appendSerializerFuncPrototypes(const Type* type)
 {
     _prototypeGen.appendSerializerFuncDecl(type);
     _output->append(";\n");
@@ -144,45 +144,45 @@ void HeaderGen::appendSerializerFuncPrototypes(const Type* type)
     _output->append(";\n\n");
 }
 
-void HeaderGen::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName)
+void OnboardTypeHeaderGen::startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName)
 {
     _output->startIncludeGuard(modName, typeName);
 }
 
-void HeaderGen::startIncludeGuard(const DynArrayType* dynArray)
+void OnboardTypeHeaderGen::startIncludeGuard(const DynArrayType* dynArray)
 {
     _output->startIncludeGuard("SLICE", _dynArrayName.view());
 }
 
-void HeaderGen::startIncludeGuard(const Component* comp)
+void OnboardTypeHeaderGen::startIncludeGuard(const Component* comp)
 {
     _output->startIncludeGuard("COMPONENT", comp->moduleName());
 }
 
-void HeaderGen::startIncludeGuard(const TopLevelType* type, bmcl::StringView name)
+void OnboardTypeHeaderGen::startIncludeGuard(const TopLevelType* type, bmcl::StringView name)
 {
     _output->startIncludeGuard(type->moduleName(), name);
 }
 
-void HeaderGen::startIncludeGuard(const NamedType* type)
+void OnboardTypeHeaderGen::startIncludeGuard(const NamedType* type)
 {
     _output->startIncludeGuard(type->moduleName(), type->name());
 }
 
-void HeaderGen::endIncludeGuard()
+void OnboardTypeHeaderGen::endIncludeGuard()
 {
     _output->endIncludeGuard();
 }
 
-void HeaderGen::appendImplBlockIncludes(const DynArrayType* dynArray)
+void OnboardTypeHeaderGen::appendImplBlockIncludes(const DynArrayType* dynArray)
 {
-    _output->appendLocalIncludePath("core/Reader");
-    _output->appendLocalIncludePath("core/Writer");
-    _output->appendLocalIncludePath("core/Error");
+    _output->appendOnboardIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Error");
     _output->appendEol();
 }
 
-void HeaderGen::appendImplBlockIncludes(const Component* comp)
+void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
 {
     HashSet<std::string> dest;
     for (const Function* fn : comp->cmdsRange()) {
@@ -200,7 +200,7 @@ void HeaderGen::appendImplBlockIncludes(const Component* comp)
     appendIncludes(dest);
 }
 
-void HeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name)
+void OnboardTypeHeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name)
 {
     bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlock(topLevelType);
     HashSet<std::string> dest;
@@ -215,15 +215,15 @@ void HeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::
     appendIncludes(dest);
 }
 
-void HeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
+void OnboardTypeHeaderGen::appendImplBlockIncludes(const NamedType* topLevelType)
 {
     appendImplBlockIncludes(topLevelType, topLevelType->name());
 }
 
-void HeaderGen::appendIncludes(const HashSet<std::string>& src)
+void OnboardTypeHeaderGen::appendIncludes(const HashSet<std::string>& src)
 {
     for (const std::string& path : src) {
-        _output->appendLocalIncludePath(path);
+        _output->appendOnboardIncludePath(path);
     }
 
     if (!src.empty()) {
@@ -231,21 +231,21 @@ void HeaderGen::appendIncludes(const HashSet<std::string>& src)
     }
 }
 
-void HeaderGen::appendIncludesAndFwds(const Component* comp)
+void OnboardTypeHeaderGen::appendIncludesAndFwds(const Component* comp)
 {
     HashSet<std::string> includePaths;
     _includeCollector.collect(comp, &includePaths);
     appendIncludes(includePaths);
 }
 
-void HeaderGen::appendIncludesAndFwds(const Type* topLevelType)
+void OnboardTypeHeaderGen::appendIncludesAndFwds(const Type* topLevelType)
 {
     HashSet<std::string> includePaths;
     _includeCollector.collect(topLevelType, &includePaths);
     appendIncludes(includePaths);
 }
 
-void HeaderGen::appendFunctionPrototypes(const Component* comp)
+void OnboardTypeHeaderGen::appendFunctionPrototypes(const Component* comp)
 {
     bmcl::OptionPtr<const ImplBlock> impl = comp->implBlock();
     if (impl.isNone()) {
@@ -254,7 +254,7 @@ void HeaderGen::appendFunctionPrototypes(const Component* comp)
     appendFunctionPrototypes(impl.unwrap()->functionsRange(), comp->name());
 }
 
-void HeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName)
+void OnboardTypeHeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName)
 {
     for (const Function* func : funcs) {
         appendFunctionPrototype(func, typeName);
@@ -264,7 +264,7 @@ void HeaderGen::appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl
     }
 }
 
-void HeaderGen::appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name)
+void OnboardTypeHeaderGen::appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name)
 {
     bmcl::OptionPtr<const ImplBlock> block = _ast->findImplBlock(type);
     if (block.isNone()) {
@@ -273,7 +273,7 @@ void HeaderGen::appendFunctionPrototypes(const TopLevelType* type, bmcl::StringV
     appendFunctionPrototypes(block.unwrap()->functionsRange(), name);
 }
 
-void HeaderGen::appendFunctionPrototypes(const NamedType* type)
+void OnboardTypeHeaderGen::appendFunctionPrototypes(const NamedType* type)
 {
     appendFunctionPrototypes(type, type->name());
 }
@@ -307,7 +307,7 @@ static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
     return nullptr;
 }
 
-void HeaderGen::appendCommandPrototypes(const Component* comp)
+void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
 {
     if (!comp->hasCmds()) {
         return;
@@ -344,7 +344,7 @@ void HeaderGen::appendCommandPrototypes(const Component* comp)
     _output->appendEol();
 }
 
-void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView typeName)
+void OnboardTypeHeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView typeName)
 {
     const FunctionType* type = func->type();
     bmcl::OptionPtr<const Type> rv = type->returnValue();
@@ -398,7 +398,7 @@ void HeaderGen::appendFunctionPrototype(const Function* func, bmcl::StringView t
     _output->append(");\n");
 }
 
-void HeaderGen::appendCommonIncludePaths()
+void OnboardTypeHeaderGen::appendCommonIncludePaths()
 {
     _output->appendInclude("stdbool.h");
     _output->appendInclude("stddef.h");

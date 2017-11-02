@@ -11,7 +11,8 @@
 namespace decode {
 
 InlineTypeSerializerGen::InlineTypeSerializerGen(TypeReprGen* reprGen, SrcBuilder* output)
-    : InlineTypeInspector<InlineTypeSerializerGen>(reprGen, output)
+    : OnboardInlineTypeInspector<InlineTypeSerializerGen>(output)
+    , _reprGen(reprGen)
 {
 }
 
@@ -39,7 +40,7 @@ void InlineTypeSerializerGen::inspectNonInlineType(const Type* type)
 {
     _output->appendIndent(context());
     _output->appendWithTryMacro([&, this, type](SrcBuilder* output) {
-        appendTypeRepr(type);
+        _reprGen->genTypeRepr(type);
         output->append("_Serialize(");
         if (type->typeKind() != TypeKind::Enum) {
             output->append('&');

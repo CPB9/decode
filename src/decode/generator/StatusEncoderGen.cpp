@@ -39,8 +39,8 @@ void StatusEncoderGen::generateEncoderHeader(const Project* project)
     _output->startIncludeGuard("PRIVATE", "STATUS_ENCODER");
     _output->appendEol();
 
-    _output->appendLocalIncludePath("core/Error");
-    _output->appendLocalIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendOnboardIncludePath("core/Writer");
     _output->appendEol();
     _output->startCppGuard();
     _output->appendEol();
@@ -64,8 +64,8 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
 {
     _output->startIncludeGuard("PRIVATE", "STATUS_DECODER");
 
-    _output->appendLocalIncludePath("core/Error");
-    _output->appendLocalIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendOnboardIncludePath("core/Reader");
     _output->appendEol();
 
     for (const Component* comp : project->package()->components()) {
@@ -154,7 +154,7 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
     HashSet<std::string> includes;
 
     for (const char* inc : {"core/Writer", "core/Error", "core/Try", "core/Logging"}) {
-        _output->appendLocalIncludePath(inc);
+        _output->appendOnboardIncludePath(inc);
     }
 
     for (const Component* comp : project->package()->components()) {
@@ -162,7 +162,7 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
 
         _output->appendModIfdef(comp->moduleName());
         for (const std::string& inc : includes) {
-            _output->appendLocalIncludePath(inc);
+            _output->appendOnboardIncludePath(inc);
         }
         _output->appendComponentInclude(comp->moduleName());
         _output->appendEndif();
@@ -194,8 +194,8 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
 void StatusEncoderGen::generateDecoderSource(const Project* project)
 {
     _output->append("#include \"photon/StatusDecoder.Private.h\"\n\n");
-    _output->appendLocalIncludePath("core/Try");
-    _output->appendLocalIncludePath("core/Logging");
+    _output->appendOnboardIncludePath("core/Try");
+    _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
 
     _output->append("#define _PHOTON_FNAME \"StatusDecoder.Private.c\"\n\n");

@@ -172,12 +172,14 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/CmdDecoderGen.h
     src/decode/generator/CmdEncoderGen.cpp
     src/decode/generator/CmdEncoderGen.h
+    src/decode/generator/DynArrayCollector.cpp
+    src/decode/generator/DynArrayCollector.h
     src/decode/generator/FuncPrototypeGen.cpp
     src/decode/generator/FuncPrototypeGen.h
+    src/decode/generator/GcTypeGen.h
+    src/decode/generator/GcTypeGen.cpp
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
-    src/decode/generator/HeaderGen.cpp
-    src/decode/generator/HeaderGen.h
     src/decode/generator/IncludeCollector.cpp
     src/decode/generator/IncludeCollector.h
     src/decode/generator/InlineSerContext.h
@@ -187,10 +189,10 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/InlineTypeSerializerGen.cpp
     src/decode/generator/InlineTypeSerializerGen.h
     src/decode/generator/NameVisitor.h
-    src/decode/generator/DynArrayCollector.cpp
-    src/decode/generator/DynArrayCollector.h
-    src/decode/generator/SourceGen.cpp
-    src/decode/generator/SourceGen.h
+    src/decode/generator/OnboardTypeHeaderGen.cpp
+    src/decode/generator/OnboardTypeHeaderGen.h
+    src/decode/generator/OnboardTypeSourceGen.cpp
+    src/decode/generator/OnboardTypeSourceGen.h
     src/decode/generator/SrcBuilder.cpp
     src/decode/generator/SrcBuilder.h
     src/decode/generator/StatusEncoderGen.cpp

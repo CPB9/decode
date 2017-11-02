@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "decode/generator/SourceGen.h"
+#include "decode/generator/OnboardTypeSourceGen.h"
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/SrcBuilder.h"
@@ -16,7 +16,7 @@ namespace decode {
 
 //TODO: refact
 
-SourceGen::SourceGen(TypeReprGen* reprGen, SrcBuilder* output)
+OnboardTypeSourceGen::OnboardTypeSourceGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _typeReprGen(reprGen)
     , _inlineSer(reprGen, output)
@@ -25,25 +25,25 @@ SourceGen::SourceGen(TypeReprGen* reprGen, SrcBuilder* output)
 {
 }
 
-SourceGen::~SourceGen()
+OnboardTypeSourceGen::~OnboardTypeSourceGen()
 {
 }
 
-void SourceGen::appendIncludes(bmcl::StringView modName)
+void OnboardTypeSourceGen::appendIncludes(bmcl::StringView modName)
 {
     StringBuilder path(modName.toStdString());
     path.append('/');
     path.append(_fileName);
-    _output->appendLocalIncludePath(path.view());
-    _output->appendLocalIncludePath("core/Try");
-    _output->appendLocalIncludePath("core/Logging");
+    _output->appendOnboardIncludePath(path.view());
+    _output->appendOnboardIncludePath("core/Try");
+    _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"");
     _output->append(path.result());
     _output->append(".gen.c\"\n");
 }
 
-void SourceGen::appendEnumSerializer(const EnumType* type)
+void OnboardTypeSourceGen::appendEnumSerializer(const EnumType* type)
 {
     _output->append("    switch(self) {\n");
     for (const EnumConstant* c : type->constantsRange()) {
@@ -64,7 +64,7 @@ void SourceGen::appendEnumSerializer(const EnumType* type)
     }, "Failed to write enum");
 }
 
-void SourceGen::appendEnumDeserializer(const EnumType* type)
+void OnboardTypeSourceGen::appendEnumDeserializer(const EnumType* type)
 {
     _output->appendIndent(1);
     _output->appendVarDecl("int64_t", "value");
@@ -131,19 +131,19 @@ private:
     StringBuilder _argName;
 };
 
-void SourceGen::appendStructSerializer(const StructType* type)
+void OnboardTypeSourceGen::appendStructSerializer(const StructType* type)
 {
     InlineStructInspector inspector(_output);
     inspector.inspect(type->fieldsRange(), &_inlineSer);
 }
 
-void SourceGen::appendStructDeserializer(const StructType* type)
+void OnboardTypeSourceGen::appendStructDeserializer(const StructType* type)
 {
     InlineStructInspector inspector(_output);
     inspector.inspect(type->fieldsRange(), &_inlineDeser);
 }
 
-void SourceGen::appendVariantSerializer(const VariantType* type)
+void OnboardTypeSourceGen::appendVariantSerializer(const VariantType* type)
 {
     _output->appendIndent(1);
     _output->appendWithTryMacro([](SrcBuilder* output) {
@@ -202,7 +202,7 @@ void SourceGen::appendVariantSerializer(const VariantType* type)
     _output->append("    }\n");
 }
 
-void SourceGen::appendVariantDeserializer(const VariantType* type)
+void OnboardTypeSourceGen::appendVariantDeserializer(const VariantType* type)
 {
     _output->appendIndent(1);
     _output->appendVarDecl("int64_t", "value");
@@ -270,7 +270,7 @@ void SourceGen::appendVariantDeserializer(const VariantType* type)
     _output->append("    }\n");
 }
 
-void SourceGen::appendDynArraySerializer(const DynArrayType* type)
+void OnboardTypeSourceGen::appendDynArraySerializer(const DynArrayType* type)
 {
     InlineSerContext ctx;
     _output->append("    if (self->size > ");
@@ -291,7 +291,7 @@ void SourceGen::appendDynArraySerializer(const DynArrayType* type)
     _output->append("    }\n");
 }
 
-void SourceGen::appendDynArrayDeserializer(const DynArrayType* type)
+void OnboardTypeSourceGen::appendDynArrayDeserializer(const DynArrayType* type)
 {
     InlineSerContext ctx;
     _output->appendIndent(1);
@@ -319,7 +319,7 @@ void SourceGen::appendDynArrayDeserializer(const DynArrayType* type)
 }
 
 template <typename T, typename F>
-void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
+void OnboardTypeSourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 {
     _output->appendEol();
     _prototypeGen.appendSerializerFuncDecl(_baseType);
@@ -337,13 +337,13 @@ void SourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
     _output->appendEol();
 }
 
-bool SourceGen::visitDynArrayType(const DynArrayType* type)
+bool OnboardTypeSourceGen::visitDynArrayType(const DynArrayType* type)
 {
     StringBuilder path("_dynarray_/");
     path.append(TypeNameGen::genTypeNameAsString(type));
-    _output->appendLocalIncludePath(path.view());
-    _output->appendLocalIncludePath("core/Try");
-    _output->appendLocalIncludePath("core/Logging");
+    _output->appendOnboardIncludePath(path.view());
+    _output->appendOnboardIncludePath("core/Try");
+    _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"");
     _output->append(path.result());
@@ -364,25 +364,25 @@ bool SourceGen::visitDynArrayType(const DynArrayType* type)
     return false;
 }
 
-bool SourceGen::visitEnumType(const EnumType* type)
+bool OnboardTypeSourceGen::visitEnumType(const EnumType* type)
 {
-    genSource(type, &SourceGen::appendEnumSerializer, &SourceGen::appendEnumDeserializer);
+    genSource(type, &OnboardTypeSourceGen::appendEnumSerializer, &OnboardTypeSourceGen::appendEnumDeserializer);
     return false;
 }
 
-bool SourceGen::visitStructType(const StructType* type)
+bool OnboardTypeSourceGen::visitStructType(const StructType* type)
 {
-    genSource(type, &SourceGen::appendStructSerializer, &SourceGen::appendStructDeserializer);
+    genSource(type, &OnboardTypeSourceGen::appendStructSerializer, &OnboardTypeSourceGen::appendStructDeserializer);
     return false;
 }
 
-bool SourceGen::visitVariantType(const VariantType* type)
+bool OnboardTypeSourceGen::visitVariantType(const VariantType* type)
 {
-    genSource(type, &SourceGen::appendVariantSerializer, &SourceGen::appendVariantDeserializer);
+    genSource(type, &OnboardTypeSourceGen::appendVariantSerializer, &OnboardTypeSourceGen::appendVariantDeserializer);
     return false;
 }
 
-void SourceGen::genTypeSource(const NamedType* type, bmcl::StringView name)
+void OnboardTypeSourceGen::genTypeSource(const NamedType* type, bmcl::StringView name)
 {
     _name = name;
     _fileName = type->name();
@@ -390,7 +390,7 @@ void SourceGen::genTypeSource(const NamedType* type, bmcl::StringView name)
     genSource(type, type->moduleName());
 }
 
-void SourceGen::genTypeSource(const GenericInstantiationType* instantiation, bmcl::StringView name)
+void OnboardTypeSourceGen::genTypeSource(const GenericInstantiationType* instantiation, bmcl::StringView name)
 {
     _name = name;
     _fileName = name;
@@ -400,7 +400,7 @@ void SourceGen::genTypeSource(const GenericInstantiationType* instantiation, bmc
 
 }
 
-void SourceGen::genSource(const Type* type, bmcl::StringView modName)
+void OnboardTypeSourceGen::genSource(const Type* type, bmcl::StringView modName)
 {
     switch (type->typeKind()) {
         case TypeKind::Variant:
@@ -420,7 +420,7 @@ void SourceGen::genSource(const Type* type, bmcl::StringView modName)
     }
 }
 
-void SourceGen::genTypeSource(const DynArrayType* type)
+void OnboardTypeSourceGen::genTypeSource(const DynArrayType* type)
 {
     _baseType = type;
     visitDynArrayType(type);

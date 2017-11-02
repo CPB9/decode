@@ -165,7 +165,7 @@ void SrcBuilder::appendVarDecl(bmcl::StringView typeName, bmcl::StringView varNa
     append(";\n");
 }
 
-void SrcBuilder::appendLocalIncludePath(bmcl::StringView path)
+void SrcBuilder::appendOnboardIncludePath(bmcl::StringView path)
 {
     append("#include \"photon/");
     append(path);
@@ -263,5 +263,10 @@ void SrcBuilder::appendTypeInclude(bmcl::StringView name, bmcl::StringView ext)
     append(name);
     append(ext);
     append("\"\n");
+}
+
+void SrcBuilder::appendPragmaOnce()
+{
+    append("#pragma once\n");
 }
 }

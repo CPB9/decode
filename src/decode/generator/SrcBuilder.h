@@ -41,7 +41,7 @@ public:
     void appendWithTryMacro(const SrcGen& func);
     void appendWithTryMacro(const SrcGen& func, bmcl::StringView msg);
     void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = bmcl::StringView::empty());
-    void appendLocalIncludePath(bmcl::StringView path);
+    void appendOnboardIncludePath(bmcl::StringView path);
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
     void appendByteArrayDefinition(bmcl::StringView prefix, bmcl::StringView name, bmcl::Bytes data);
@@ -58,6 +58,7 @@ public:
     void appendTargetModIfdef(bmcl::StringView name);
     void appendSourceModIfdef(bmcl::StringView name);
     void appendEndif();
+    void appendPragmaOnce();
 
     template <typename T>
     void appendNumericValueDefine(bmcl::StringView name, T value);

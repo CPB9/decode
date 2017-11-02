@@ -30,10 +30,10 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->startIncludeGuard("PRIVATE", "CMD_DECODER");
     _output->appendEol();
 
-    _output->appendLocalIncludePath("core/Error");
-    _output->appendLocalIncludePath("core/Reader");
-    _output->appendLocalIncludePath("core/Writer");
-    _output->appendLocalIncludePath("core/Try");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendOnboardIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Try");
     _output->appendEol();
 
     _output->startCppGuard();
@@ -64,8 +64,8 @@ void CmdDecoderGen::appendFunctionName(unsigned componenNum, unsigned cmdNum)
 
 void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 {
-    _output->appendLocalIncludePath("CmdDecoder.Private");
-    _output->appendLocalIncludePath("core/Logging");
+    _output->appendOnboardIncludePath("CmdDecoder.Private");
+    _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"CmdDecoder.Private.c\"\n\n");
 

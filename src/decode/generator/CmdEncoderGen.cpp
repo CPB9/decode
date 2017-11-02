@@ -47,7 +47,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     IncludeCollector col;
 
     for (const char* path : {"core/Error", "core/Reader", "core/Writer", "core/Try"}) {
-        _output->appendLocalIncludePath(path);
+        _output->appendOnboardIncludePath(path);
     }
     _output->appendEol();
 
@@ -60,7 +60,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
         }
         _output->appendTargetModIfdef(it->moduleName());
         for (const std::string& path : includes) {
-            _output->appendLocalIncludePath(path);
+            _output->appendOnboardIncludePath(path);
         }
         _output->appendEndif();
 
@@ -117,8 +117,8 @@ private:
 
 void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
 {
-    _output->appendLocalIncludePath("CmdEncoder.Private"); //TODO: pass as argument
-    _output->appendLocalIncludePath("core/Logging");
+    _output->appendOnboardIncludePath("CmdEncoder.Private"); //TODO: pass as argument
+    _output->appendOnboardIncludePath("core/Logging");
     _output->append("\n");
 
     _output->append("#define _PHOTON_FNAME \"CmdDecoder.Private.c\"\n\n");
