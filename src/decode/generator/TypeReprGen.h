@@ -18,7 +18,7 @@
 
 namespace decode {
 
-class TypeReprGen : public NameVisitor<TypeReprGen>, public RefCountable {
+class TypeReprGen : public RefCountable {
 public:
     using Pointer = Rc<TypeReprGen>;
     using ConstPointer = Rc<const TypeReprGen>;
@@ -28,22 +28,16 @@ public:
 
     void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
 
-    bool visitBuiltinType(const BuiltinType* type);
-    bool visitArrayType(const ArrayType* type);
-    bool visitReferenceType(const ReferenceType* type);
-    bool visitDynArrayType(const DynArrayType* type);
-    bool visitFunctionType(const FunctionType* type);
-    bool visitGenericInstantiationType(const GenericInstantiationType* type);
-
-    bool appendTypeName(const NamedType* type);
 private:
-    void genFnPointerTypeRepr(const FunctionType* type);
+    void writeBuiltin(const BuiltinType* type);
+    void writeArray(const ArrayType* type);
+    void writePointer(const ReferenceType* type);
+    void writeNamed(const Type* type);
+    void writeFunction(const FunctionType* type);
+    void writeType(const Type* type);
 
-    bool _hasPrefix;
-    SrcBuilder _typeName;
-    std::vector<bool> _pointers; // isConst
-    std::string _arrayIndices;
-    bmcl::StringView _fieldName;
+    std::size_t _currentOffset;
     SrcBuilder* _output;
+    SrcBuilder _temp;
 };
 }

@@ -34,6 +34,21 @@ void StringBuilder::append(const std::string& str)
     _output.append(str);
 }
 
+void StringBuilder::prepend(const char* begin, std::size_t size)
+{
+    _output.insert(0, begin, size);
+}
+
+void StringBuilder::prepend(bmcl::StringView view)
+{
+    _output.insert(0, view.begin(), view.size());
+}
+
+void StringBuilder::insert(std::size_t i, bmcl::StringView view)
+{
+    _output.insert(i, view.begin(), view.size());
+}
+
 void StringBuilder::resize(std::size_t size)
 {
     _output.resize(size);

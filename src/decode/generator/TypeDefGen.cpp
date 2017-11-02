@@ -66,7 +66,7 @@ void TypeDefGen::appendDynArray(const DynArrayType* type)
     TypeNameGen gen(_output);
     _output->appendTagHeader("struct");
 
-    _output->appendIndent(1);
+    _output->appendIndent();
     _typeReprGen->genTypeRepr(type->elementType());
     _output->append(" data[");
     _output->appendNumericValue(type->maxSize());
@@ -90,7 +90,7 @@ void TypeDefGen::appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView nam
 
     std::size_t i = 1;
     for (const Type* type : fields) {
-        _output->appendIndent(1);
+        _output->appendIndent();
         _typeReprGen->genTypeRepr(type, "_" + std::to_string(i));
         _output->append(";\n");
         i++;
@@ -105,7 +105,7 @@ void TypeDefGen::appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView na
     _output->appendTagHeader("struct");
 
     for (const Field* field : fields) {
-        _output->appendIndent(1);
+        _output->appendIndent();
         _typeReprGen->genTypeRepr(field->type(), field->name());
         _output->append(";\n");
     }

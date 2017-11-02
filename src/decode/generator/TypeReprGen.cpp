@@ -16,6 +16,7 @@ namespace decode {
 
 TypeReprGen::TypeReprGen(SrcBuilder* dest)
     : _output(dest)
+    , _currentOffset(0)
 {
 }
 
@@ -64,156 +65,112 @@ static bmcl::StringView builtinToC(const BuiltinType* type)
     return nullptr;
 }
 
-inline bool TypeReprGen::visitBuiltinType(const BuiltinType* type)
+void TypeReprGen::writeBuiltin(const BuiltinType* type)
 {
-    _typeName.append(builtinToC(type));
-    return false;
+    _output->insert(_currentOffset, builtinToC(type));
 }
 
-bool TypeReprGen::visitArrayType(const ArrayType* type)
+void TypeReprGen::writeArray(const ArrayType* type)
 {
-    _arrayIndices.push_back('[');
-    _arrayIndices.append(std::to_string(type->elementCount()));
-    _arrayIndices.push_back(']');
-    return true;
+    _output->append('[');
+    _output->append(std::to_string(type->elementCount()));
+    _output->append(']');
+    writeType(type->elementType());
 }
 
-bool TypeReprGen::visitReferenceType(const ReferenceType* type)
+void TypeReprGen::writePointer(const ReferenceType* type)
 {
     if (type->isMutable()) {
-        _pointers.push_back(false);
+        _output->insert(_currentOffset,"* ");
     } else {
-        _pointers.push_back(true);
+        _output->insert(_currentOffset, " const* ");
     }
-    return true;
+    writeType(type->pointee());
 }
 
-bool TypeReprGen::visitDynArrayType(const DynArrayType* type)
+void TypeReprGen::writeNamed(const Type* type)
 {
-    _hasPrefix = true;
-    TypeNameGen sng(&_typeName);
+    _temp.append("Photon");
+    TypeNameGen sng(&_temp);
     sng.genTypeName(type);
-    return false;
+    _output->insert(_currentOffset, _temp.result());
+    _temp.clear();
 }
 
-inline bool TypeReprGen::visitFunctionType(const FunctionType* type)
+void TypeReprGen::writeFunction(const FunctionType* type)
 {
-    genFnPointerTypeRepr(type);
-    return false;
+    _output->insert(_currentOffset, "(*");
+    _output->append(")(");
+    std::size_t oldOffset = _currentOffset;
+    _currentOffset = _output->result().size();
+    foreachList(type->argumentsRange(), [this](const Field* arg) {
+        writeType(arg->type());
+    }, [this](const Field*) {
+         _output->append(", ");
+         _currentOffset = _output->result().size();
+    });
+    _currentOffset = oldOffset;
+    _output->append(')');
+    if (type->returnValue().isNone()) {
+        _output->insert(_currentOffset, "void ");
+    } else {
+        writeType(type->returnValue().unwrap());
+    }
 }
 
-bool TypeReprGen::visitGenericInstantiationType(const GenericInstantiationType* type)
+void TypeReprGen::writeType(const Type* type)
 {
-    _hasPrefix = true;
-    TypeNameGen sng(&_typeName);
-    sng.genTypeName(type);
-    return false;
-}
-
-inline bool TypeReprGen::appendTypeName(const NamedType* type)
-{
-    _hasPrefix = true;
-    TypeNameGen sng(&_typeName);
-    sng.genTypeName(type);
-    return false;
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+        writeBuiltin(type->asBuiltin());
+        break;
+    case TypeKind::Reference:
+        writePointer(type->asReference());
+        break;
+    case TypeKind::Array:
+        writeArray(type->asArray());
+        break;
+    case TypeKind::DynArray:
+        writeNamed(type);
+        break;
+    case TypeKind::Function:
+        writeFunction(type->asFunction());
+        break;
+    case TypeKind::Enum:
+        writeNamed(type);
+        break;
+    case TypeKind::Struct:
+        writeNamed(type);
+        break;
+    case TypeKind::Variant:
+        writeNamed(type);
+        break;
+    case TypeKind::Imported:
+        writeType(type->asImported()->link());
+        break;
+    case TypeKind::Alias:
+        writeType(type->asAlias()->alias());
+        break;
+    case TypeKind::Generic:
+        //TODO:
+        break;
+    case TypeKind::GenericInstantiation:
+        writeNamed(type);
+        break;
+    case TypeKind::GenericParameter:
+        _output->insert(_currentOffset, type->asGenericParemeter()->name());
+        break;
+    }
 }
 
 void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
-    _fieldName = fieldName;
-    if (type->isFunction()) {
-
-        genFnPointerTypeRepr(type->asFunction());
-        return;
-    }
-    _hasPrefix = false;
-    _typeName.clear();
-    _pointers.clear();
-    _arrayIndices.clear();
-    traverseType(type);
-    bmcl::StringView modName;
-
-    auto writeTypeName = [&]() {
-        if (_hasPrefix) {
-            _output->append("Photon");
-            //_output->appendWithFirstUpper(_typeName.modName());
-        }
-        _output->append(_typeName.result());
-    };
-
-    if (_pointers.size() == 1) {
-        if (_pointers[0] == true) {
-            _output->append("const ");
-        }
-        writeTypeName();
-        _output->append('*');
-    } else {
-        writeTypeName();
-
-        for (auto it = _pointers.crbegin(); it < _pointers.crend(); it++) {
-            bool isConst  = *it;
-            if (isConst) {
-                _output->append(" *const");
-            } else {
-                _output->append(" *");
-            }
-        }
-    }
+    _currentOffset = _output->result().size();
     if (!fieldName.isEmpty()) {
-        _output->appendSpace();
-        _output->append(fieldName.begin(), fieldName.end());
-    }
-    if (!_arrayIndices.empty()) {
-        _output->append(_arrayIndices);
-    }
-}
-
-void TypeReprGen::genFnPointerTypeRepr(const FunctionType* type)
-{
-    std::vector<const FunctionType*> fnStack;
-    const FunctionType* current = type;
-    fnStack.push_back(current);
-    while (true) {
-        bmcl::OptionPtr<const Type> rv = current->returnValue();
-        if (rv.isSome()) {
-            if (rv.unwrap()->typeKind() == TypeKind::Function) {
-                current = static_cast<const FunctionType*>(rv.unwrap());
-                fnStack.push_back(current);
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-    bmcl::StringView fieldName = _fieldName;
-    bmcl::OptionPtr<const Type> rv = fnStack.back()->returnValue();
-    if (rv.isSome()) {
-        genTypeRepr(rv.unwrap());
-    } else {
-        _output->append("void");
-    }
-    _output->append(" ");
-    for (std::size_t i = 0; i < fnStack.size(); i++) {
-        _output->append("(*");
+        _output->append(' ');
     }
     _output->append(fieldName);
-
-    _output->append(")(");
-
-    auto appendParameters = [this](const FunctionType* t) {
-        foreachList(t->argumentsRange(), [this](const Field* field) {
-            genTypeRepr(field->type());
-        }, [this](const Field*) {
-            _output->append(", ");
-        });
-    };
-
-    for (auto it = fnStack.begin(); it < (fnStack.end() - 1); it++) {
-        appendParameters(*it);
-        _output->append("))(");
-    }
-    appendParameters(fnStack.back());
-    _output->append(")");
+    writeType(type);
 }
+
 }

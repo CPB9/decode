@@ -26,12 +26,20 @@ public:
 
     template <std::size_t N>
     void append(const char(&data)[N]);
-
     void append(char c);
     void append(const char* begin, const char* end);
     void append(const char* begin, std::size_t size);
     void append(const std::string& str);
     void append(bmcl::StringView view);
+
+    template <std::size_t N>
+    void prepend(const char(&data)[N]);
+    void prepend(const char* begin, std::size_t size);
+    void prepend(bmcl::StringView view);
+
+    template <std::size_t N>
+    void insert(std::size_t index, const char(&data)[N]);
+    void insert(std::size_t i, bmcl::StringView view);
 
     void resize(std::size_t size);
 
@@ -89,6 +97,22 @@ void StringBuilder::append(const char(&data)[N])
     static_assert(N != 0, "Static string cannot be empty");
     assert(data[N - 1] == '\0');
     append(data, N - 1);
+}
+
+template <std::size_t N>
+void StringBuilder::prepend(const char(&data)[N])
+{
+    static_assert(N != 0, "Static string cannot be empty");
+    assert(data[N - 1] == '\0');
+    prepend(data, N - 1);
+}
+
+template <std::size_t N>
+void StringBuilder::insert(std::size_t i, const char(&data)[N])
+{
+    static_assert(N != 0, "Static string cannot be empty");
+    assert(data[N - 1] == '\0');
+    _output.insert(i, data, N - 1);
 }
 
 template <typename... A>

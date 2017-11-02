@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2017 CPB9 team. See the COPYRIGHT file at the top-level directory.
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
 #include "decode/generator/GcTypeGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/ast/Type.h"
@@ -105,27 +113,27 @@ void GcTypeGen::generateEnum(const EnumType* type)
         appendEnumConstantName(type, c);
         _output->append(":\n");
     }
-    _output->append("        break;\n");
-    _output->append("    default:\n");
-    _output->append("        state->setError(\"Could not serialize enum `");
+    _output->append("        break;\n"
+                    "    default:\n"
+                    "        state->setError(\"Could not serialize enum `");
     appendFullTypeName(type);
-    _output->append("` with invalid value (\" + std::to_string(self) + \")\");\n");
-    _output->append("        return false;\n");
-    _output->append("    }\n    ");
-    _output->append("if(!dest->writeVarint((int64_t)self)) {\n");
-    _output->append("        state->setError(\"Not enough space to serialize enum `");
+    _output->append("` with invalid value (\" + std::to_string(self) + \")\");\n"
+                    "        return false;\n"
+                    "    }\n    "
+                    "if(!dest->writeVarint((int64_t)self)) {\n"
+                    "        state->setError(\"Not enough space to serialize enum `");
     appendFullTypeName(type);
-    _output->append("`\");\n        return false;\n    }\n");
-    _output->append("    return true;\n}\n\n");
+    _output->append("`\");\n        return false;\n    }\n"
+                    "    return true;\n}\n\n");
 
     //deser
     _output->append("inline bool deserialize");
     _output->appendWithFirstUpper(type->name());
     _output->append("(");
     _output->appendWithFirstUpper(type->name());
-    _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)\n{\n");
-    _output->append("    int64_t value;\n    if (!src->readVarint(&value)) {\n");
-    _output->append("        state->setError(\"Not enough data to deserialize enum `");
+    _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)\n{\n"
+                    "    int64_t value;\n    if (!src->readVarint(&value)) {\n"
+                    "        state->setError(\"Not enough data to deserialize enum `");
     appendFullTypeName(type);
     _output->append("`\");\n        return false;\n    }\n");
 
@@ -133,19 +141,15 @@ void GcTypeGen::generateEnum(const EnumType* type)
     for (const EnumConstant* c : type->constantsRange()) {
         _output->append("    case ");
         _output->appendNumericValue(c->value());
-        _output->append(":\n");
-        _output->append("        *self = ");
+        _output->append(":\n        *self = ");
         appendEnumConstantName(type, c);
-        _output->append(";\n");
-        _output->append("        return true;\n");
+        _output->append(";\n        return true;\n");
     }
-    _output->append("    default:\n");
-    _output->append("        state->setError(\"Failed to deserialize enum `");
+    _output->append("    }\n    state->setError(\"Failed to deserialize enum `");
     appendFullTypeName(type);
-    _output->append("`, got invalid value (\" + std::to_string(value) + \")\");\n");
-    _output->append("        return false;\n");
-    _output->append("    }\n");
-    _output->append("    return true;\n}\n");
+    _output->append("`, got invalid value (\" + std::to_string(value) + \")\");\n"
+                    "    return false;\n"
+                    );
 
     endNamespace();
 }

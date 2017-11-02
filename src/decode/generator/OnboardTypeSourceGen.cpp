@@ -47,18 +47,17 @@ void OnboardTypeSourceGen::appendEnumSerializer(const EnumType* type)
 {
     _output->append("    switch(self) {\n");
     for (const EnumConstant* c : type->constantsRange()) {
-        _output->append("    case ");
-        _output->append("Photon");
+        _output->append("    case Photon");
         _output->append(_name);
         _output->append("_");
         _output->append(c->name());
         _output->append(":\n");
     }
-    _output->append("        break;\n");
-    _output->append("    default:\n");
-    _output->append("        PHOTON_CRITICAL(\"Failed to serialize enum\");\n");
-    _output->append("        return PhotonError_InvalidValue;\n");
-    _output->append("    }\n    ");
+    _output->append("        break;\n"
+                    "    default:\n"
+                    "        PHOTON_CRITICAL(\"Failed to serialize enum\");\n"
+                    "        return PhotonError_InvalidValue;\n"
+                    "    }\n    ");
     _output->appendWithTryMacro([](SrcBuilder* output) {
         output->append("PhotonWriter_WriteVarint(dest, (int64_t)self)");
     }, "Failed to write enum");
@@ -66,37 +65,31 @@ void OnboardTypeSourceGen::appendEnumSerializer(const EnumType* type)
 
 void OnboardTypeSourceGen::appendEnumDeserializer(const EnumType* type)
 {
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->appendVarDecl("int64_t", "value");
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->append("Photon");
     _output->appendVarDecl(_name, "result");
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->appendWithTryMacro([](SrcBuilder* output) {
-        output->append("PhotonReader_ReadVarint(src, &");
-        output->append("value");
-        output->append(")");
+        output->append("PhotonReader_ReadVarint(src, &value)");
     }, "Failed to read enum");
 
     _output->append("    switch(value) {\n");
     for (const EnumConstant* c : type->constantsRange()) {
         _output->append("    case ");
         _output->appendNumericValue(c->value());
-        _output->append(":\n");
-        _output->append("        result = ");
-        _output->append("Photon");
+        _output->append(":\n        result = Photon");
         _output->append(_name);
         _output->append("_");
         _output->append(c->name());
-        _output->append(";\n");
-        _output->append("        break;\n");
+        _output->append(";\n        break;\n");
     }
-    _output->append("    default:\n");
-    _output->append("        PHOTON_WARNING(\"Failed to deserialize enum\");\n");
-    _output->append("        return PhotonError_InvalidValue;\n");
-    _output->append("    }\n");
-
-    _output->append("    *self = result;\n");
+    _output->append("    default:\n"
+                    "        PHOTON_WARNING(\"Failed to deserialize enum\");\n"
+                    "        return PhotonError_InvalidValue;\n"
+                    "    }\n"
+                    "    *self = result;\n");
 }
 
 static bmcl::Option<std::size_t> typeFixedSize(const Type* type)
@@ -153,11 +146,9 @@ void OnboardTypeSourceGen::appendVariantSerializer(const VariantType* type)
     _output->append("    switch(self->type) {\n");
     StringBuilder argName("self->data.");
     for (const VariantField* field : type->fieldsRange()) {
-        _output->append("    case ");
-        _output->append("Photon");
+        _output->append("    case Photon");
         _output->append(_name);
-        _output->append("Type");
-        _output->append("_");
+        _output->append("Type_");
         _output->appendWithFirstUpper(field->name());
         _output->append(": {\n");
 
@@ -193,24 +184,22 @@ void OnboardTypeSourceGen::appendVariantSerializer(const VariantType* type)
         }
         }
 
-        _output->append("        break;\n");
-        _output->append("    }\n");
+        _output->append("        break;\n"
+                        "    }\n");
     }
-    _output->append("    default:\n");
-    _output->append("        PHOTON_CRITICAL(\"Failed to serialize variant\");\n");
-    _output->append("        return PhotonError_InvalidValue;\n");
-    _output->append("    }\n");
+    _output->append("    default:\n"
+                    "        PHOTON_CRITICAL(\"Failed to serialize variant\");\n"
+                    "        return PhotonError_InvalidValue;\n"
+                    "    }\n");
 }
 
 void OnboardTypeSourceGen::appendVariantDeserializer(const VariantType* type)
 {
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->appendVarDecl("int64_t", "value");
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->appendWithTryMacro([](SrcBuilder* output) {
-        output->append("PhotonReader_ReadVarint(src, &");
-        output->append("value");
-        output->append(")");
+        output->append("PhotonReader_ReadVarint(src, &value)");
     }, "Failed to read variant type");
 
     _output->append("    switch(value) {\n");
@@ -220,12 +209,9 @@ void OnboardTypeSourceGen::appendVariantDeserializer(const VariantType* type)
         _output->append("    case ");
         _output->appendNumericValue(i);
         i++;
-        _output->append(": {\n");
-        _output->append("        self->type = ");
-        _output->append("Photon");
+        _output->append(": {\n        self->type = Photon");
         _output->append(_name);
-        _output->append("Type");
-        _output->append("_");
+        _output->append("Type_");
         _output->appendWithFirstUpper(field->name());
         _output->append(";\n");
 
@@ -261,13 +247,13 @@ void OnboardTypeSourceGen::appendVariantDeserializer(const VariantType* type)
         }
         }
 
-        _output->append("        break;\n");
-        _output->append("    }\n");
+        _output->append("        break;\n    }\n");
+        _output->append("");
     }
-    _output->append("    default:\n");
-    _output->append("        PHOTON_WARNING(\"Failed to deserialize variant\");\n");
-    _output->append("        return PhotonError_InvalidValue;\n");
-    _output->append("    }\n");
+    _output->append("    default:\n"
+                    "        PHOTON_WARNING(\"Failed to deserialize variant\");\n"
+                    "        return PhotonError_InvalidValue;\n"
+                    "    }\n");
 }
 
 void OnboardTypeSourceGen::appendDynArraySerializer(const DynArrayType* type)
@@ -275,9 +261,9 @@ void OnboardTypeSourceGen::appendDynArraySerializer(const DynArrayType* type)
     InlineSerContext ctx;
     _output->append("    if (self->size > ");
     _output->appendNumericValue(type->maxSize());
-    _output->append(") {\n        PHOTON_CRITICAL(\"Failed to serialize dynarray\");\n");
-    _output->append("        return PhotonError_InvalidValue;\n    }\n");
-    _output->append("    ");
+    _output->append(") {\n        PHOTON_CRITICAL(\"Failed to serialize dynarray\");\n"
+                    "        return PhotonError_InvalidValue;\n    }\n"
+                    "    ");
     _output->appendWithTryMacro([](SrcBuilder* output) {
         output->append("PhotonWriter_WriteVaruint(dest, self->size)");
     }, "Failed to write dynarray size");
@@ -294,16 +280,16 @@ void OnboardTypeSourceGen::appendDynArraySerializer(const DynArrayType* type)
 void OnboardTypeSourceGen::appendDynArrayDeserializer(const DynArrayType* type)
 {
     InlineSerContext ctx;
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->appendVarDecl("uint64_t", "size");
-    _output->appendIndent(1);
+    _output->appendIndent();
     _output->appendWithTryMacro([](SrcBuilder* output) {
         output->append("PhotonReader_ReadVaruint(src, &size)");
     }, "Failed to read dynarray size");
     _output->append("    if (size > ");
     _output->appendNumericValue(type->maxSize());
-    _output->append(") {\n        PHOTON_WARNING(\"Failed to deserialize dynarray\");\n");
-    _output->append("        return PhotonError_InvalidValue;\n    }\n");
+    _output->append(") {\n        PHOTON_WARNING(\"Failed to deserialize dynarray\");\n"
+                    "        return PhotonError_InvalidValue;\n    }\n");
     auto size = typeFixedSize(type->elementType());
     if (size.isSome()) {
         _inlineDeser.appendSizeCheck(ctx, "size * " + std::to_string(size.unwrap()), _output);
@@ -325,15 +311,14 @@ void OnboardTypeSourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
     _prototypeGen.appendSerializerFuncDecl(_baseType);
     _output->append("\n{\n");
     (this->*serGen)(type);
-    _output->append("    return PhotonError_Ok;\n");
-    _output->append("}\n");
+    _output->append("    return PhotonError_Ok;\n}\n");
     _output->appendEol();
     _prototypeGen.appendDeserializerFuncDecl(_baseType);
     _output->append("\n{\n");
     (this->*deserGen)(type);
-    _output->append("    return PhotonError_Ok;\n");
-    _output->append("}\n\n");
-    _output->append("#undef _PHOTON_FNAME");
+    _output->append("    return PhotonError_Ok;\n"
+                    "}\n\n"
+                    "#undef _PHOTON_FNAME");
     _output->appendEol();
 }
 
@@ -351,15 +336,14 @@ bool OnboardTypeSourceGen::visitDynArrayType(const DynArrayType* type)
     _prototypeGen.appendSerializerFuncDecl(type);
     _output->append("\n{\n");
     appendDynArraySerializer(type);
-    _output->append("    return PhotonError_Ok;\n");
-    _output->append("}\n");
+    _output->append("    return PhotonError_Ok;\n}\n");
     _output->appendEol();
     _prototypeGen.appendDeserializerFuncDecl(type);
     _output->append("\n{\n");
     appendDynArrayDeserializer(type);
-    _output->append("    return PhotonError_Ok;\n");
-    _output->append("}\n\n");
-    _output->append("#undef _PHOTON_FNAME");
+    _output->append("    return PhotonError_Ok;\n"
+                    "}\n\n"
+                    "#undef _PHOTON_FNAME");
     _output->appendEol();
     return false;
 }
