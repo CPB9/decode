@@ -10,7 +10,7 @@
 
 #include "decode/Config.h"
 
-#include <bmcl/StringView.h>
+#include <bmcl/Fwd.h>
 
 namespace decode {
 

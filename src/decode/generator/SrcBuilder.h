@@ -12,7 +12,7 @@
 #include "decode/generator/StringBuilder.h"
 #include "decode/generator/InlineSerContext.h"
 
-#include <bmcl/StringView.h>
+#include <bmcl/Fwd.h>
 
 #include <functional>
 
@@ -40,13 +40,14 @@ public:
     void appendLoopHeader(const InlineSerContext& ctx, bmcl::StringView loopSize);
     void appendWithTryMacro(const SrcGen& func);
     void appendWithTryMacro(const SrcGen& func, bmcl::StringView msg);
-    void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix = bmcl::StringView::empty());
+    void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix);
+    void appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName);
     void appendOnboardIncludePath(bmcl::StringView path);
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
     void appendByteArrayDefinition(bmcl::StringView prefix, bmcl::StringView name, bmcl::Bytes data);
-    void appendTypeInclude(bmcl::StringView name, bmcl::StringView ext = ".h");
-    void appendComponentInclude(bmcl::StringView name, bmcl::StringView ext = ".h");
+    void appendTypeInclude(bmcl::StringView name, bmcl::StringView ext);
+    void appendComponentInclude(bmcl::StringView name, bmcl::StringView ext);
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
     void startCppGuard();
     void endIncludeGuard();
@@ -60,8 +61,8 @@ public:
     void appendEndif();
     void appendPragmaOnce();
 
-    template <typename T>
-    void appendNumericValueDefine(bmcl::StringView name, T value);
+    template <typename T, typename... A>
+    void appendNumericValueDefine(T value, A&&... args);
 
     template <typename... A>
     void appendInclude(A&&... args);
@@ -81,11 +82,11 @@ void SrcBuilder::appendInclude(A&&... args)
     append(">\n");
 }
 
-template <typename T>
-void SrcBuilder::appendNumericValueDefine(bmcl::StringView name, T value)
+template <typename T, typename... A>
+void SrcBuilder::appendNumericValueDefine(T value, A&&... args)
 {
     append("#define ");
-    append(name);
+    append(std::forward<A>(args)...);
     append(' ');
     appendNumericValue(value);
     append("\n");

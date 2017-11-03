@@ -11,6 +11,8 @@
 #include "decode/ast/Type.h"
 #include "decode/generator/GcInlineTypeSerializerGen.h"
 
+#include <bmcl/StringView.h>
+
 namespace decode {
 
 GcTypeGen::GcTypeGen(SrcBuilder* output)
@@ -148,8 +150,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
     _output->append("    }\n    state->setError(\"Failed to deserialize enum `");
     appendFullTypeName(type);
     _output->append("`, got invalid value (\" + std::to_string(value) + \")\");\n"
-                    "    return false;\n"
-                    );
+                    "    return false;\n");
 
     endNamespace();
 }
@@ -164,8 +165,6 @@ void GcTypeGen::generateStruct(const StructType* type)
     _output->append("struct ");
     _output->appendWithFirstUpper(type->name());
     _output->append(" {\npublic:\n");
-
-
 
 
     _output->append("private:\n");

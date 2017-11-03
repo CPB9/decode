@@ -71,7 +71,7 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 
     for (const Component* it : comps) {
         _output->appendModIfdef(it->moduleName());
-        _output->appendComponentInclude(it->moduleName());
+        _output->appendComponentInclude(it->moduleName(), ".h");
         _output->appendEndif();
     }
 
@@ -230,14 +230,14 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
 
     foreachParam(func, [this](const Field* field, bmcl::StringView name) {
         _output->append("    ");
-        _typeReprGen->genTypeRepr(field->type(), name);
+        _typeReprGen->genOnboardTypeRepr(field->type(), name);
         _output->append(";\n");
     });
 
     bmcl::OptionPtr<const Type> rv = ftype->returnValue();
     if (rv.isSome()) {
         _output->append("    ");
-        _typeReprGen->genTypeRepr(rv.unwrap(), "_rv");
+        _typeReprGen->genOnboardTypeRepr(rv.unwrap(), "_rv");
         _output->append(";\n");
     } else {
         _output->append("    (void)dest;\n");

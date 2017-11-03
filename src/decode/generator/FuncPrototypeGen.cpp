@@ -27,9 +27,9 @@ FuncPrototypeGen::~FuncPrototypeGen()
 void FuncPrototypeGen::appendSerializerFuncDecl(const Type* type)
 {
     _dest->append("PhotonError ");
-    _typeReprGen->genTypeRepr(type);
+    _typeReprGen->genOnboardTypeRepr(type);
     _dest->append("_Serialize(const ");
-    _typeReprGen->genTypeRepr(type);
+    _typeReprGen->genOnboardTypeRepr(type);
     if (type->typeKind() != TypeKind::Enum) {
         _dest->append('*');
     }
@@ -39,9 +39,9 @@ void FuncPrototypeGen::appendSerializerFuncDecl(const Type* type)
 void FuncPrototypeGen::appendDeserializerFuncDecl(const Type* type)
 {
     _dest->append("PhotonError ");
-    _typeReprGen->genTypeRepr(type);
+    _typeReprGen->genOnboardTypeRepr(type);
     _dest->append("_Deserialize(");
-    _typeReprGen->genTypeRepr(type);
+    _typeReprGen->genOnboardTypeRepr(type);
     _dest->append("* self, PhotonReader* src)");
 }
 

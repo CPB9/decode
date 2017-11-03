@@ -30,7 +30,7 @@ void CmdEncoderGen::appendEncoderPrototype(const Component* comp, const Function
     } else {
         _output->append("(");
         foreachList(func->type()->argumentsRange(), [this](const Field* arg) {
-            _reprGen->genTypeRepr(arg->type(), arg->name());
+            _reprGen->genOnboardTypeRepr(arg->type(), arg->name());
         }, [this](const Field*) {
             _output->append(", ");
         });

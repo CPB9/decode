@@ -23,51 +23,61 @@ TypeNameGen::~TypeNameGen()
 {
 }
 
-static bmcl::StringView builtinToName(const BuiltinType* type)
+bool TypeNameGen::visitBuiltinType(const BuiltinType* type)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
-        return "USize";
+        _output->append("USize");
+        break;
     case BuiltinTypeKind::ISize:
-        return "ISize";
+        _output->append( "ISize");
+        break;
     case BuiltinTypeKind::Varuint:
-        return "Varuint";
+        _output->append( "Varuint");
+        break;
     case BuiltinTypeKind::Varint:
-        return "Varint";
+        _output->append( "Varint");
+        break;
     case BuiltinTypeKind::U8:
-        return "U8";
+        _output->append( "U8");
+        break;
     case BuiltinTypeKind::I8:
-        return "I8";
+        _output->append( "I8");
+        break;
     case BuiltinTypeKind::U16:
-        return "U16";
+        _output->append( "U16");
+        break;
     case BuiltinTypeKind::I16:
-        return "I16";
+        _output->append( "I16");
+        break;
     case BuiltinTypeKind::U32:
-        return "U32";
+        _output->append( "U32");
+        break;
     case BuiltinTypeKind::I32:
-        return "I32";
+        _output->append( "I32");
+        break;
     case BuiltinTypeKind::U64:
-        return "U64";
+        _output->append( "U64");
+        break;
     case BuiltinTypeKind::I64:
-        return "I64";
+        _output->append( "I64");
+        break;
     case BuiltinTypeKind::F32:
-        return "F32";
+        _output->append( "F32");
+        break;
     case BuiltinTypeKind::F64:
-        return "F64";
+        _output->append( "F64");
+        break;
     case BuiltinTypeKind::Bool:
-        return "Bool";
+        _output->append( "Bool");
+        break;
     case BuiltinTypeKind::Void:
-        return "Void";
+        _output->append( "Void");
+        break;
     case BuiltinTypeKind::Char:
-        return "Char";
+        _output->append( "Char");
+        break;
     }
-
-    return nullptr;
-}
-
-bool TypeNameGen::visitBuiltinType(const BuiltinType* type)
-{
-    _output->append(builtinToName(type));
     return false;
 }
 

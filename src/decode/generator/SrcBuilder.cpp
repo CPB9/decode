@@ -8,6 +8,8 @@
 
 #include "decode/generator/SrcBuilder.h"
 
+#include <bmcl/StringView.h>
+
 namespace decode {
 
 SrcBuilder::~SrcBuilder()
@@ -156,6 +158,11 @@ void SrcBuilder::appendWithTryMacro(const SrcGen& func, bmcl::StringView msg)
     append("\");\n");
 }
 
+void SrcBuilder::appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName)
+{
+    appendVarDecl(typeName, varName, bmcl::StringView::empty());
+}
+
 void SrcBuilder::appendVarDecl(bmcl::StringView typeName, bmcl::StringView varName, bmcl::StringView prefix)
 {
     append(prefix);
@@ -175,14 +182,13 @@ void SrcBuilder::appendOnboardIncludePath(bmcl::StringView path)
 void SrcBuilder::appendTagHeader(bmcl::StringView name)
 {
     append("typedef ");
-    append(name.begin(), name.end());
+    append(name);
     append(" {\n");
 }
 
 void SrcBuilder::appendTagFooter(bmcl::StringView name)
 {
-    append("} ");
-    append("Photon");
+    append("} Photon");
     appendWithFirstUpper(name);
     append(";\n");
 }
@@ -191,9 +197,9 @@ void SrcBuilder::startIncludeGuard(bmcl::StringView modName, bmcl::StringView ty
 {
     auto writeGuardMacro = [this, typeName, modName]() {
         append("__PHOTON_");
-        append(modName.toUpper());
+        appendUpper(modName);
         append('_');
-        append(typeName.toUpper()); //FIXME
+        appendUpper(typeName);
         append("_H__\n");
     };
     append("#ifndef ");

@@ -38,6 +38,7 @@
 #include <iostream>
 #include <deque>
 #include <memory>
+#include <future>
 
 //TODO: use joinPath
 
@@ -66,7 +67,7 @@ bool Generator::generateTmPrivate(const Package* package)
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendModIfdef(msg.component->moduleName());
-        _output.appendIndent(1);
+        _output.appendIndent();
         _output.append("{");
         _output.append(".func = ");
         prototypeGen.appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
@@ -95,43 +96,38 @@ bool Generator::generateTmPrivate(const Package* package)
     return true;
 }
 
-bool Generator::generateSerializedPackage(const Project* project)
+void Generator::generateSerializedPackage(const Project* project, SrcBuilder* dest)
 {
-    _output.clear();
+    dest->clear();
 
     bmcl::Buffer encoded = project->encode();
 
-    _output.appendNumericValueDefine("_PHOTON_PACKAGE_SIZE", encoded.size());
-    _output.appendEol();
-    _output.appendByteArrayDefinition("static const", "_package", encoded);
-    _output.appendEol();
+    dest->appendNumericValueDefine(encoded.size(), "_PHOTON_PACKAGE_SIZE");
+    dest->appendEol();
+    dest->appendByteArrayDefinition("static const", "_package", encoded);
+    dest->appendEol();
 
     Project::HashType ctx;
     ctx.update(encoded);
     auto hash = ctx.finalize();
 
-    _output.appendNumericValueDefine("_PHOTON_PACKAGE_HASH_SIZE", hash.size());
-    _output.appendEol();
-    _output.appendByteArrayDefinition("static const", "_packageHash", hash);
-    _output.appendEol();
+    dest->appendNumericValueDefine(hash.size(), "_PHOTON_PACKAGE_HASH_SIZE");
+    dest->appendEol();
+    dest->appendByteArrayDefinition("static const", "_packageHash", hash);
+    dest->appendEol();
 
     for (const Device* dev : project->devices()) {
-        _output.appendDeviceIfDef(dev->name);
-        _output.appendEol();
+        dest->appendDeviceIfDef(dev->name);
+        dest->appendEol();
         bmcl::Bytes name = bmcl::StringView(dev->name).asBytes();
-        _output.appendNumericValueDefine("_PHOTON_DEVICE_NAME_SIZE", name.size());
-        _output.appendEol();
-        _output.appendByteArrayDefinition("static const", "_deviceName", name);
-        _output.appendEol();
-        _output.appendEndif();
-        _output.appendEol();
+        dest->appendNumericValueDefine(name.size(), "_PHOTON_DEVICE_NAME_SIZE");
+        dest->appendEol();
+        dest->appendByteArrayDefinition("static const", "_deviceName", name);
+        dest->appendEol();
+        dest->appendEndif();
+        dest->appendEol();
     }
 
-    std::string packageDetailPath = _onboardPath + "/photon/Package.Private.inc.c"; //FIXME: joinPath
-    TRY(saveOutput(packageDetailPath.c_str(), _output.view(), _diag.get()));
-    _output.clear();
-
-    return true;
 }
 
 void Generator::appendBuiltinSources(bmcl::StringView ext)
@@ -227,7 +223,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         _output.appendUpper(dev->name);
         _output.append("\n\n");
 
-        _output.appendNumericValueDefine("PHOTON_DEVICE_ID", dev->id);
+        _output.appendNumericValueDefine(dev->id, "PHOTON_DEVICE_ID");
         for (const Device* d : project->devices()) {
             _output.append("#define PHOTON_DEVICE_ID_");
             _output.appendUpper(d->name);
@@ -287,7 +283,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         path.append(_onboardPath);
         path.append("/Photon"); //FIXME: joinPath
         path.appendWithFirstUpper(dev->name);
-        path.appendWithFirstUpper(".h");
+        path.append(".h");
         TRY(saveOutput(path.result().c_str(), _output.view(), _diag.get()));
         _output.clear();
 
@@ -343,6 +339,10 @@ bool Generator::generateProject(const Project* project)
     _gcPhotonPath.result() = joinPath(_gcPath, "photon");
     TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
 
+    SrcBuilder dest;
+    dest.result().reserve(32 * 1024);
+    _output.result().reserve(32 * 1024);
+    auto future = std::async(std::launch::async, &Generator::generateSerializedPackage, project, &dest);
 
     _onboardPhotonPath.append('/'); //FIXME: remove
     _gcPhotonPath.append('/'); //FIXME: remove
@@ -362,10 +362,13 @@ bool Generator::generateProject(const Project* project)
     TRY(generateConfig(project));
     TRY(generateDynArrays());
     TRY(generateTmPrivate(package));
-    TRY(generateSerializedPackage(project));
     TRY(generateStatusMessages(project));
     TRY(generateCommands(package));
     TRY(generateDeviceFiles(project));
+
+    future.wait();
+    std::string packageDetailPath = _onboardPath + "/photon/Package.Private.inc.c"; //FIXME: joinPath
+    TRY(saveOutput(packageDetailPath.c_str(), dest.view(), _diag.get()));
 
     _output.resize(0);
     _onboardHgen.reset();
@@ -518,7 +521,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
 
         _onboardHgen->genComponentHeader(ast, comp.unwrap());
         TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_onboardPhotonPath));
-        _output.appendComponentInclude(comp->moduleName());
+        _output.appendComponentInclude(comp->moduleName(), ".h");
         _output.appendEol();
         if (comp->hasParams()) {
             _output.append("Photon");

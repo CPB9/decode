@@ -52,6 +52,7 @@ add_library(zpaq STATIC
 )
 
 find_package(Qt5Widgets)
+find_package(Threads)
 
 # caf
 
@@ -297,7 +298,7 @@ add_library(decode
     ${DECODE_PARSER_SRC}
 )
 
-target_link_libraries(decode zpaq bmcl)
+target_link_libraries(decode zpaq bmcl Threads::Threads)
 
 add_executable(decode_gen
     src/decode/Main.cpp

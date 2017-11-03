@@ -33,7 +33,7 @@ void InlineTypeDeserializerGen::inspectPointer(const Type* type)
     _output->appendIndent(context());
     appendArgumentName();
     _output->append(" = (");
-    _reprGen->genTypeRepr(type);
+    _reprGen->genOnboardTypeRepr(type);
     _output->append(")PhotonReader_ReadPtrLe(src);\n");
 }
 
@@ -41,7 +41,7 @@ void InlineTypeDeserializerGen::inspectNonInlineType(const Type* type)
 {
     _output->appendIndent(context());
     _output->appendWithTryMacro([&, this, type](SrcBuilder* output) {
-        _reprGen->genTypeRepr(type);
+        _reprGen->genOnboardTypeRepr(type);
         output->append("_Deserialize(&");
         appendArgumentName();
         output->append(", src)");

@@ -9,6 +9,7 @@
 #include "decode/generator/TypeReprGen.h"
 #include "decode/core/Foreach.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/ast/Type.h"
 
 #include <bmcl/Logging.h>
 
@@ -24,60 +25,77 @@ TypeReprGen::~TypeReprGen()
 {
 }
 
-static bmcl::StringView builtinToC(const BuiltinType* type)
+template <bool isOnboard>
+void TypeReprGen::writeBuiltin(const BuiltinType* type)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
-        return "size_t";
+        _output->insert(_currentOffset, "size_t");
+        break;
     case BuiltinTypeKind::ISize:
-        return "ptrdiff_t";
+        _output->insert(_currentOffset, "ptrdiff_t");
+        break;
     case BuiltinTypeKind::Varuint:
-        return "uint64_t";
+        _output->insert(_currentOffset, "uint64_t");
+        break;
     case BuiltinTypeKind::Varint:
-        return "int64_t";
+        _output->insert(_currentOffset, "int64_t");
+        break;
     case BuiltinTypeKind::U8:
-        return "uint8_t";
+        _output->insert(_currentOffset, "uint8_t");
+        break;
     case BuiltinTypeKind::I8:
-        return "int8_t";
+        _output->insert(_currentOffset, "int8_t");
+        break;
     case BuiltinTypeKind::U16:
-        return "uint16_t";
+        _output->insert(_currentOffset, "uint16_t");
+        break;
     case BuiltinTypeKind::I16:
-        return "int16_t";
+        _output->insert(_currentOffset, "int16_t");
+        break;
     case BuiltinTypeKind::U32:
-        return "uint32_t";
+        _output->insert(_currentOffset, "uint32_t");
+        break;
     case BuiltinTypeKind::I32:
-        return "int32_t";
+        _output->insert(_currentOffset, "int32_t");
+        break;
     case BuiltinTypeKind::U64:
-        return "uint64_t";
+        _output->insert(_currentOffset, "uint64_t");
+        break;
     case BuiltinTypeKind::I64:
-        return "int64_t";
+        _output->insert(_currentOffset, "int64_t");
+        break;
     case BuiltinTypeKind::F32:
-        return "float";
+        _output->insert(_currentOffset, "float");
+        break;
     case BuiltinTypeKind::F64:
-        return "double";
+        _output->insert(_currentOffset, "double");
+        break;
     case BuiltinTypeKind::Bool:
-        return "bool";
+        _output->insert(_currentOffset, "bool");
+        break;
     case BuiltinTypeKind::Void:
-        return "void";
+        _output->insert(_currentOffset, "void");
+        break;
     case BuiltinTypeKind::Char:
-        return "char";
+        _output->insert(_currentOffset, "char");
+        break;
     }
-    return nullptr;
+    if (!isOnboard) {
+        _output->insert(_currentOffset, "std::");
+    }
 }
 
-void TypeReprGen::writeBuiltin(const BuiltinType* type)
-{
-    _output->insert(_currentOffset, builtinToC(type));
-}
-
+template <bool isOnboard>
 void TypeReprGen::writeArray(const ArrayType* type)
 {
     _output->append('[');
     _output->append(std::to_string(type->elementCount()));
     _output->append(']');
-    writeType(type->elementType());
+    writeType<isOnboard>(type->elementType());
 }
 
+template <bool isOnboard>
 void TypeReprGen::writePointer(const ReferenceType* type)
 {
     if (type->isMutable()) {
@@ -85,10 +103,10 @@ void TypeReprGen::writePointer(const ReferenceType* type)
     } else {
         _output->insert(_currentOffset, " const* ");
     }
-    writeType(type->pointee());
+    writeType<isOnboard>(type->pointee());
 }
 
-void TypeReprGen::writeNamed(const Type* type)
+void TypeReprGen::writeOnboardTypeName(const Type* type)
 {
     _temp.append("Photon");
     TypeNameGen sng(&_temp);
@@ -97,6 +115,25 @@ void TypeReprGen::writeNamed(const Type* type)
     _temp.clear();
 }
 
+template <bool isOnboard>
+void TypeReprGen::writeNamed(const NamedType* type)
+{
+    if (isOnboard) {
+        _temp.append("Photon");
+        if (type->moduleName() != "core") {
+            _temp.appendWithFirstUpper(type->moduleName());
+        }
+        _temp.appendWithFirstUpper(type->name());
+    } else {
+        _temp.append(type->moduleName());
+        _temp.append("::");
+        _temp.append(type->name());
+    }
+    _output->insert(_currentOffset, _temp.result());
+    _temp.clear();
+}
+
+template <bool isOnboard>
 void TypeReprGen::writeFunction(const FunctionType* type)
 {
     _output->insert(_currentOffset, "(*");
@@ -104,7 +141,7 @@ void TypeReprGen::writeFunction(const FunctionType* type)
     std::size_t oldOffset = _currentOffset;
     _currentOffset = _output->result().size();
     foreachList(type->argumentsRange(), [this](const Field* arg) {
-        writeType(arg->type());
+        writeType<isOnboard>(arg->type());
     }, [this](const Field*) {
          _output->append(", ");
          _currentOffset = _output->result().size();
@@ -114,48 +151,83 @@ void TypeReprGen::writeFunction(const FunctionType* type)
     if (type->returnValue().isNone()) {
         _output->insert(_currentOffset, "void ");
     } else {
-        writeType(type->returnValue().unwrap());
+        writeType<isOnboard>(type->returnValue().unwrap());
     }
 }
 
+template <bool isOnboard>
+void TypeReprGen::writeGenericInstantiation(const GenericInstantiationType* type)
+{
+    if (isOnboard) {
+        writeOnboardTypeName(type);
+    } else {
+        _temp.append(type->moduleName());
+        _temp.append("::");
+        _temp.append(type->genericName());
+        _temp.append("<");
+
+        TypeReprGen gen(&_temp);
+        foreachList(type->substitutedTypesRange(), [&](const Type* t) {
+            gen.genTypeRepr<false>(t);
+        }, [this](const Type*) {
+            _temp.append(", ");
+        });
+        _temp.append(">");
+    }
+}
+
+template <bool isOnboard>
+void TypeReprGen::writeDynArray(const DynArrayType* type)
+{
+    if (isOnboard) {
+        writeOnboardTypeName(type);
+    } else {
+        _temp.append("std::vector<");
+        TypeReprGen gen(&_temp);
+        gen.genTypeRepr<false>(type->elementType());
+        _temp.append(">");
+    }
+}
+
+template <bool isOnboard>
 void TypeReprGen::writeType(const Type* type)
 {
     switch (type->typeKind()) {
     case TypeKind::Builtin:
-        writeBuiltin(type->asBuiltin());
+        writeBuiltin<isOnboard>(type->asBuiltin());
         break;
     case TypeKind::Reference:
-        writePointer(type->asReference());
+        writePointer<isOnboard>(type->asReference());
         break;
     case TypeKind::Array:
-        writeArray(type->asArray());
+        writeArray<isOnboard>(type->asArray());
         break;
     case TypeKind::DynArray:
-        writeNamed(type);
+        writeDynArray<isOnboard>(type->asDynArray());
         break;
     case TypeKind::Function:
-        writeFunction(type->asFunction());
+        writeFunction<isOnboard>(type->asFunction());
         break;
     case TypeKind::Enum:
-        writeNamed(type);
+        writeNamed<isOnboard>(type->asEnum());
         break;
     case TypeKind::Struct:
-        writeNamed(type);
+        writeNamed<isOnboard>(type->asStruct());
         break;
     case TypeKind::Variant:
-        writeNamed(type);
+        writeNamed<isOnboard>(type->asVariant());
         break;
     case TypeKind::Imported:
-        writeType(type->asImported()->link());
+        writeType<isOnboard>(type->asImported()->link());
         break;
     case TypeKind::Alias:
-        writeType(type->asAlias()->alias());
+        writeType<isOnboard>(type->asAlias()->alias());
         break;
     case TypeKind::Generic:
         //TODO:
         break;
     case TypeKind::GenericInstantiation:
-        writeNamed(type);
+        writeGenericInstantiation<isOnboard>(type->asGenericInstantiation());
         break;
     case TypeKind::GenericParameter:
         _output->insert(_currentOffset, type->asGenericParemeter()->name());
@@ -163,6 +235,24 @@ void TypeReprGen::writeType(const Type* type)
     }
 }
 
+void TypeReprGen::genOnboardTypeRepr(const Type* type)
+{
+    genTypeRepr<true>(type);
+}
+
+void TypeReprGen::genOnboardTypeRepr(const Type* type, bmcl::StringView fieldName)
+{
+    genTypeRepr<true>(type, fieldName);
+}
+
+template <bool isOnboard>
+void TypeReprGen::genTypeRepr(const Type* type)
+{
+    _currentOffset = _output->result().size();
+    writeType<isOnboard>(type);
+}
+
+template <bool isOnboard>
 void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
     _currentOffset = _output->result().size();
@@ -170,7 +260,6 @@ void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
         _output->append(' ');
     }
     _output->append(fieldName);
-    writeType(type);
+    writeType<isOnboard>(type);
 }
-
 }

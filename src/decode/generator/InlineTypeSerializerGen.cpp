@@ -40,7 +40,7 @@ void InlineTypeSerializerGen::inspectNonInlineType(const Type* type)
 {
     _output->appendIndent(context());
     _output->appendWithTryMacro([&, this, type](SrcBuilder* output) {
-        _reprGen->genTypeRepr(type);
+        _reprGen->genOnboardTypeRepr(type);
         output->append("_Serialize(");
         if (type->typeKind() != TypeKind::Enum) {
             output->append('&');

@@ -70,7 +70,7 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
 
     for (const Component* comp : project->package()->components()) {
         _output->appendSourceModIfdef(comp->moduleName());
-        _output->appendComponentInclude(comp->moduleName());
+        _output->appendComponentInclude(comp->moduleName(), ".h");
         _output->appendEndif();
     }
     _output->appendEol();
@@ -164,7 +164,7 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
         for (const std::string& inc : includes) {
             _output->appendOnboardIncludePath(inc);
         }
-        _output->appendComponentInclude(comp->moduleName());
+        _output->appendComponentInclude(comp->moduleName(), ".h");
         _output->appendEndif();
 
         includes.clear();

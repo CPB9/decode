@@ -84,9 +84,27 @@ void StringBuilder::appendEol()
     append('\n');
 }
 
+static inline char asciiToUpper(char c)
+{
+    if ( c >= 'a'&& c <= 'z' ) {
+        return c + ('Z' - 'z');
+    }
+    return c;
+}
+
+static inline char asciiToLower(char c)
+{
+    if ( c >= 'A'&& c <= 'Z' ) {
+        return c - ('Z' - 'z');
+    }
+    return c;
+}
+
 void StringBuilder::appendUpper(bmcl::StringView view)
 {
-    append(view.toUpper());
+    auto size = _output.size();
+    _output.resize(_output.size() + view.size());
+    std::transform(view.begin(), view.end(), _output.begin() + size, asciiToUpper);
 }
 
 template <typename F>
@@ -99,12 +117,12 @@ void StringBuilder::appendWithFirstModified(bmcl::StringView view, F&& func)
 
 void StringBuilder::appendWithFirstUpper(bmcl::StringView view)
 {
-    appendWithFirstModified<int (*)(int)>(view, &std::toupper);
+    appendWithFirstModified(view, asciiToUpper);
 }
 
 void StringBuilder::appendWithFirstLower(bmcl::StringView view)
 {
-    appendWithFirstModified<int (*)(int)>(view, &std::tolower);
+    appendWithFirstModified(view, asciiToLower);
 }
 
 void StringBuilder::removeFromBack(std::size_t size)
@@ -119,7 +137,7 @@ void StringBuilder::appendHexValue(uint8_t value)
     char str[4] = {'0', 'x', '0', '0'};
     str[2] = chars[(value & 0xf0) >> 4];
     str[3] = chars[value & 0x0f];
-    append(str, str + 4);
+    append(str, 4);
 }
 
 void StringBuilder::appendBoolValue(bool value)

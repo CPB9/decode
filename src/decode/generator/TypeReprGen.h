@@ -10,13 +10,18 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/generator/NameVisitor.h"
 #include "decode/generator/SrcBuilder.h"
 
-#include <string>
-#include <vector>
-
 namespace decode {
+
+class Type;
+class ArrayType;
+class BuiltinType;
+class ReferenceType;
+class FunctionType;
+class DynArrayType;
+class NamedType;
+class GenericInstantiationType;
 
 class TypeReprGen : public RefCountable {
 public:
@@ -26,18 +31,35 @@ public:
     TypeReprGen(SrcBuilder* dest);
     ~TypeReprGen();
 
-    void genTypeRepr(const Type* type, bmcl::StringView fieldName = bmcl::StringView::empty());
+    void genOnboardTypeRepr(const Type* type);
+    void genOnboardTypeRepr(const Type* type, bmcl::StringView fieldName);
 
 private:
+    template <bool isOnboard>
+    void genTypeRepr(const Type* type);
+    template <bool isOnboard>
+    void genTypeRepr(const Type* type, bmcl::StringView fieldName);
+    template <bool isOnboard>
     void writeBuiltin(const BuiltinType* type);
+    template <bool isOnboard>
     void writeArray(const ArrayType* type);
+    template <bool isOnboard>
     void writePointer(const ReferenceType* type);
-    void writeNamed(const Type* type);
+    template <bool isOnboard>
+    void writeNamed(const NamedType* type);
+    template <bool isOnboard>
     void writeFunction(const FunctionType* type);
+    template <bool isOnboard>
+    void writeGenericInstantiation(const GenericInstantiationType* type);
+    template <bool isOnboard>
+    void writeDynArray(const DynArrayType* type);
+    template <bool isOnboard>
     void writeType(const Type* type);
 
-    std::size_t _currentOffset;
+    void writeOnboardTypeName(const Type* type);
+
     SrcBuilder* _output;
+    std::size_t _currentOffset;
     SrcBuilder _temp;
 };
 }

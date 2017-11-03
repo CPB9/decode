@@ -322,7 +322,7 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
 
         foreachList(ftype->argumentsRange(), [this](const Field* field) {
             Rc<Type> type = wrapIntoPointerIfNeeded(const_cast<Type*>(field->type())); //HACK
-            _typeReprGen->genTypeRepr(type.get(), field->name());
+            _typeReprGen->genOnboardTypeRepr(type.get(), field->name());
         }, [this](const Field*) {
             _output->append(", ");
         });
@@ -332,10 +332,10 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
                 _output->append(", ");
             }
             if (rv->isArray()) {
-                _typeReprGen->genTypeRepr(rv.unwrap(), "rv");
+                _typeReprGen->genOnboardTypeRepr(rv.unwrap(), "rv");
             } else {
                 Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
-                _typeReprGen->genTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
+                _typeReprGen->genOnboardTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
             }
         }
 
@@ -349,7 +349,7 @@ void OnboardTypeHeaderGen::appendFunctionPrototype(const Function* func, bmcl::S
     const FunctionType* type = func->type();
     bmcl::OptionPtr<const Type> rv = type->returnValue();
     if (rv.isSome()) {
-        _typeReprGen->genTypeRepr(rv.unwrap());
+        _typeReprGen->genOnboardTypeRepr(rv.unwrap());
         _output->append(' ');
     } else {
         _output->append("void ");
@@ -390,7 +390,7 @@ void OnboardTypeHeaderGen::appendFunctionPrototype(const Function* func, bmcl::S
     }
 
     foreachList(type->argumentsRange(), [this](const Field* field) {
-        _typeReprGen->genTypeRepr(field->type(), field->name());
+        _typeReprGen->genOnboardTypeRepr(field->type(), field->name());
     }, [this](const Field*) {
         _output->append(", ");
     });

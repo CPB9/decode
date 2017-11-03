@@ -67,7 +67,7 @@ void TypeDefGen::appendDynArray(const DynArrayType* type)
     _output->appendTagHeader("struct");
 
     _output->appendIndent();
-    _typeReprGen->genTypeRepr(type->elementType());
+    _typeReprGen->genOnboardTypeRepr(type->elementType());
     _output->append(" data[");
     _output->appendNumericValue(type->maxSize());
     if (type->elementType()->isBuiltinChar()) {
@@ -91,7 +91,7 @@ void TypeDefGen::appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView nam
     std::size_t i = 1;
     for (const Type* type : fields) {
         _output->appendIndent();
-        _typeReprGen->genTypeRepr(type, "_" + std::to_string(i));
+        _typeReprGen->genOnboardTypeRepr(type, "_" + std::to_string(i));
         _output->append(";\n");
         i++;
     }
@@ -106,7 +106,7 @@ void TypeDefGen::appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView na
 
     for (const Field* field : fields) {
         _output->appendIndent();
-        _typeReprGen->genTypeRepr(field->type(), field->name());
+        _typeReprGen->genOnboardTypeRepr(field->type(), field->name());
         _output->append(";\n");
     }
 
@@ -217,9 +217,9 @@ void TypeDefGen::appendAlias(const AliasType* type, bmcl::StringView name)
     if (link->isFunction()) {
         StringBuilder typedefName("Photon");
         typedefName.append(name);
-        _typeReprGen->genTypeRepr(link, typedefName.result());
+        _typeReprGen->genOnboardTypeRepr(link, typedefName.result());
     } else {
-        _typeReprGen->genTypeRepr(link);
+        _typeReprGen->genOnboardTypeRepr(link);
         _output->append(" Photon");
         _output->append(name);
     }
