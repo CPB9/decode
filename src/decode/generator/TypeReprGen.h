@@ -34,6 +34,9 @@ public:
     void genOnboardTypeRepr(const Type* type);
     void genOnboardTypeRepr(const Type* type, bmcl::StringView fieldName);
 
+    void genGcTypeRepr(const Type* type);
+    void genGcTypeRepr(const Type* type, bmcl::StringView fieldName);
+
 private:
     template <bool isOnboard>
     void genTypeRepr(const Type* type);
