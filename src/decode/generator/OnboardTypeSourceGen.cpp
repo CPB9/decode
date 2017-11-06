@@ -10,7 +10,7 @@
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/SrcBuilder.h"
-#include "decode/generator/IncludeCollector.h"
+#include "decode/generator/TypeDependsCollector.h"
 
 namespace decode {
 

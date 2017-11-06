@@ -12,7 +12,7 @@
 #include "decode/core/HashSet.h"
 #include "decode/generator/TypeDefGen.h"
 #include "decode/generator/SrcBuilder.h"
-#include "decode/generator/IncludeCollector.h"
+#include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/FuncPrototypeGen.h"
 #include <string>
@@ -44,7 +44,7 @@ private:
     void startIncludeGuard(const Component* comp);
     void startIncludeGuard(const DynArrayType* type);
 
-    void appendIncludes(const HashSet<std::string>& src);
+    void appendIncludes(const TypeDependsCollector::Depends& src);
     void appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name);
     void appendImplBlockIncludes(const NamedType* topLevelType);
     void appendImplBlockIncludes(const Component* comp);
@@ -62,7 +62,7 @@ private:
 
     const Ast* _ast;
     SrcBuilder* _output;
-    IncludeCollector _includeCollector;
+    TypeDependsCollector _includeCollector;
     TypeDefGen _typeDefGen;
     SrcBuilder _dynArrayName;
     FuncPrototypeGen _prototypeGen;

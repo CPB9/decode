@@ -11,7 +11,8 @@
 #include "decode/parser/Project.h"
 #include "decode/parser/Package.h"
 #include "decode/generator/TypeReprGen.h"
-#include "decode/generator/IncludeCollector.h"
+#include "decode/generator/IncludeGen.h"
+#include "decode/generator/TypeDependsCollector.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/parser/Containers.h"
@@ -150,8 +151,9 @@ void StatusEncoderGen::appendTmDecoderPrototype(bmcl::StringView name)
 
 void StatusEncoderGen::generateEncoderSource(const Project* project)
 {
-    IncludeCollector coll;
-    HashSet<std::string> includes;
+    TypeDependsCollector coll;
+    TypeDependsCollector::Depends includes;
+    IncludeGen includeGen(_output);
 
     for (const char* inc : {"core/Writer", "core/Error", "core/Try", "core/Logging"}) {
         _output->appendOnboardIncludePath(inc);
@@ -161,9 +163,7 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
         coll.collectStatuses(comp->statusesRange(), &includes);
 
         _output->appendModIfdef(comp->moduleName());
-        for (const std::string& inc : includes) {
-            _output->appendOnboardIncludePath(inc);
-        }
+        includeGen.genOnboardIncludePaths(&includes);
         _output->appendComponentInclude(comp->moduleName(), ".h");
         _output->appendEndif();
 

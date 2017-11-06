@@ -22,16 +22,18 @@ class TypeReprGen;
 class StatusRegexp;
 class Function;
 
-class IncludeCollector : public ConstAstVisitor<IncludeCollector> {
+class TypeDependsCollector : public ConstAstVisitor<TypeDependsCollector> {
 public:
-    void collect(const Type* type, HashSet<std::string>* dest);
-    void collect(const StatusMsg* msg, HashSet<std::string>* dest);
-    void collectCmds(Component::Cmds::ConstRange cmds, HashSet<std::string>* dest);
-    void collectParams(Component::Params::ConstRange cmds, HashSet<std::string>* dest);
-    void collectStatuses(Component::Statuses::ConstRange statuses, HashSet<std::string>* dest);
-    void collect(const Component* comp, HashSet<std::string>* dest);
-    void collect(const Function* func, HashSet<std::string>* dest);
-    void collect(const Ast* ast, HashSet<std::string>* dest);
+    using Depends = HashSet<Rc<const Type>>;
+
+    void collect(const Type* type, Depends* dest);
+    void collect(const StatusMsg* msg, Depends* dest);
+    void collectCmds(Component::Cmds::ConstRange cmds, Depends* dest);
+    void collectParams(Component::Params::ConstRange cmds, Depends* dest);
+    void collectStatuses(Component::Statuses::ConstRange statuses, Depends* dest);
+    void collect(const Component* comp, Depends* dest);
+    void collect(const Function* func, Depends* dest);
+    void collect(const Ast* ast, Depends* dest);
 
     bool visitEnumType(const EnumType* enumeration);
     bool visitStructType(const StructType* str);
@@ -44,10 +46,10 @@ public:
     bool visitGenericInstantiationType(const GenericInstantiationType* type);
 
 private:
-    void addInclude(const NamedType* type);
+    void collectType(const Type* type);
 
     const Type* _currentType;
-    HashSet<std::string>* _dest;
+    Depends* _dest;
 };
 
 }

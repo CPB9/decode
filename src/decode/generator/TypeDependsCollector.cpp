@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-#include "decode/generator/IncludeCollector.h"
+#include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeNameGen.h"
 #include "decode/core/HashSet.h"
@@ -16,44 +16,51 @@
 
 namespace decode {
 
-inline bool IncludeCollector::visitEnumType(const EnumType* enumeration)
+void TypeDependsCollector::collectType(const Type* type)
 {
-    addInclude(enumeration);
+    if (type != _currentType) {
+        _dest->emplace(type);
+    }
+}
+
+inline bool TypeDependsCollector::visitEnumType(const EnumType* enumeration)
+{
+    collectType(enumeration);
     return true;
 }
 
-inline bool IncludeCollector::visitStructType(const StructType* str)
+inline bool TypeDependsCollector::visitStructType(const StructType* str)
 {
-    addInclude(str);
+    collectType(str);
     return true;
 }
 
-inline bool IncludeCollector::visitVariantType(const VariantType* variant)
+inline bool TypeDependsCollector::visitVariantType(const VariantType* variant)
 {
-    addInclude(variant);
+    collectType(variant);
     return true;
 }
 
-inline bool IncludeCollector::visitImportedType(const ImportedType* u)
+inline bool TypeDependsCollector::visitImportedType(const ImportedType* u)
 {
     if (u->link()->isGeneric()) {
         return false;
     }
-    addInclude(u->link());
+    collectType(u->link());
     return false;
 }
 
-inline bool IncludeCollector::visitAliasType(const AliasType* alias)
+inline bool TypeDependsCollector::visitAliasType(const AliasType* alias)
 {
     if (alias == _currentType) {
         traverseType(alias->alias()); //HACK
         return false;
     }
-    addInclude(alias);
+    _dest->emplace(alias->alias());
     return false;
 }
 
-bool IncludeCollector::visitFunctionType(const FunctionType* func)
+bool TypeDependsCollector::visitFunctionType(const FunctionType* func)
 {
     for (const Field* arg : func->argumentsRange()) {
         traverseType(arg->type());
@@ -61,61 +68,37 @@ bool IncludeCollector::visitFunctionType(const FunctionType* func)
     return true;
 }
 
-bool IncludeCollector::visitGenericType(const GenericType* type)
+bool TypeDependsCollector::visitGenericType(const GenericType* type)
 {
-    (void)type;
+    collectType(type);
     return false;
 }
 
-bool IncludeCollector::visitDynArrayType(const DynArrayType* dynArray)
+bool TypeDependsCollector::visitDynArrayType(const DynArrayType* dynArray)
 {
     if (dynArray == _currentType) {
         traverseType(dynArray->elementType());
         return false;
     }
-    SrcBuilder path;
-    path.append("_dynarray_/");
-    TypeNameGen gen(&path);
-    gen.genTypeName(dynArray);
 
-    _dest->insert(std::move(path.result()));
+    _dest->insert(dynArray);
     ascendTypeOnce(dynArray->elementType());
     return false;
 }
 
-bool IncludeCollector::visitGenericInstantiationType(const GenericInstantiationType* type)
+bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiationType* type)
 {
     if (type == _currentType) {
         _currentType = type->instantiatedType();
         traverseType(_currentType);
         return false;
     }
-    SrcBuilder path;
-    path.append("_generic_/");
-    if (type->moduleName() != "core") {
-        path.appendWithFirstUpper(type->moduleName());
-    }
-    path.append(type->genericName());
-    TypeNameGen gen(&path);
-    for (const Type* t : type->substitutedTypesRange()) {
-        gen.genTypeName(t);
-    }
-    _dest->insert(std::move(path.result()));
+
+    _dest->emplace(type);
     return false;
 }
 
-void IncludeCollector::addInclude(const NamedType* type)
-{
-    if (type == _currentType) {
-        return;
-    }
-    std::string path = type->moduleName().toStdString();
-    path.push_back('/');
-    path.append(type->name().begin(), type->name().end());
-    _dest->insert(std::move(path));
-}
-
-void IncludeCollector::collect(const StatusMsg* msg, HashSet<std::string>* dest)
+void TypeDependsCollector::collect(const StatusMsg* msg, TypeDependsCollector::Depends* dest)
 {
     _currentType = 0;
     _dest = dest;
@@ -142,14 +125,14 @@ void IncludeCollector::collect(const StatusMsg* msg, HashSet<std::string>* dest)
     }
 }
 
-void IncludeCollector::collect(const Type* type, HashSet<std::string>* dest)
+void TypeDependsCollector::collect(const Type* type, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     _currentType = type;
     traverseType(type);
 }
 
-void IncludeCollector::collect(const Component* comp, HashSet<std::string>* dest)
+void TypeDependsCollector::collect(const Component* comp, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     _currentType = 0;
@@ -161,14 +144,14 @@ void IncludeCollector::collect(const Component* comp, HashSet<std::string>* dest
     }
 }
 
-void IncludeCollector::collect(const Function* func, HashSet<std::string>* dest)
+void TypeDependsCollector::collect(const Function* func, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     _currentType = func->type();
     traverseType(func->type());
 }
 
-void IncludeCollector::collect(const Ast* ast, HashSet<std::string>* dest)
+void TypeDependsCollector::collect(const Ast* ast, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     _currentType = nullptr;
@@ -177,7 +160,7 @@ void IncludeCollector::collect(const Ast* ast, HashSet<std::string>* dest)
     }
 }
 
-void IncludeCollector::collectCmds(Component::Cmds::ConstRange cmds, HashSet<std::string>* dest)
+void TypeDependsCollector::collectCmds(Component::Cmds::ConstRange cmds, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     for (const Function* func : cmds) {
@@ -186,7 +169,7 @@ void IncludeCollector::collectCmds(Component::Cmds::ConstRange cmds, HashSet<std
     }
 }
 
-void IncludeCollector::collectParams(Component::Params::ConstRange params, HashSet<std::string>* dest)
+void TypeDependsCollector::collectParams(Component::Params::ConstRange params, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     _currentType = nullptr;
@@ -195,7 +178,7 @@ void IncludeCollector::collectParams(Component::Params::ConstRange params, HashS
     }
 }
 
-void IncludeCollector::collectStatuses(Component::Statuses::ConstRange statuses, HashSet<std::string>* dest)
+void TypeDependsCollector::collectStatuses(Component::Statuses::ConstRange statuses, TypeDependsCollector::Depends* dest)
 {
     for (const StatusMsg* msg : statuses) {
         collect(msg, dest);

@@ -11,6 +11,8 @@
 #include "decode/core/Foreach.h"
 #include "decode/ast/Type.h"
 #include "decode/generator/GcInlineTypeSerializerGen.h"
+#include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/IncludeGen.h"
 
 #include <bmcl/StringView.h>
 
@@ -76,6 +78,24 @@ void GcTypeGen::endNamespace()
     _output->append("}\n}\n");
 }
 
+void GcTypeGen::appendSerPrefix(const NamedType* type)
+{
+    _output->append("inline bool serialize");
+    _output->appendWithFirstUpper(type->name());
+    _output->append("(const ");
+    _output->appendWithFirstUpper(type->name());
+    _output->append("& self, bmcl::MemWriter* dest, photon::CoderState* state)\n{\n");
+}
+
+void GcTypeGen::appendDeserPrefix(const NamedType* type)
+{
+    _output->append("inline bool deserialize");
+    _output->appendWithFirstUpper(type->name());
+    _output->append("(");
+    _output->appendWithFirstUpper(type->name());
+    _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)\n{\n");
+}
+
 void GcTypeGen::generateEnum(const EnumType* type)
 {
     _output->appendPragmaOnce();
@@ -104,11 +124,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
     _output->append("}\n\n");
 
     //ser
-    _output->append("inline bool serialize");
-    _output->appendWithFirstUpper(type->name());
-    _output->append("(");
-    _output->appendWithFirstUpper(type->name());
-    _output->append(" self, bmcl::MemWriter* dest, photon::CoderState* state)\n{\n");
+    appendSerPrefix(type);
 
     _output->append("    switch(self) {\n");
     for (const EnumConstant* c : type->constantsRange()) {
@@ -130,12 +146,8 @@ void GcTypeGen::generateEnum(const EnumType* type)
                     "    return true;\n}\n\n");
 
     //deser
-    _output->append("inline bool deserialize");
-    _output->appendWithFirstUpper(type->name());
-    _output->append("(");
-    _output->appendWithFirstUpper(type->name());
-    _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)\n{\n"
-                    "    int64_t value;\n    if (!src->readVarint(&value)) {\n"
+    appendDeserPrefix(type);
+    _output->append("    int64_t value;\n    if (!src->readVarint(&value)) {\n"
                     "        state->setError(\"Not enough data to deserialize enum `");
     appendFullTypeName(type);
     _output->append("`\");\n        return false;\n    }\n");
@@ -165,6 +177,15 @@ void GcTypeGen::generateStruct(const StructType* type)
     _output->appendInclude("cstdint");
     _output->appendInclude("cstdbool");
     _output->appendEol();
+
+    TypeDependsCollector coll;
+    TypeDependsCollector::Depends depends;
+    coll.collect(type, &depends);
+    IncludeGen includeGen(_output);
+    includeGen.genGcIncludePaths(&depends);
+    if (!depends.empty()) {
+        _output->appendEol();
+    }
 
     beginNamespace(type->moduleName());
 
@@ -294,7 +315,13 @@ void GcTypeGen::generateStruct(const StructType* type)
         _output->append(";\n");
     }
 
+    _output->append("}\n\n");
+
+    //ser
+    appendSerPrefix(type);
+
     _output->append("}\n");
+
     endNamespace();
 }
 }

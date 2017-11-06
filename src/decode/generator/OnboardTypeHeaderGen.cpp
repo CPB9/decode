@@ -12,6 +12,7 @@
 #include "decode/ast/Component.h"
 #include "decode/ast/Function.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/generator/IncludeGen.h"
 
 #include <bmcl/Logging.h>
 
@@ -184,7 +185,7 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const DynArrayType* dynArray)
 
 void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
 {
-    HashSet<std::string> dest;
+    TypeDependsCollector::Depends dest;
     for (const Function* fn : comp->cmdsRange()) {
         _includeCollector.collect(fn->type(), &dest);
     }
@@ -194,24 +195,26 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
             _includeCollector.collect(fn->type(), &dest);
         }
     }
-    dest.insert("core/Reader");
-    dest.insert("core/Writer");
-    dest.insert("core/Error");
+    _output->appendOnboardIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendEol();
     appendIncludes(dest);
 }
 
 void OnboardTypeHeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name)
 {
     bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlock(topLevelType);
-    HashSet<std::string> dest;
+    TypeDependsCollector::Depends dest;
     if (impl.isSome()) {
         for (const Function* fn : impl->functionsRange()) {
             _includeCollector.collect(fn->type(), &dest);
         }
     }
-    dest.insert("core/Reader");
-    dest.insert("core/Writer");
-    dest.insert("core/Error");
+    _output->appendOnboardIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendEol();
     appendIncludes(dest);
 }
 
@@ -220,11 +223,10 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const NamedType* topLevelType
     appendImplBlockIncludes(topLevelType, topLevelType->name());
 }
 
-void OnboardTypeHeaderGen::appendIncludes(const HashSet<std::string>& src)
+void OnboardTypeHeaderGen::appendIncludes(const TypeDependsCollector::Depends& src)
 {
-    for (const std::string& path : src) {
-        _output->appendOnboardIncludePath(path);
-    }
+    IncludeGen gen(_output);
+    gen.genOnboardIncludePaths(&src);
 
     if (!src.empty()) {
         _output->appendEol();
@@ -233,14 +235,14 @@ void OnboardTypeHeaderGen::appendIncludes(const HashSet<std::string>& src)
 
 void OnboardTypeHeaderGen::appendIncludesAndFwds(const Component* comp)
 {
-    HashSet<std::string> includePaths;
+    TypeDependsCollector::Depends includePaths;
     _includeCollector.collect(comp, &includePaths);
     appendIncludes(includePaths);
 }
 
 void OnboardTypeHeaderGen::appendIncludesAndFwds(const Type* topLevelType)
 {
-    HashSet<std::string> includePaths;
+    TypeDependsCollector::Depends includePaths;
     _includeCollector.collect(topLevelType, &includePaths);
     appendIncludes(includePaths);
 }

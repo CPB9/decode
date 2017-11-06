@@ -9,7 +9,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/generator/IncludeCollector.h"
+#include "decode/generator/TypeDependsCollector.h"
 
 #include <string>
 

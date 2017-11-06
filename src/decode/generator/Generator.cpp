@@ -15,6 +15,7 @@
 #include "decode/generator/CmdEncoderGen.h"
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/GcTypeGen.h"
+#include "decode/generator/IncludeGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -183,12 +184,12 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
     };
 
-    IncludeCollector coll;
+    TypeDependsCollector coll;
     for (const Device* dev : project->devices()) {
-        HashSet<std::string> types;
-        types.insert("core/Reader");
-        types.insert("core/Writer");
-        types.insert("core/Error");
+        TypeDependsCollector::Depends types;
+//         types.insert("core/Reader");
+//         types.insert("core/Writer");
+//         types.insert("core/Error");
 
         for (const Rc<Ast>& module : dev->modules) {
             coll.collect(module.get(), &types);
@@ -262,9 +263,8 @@ bool Generator::generateDeviceFiles(const Project* project)
 
         _output.append("#include \"photon/Config.h\"\n\n");
 
-        for (const std::string& inc : types) {
-            _output.appendTypeInclude(inc, ".h");
-        }
+        IncludeGen includeGen(&_output);
+        includeGen.genOnboardIncludePaths(&types, ".h");
         _output.appendEol();
 
         for (const Rc<Ast>& module : dev->modules) {
@@ -291,9 +291,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         _output.append("#include \"Photon");
         _output.appendWithFirstUpper(dev->name);
         _output.append(".h\"\n\n");
-        for (const std::string& inc : types) {
-            _output.appendTypeInclude(inc, ".gen.c");
-        }
+        includeGen.genOnboardIncludePaths(&types, ".h");
         _output.appendEol();
 
         for (const Rc<Ast>& module : dev->modules) {

@@ -1,7 +1,8 @@
 #include "decode/generator/CmdEncoderGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeReprGen.h"
-#include "decode/generator/IncludeCollector.h"
+#include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/IncludeGen.h"
 #include "decode/ast/Function.h"
 #include "decode/core/Foreach.h"
 #include "decode/core/HashSet.h"
@@ -43,14 +44,15 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->startIncludeGuard("PRIVATE", "CMD_ENCODER");
     _output->appendEol();
 
-    HashSet<std::string> includes;
-    IncludeCollector col;
+    TypeDependsCollector::Depends includes;
+    TypeDependsCollector col;
 
     for (const char* path : {"core/Error", "core/Reader", "core/Writer", "core/Try"}) {
         _output->appendOnboardIncludePath(path);
     }
     _output->appendEol();
 
+    IncludeGen includeGen(_output);
     for (const Component* it : comps) {
         for (const Function* jt : it->cmdsRange()) {
             col.collect(jt, &includes);
@@ -59,9 +61,7 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
             continue;
         }
         _output->appendTargetModIfdef(it->moduleName());
-        for (const std::string& path : includes) {
-            _output->appendOnboardIncludePath(path);
-        }
+        includeGen.genOnboardIncludePaths(&includes);
         _output->appendEndif();
 
         includes.clear();

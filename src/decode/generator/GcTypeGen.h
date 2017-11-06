@@ -14,6 +14,7 @@
 
 namespace decode {
 
+class Type;
 class TopLevelType;
 class EnumType;
 class StructType;
@@ -34,6 +35,9 @@ private:
 
     void appendFullTypeName(const NamedType* type);
     void appendEnumConstantName(const EnumType* type, const EnumConstant* constant);
+
+    void appendSerPrefix(const NamedType* type);
+    void appendDeserPrefix(const NamedType* type);
 
     void beginNamespace(bmcl::StringView modName);
     void endNamespace();

@@ -177,12 +177,12 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/DynArrayCollector.h
     src/decode/generator/FuncPrototypeGen.cpp
     src/decode/generator/FuncPrototypeGen.h
-    src/decode/generator/GcTypeGen.h
     src/decode/generator/GcTypeGen.cpp
+    src/decode/generator/GcTypeGen.h
     src/decode/generator/Generator.cpp
     src/decode/generator/Generator.h
-    src/decode/generator/IncludeCollector.cpp
-    src/decode/generator/IncludeCollector.h
+    src/decode/generator/IncludeGen.cpp
+    src/decode/generator/IncludeGen.h
     src/decode/generator/InlineSerContext.h
     src/decode/generator/InlineTypeDeserializerGen.cpp
     src/decode/generator/InlineTypeDeserializerGen.h
@@ -202,6 +202,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/StringBuilder.h
     src/decode/generator/TypeDefGen.cpp
     src/decode/generator/TypeDefGen.h
+    src/decode/generator/TypeDependsCollector.cpp
+    src/decode/generator/TypeDependsCollector.h
     src/decode/generator/TypeNameGen.cpp
     src/decode/generator/TypeNameGen.h
     src/decode/generator/TypeReprGen.cpp
