@@ -291,7 +291,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         _output.append("#include \"Photon");
         _output.appendWithFirstUpper(dev->name);
         _output.append(".h\"\n\n");
-        includeGen.genOnboardIncludePaths(&types, ".h");
+        includeGen.genOnboardIncludePaths(&types, ".gen.c");
         _output.appendEol();
 
         for (const Rc<Ast>& module : dev->modules) {

@@ -23,6 +23,7 @@ private:
     template <bool isOnboard>
     void genIncludePaths(const HashSet<Rc<const Type>>* types);
     void genNamedInclude(const NamedType* type);
+    void genNamedInclude(const NamedType* type, const NamedType* origin);
 
     void genOnboardDynArray(const DynArrayType* type);
     void genOnboardGenericInstantiation(const GenericInstantiationType* type);

@@ -11,8 +11,8 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/parser/Containers.h"
-#include "decode/generator/InlineTypeDeserializerGen.h"
-#include "decode/generator/InlineTypeSerializerGen.h"
+#include "decode/generator/InlineTypeInspector.h"
+#include "decode/generator/SrcBuilder.h"
 
 #include <vector>
 #include <functional>
@@ -21,6 +21,7 @@ namespace decode {
 
 struct ComponentAndMsg;
 class TypeReprGen;
+class Function;
 class SrcBuilder;
 class Type;
 
@@ -83,8 +84,7 @@ private:
 
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
-    InlineTypeSerializerGen _inlineSer;
-    InlineTypeDeserializerGen _inlineDeser;
+    InlineTypeInspector _inlineInspector;
     InlineCmdParamInspector _paramInspector;
 };
 }

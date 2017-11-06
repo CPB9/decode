@@ -11,8 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/generator/FuncPrototypeGen.h"
-#include "decode/generator/InlineTypeSerializerGen.h"
-#include "decode/generator/InlineTypeDeserializerGen.h"
+#include "decode/generator/InlineTypeInspector.h"
 
 #include <vector>
 
@@ -22,6 +21,7 @@ struct ComponentAndMsg;
 class TypeReprGen;
 class SrcBuilder;
 class Project;
+class StatusRegexp;
 class Type;
 
 class StatusEncoderGen {
@@ -41,8 +41,7 @@ private:
 
     Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
-    InlineTypeSerializerGen _inlineSer;
-    InlineTypeDeserializerGen _inlineDeser;
+    InlineTypeInspector _inlineInspector;
     FuncPrototypeGen _prototypeGen;
 };
 }

@@ -9,53 +9,22 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/ast/AstVisitor.h"
-#include "decode/generator/SrcBuilder.h"
-#include "decode/generator/TypeReprGen.h"
+#include "decode/core/Rc.h"
+#include "decode/generator/InlineSerContext.h"
+#include "decode/parser/Containers.h"
+#include "decode/ast/Type.h"
+#include "decode/ast/Field.h"
+
+#include <bmcl/Fwd.h>
+#include <bmcl/Option.h>
 
 #include <stack>
 #include <vector>
 
 namespace decode {
 
-template <typename B>
-class InlineTypeInspector : public ConstAstVisitor<B> {
-public:
-    InlineTypeInspector(SrcBuilder* output);
-
-    void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
-
-    B& base();
-
-    bool visitArrayType(const ArrayType* type);
-    bool visitFunctionType(const FunctionType* type);
-    bool visitReferenceType(const ReferenceType* type);
-    bool visitEnumType(const EnumType* type);
-    bool visitStructType(const StructType* type);
-    bool visitVariantType(const VariantType* type);
-    bool visitDynArrayType(const DynArrayType* type);
-    bool visitAliasType(const AliasType* type);
-    bool visitImportedType(const ImportedType* type);
-    bool visitGenericInstantiationType(const GenericInstantiationType* type);
-
-    void inspectPointer(const Type* type);
-    void inspectNonInlineType(const Type* type);
-
-    void genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix);
-    void genVarSer(bmcl::StringView suffix);
-
-protected:
-
-    const InlineSerContext& context() const;
-    bool isSizeCheckEnabled() const;
-    void appendArgumentName();
-    void popArgName(std::size_t n);
-
-    std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
-    SrcBuilder* _output;
-    std::string _argName;
-    bool _checkSizes;
-};
+class Type;
+class SrcBuilder;
 
 template <typename B>
 class InlineFieldInspector {
@@ -70,8 +39,8 @@ public:
         return *static_cast<B*>(this);
     }
 
-    template <typename I>
-    void inspect(FieldVec::ConstRange fields, I* typeInspector)
+    template <bool isOnboard, bool isSerializer, typename F, typename I>
+    void inspect(F&& fields, I* typeInspector)
     {
         InlineSerContext ctx;
         auto begin = fields.begin();
@@ -89,17 +58,16 @@ public:
                 it++;
             }
             if (totalSize.isSome()) {
-                typeInspector->appendSizeCheck(ctx, std::to_string(totalSize.unwrap()), _dest);
+                typeInspector->template appendSizeCheck<isOnboard, isSerializer>(ctx, std::to_string(totalSize.unwrap()), _dest);
                 for (auto jt = begin; jt < it; jt++) {
                     base().beginField(*jt);
-                    typeInspector->inspect(jt->type(), ctx, base().currentFieldName(), false);
+                    typeInspector->template inspect<isOnboard, isSerializer>(jt->type(), ctx, base().currentFieldName(), false);
                     base().endField(*jt);
                 }
-
                 totalSize.clear();
             } else {
                 base().beginField(*it);
-                typeInspector->inspect(it->type(), ctx, base().currentFieldName());
+                typeInspector->template inspect<isOnboard, isSerializer>(it->type(), ctx, base().currentFieldName());
                 base().endField(*it);
                 it++;
                 begin = it;
@@ -111,140 +79,60 @@ private:
     SrcBuilder* _dest;
 };
 
-template <typename B>
-inline bool InlineTypeInspector<B>::isSizeCheckEnabled() const
-{
-    return _checkSizes;
-}
+class ArrayType;
+class BuiltinType;
+class TypeReprGen;
 
-template <typename B>
-inline void InlineTypeInspector<B>::appendArgumentName()
-{
-    _output->append(_argName);
-}
+class InlineTypeInspector {
+public:
+    InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output);
 
-template <typename B>
-inline void InlineTypeInspector<B>::popArgName(std::size_t n)
-{
-    _argName.erase(_argName.size() - n, n);
-}
+    void genOnboardSerializer(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
+    void genOnboardDeserializer(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
 
-template <typename B>
-inline const InlineSerContext& InlineTypeInspector<B>::context() const
-{
-    return _ctxStack.top();
-}
+    template <bool isOnboard, bool isSerializer>
+    void inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
+    template <bool isOnboard, bool isSerializer>
+    static void appendSizeCheck(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest);
 
-template <typename B>
-inline B& InlineTypeInspector<B>::base()
-{
-    return *static_cast<B*>(this);
-}
+private:
+    const InlineSerContext& context() const;
+    bool isSizeCheckEnabled() const;
+    void appendArgumentName();
+    void popArgName(std::size_t n);
 
-template <typename B>
-InlineTypeInspector<B>::InlineTypeInspector(SrcBuilder* output)
-    : _output(output)
-{
-}
+    template <bool isOnboard, bool isSerializer>
+    void inspectType(const Type* type);
+    template <bool isOnboard, bool isSerializer>
+    void inspectPointer(const Type* type);
+    template <bool isOnboard, bool isSerializer>
+    void inspectNonInlineType(const Type* type);
+    template <bool isOnboard, bool isSerializer>
+    void inspectArray(const ArrayType* type);
 
-template <typename B>
-void InlineTypeInspector<B>::inspect(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes)
-{
-    assert(_ctxStack.size() == 0);
-    _ctxStack.push(ctx);
-    _argName.assign(argName.begin(), argName.end());
-    _checkSizes = checkSizes;
-    base().traverseType(type);
-    _ctxStack.pop();
-}
+    template <bool isSerializer>
+    void inspectOnboardBuiltin(const BuiltinType* type);
+    template <bool isSerializer>
+    void genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix);
+    template <bool isSerializer>
+    void genVarSer(bmcl::StringView suffix);
 
-template <typename B>
-inline bool InlineTypeInspector<B>::visitFunctionType(const FunctionType* type)
-{
-    base().inspectPointer(type);
-    return false;
-}
+    void deserializeOnboardPointer(const Type* type);
+    void serializeOnboardPointer(const Type* type);
 
-template <typename B>
-inline bool InlineTypeInspector<B>::visitReferenceType(const ReferenceType* type)
-{
-    base().inspectPointer(type);
-    return false;
-}
+    Rc<TypeReprGen> _reprGen;
+    SrcBuilder* _output;
+    std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
+    std::string _argName;
+    bool _checkSizes;
+};
 
-template <typename B>
-bool InlineTypeInspector<B>::visitArrayType(const ArrayType* type)
-{
-    _argName.push_back('[');
-    _argName.push_back(context().currentLoopVar());
-    _argName.push_back(']');
-    bool oldCheckSizes = _checkSizes;
-    if (_checkSizes) {
-        _checkSizes = false;
-        auto size = type->elementType()->fixedSize();
-        if (size.isSome()) {
-            base().appendSizeCheck(context(), std::to_string(size.unwrap() * type->elementCount()), _output);
-        }
-    }
-    _output->appendLoopHeader(context(), type->elementCount());
-    _ctxStack.push(context().indent().incLoopVar());
-    base().traverseType(type->elementType());
-    _checkSizes = oldCheckSizes;
-    popArgName(3);
-    _ctxStack.pop();
-    _output->appendIndent(context());
-    _output->append("}\n");
-    return false;
+extern template void InlineTypeInspector::inspect<true, true>(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes);
+extern template void InlineTypeInspector::inspect<true, false>(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes);
+extern template void InlineTypeInspector::inspect<false, true>(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes);
+extern template void InlineTypeInspector::inspect<false, false>(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes);
+extern template void InlineTypeInspector::appendSizeCheck<true, true>(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest);
+extern template void InlineTypeInspector::appendSizeCheck<true, false>(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest);
+extern template void InlineTypeInspector::appendSizeCheck<false, true>(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest);
+extern template void InlineTypeInspector::appendSizeCheck<false, false>(const InlineSerContext& ctx, bmcl::StringView name, SrcBuilder* dest);
 }
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitStructType(const StructType* type)
-{
-    base().inspectNonInlineType(type);
-    return false;
-}
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitVariantType(const VariantType* type)
-{
-    base().inspectNonInlineType(type);
-    return false;
-}
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitEnumType(const EnumType* type)
-{
-    base().inspectNonInlineType(type);
-    return false;
-}
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitDynArrayType(const DynArrayType* type)
-{
-    base().inspectDynArrayType(type);
-    return false;
-}
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitGenericInstantiationType(const GenericInstantiationType* type)
-{
-    base().inspectNonInlineType(type);
-    return false;
-}
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitAliasType(const AliasType* type)
-{
-    base().traverseType(type->alias());
-    return false;
-}
-
-template <typename B>
-inline bool InlineTypeInspector<B>::visitImportedType(const ImportedType* type)
-{
-    base().traverseType(type->link());
-    return false;
-}
-
-}
-

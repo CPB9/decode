@@ -56,7 +56,7 @@ inline bool TypeDependsCollector::visitAliasType(const AliasType* alias)
         traverseType(alias->alias()); //HACK
         return false;
     }
-    _dest->emplace(alias->alias());
+    _dest->emplace(alias);
     return false;
 }
 

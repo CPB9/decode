@@ -19,8 +19,7 @@ namespace decode {
 OnboardTypeSourceGen::OnboardTypeSourceGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _output(output)
     , _typeReprGen(reprGen)
-    , _inlineSer(reprGen, output)
-    , _inlineDeser(reprGen, output)
+    , _inlineInspector(reprGen, output)
     , _prototypeGen(reprGen, output)
 {
 }
@@ -127,13 +126,13 @@ private:
 void OnboardTypeSourceGen::appendStructSerializer(const StructType* type)
 {
     InlineStructInspector inspector(_output);
-    inspector.inspect(type->fieldsRange(), &_inlineSer);
+    inspector.inspect<true, true>(type->fieldsRange(), &_inlineInspector);
 }
 
 void OnboardTypeSourceGen::appendStructDeserializer(const StructType* type)
 {
     InlineStructInspector inspector(_output);
-    inspector.inspect(type->fieldsRange(), &_inlineDeser);
+    inspector.inspect<true, false>(type->fieldsRange(), &_inlineInspector);
 }
 
 void OnboardTypeSourceGen::appendVariantSerializer(const VariantType* type)
@@ -164,7 +163,7 @@ void OnboardTypeSourceGen::appendVariantSerializer(const VariantType* type)
                 argName.append(_name);
                 argName.append("._");
                 argName.appendNumericValue(j);
-                _inlineSer.inspect(t, ctx, argName.view());
+                _inlineInspector.inspect<true, true>(t, ctx, argName.view());
                 argName.resize(11);
                 j++;
             }
@@ -177,7 +176,7 @@ void OnboardTypeSourceGen::appendVariantSerializer(const VariantType* type)
                 argName.append(_name);
                 argName.append(".");
                 argName.append(f->name());
-                _inlineSer.inspect(f->type(), ctx, argName.view());
+                _inlineInspector.inspect<true, true>(f->type(), ctx, argName.view());
                 argName.resize(11);
             }
             break;
@@ -227,7 +226,7 @@ void OnboardTypeSourceGen::appendVariantDeserializer(const VariantType* type)
                     argName.append(_name);
                     argName.append("._");
                     argName.appendNumericValue(j);
-                    _inlineDeser.inspect(t, ctx, argName.view());
+                    _inlineInspector.inspect<true, false>(t, ctx, argName.view());
                     argName.resize(11);
                     j++;
             }
@@ -240,7 +239,7 @@ void OnboardTypeSourceGen::appendVariantDeserializer(const VariantType* type)
                 argName.append(_name);
                 argName.append(".");
                 argName.append(f->name());
-                _inlineDeser.inspect(f->type(), ctx, argName.view());
+                _inlineInspector.inspect<true, false>(f->type(), ctx, argName.view());
                 argName.resize(11);
             }
             break;
@@ -269,11 +268,11 @@ void OnboardTypeSourceGen::appendDynArraySerializer(const DynArrayType* type)
     }, "Failed to write dynarray size");
     auto size = typeFixedSize(type->elementType());
     if (size.isSome()) {
-        _inlineSer.appendSizeCheck(ctx, "self->size * " + std::to_string(size.unwrap()), _output);
+        _inlineInspector.appendSizeCheck<true, true>(ctx, "self->size * " + std::to_string(size.unwrap()), _output);
     }
     _output->appendLoopHeader(ctx, "self->size");
     InlineSerContext lctx = ctx.indent();
-    _inlineSer.inspect(type->elementType(), lctx, "self->data[a]", size.isNone());
+    _inlineInspector.inspect<true, true>(type->elementType(), lctx, "self->data[a]", size.isNone());
     _output->append("    }\n");
 }
 
@@ -292,11 +291,11 @@ void OnboardTypeSourceGen::appendDynArrayDeserializer(const DynArrayType* type)
                     "        return PhotonError_InvalidValue;\n    }\n");
     auto size = typeFixedSize(type->elementType());
     if (size.isSome()) {
-        _inlineDeser.appendSizeCheck(ctx, "size * " + std::to_string(size.unwrap()), _output);
+        _inlineInspector.appendSizeCheck<true, false>(ctx, "size * " + std::to_string(size.unwrap()), _output);
     }
     _output->appendLoopHeader(ctx, "size");
     InlineSerContext lctx = ctx.indent();
-    _inlineDeser.inspect(type->elementType(), lctx, "self->data[a]", size.isNone());
+    _inlineInspector.inspect<true, false>(type->elementType(), lctx, "self->data[a]", size.isNone());
     _output->append("    }\n");
     if (type->elementType()->isBuiltinChar()) {
         _output->append("    self->data[size] = '\\0';\n");
@@ -324,6 +323,7 @@ void OnboardTypeSourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 
 bool OnboardTypeSourceGen::visitDynArrayType(const DynArrayType* type)
 {
+    _output->appendPragmaOnce(); //HACK
     StringBuilder path("_dynarray_/");
     path.append(TypeNameGen::genTypeNameAsString(type));
     _output->appendOnboardIncludePath(path.view());
@@ -380,6 +380,7 @@ void OnboardTypeSourceGen::genTypeSource(const GenericInstantiationType* instant
     _fileName = name;
     _baseType = instantiation;
     const Type* type = instantiation->instantiatedType()->resolveFinalType();
+    _output->appendPragmaOnce(); //HACK
     genSource(type, "_generic_");
 
 }

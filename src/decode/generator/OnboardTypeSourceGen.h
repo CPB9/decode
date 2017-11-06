@@ -10,8 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/generator/FuncPrototypeGen.h"
-#include "decode/generator/InlineTypeDeserializerGen.h"
-#include "decode/generator/InlineTypeSerializerGen.h"
+#include "decode/generator/InlineTypeInspector.h"
 
 #include <string>
 
@@ -55,8 +54,7 @@ private:
 
     SrcBuilder* _output;
     Rc<TypeReprGen> _typeReprGen;
-    InlineTypeSerializerGen _inlineSer;
-    InlineTypeDeserializerGen _inlineDeser;
+    InlineTypeInspector _inlineInspector;
     FuncPrototypeGen _prototypeGen;
     bmcl::StringView _name;
     bmcl::StringView _fileName;

@@ -25,8 +25,7 @@ namespace decode {
 StatusEncoderGen::StatusEncoderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _typeReprGen(reprGen)
     , _output(output)
-    , _inlineSer(reprGen, output)
-    , _inlineDeser(reprGen, output)
+    , _inlineInspector(reprGen, output)
     , _prototypeGen(reprGen, output)
 {
 }
@@ -383,9 +382,9 @@ void StatusEncoderGen::appendInlineSerializer(const StatusRegexp* part, SrcBuild
         }
     }
     if (isSerializer) {
-        _inlineSer.inspect(lastType, ctx, currentField->view());
+        _inlineInspector.inspect<true, true>(lastType, ctx, currentField->view());
     } else {
-        _inlineDeser.inspect(lastType, ctx, currentField->view());
+        _inlineInspector.inspect<true, false>(lastType, ctx, currentField->view());
     }
     for (std::size_t indent = ctx.indentLevel; indent > 1; indent--) {
         _output->appendIndent(indent - 1);

@@ -8,14 +8,15 @@
 
 #include "decode/generator/CmdDecoderGen.h"
 #include "decode/ast/Function.h"
+#include "decode/ast/Component.h"
+#include "decode/generator/TypeReprGen.h"
 
 namespace decode {
 
 CmdDecoderGen::CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output)
     : _typeReprGen(reprGen)
     , _output(output)
-    , _inlineSer(reprGen, _output)
-    , _inlineDeser(reprGen, _output)
+    , _inlineInspector(reprGen, _output)
     , _paramInspector(_output)
 {
 }
@@ -246,7 +247,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
 
 
     _paramInspector.reset();
-    _paramInspector.inspect(func->fieldsRange(), &_inlineDeser);
+    _paramInspector.inspect<true, false>(func->fieldsRange(), &_inlineInspector);
     _output->appendEol();
 
     //TODO: gen command call
@@ -271,7 +272,7 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
 
     InlineSerContext ctx;
     if (rv.isSome()) {
-        _inlineSer.inspect(rv.unwrap(), ctx, "_rv");
+        _inlineInspector.inspect<true, true>(rv.unwrap(), ctx, "_rv");
     }
 
     _output->append("\n    return PhotonError_Ok;\n}");

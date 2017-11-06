@@ -18,8 +18,13 @@ void IncludeGen::appendExt()
 
 void IncludeGen::genNamedInclude(const NamedType* type)
 {
+    genNamedInclude(type, type);
+}
+
+void IncludeGen::genNamedInclude(const NamedType* type, const NamedType* origin)
+{
     _output->append("#include \"photon/");
-    _output->append(type->moduleName());
+    _output->append(origin->moduleName());
     _output->append('/');
     _output->append(type->name());
     appendExt();
@@ -75,7 +80,7 @@ void IncludeGen::genIncludePaths(const HashSet<Rc<const Type>>* types)
             genNamedInclude(type->asVariant());
             break;
         case TypeKind::Imported:
-            genNamedInclude(type->asImported());
+            genNamedInclude(type->asImported(), type->asImported()->link());
             break;
         case TypeKind::Alias:
             genNamedInclude(type->asAlias());

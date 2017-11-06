@@ -144,7 +144,7 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
             _output->append("), \"Failed to write cmd number\");\n");
 
             SimpleInlineFieldInspector inspector(_output);
-            inspector.inspect(jt->type()->argumentsRange(), &_inlineSer);
+            inspector.inspect<true, true>(jt->type()->argumentsRange(), &_inlineSer);
 
             _output->append("    return PhotonError_Ok;\n}\n\n");
             funcNum++;

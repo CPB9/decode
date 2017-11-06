@@ -51,7 +51,9 @@ void OnboardTypeHeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* typ
     appendIncludesAndFwds(type);
     appendCommonIncludePaths();
     _typeDefGen.genTypeDef(type, name);
-    if (!type->isGenericInstantiation()) {
+    if (type->isGenericInstantiation()) {
+        appendImplBlockIncludes(type->asGenericInstantiation()->genericType(), name);
+    } else {
         appendImplBlockIncludes(type, name);
     }
     _output->startCppGuard();
@@ -185,6 +187,11 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const DynArrayType* dynArray)
 
 void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
 {
+    _output->appendOnboardIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendEol();
+
     TypeDependsCollector::Depends dest;
     for (const Function* fn : comp->cmdsRange()) {
         _includeCollector.collect(fn->type(), &dest);
@@ -195,15 +202,16 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
             _includeCollector.collect(fn->type(), &dest);
         }
     }
-    _output->appendOnboardIncludePath("core/Reader");
-    _output->appendOnboardIncludePath("core/Writer");
-    _output->appendOnboardIncludePath("core/Error");
-    _output->appendEol();
     appendIncludes(dest);
 }
 
 void OnboardTypeHeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelType, bmcl::StringView name)
 {
+    _output->appendOnboardIncludePath("core/Reader");
+    _output->appendOnboardIncludePath("core/Writer");
+    _output->appendOnboardIncludePath("core/Error");
+    _output->appendEol();
+
     bmcl::OptionPtr<const ImplBlock> impl = _ast->findImplBlock(topLevelType);
     TypeDependsCollector::Depends dest;
     if (impl.isSome()) {
@@ -211,10 +219,6 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const TopLevelType* topLevelT
             _includeCollector.collect(fn->type(), &dest);
         }
     }
-    _output->appendOnboardIncludePath("core/Reader");
-    _output->appendOnboardIncludePath("core/Writer");
-    _output->appendOnboardIncludePath("core/Error");
-    _output->appendEol();
     appendIncludes(dest);
 }
 

@@ -184,11 +184,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/IncludeGen.cpp
     src/decode/generator/IncludeGen.h
     src/decode/generator/InlineSerContext.h
-    src/decode/generator/InlineTypeDeserializerGen.cpp
-    src/decode/generator/InlineTypeDeserializerGen.h
+    src/decode/generator/InlineTypeInspector.cpp
     src/decode/generator/InlineTypeInspector.h
-    src/decode/generator/InlineTypeSerializerGen.cpp
-    src/decode/generator/InlineTypeSerializerGen.h
     src/decode/generator/NameVisitor.h
     src/decode/generator/OnboardTypeHeaderGen.cpp
     src/decode/generator/OnboardTypeHeaderGen.h

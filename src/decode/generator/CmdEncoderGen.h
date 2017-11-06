@@ -11,7 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/parser/Containers.h"
-#include "decode/generator/InlineTypeSerializerGen.h"
+#include "decode/generator/InlineTypeInspector.h"
 
 namespace decode {
 
@@ -33,7 +33,7 @@ private:
 
     Rc<TypeReprGen> _reprGen;
     SrcBuilder* _output;
-    InlineTypeSerializerGen _inlineSer;
+    InlineTypeInspector _inlineSer;
 };
 
 }

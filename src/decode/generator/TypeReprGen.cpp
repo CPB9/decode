@@ -140,14 +140,20 @@ void TypeReprGen::writeOnboardTypeName(const Type* type)
 template <bool isOnboard>
 void TypeReprGen::writeNamed(const NamedType* type)
 {
+    writeNamed<isOnboard>(type, type);
+}
+
+template <bool isOnboard>
+void TypeReprGen::writeNamed(const NamedType* type, const NamedType* origin)
+{
     if (isOnboard) {
         _temp.append("Photon");
-        if (type->moduleName() != "core") {
-            _temp.appendWithFirstUpper(type->moduleName());
+        if (origin->moduleName() != "core") {
+            _temp.appendWithFirstUpper(origin->moduleName());
         }
         _temp.appendWithFirstUpper(type->name());
     } else {
-        _temp.append(type->moduleName());
+        _temp.append(origin->moduleName());
         _temp.append("::");
         _temp.append(type->name());
     }
@@ -240,10 +246,10 @@ void TypeReprGen::writeType(const Type* type)
         writeNamed<isOnboard>(type->asVariant());
         break;
     case TypeKind::Imported:
-        writeType<isOnboard>(type->asImported()->link());
+        writeNamed<isOnboard>(type->asImported(), type->asImported()->link());
         break;
     case TypeKind::Alias:
-        writeType<isOnboard>(type->asAlias()->alias());
+        writeNamed<isOnboard>(type->asAlias());
         break;
     case TypeKind::Generic:
         //TODO:

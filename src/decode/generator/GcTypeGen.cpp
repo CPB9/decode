@@ -10,8 +10,8 @@
 #include "decode/generator/SrcBuilder.h"
 #include "decode/core/Foreach.h"
 #include "decode/ast/Type.h"
-#include "decode/generator/GcInlineTypeSerializerGen.h"
 #include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/TypeReprGen.h"
 #include "decode/generator/IncludeGen.h"
 
 #include <bmcl/StringView.h>
