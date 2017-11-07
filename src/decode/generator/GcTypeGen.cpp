@@ -11,6 +11,7 @@
 #include "decode/core/Foreach.h"
 #include "decode/ast/Type.h"
 #include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/InlineTypeInspector.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/IncludeGen.h"
 
@@ -317,10 +318,28 @@ void GcTypeGen::generateStruct(const StructType* type)
 
     _output->append("}\n\n");
 
-    //ser
-    appendSerPrefix(type);
+    InlineTypeInspector inspector(&gen, _output);
+    InlineSerContext ctx;
 
-    _output->append("}\n");
+    appendSerPrefix(type);
+    builder.result().assign("self.");
+    for (const Field* field : type->fieldsRange()) {
+        builder.append(field->name());
+        builder.append("()");
+        inspector.inspect<false, true>(field->type(), ctx, builder.view());
+        builder.resize(5);
+    }
+    _output->append("    return true;\n}\n\n");
+
+    appendDeserPrefix(type);
+    builder.result().assign("self->");
+    for (const Field* field : type->fieldsRange()) {
+        builder.append(field->name());
+        builder.append("()");
+        inspector.inspect<false, false>(field->type(), ctx, builder.view());
+        builder.resize(5);
+    }
+    _output->append("    return true;\n}\n");
 
     endNamespace();
 }

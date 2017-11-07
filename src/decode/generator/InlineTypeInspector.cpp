@@ -39,6 +39,8 @@ void InlineTypeInspector::inspectType(const Type* type)
     case TypeKind::Builtin:
         if (isOnboard) {
             inspectOnboardBuiltin<isSerializer>(type->asBuiltin());
+        } else {
+            inspectGcBuiltin<isSerializer>(type->asBuiltin());
         }
         break;
     case TypeKind::Reference:
@@ -48,19 +50,22 @@ void InlineTypeInspector::inspectType(const Type* type)
         inspectArray<isOnboard, isSerializer>(type->asArray());
         break;
     case TypeKind::DynArray:
-        inspectNonInlineType<isOnboard, isSerializer>(type);
+        if (isOnboard) {
+            inspectOnboardNonInlineType<isSerializer>(type);
+        } else {
+        }
         break;
     case TypeKind::Function:
         inspectPointer<isOnboard, isSerializer>(type);
         break;
     case TypeKind::Enum:
-        inspectNonInlineType<isOnboard, isSerializer>(type);
+        inspectNonInlineType<isOnboard, isSerializer>(type->asEnum());
         break;
     case TypeKind::Struct:
-        inspectNonInlineType<isOnboard, isSerializer>(type);
+        inspectNonInlineType<isOnboard, isSerializer>(type->asStruct());
         break;
     case TypeKind::Variant:
-        inspectNonInlineType<isOnboard, isSerializer>(type);
+        inspectNonInlineType<isOnboard, isSerializer>(type->asVariant());
         break;
     case TypeKind::Imported:
         inspectType<isOnboard, isSerializer>(type->asImported()->link());
@@ -71,7 +76,10 @@ void InlineTypeInspector::inspectType(const Type* type)
     case TypeKind::Generic:
         break;
     case TypeKind::GenericInstantiation:
-        inspectNonInlineType<isOnboard, isSerializer>(type);
+        if (isOnboard) {
+            inspectOnboardNonInlineType<isSerializer>(type);
+        } else {
+        }
         break;
     case TypeKind::GenericParameter:
         break;
@@ -134,6 +142,11 @@ void InlineTypeInspector::inspectArray(const ArrayType* type)
     _ctxStack.pop();
     _output->appendIndent(context());
     _output->append("}\n");
+}
+
+template <bool isSerializer>
+void InlineTypeInspector::inspectGcBuiltin(const BuiltinType* type)
+{
 }
 
 template <bool isSerializer>
@@ -236,27 +249,56 @@ void InlineTypeInspector::inspectPointer(const Type* type)
     }
 }
 
+template <bool isSerializer>
+void InlineTypeInspector::inspectOnboardNonInlineType(const Type* type)
+{
+    _output->appendIndent(context());
+    _output->appendWithTryMacro([&, this, type](SrcBuilder* output) {
+        _reprGen->genOnboardTypeRepr(type);
+        if (isSerializer) {
+            output->append("_Serialize(");
+            if (type->typeKind() != TypeKind::Enum) {
+                output->append('&');
+            }
+            appendArgumentName();
+            output->append(", dest)");
+        } else {
+            output->append("_Deserialize(&");
+            appendArgumentName();
+            output->append(", src)");
+        }
+    });
+}
+
 template <bool isOnboard, bool isSerializer>
-void InlineTypeInspector::inspectNonInlineType(const Type* type)
+void InlineTypeInspector::inspectNonInlineType(const NamedType* type)
 {
     if (isOnboard) {
-        _output->appendIndent(context());
-        _output->appendWithTryMacro([&, this, type](SrcBuilder* output) {
-            _reprGen->genOnboardTypeRepr(type);
-            if (isSerializer) {
-                output->append("_Serialize(");
-                if (type->typeKind() != TypeKind::Enum) {
-                    output->append('&');
-                }
-                appendArgumentName();
-                output->append(", dest)");
-            } else {
-                output->append("_Deserialize(&");
-                appendArgumentName();
-                output->append(", src)");
-            }
-        });
+        inspectOnboardNonInlineType<isSerializer>(type);
     } else {
+        _output->appendIndent(context());
+        _output->append("if (!");
+        _output->append(type->moduleName());
+        _output->append("::");
+        if (isSerializer) {
+            _output->append("serialize");
+        } else {
+            _output->append("deserialize");
+        }
+        _output->append(type->name());
+        if (!isSerializer) {
+            _output->append("(&");
+            appendArgumentName();
+            _output->append(", src, state)) {\n");
+        } else {
+            _output->append('(');
+            appendArgumentName();
+            _output->append(", dest, state)) {\n");
+        }
+        _output->appendIndent(context().indent());
+        _output->append("return false;\n");
+        _output->appendIndent(context());
+        _output->append("}\n");
     }
 }
 

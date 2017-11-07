@@ -106,12 +106,17 @@ private:
     template <bool isOnboard, bool isSerializer>
     void inspectPointer(const Type* type);
     template <bool isOnboard, bool isSerializer>
-    void inspectNonInlineType(const Type* type);
+    void inspectNonInlineType(const NamedType* type);
     template <bool isOnboard, bool isSerializer>
     void inspectArray(const ArrayType* type);
 
     template <bool isSerializer>
+    void inspectGcBuiltin(const BuiltinType* type);
+
+    template <bool isSerializer>
     void inspectOnboardBuiltin(const BuiltinType* type);
+    template <bool isSerializer>
+    void inspectOnboardNonInlineType(const Type* type);
     template <bool isSerializer>
     void genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix);
     template <bool isSerializer>
@@ -120,7 +125,7 @@ private:
     void deserializeOnboardPointer(const Type* type);
     void serializeOnboardPointer(const Type* type);
 
-    Rc<TypeReprGen> _reprGen;
+    TypeReprGen* _reprGen;
     SrcBuilder* _output;
     std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
     std::string _argName;

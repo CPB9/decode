@@ -201,6 +201,8 @@ void TypeReprGen::writeGenericInstantiation(const GenericInstantiationType* type
             _temp.append(", ");
         });
         _temp.append(">");
+        _output->insert(_currentOffset, _temp.view());
+        _temp.clear();
     }
 }
 
@@ -214,6 +216,8 @@ void TypeReprGen::writeDynArray(const DynArrayType* type)
         TypeReprGen gen(&_temp);
         gen.genTypeRepr<false>(type->elementType());
         _temp.append(">");
+        _output->insert(_currentOffset, _temp.view());
+        _temp.clear();
     }
 }
 
