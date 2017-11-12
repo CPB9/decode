@@ -171,12 +171,12 @@ void InlineTypeInspector::inspectGcBuiltin(const BuiltinType* type)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
-        //TODO:
-        assert(false);
+        //HACK
+        genGcSizedSer<isSerializer>("8", "Uint64Le");
         break;
     case BuiltinTypeKind::ISize:
-        //TODO:
-        assert(false);
+        //HACK
+        genGcSizedSer<isSerializer>("8", "Int64Le");
         break;
     case BuiltinTypeKind::U8:
         genGcSizedSer<isSerializer>("1", "Uint8");
