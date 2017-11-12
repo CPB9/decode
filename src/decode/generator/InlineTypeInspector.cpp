@@ -53,6 +53,7 @@ void InlineTypeInspector::inspectType(const Type* type)
         if (isOnboard) {
             inspectOnboardNonInlineType<isSerializer>(type);
         } else {
+            //TODO:
         }
         break;
     case TypeKind::Function:
@@ -79,6 +80,7 @@ void InlineTypeInspector::inspectType(const Type* type)
         if (isOnboard) {
             inspectOnboardNonInlineType<isSerializer>(type);
         } else {
+            //TODO:
         }
         break;
     case TypeKind::GenericParameter:
@@ -117,6 +119,26 @@ void InlineTypeInspector::appendSizeCheck(const InlineSerContext& ctx, bmcl::Str
             dest->appendReadableSizeCheck(ctx, name);
         }
     } else {
+        //TODO: refact, report error
+        if (isSerializer) {
+            dest->appendIndent(ctx);
+            dest->append("if (dest->sizeLeft() < ");
+            dest->append(name);
+            dest->append(") {\n");
+            dest->appendIndent(ctx);
+            dest->append("    return false;\n");
+            dest->appendIndent(ctx);
+            dest->append("}\n");
+        } else {
+            dest->appendIndent(ctx);
+            dest->append("if (src->sizeLeft() < ");
+            dest->append(name);
+            dest->append(") {\n");
+            dest->appendIndent(ctx);
+            dest->append("    return false;\n");
+            dest->appendIndent(ctx);
+            dest->append("}\n");
+        }
     }
 }
 
@@ -147,6 +169,109 @@ void InlineTypeInspector::inspectArray(const ArrayType* type)
 template <bool isSerializer>
 void InlineTypeInspector::inspectGcBuiltin(const BuiltinType* type)
 {
+    switch (type->builtinTypeKind()) {
+    case BuiltinTypeKind::USize:
+        //TODO:
+        assert(false);
+        break;
+    case BuiltinTypeKind::ISize:
+        //TODO:
+        assert(false);
+        break;
+    case BuiltinTypeKind::U8:
+        genGcSizedSer<isSerializer>("1", "Uint8");
+        break;
+    case BuiltinTypeKind::I8:
+        genGcSizedSer<isSerializer>("1", "Int8");
+        break;
+    case BuiltinTypeKind::U16:
+        genGcSizedSer<isSerializer>("2", "Uint16Le");
+        break;
+    case BuiltinTypeKind::I16:
+        genGcSizedSer<isSerializer>("2", "Int16Le");
+        break;
+    case BuiltinTypeKind::U32:
+        genGcSizedSer<isSerializer>("4", "Uint32Le");
+        break;
+    case BuiltinTypeKind::I32:
+        genGcSizedSer<isSerializer>("4", "Int32Le");
+        break;
+    case BuiltinTypeKind::U64:
+        genGcSizedSer<isSerializer>("8", "Uint64Le");
+        break;
+    case BuiltinTypeKind::I64:
+        genGcSizedSer<isSerializer>("8", "Int64Le");
+        break;
+    case BuiltinTypeKind::F32:
+        genGcSizedSer<isSerializer>("4", "Float32Le");
+        break;
+    case BuiltinTypeKind::F64:
+        genGcSizedSer<isSerializer>("8", "Float64Le");
+        break;
+    case BuiltinTypeKind::Bool:
+        genGcSizedSer<isSerializer>("1", "Uint8");
+        break;
+    case BuiltinTypeKind::Char:
+        genGcSizedSer<isSerializer>("1", "Uint8");
+        break;
+    case BuiltinTypeKind::Varuint:
+        genGcVarSer<isSerializer>("VarUint");
+        break;
+    case BuiltinTypeKind::Varint:
+        genGcVarSer<isSerializer>("VarInt");
+        break;
+    case BuiltinTypeKind::Void:
+        assert(false);
+        break;
+    default:
+        assert(false);
+    }
+}
+
+template <bool isSerializer>
+void InlineTypeInspector::genGcSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
+{
+    if (isSizeCheckEnabled()) {
+        appendSizeCheck<false, isSerializer>(context(), sizeCheck, _output);
+    }
+    if (isSerializer) {
+        _output->appendIndent(context());
+        _output->append("dest->write");
+        _output->append(suffix);
+        _output->append('(');
+        appendArgumentName();
+        _output->append(");\n");
+    } else {
+        _output->appendIndent(context());
+        appendArgumentName();
+        _output->append(" = src->read");
+        _output->append(suffix);
+        _output->append('(');
+        _output->append(");\n");
+    }
+}
+
+template <bool isSerializer>
+void InlineTypeInspector::genGcVarSer(bmcl::StringView suffix)
+{
+    _output->appendIndent(context());
+    if (isSerializer) {
+        _output->append("if (!dest->write");
+    } else {
+        _output->append("if (!src->read");
+    }
+    _output->append(suffix);
+    if (isSerializer) {
+        _output->append('(');
+    } else {
+        _output->append("(&");
+    }
+    appendArgumentName();
+    _output->append(") {\n");
+    _output->appendIndent(context());
+    _output->append("    return false;\n");
+    _output->appendIndent(context());
+    _output->append("}\n");
 }
 
 template <bool isSerializer>
@@ -154,52 +279,52 @@ void InlineTypeInspector::inspectOnboardBuiltin(const BuiltinType* type)
 {
     switch (type->builtinTypeKind()) {
     case BuiltinTypeKind::USize:
-        genSizedSer<isSerializer>("sizeof(void*)", "USizeLe");
+        genOnboardSizedSer<isSerializer>("sizeof(void*)", "USizeLe");
         break;
     case BuiltinTypeKind::ISize:
-        genSizedSer<isSerializer>("sizeof(void*)", "USizeLe");
+        genOnboardSizedSer<isSerializer>("sizeof(void*)", "USizeLe");
         break;
     case BuiltinTypeKind::U8:
-        genSizedSer<isSerializer>("sizeof(uint8_t)", "U8");
+        genOnboardSizedSer<isSerializer>("sizeof(uint8_t)", "U8");
         break;
     case BuiltinTypeKind::I8:
-        genSizedSer<isSerializer>("sizeof(uint8_t)", "U8");
+        genOnboardSizedSer<isSerializer>("sizeof(uint8_t)", "U8");
         break;
     case BuiltinTypeKind::U16:
-        genSizedSer<isSerializer>("sizeof(uint16_t)", "U16Le");
+        genOnboardSizedSer<isSerializer>("sizeof(uint16_t)", "U16Le");
         break;
     case BuiltinTypeKind::I16:
-        genSizedSer<isSerializer>("sizeof(uint16_t)", "U16Le");
+        genOnboardSizedSer<isSerializer>("sizeof(uint16_t)", "U16Le");
         break;
     case BuiltinTypeKind::U32:
-        genSizedSer<isSerializer>("sizeof(uint32_t)", "U32Le");
+        genOnboardSizedSer<isSerializer>("sizeof(uint32_t)", "U32Le");
         break;
     case BuiltinTypeKind::I32:
-        genSizedSer<isSerializer>("sizeof(uint32_t)", "U32Le");
+        genOnboardSizedSer<isSerializer>("sizeof(uint32_t)", "U32Le");
         break;
     case BuiltinTypeKind::U64:
-        genSizedSer<isSerializer>("sizeof(uint64_t)", "U64Le");
+        genOnboardSizedSer<isSerializer>("sizeof(uint64_t)", "U64Le");
         break;
     case BuiltinTypeKind::I64:
-        genSizedSer<isSerializer>("sizeof(uint64_t)", "U64Le");
+        genOnboardSizedSer<isSerializer>("sizeof(uint64_t)", "U64Le");
         break;
     case BuiltinTypeKind::F32:
-        genSizedSer<isSerializer>("sizeof(float)", "F32Le");
+        genOnboardSizedSer<isSerializer>("sizeof(float)", "F32Le");
         break;
     case BuiltinTypeKind::F64:
-        genSizedSer<isSerializer>("sizeof(double)", "F64Le");
+        genOnboardSizedSer<isSerializer>("sizeof(double)", "F64Le");
         break;
     case BuiltinTypeKind::Bool:
-        genSizedSer<isSerializer>("sizeof(uint8_t)", "U8");
+        genOnboardSizedSer<isSerializer>("sizeof(uint8_t)", "U8");
         break;
     case BuiltinTypeKind::Char:
-        genSizedSer<isSerializer>("sizeof(char)", "Char");
+        genOnboardSizedSer<isSerializer>("sizeof(char)", "Char");
         break;
     case BuiltinTypeKind::Varuint:
-        genVarSer<isSerializer>("Varuint");
+        genOnboardVarSer<isSerializer>("Varuint");
         break;
     case BuiltinTypeKind::Varint:
-        genVarSer<isSerializer>("Varint");
+        genOnboardVarSer<isSerializer>("Varint");
         break;
     case BuiltinTypeKind::Void:
         //TODO: disallow
@@ -213,7 +338,7 @@ void InlineTypeInspector::inspectOnboardBuiltin(const BuiltinType* type)
 void InlineTypeInspector::deserializeOnboardPointer(const Type* type)
 {
     if (isSizeCheckEnabled()) {
-        _output->appendReadableSizeCheck(context(), "sizeof(void*)");
+        appendSizeCheck<true, false>(context(), "sizeof(void*)", _output);
     }
     _output->appendIndent(context());
     appendArgumentName();
@@ -225,12 +350,22 @@ void InlineTypeInspector::deserializeOnboardPointer(const Type* type)
 void InlineTypeInspector::serializeOnboardPointer(const Type* type)
 {
     if (isSizeCheckEnabled()) {
-        _output->appendWritableSizeCheck(context(), "sizeof(void*)");
+        appendSizeCheck<true, true>(context(), "sizeof(void*)", _output);
     }
     _output->appendIndent(context());
     _output->append("PhotonWriter_WritePtrLe(dest, (const void*)");
     appendArgumentName();
     _output->append(");\n");
+}
+
+void InlineTypeInspector::deserializeGcPointer(const Type* type)
+{
+//TODO
+}
+
+void InlineTypeInspector::serializeGcPointer(const Type* type)
+{
+//TODO
 }
 
 template <bool isOnboard, bool isSerializer>
@@ -244,7 +379,9 @@ void InlineTypeInspector::inspectPointer(const Type* type)
         }
     } else {
         if (isSerializer) {
+            serializeGcPointer(type);
         } else {
+            deserializeGcPointer(type);
         }
     }
 }
@@ -303,7 +440,7 @@ void InlineTypeInspector::inspectNonInlineType(const NamedType* type)
 }
 
 template <bool isSerializer>
-void InlineTypeInspector::genSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
+void InlineTypeInspector::genOnboardSizedSer(bmcl::StringView sizeCheck, bmcl::StringView suffix)
 {
     if (isSerializer) {
         if (isSizeCheckEnabled()) {
@@ -328,7 +465,7 @@ void InlineTypeInspector::genSizedSer(bmcl::StringView sizeCheck, bmcl::StringVi
 }
 
 template <bool isSerializer>
-void InlineTypeInspector::genVarSer(bmcl::StringView suffix)
+void InlineTypeInspector::genOnboardVarSer(bmcl::StringView suffix)
 {
     _output->appendIndent(context());
     _output->appendWithTryMacro([&](SrcBuilder* output) {

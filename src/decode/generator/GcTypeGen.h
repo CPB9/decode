@@ -18,6 +18,7 @@ class Type;
 class TopLevelType;
 class EnumType;
 class StructType;
+class VariantType;
 class NamedType;
 class SrcBuilder;
 class EnumConstant;
@@ -32,6 +33,7 @@ public:
 private:
     void generateEnum(const EnumType* type);
     void generateStruct(const StructType* type);
+    void generateVariant(const VariantType* type);
 
     void appendFullTypeName(const NamedType* type);
     void appendEnumConstantName(const EnumType* type, const EnumConstant* constant);

@@ -68,6 +68,42 @@ std::uintmax_t VariantField::id() const
     return _id;
 }
 
+const ConstantVariantField* VariantField::asConstantField() const
+{
+    assert(_variantFieldKind == VariantFieldKind::Constant);
+    return static_cast<const ConstantVariantField*>(this);
+}
+
+const TupleVariantField* VariantField::asTupleField() const
+{
+    assert(_variantFieldKind == VariantFieldKind::Tuple);
+    return static_cast<const TupleVariantField*>(this);
+}
+
+const StructVariantField* VariantField::asStructField() const
+{
+    assert(_variantFieldKind == VariantFieldKind::Struct);
+    return static_cast<const StructVariantField*>(this);
+}
+
+ConstantVariantField* VariantField::asConstantField()
+{
+    assert(_variantFieldKind == VariantFieldKind::Constant);
+    return static_cast<ConstantVariantField*>(this);
+}
+
+TupleVariantField* VariantField::asTupleField()
+{
+    assert(_variantFieldKind == VariantFieldKind::Tuple);
+    return static_cast<TupleVariantField*>(this);
+}
+
+StructVariantField* VariantField::asStructField()
+{
+    assert(_variantFieldKind == VariantFieldKind::Struct);
+    return static_cast<StructVariantField*>(this);
+}
+
 ConstantVariantField::ConstantVariantField(std::uintmax_t id, bmcl::StringView name)
     : VariantField(VariantFieldKind::Constant, id, name)
 {

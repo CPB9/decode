@@ -50,6 +50,10 @@ private:
     Rc<RangeAttr> _rangeAttr;
 };
 
+class ConstantVariantField;
+class TupleVariantField;
+class StructVariantField;
+
 class VariantField : public NamedRc, public DocBlockMixin {
 public:
     using Pointer = Rc<VariantField>;
@@ -60,6 +64,14 @@ public:
 
     VariantFieldKind variantFieldKind() const;
     std::uintmax_t id() const;
+
+    const ConstantVariantField* asConstantField() const;
+    const TupleVariantField* asTupleField() const;
+    const StructVariantField* asStructField() const;
+
+    ConstantVariantField* asConstantField();
+    TupleVariantField* asTupleField();
+    StructVariantField* asStructField();
 
 private:
     VariantFieldKind _variantFieldKind;

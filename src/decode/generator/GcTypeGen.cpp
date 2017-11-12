@@ -62,6 +62,8 @@ void GcTypeGen::generateHeader(const TopLevelType* type)
         generateStruct(type->asStruct());
         break;
     case TypeKind::Variant:
+        generateVariant(type->asVariant());
+        break;
     case TypeKind::Generic:
         break;
     }
@@ -318,6 +320,7 @@ void GcTypeGen::generateStruct(const StructType* type)
 
     _output->append("}\n\n");
 
+    //TODO: use field inspector
     InlineTypeInspector inspector(&gen, _output);
     InlineSerContext ctx;
 
@@ -337,10 +340,86 @@ void GcTypeGen::generateStruct(const StructType* type)
         builder.append(field->name());
         builder.append("()");
         inspector.inspect<false, false>(field->type(), ctx, builder.view());
-        builder.resize(5);
+        builder.resize(6);
     }
     _output->append("    return true;\n}\n");
 
+    endNamespace();
+}
+
+void GcTypeGen::generateVariant(const VariantType* type)
+{
+    _output->appendPragmaOnce();
+    _output->appendEol();
+
+    _output->appendInclude("cstddef");
+    _output->appendInclude("cstdint");
+    _output->appendInclude("cstdbool");
+    _output->appendEol();
+
+    TypeDependsCollector coll;
+    TypeDependsCollector::Depends depends;
+    coll.collect(type, &depends);
+    IncludeGen includeGen(_output);
+    includeGen.genGcIncludePaths(&depends);
+    if (!depends.empty()) {
+        _output->appendEol();
+    }
+
+    beginNamespace(type->moduleName());
+
+    _output->append("struct ");
+    _output->appendWithFirstUpper(type->name());
+    _output->append(" {\npublic:\n");
+
+    _output->append("    enum class Kind {\n");
+
+    for (const VariantField* field : type->fieldsRange()) {
+        _output->append("        ");
+        _output->appendWithFirstUpper(field->name());
+        _output->append(",\n");
+    }
+    _output->append("    };\n\n");
+
+    TypeReprGen gen(_output);
+    SrcBuilder fieldName("_");
+    for (const VariantField* field : type->fieldsRange()) {
+        switch (field->variantFieldKind()) {
+        case VariantFieldKind::Constant:
+            break;
+        case VariantFieldKind::Tuple: {
+            const TupleVariantField* f = field->asTupleField();
+            _output->append("    struct ");
+            _output->append(field->name());
+            _output->append(" {\n");
+            std::size_t i = 0;
+            for (const Type* t : f->typesRange()) {
+                fieldName.appendNumericValue(i);
+                _output->append("        ");
+                gen.genGcTypeRepr(t, fieldName.view());
+                _output->append(";\n");
+                fieldName.resize(1);
+                i++;
+            }
+            _output->append("    };\n\n");
+            break;
+        }
+        case VariantFieldKind::Struct:
+            const StructVariantField* f = field->asStructField();
+            _output->append("    struct ");
+            _output->append(field->name());
+            _output->append(" {\n");
+            for (const Field* t : f->fieldsRange()) {
+                _output->append("        ");
+                gen.genGcTypeRepr(t->type(), t->name());
+                _output->append(";\n");
+            }
+            _output->append("    };\n\n");
+            break;
+        }
+    }
+
+    _output->append("}\n");
     endNamespace();
 }
 }
