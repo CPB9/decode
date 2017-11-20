@@ -16,6 +16,7 @@
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/GcTypeGen.h"
 #include "decode/generator/IncludeGen.h"
+#include "decode/generator/GcInterfaceGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -364,6 +365,10 @@ bool Generator::generateProject(const Project* project)
     TRY(generateCommands(package));
     TRY(generateDeviceFiles(project));
 
+    GcInterfaceGen igen(&_output);
+    igen.generateHeader(package);
+    TRY(dumpIfNotEmpty("Interface", ".h", &_gcPhotonPath));
+
     future.wait();
     std::string packageDetailPath = _onboardPath + "/photon/Package.Private.inc.c"; //FIXME: joinPath
     TRY(saveOutput(packageDetailPath.c_str(), dest.view(), _diag.get()));
@@ -480,11 +485,11 @@ bool Generator::generateGenerics(const Package* package)
 
 bool Generator::generateTypesAndComponents(const Ast* ast)
 {
-    _onboardPhotonPath.append(ast->moduleInfo()->moduleName());
+    _onboardPhotonPath.append(ast->moduleName());
     TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
     _onboardPhotonPath.append('/'); //FIXME: joinPath
 
-    _gcPhotonPath.append(ast->moduleInfo()->moduleName());
+    _gcPhotonPath.append(ast->moduleName());
     TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
     _gcPhotonPath.append('/'); //FIXME: joinPath
 
@@ -535,10 +540,10 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
     }
 
     if (ast->hasConstants()) {
-        _onboardHgen->startIncludeGuard(ast->moduleInfo()->moduleName(), "CONSTANTS");
+        _onboardHgen->startIncludeGuard(ast->moduleName(), "CONSTANTS");
         for (const Constant* c : ast->constantsRange()) {
             _output.append("#define PHOTON_");
-            _output.appendUpper(ast->moduleInfo()->moduleName());
+            _output.appendUpper(ast->moduleName());
             _output.append('_');
             _output.append(c->name());
             _output.append(" ");
@@ -547,11 +552,11 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         }
         _output.appendEol();
         _onboardHgen->endIncludeGuard();
-        TRY(dumpIfNotEmpty(ast->moduleInfo()->moduleName(), ".Constants.h", &_onboardPhotonPath));
+        TRY(dumpIfNotEmpty(ast->moduleName(), ".Constants.h", &_onboardPhotonPath));
     }
 
-    _onboardPhotonPath.removeFromBack(ast->moduleInfo()->moduleName().size() + 1);
-    _gcPhotonPath.removeFromBack(ast->moduleInfo()->moduleName().size() + 1);
+    _onboardPhotonPath.removeFromBack(ast->moduleName().size() + 1);
+    _gcPhotonPath.removeFromBack(ast->moduleName().size() + 1);
     return true;
 }
 }

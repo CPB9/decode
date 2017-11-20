@@ -121,7 +121,7 @@ void Package::encode(bmcl::Buffer* dest) const
 
 void Package::addAst(Ast* ast)
 {
-    bmcl::StringView modName = ast->moduleInfo()->moduleName();
+    bmcl::StringView modName = ast->moduleName();
     _modNameToAstMap.emplace(modName, ast);
 }
 
@@ -173,7 +173,7 @@ bool Package::resolveImports(Ast* ast)
         if (searchedAst == _modNameToAstMap.end()) {
             isOk = false;
             BMCL_CRITICAL() << "invalid import mod in "
-                            << ast->moduleInfo()->moduleName().toStdString() << ": "
+                            << ast->moduleName().toStdString() << ": "
                             << import->path().toStdString();
             continue;
         }
@@ -183,14 +183,14 @@ bool Package::resolveImports(Ast* ast)
                 isOk = false;
                 //TODO: report error
                 BMCL_CRITICAL() << "invalid import type in "
-                                << ast->moduleInfo()->moduleName().toStdString() << ": "
+                                << ast->moduleName().toStdString() << ": "
                                 << modifiedType->name().toStdString();
             } else {
                 if (modifiedType->typeKind() == foundType.unwrap()->typeKind()) {
                     isOk = false;
                     //TODO: report error - circular imports
                     BMCL_CRITICAL() << "circular imports "
-                                    << ast->moduleInfo()->moduleName().toStdString()
+                                    << ast->moduleName().toStdString()
                                     << ": " << modifiedType->name().toStdString();
                     BMCL_CRITICAL() << "circular imports "
                                     << searchedAst->first.toStdString() << ".decode: "

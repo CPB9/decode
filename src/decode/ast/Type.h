@@ -291,6 +291,8 @@ public:
     BuiltinType(BuiltinTypeKind kind);
     ~BuiltinType();
 
+    static bmcl::StringView renderedTypeName(BuiltinTypeKind kind);
+
     BuiltinTypeKind builtinTypeKind() const;
 
 private:

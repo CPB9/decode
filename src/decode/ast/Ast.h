@@ -20,6 +20,7 @@
 
 namespace decode {
 
+class BuiltinType;
 class ModuleInfo;
 class ModuleDecl;
 class ImportDecl;
@@ -67,6 +68,7 @@ public:
     bool hasConstants() const;
     const std::string& fileName() const;
     const ModuleInfo* moduleInfo() const;
+    bmcl::StringView moduleName() const;
     bmcl::OptionPtr<const Component> component() const;
     bmcl::OptionPtr<Component> component();
     bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const;
@@ -83,6 +85,8 @@ public:
     void addGenericInstantiation(GenericInstantiationType* type);
     void addCmdTrait(CmdTrait* trait);
     void setComponent(Component* comp);
+
+    const BuiltinType* u8Type() const;
 
 private:
     Imports _importDecls;

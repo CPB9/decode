@@ -25,59 +25,7 @@ TypeNameGen::~TypeNameGen()
 
 bool TypeNameGen::visitBuiltinType(const BuiltinType* type)
 {
-    switch (type->builtinTypeKind()) {
-    case BuiltinTypeKind::USize:
-        _output->append("USize");
-        break;
-    case BuiltinTypeKind::ISize:
-        _output->append( "ISize");
-        break;
-    case BuiltinTypeKind::Varuint:
-        _output->append( "Varuint");
-        break;
-    case BuiltinTypeKind::Varint:
-        _output->append( "Varint");
-        break;
-    case BuiltinTypeKind::U8:
-        _output->append( "U8");
-        break;
-    case BuiltinTypeKind::I8:
-        _output->append( "I8");
-        break;
-    case BuiltinTypeKind::U16:
-        _output->append( "U16");
-        break;
-    case BuiltinTypeKind::I16:
-        _output->append( "I16");
-        break;
-    case BuiltinTypeKind::U32:
-        _output->append( "U32");
-        break;
-    case BuiltinTypeKind::I32:
-        _output->append( "I32");
-        break;
-    case BuiltinTypeKind::U64:
-        _output->append( "U64");
-        break;
-    case BuiltinTypeKind::I64:
-        _output->append( "I64");
-        break;
-    case BuiltinTypeKind::F32:
-        _output->append( "F32");
-        break;
-    case BuiltinTypeKind::F64:
-        _output->append( "F64");
-        break;
-    case BuiltinTypeKind::Bool:
-        _output->append( "Bool");
-        break;
-    case BuiltinTypeKind::Void:
-        _output->append( "Void");
-        break;
-    case BuiltinTypeKind::Char:
-        _output->append( "Char");
-        break;
-    }
+    _output->appendWithFirstUpper(BuiltinType::renderedTypeName(type->builtinTypeKind()));
     return false;
 }
 

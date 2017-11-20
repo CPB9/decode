@@ -177,6 +177,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/DynArrayCollector.h
     src/decode/generator/FuncPrototypeGen.cpp
     src/decode/generator/FuncPrototypeGen.h
+    src/decode/generator/GcInterfaceGen.cpp
+    src/decode/generator/GcInterfaceGen.h
     src/decode/generator/GcTypeGen.cpp
     src/decode/generator/GcTypeGen.h
     src/decode/generator/Generator.cpp

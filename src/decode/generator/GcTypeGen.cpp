@@ -87,7 +87,7 @@ void GcTypeGen::appendSerPrefix(const NamedType* type)
     _output->appendWithFirstUpper(type->name());
     _output->append("(const ");
     _output->appendWithFirstUpper(type->name());
-    _output->append("& self, bmcl::MemWriter* dest, photon::CoderState* state)\n{\n");
+    _output->append("& self, bmcl::MemWriter* dest, decode::CoderState* state)\n{\n");
 }
 
 void GcTypeGen::appendDeserPrefix(const NamedType* type)
@@ -96,7 +96,7 @@ void GcTypeGen::appendDeserPrefix(const NamedType* type)
     _output->appendWithFirstUpper(type->name());
     _output->append("(");
     _output->appendWithFirstUpper(type->name());
-    _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)\n{\n");
+    _output->append("* self, bmcl::MemReader* src, decode::CoderState* state)\n{\n");
 }
 
 void GcTypeGen::generateEnum(const EnumType* type)
@@ -179,6 +179,10 @@ void GcTypeGen::generateStruct(const StructType* type)
     _output->appendInclude("cstddef");
     _output->appendInclude("cstdint");
     _output->appendInclude("cstdbool");
+    _output->appendEol();
+
+    _output->appendInclude("bmcl/MemReader.h");
+    _output->appendInclude("bmcl/MemWriter.h");
     _output->appendEol();
 
     TypeDependsCollector coll;

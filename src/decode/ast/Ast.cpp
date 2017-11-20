@@ -115,6 +115,11 @@ const ModuleInfo* Ast::moduleInfo() const
     return _moduleInfo.get();
 }
 
+bmcl::StringView Ast::moduleName() const
+{
+    return _moduleInfo->moduleName();
+}
+
 bmcl::OptionPtr<const Component> Ast::component() const
 {
     return _component.get();

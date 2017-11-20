@@ -639,6 +639,53 @@ BuiltinType::~BuiltinType()
 {
 }
 
+template <std::size_t N>
+static inline bmcl::StringView viewFromStaticString(const char(&data)[N])
+{
+    return bmcl::StringView(data, N-1);
+}
+
+bmcl::StringView BuiltinType::renderedTypeName(BuiltinTypeKind kind)
+{
+    switch (kind) {
+    case BuiltinTypeKind::USize:
+        return viewFromStaticString("usize");
+    case BuiltinTypeKind::ISize:
+        return viewFromStaticString("isize");
+    case BuiltinTypeKind::Varuint:
+        return viewFromStaticString("varuint");
+    case BuiltinTypeKind::Varint:
+        return viewFromStaticString("varint");
+    case BuiltinTypeKind::U8:
+        return viewFromStaticString("u8");
+    case BuiltinTypeKind::I8:
+        return viewFromStaticString("i8");
+    case BuiltinTypeKind::U16:
+        return viewFromStaticString("u16");
+    case BuiltinTypeKind::I16:
+        return viewFromStaticString("i16");
+    case BuiltinTypeKind::U32:
+        return viewFromStaticString("u32");
+    case BuiltinTypeKind::I32:
+        return viewFromStaticString("i32");
+    case BuiltinTypeKind::U64:
+        return viewFromStaticString("u64");
+    case BuiltinTypeKind::I64:
+        return viewFromStaticString("i64");
+    case BuiltinTypeKind::F32:
+        return viewFromStaticString("f32");
+    case BuiltinTypeKind::F64:
+        return viewFromStaticString("f64");
+    case BuiltinTypeKind::Bool:
+        return viewFromStaticString("bool");
+    case BuiltinTypeKind::Void:
+        return viewFromStaticString("void");
+    case BuiltinTypeKind::Char:
+        return viewFromStaticString("char");
+    }
+    return bmcl::StringView::empty();
+}
+
 BuiltinTypeKind BuiltinType::builtinTypeKind() const
 {
     return _builtinTypeKind;
