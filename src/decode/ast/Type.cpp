@@ -18,6 +18,12 @@
 
 namespace decode {
 
+template <std::size_t N>
+static inline bmcl::StringView viewFromStaticString(const char(&data)[N])
+{
+    return bmcl::StringView(data, N-1);
+}
+
 Type::Type(TypeKind kind)
     : _typeKind(kind)
 {
@@ -103,6 +109,43 @@ bool Type::isBuiltinChar() const
 TypeKind Type::typeKind() const
 {
     return _typeKind;
+}
+
+bmcl::StringView Type::renderTypeKind(TypeKind kind)
+{
+    switch (kind) {
+    case TypeKind::Builtin:
+        return viewFromStaticString("Builtin");
+    case TypeKind::Reference:
+        return viewFromStaticString("Reference");
+    case TypeKind::Array:
+        return viewFromStaticString("Array");
+    case TypeKind::DynArray:
+        return viewFromStaticString("DynArray");
+    case TypeKind::Function:
+        return viewFromStaticString("Function");
+    case TypeKind::Imported:
+        return viewFromStaticString("Imported");
+    case TypeKind::Alias:
+        return viewFromStaticString("Alias");
+    case TypeKind::GenericInstantiation:
+        return viewFromStaticString("GenericInstantiation");
+    case TypeKind::GenericParameter:
+        return viewFromStaticString("GenericParameter");
+    case TypeKind::Enum:
+        return viewFromStaticString("Enum");
+    case TypeKind::Struct:
+        return viewFromStaticString("Struct");
+    case TypeKind::Variant:
+        return viewFromStaticString("Variant");
+    case TypeKind::Generic:
+        return viewFromStaticString("Generic");
+    }
+}
+
+bmcl::StringView Type::renderTypeKind() const
+{
+    return renderTypeKind(_typeKind);
 }
 
 const ArrayType* Type::asArray() const
@@ -357,6 +400,7 @@ bool Type::equals(const Type* other) const
                    (l->elementType()->equals(r->elementType()));
         }
         case TypeKind::DynArray:
+            //FIXME: compare sizes
             return first->asDynArray()->elementType()->equals(second->asDynArray()->elementType());
         case TypeKind::Function: {
             const FunctionType* l = first->asFunction();
@@ -639,12 +683,6 @@ BuiltinType::~BuiltinType()
 {
 }
 
-template <std::size_t N>
-static inline bmcl::StringView viewFromStaticString(const char(&data)[N])
-{
-    return bmcl::StringView(data, N-1);
-}
-
 bmcl::StringView BuiltinType::renderedTypeName(BuiltinTypeKind kind)
 {
     switch (kind) {
@@ -691,9 +729,8 @@ BuiltinTypeKind BuiltinType::builtinTypeKind() const
     return _builtinTypeKind;
 }
 
-DynArrayType::DynArrayType(const ModuleInfo* info, std::uintmax_t maxSize, Type* elementType)
+DynArrayType::DynArrayType(std::uintmax_t maxSize, Type* elementType)
     : Type(TypeKind::DynArray)
-    , _moduleInfo(info)
     , _maxSize(maxSize)
     , _elementType(elementType)
 {
@@ -716,16 +753,6 @@ Type* DynArrayType::elementType()
 std::uintmax_t DynArrayType::maxSize() const
 {
     return _maxSize;
-}
-
-const ModuleInfo* DynArrayType::moduleInfo() const
-{
-    return _moduleInfo.get();
-}
-
-bmcl::StringView DynArrayType::moduleName() const
-{
-    return _moduleInfo->moduleName();
 }
 
 ArrayType::ArrayType(std::uintmax_t elementCount, Type* elementType)
@@ -780,9 +807,8 @@ void ImportedType::setLink(NamedType* link)
     _link.reset(link);
 }
 
-FunctionType::FunctionType(const ModuleInfo* info)
+FunctionType::FunctionType()
     : Type(TypeKind::Function)
-    , _modInfo(info)
 {
 }
 
@@ -843,11 +869,6 @@ FieldVec::ConstRange FunctionType::argumentsRange() const
 bmcl::Option<SelfArgument> FunctionType::selfArgument() const
 {
     return _self;
-}
-
-const ModuleInfo* FunctionType::moduleInfo() const
-{
-    return _modInfo.get();
 }
 
 void FunctionType::addArgument(Field* field)
@@ -1117,11 +1138,11 @@ Rc<Type> GenericType::cloneAndSubstitute(Type* type, bmcl::ArrayView<Rc<Type>> t
         case TypeKind::DynArray: {
             DynArrayType* dynArray = type->asDynArray();
             Rc<Type> cloned = cloneAndSubstitute(dynArray->elementType(), types);
-            return new DynArrayType(dynArray->moduleInfo(), dynArray->maxSize(), cloned.get());
+            return new DynArrayType(dynArray->maxSize(), cloned.get());
         }
         case TypeKind::Function: {
             FunctionType* func = type->asFunction();
-            Rc<FunctionType> newFunc = new FunctionType(func->moduleInfo());
+            Rc<FunctionType> newFunc = new FunctionType();
             if (func->hasReturnValue()) {
                 Rc<Type> cloned = cloneAndSubstitute(func->returnValue().unwrap(), types);
                 newFunc->setReturnValue(cloned.get());

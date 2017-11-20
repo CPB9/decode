@@ -13,6 +13,7 @@
 #include "decode/core/CfgOption.h"
 #include "decode/core/HashMap.h"
 #include "decode/core/RangeAttr.h"
+#include "decode/ast/AllBuiltinTypes.h"
 #include "decode/ast/Decl.h"
 #include "decode/ast/DocBlock.h"
 #include "decode/ast/Ast.h"
@@ -47,50 +48,30 @@
 
 namespace decode {
 
-#define ADD_BUILTIN(name, type, str) \
-    _builtinTypes->name = new BuiltinType(BuiltinTypeKind::type); \
-    _builtinTypes->btMap.emplace(str, _builtinTypes->name)
-
-struct AllBuiltinTypes : public RefCountable {
-    Rc<BuiltinType> usizeType;
-    Rc<BuiltinType> isizeType;
-    Rc<BuiltinType> varuintType;
-    Rc<BuiltinType> varintType;
-    Rc<BuiltinType> u8Type;
-    Rc<BuiltinType> i8Type;
-    Rc<BuiltinType> u16Type;
-    Rc<BuiltinType> i16Type;
-    Rc<BuiltinType> u32Type;
-    Rc<BuiltinType> i32Type;
-    Rc<BuiltinType> u64Type;
-    Rc<BuiltinType> i64Type;
-    Rc<BuiltinType> boolType;
-    Rc<BuiltinType> voidType;
-    Rc<BuiltinType> charType;
-    HashMap<bmcl::StringView, Rc<BuiltinType>> btMap;
-};
+#define ADD_BUILTIN_MAP(name, str) \
+    _btMap.emplace(str, _builtinTypes->name##Type())
 
 Parser::Parser(Diagnostics* diag)
     : _diag(diag)
     , _builtinTypes(new AllBuiltinTypes)
 {
-    ADD_BUILTIN(usizeType, USize, "usize");
-    ADD_BUILTIN(isizeType, ISize, "isize");
-    ADD_BUILTIN(varuintType, Varuint, "varuint");
-    ADD_BUILTIN(varintType, Varint, "varint");
-    ADD_BUILTIN(u8Type, U8, "u8");
-    ADD_BUILTIN(i8Type, I8, "i8");
-    ADD_BUILTIN(u16Type, U16, "u16");
-    ADD_BUILTIN(i16Type, I16, "i16");
-    ADD_BUILTIN(u32Type, U32, "u32");
-    ADD_BUILTIN(i32Type, I32, "i32");
-    ADD_BUILTIN(u64Type, U64, "u64");
-    ADD_BUILTIN(i64Type, I64, "i64");
-    ADD_BUILTIN(i64Type, F32, "f32");
-    ADD_BUILTIN(i64Type, F64, "f64");
-    ADD_BUILTIN(boolType, Bool, "bool");
-    ADD_BUILTIN(voidType, Void, "void");
-    ADD_BUILTIN(charType, Char, "char");
+    ADD_BUILTIN_MAP(usize, "usize");
+    ADD_BUILTIN_MAP(isize, "isize");
+    ADD_BUILTIN_MAP(varuint, "varuint");
+    ADD_BUILTIN_MAP(varint, "varint");
+    ADD_BUILTIN_MAP(u8, "u8");
+    ADD_BUILTIN_MAP(u16, "u16");
+    ADD_BUILTIN_MAP(u32, "u32");
+    ADD_BUILTIN_MAP(u64, "u64");
+    ADD_BUILTIN_MAP(i8, "i8");
+    ADD_BUILTIN_MAP(i16, "i16");
+    ADD_BUILTIN_MAP(i32, "i32");
+    ADD_BUILTIN_MAP(i64, "i64");
+    ADD_BUILTIN_MAP(f32, "f32");
+    ADD_BUILTIN_MAP(f64, "f64");
+    ADD_BUILTIN_MAP(bool, "bool");
+    ADD_BUILTIN_MAP(void, "void");
+    ADD_BUILTIN_MAP(char, "char");
 }
 
 Parser::~Parser()
@@ -756,7 +737,7 @@ Rc<T> Parser::parseFunction(bool selfAllowed)
 
     TRY(expectCurrentToken(TokenKind::Identifier));
     bmcl::StringView name = _currentToken.value();
-    Rc<FunctionType> fnType = new FunctionType(_moduleInfo.get());
+    Rc<FunctionType> fnType = new FunctionType();
     consume();
 
     TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fnType, [this, &selfAllowed](const Rc<FunctionType>& func) -> bool {
@@ -1011,7 +992,7 @@ Rc<Type> Parser::parseFunctionPointer()
 {
     TRY(expectCurrentToken(TokenKind::Ampersand));
 
-    Rc<FunctionType> fn = new FunctionType(_moduleInfo.get());
+    Rc<FunctionType> fn = new FunctionType();
 
     consume();
     TRY(expectCurrentToken(TokenKind::UpperFn));
@@ -1067,7 +1048,7 @@ Rc<Type> Parser::parseDynArrayType()
     TRY(expectCurrentToken(TokenKind::RBracket));
     consume();
 
-    Rc<DynArrayType> type = new DynArrayType(_moduleInfo.get(), maxSize, innerType.get());
+    Rc<DynArrayType> type = new DynArrayType(maxSize, innerType.get());
     _ast->addType(type.get());
     return type;
 }
@@ -1168,8 +1149,8 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         }
     }
 
-    auto it = _builtinTypes->btMap.find(name);
-    if (it != _builtinTypes->btMap.end()) {
+    auto it = _btMap.find(name);
+    if (it != _btMap.end()) {
         return it->second;
     }
     auto link = _ast->findTypeWithName(name);
@@ -1684,7 +1665,7 @@ bool Parser::parseOneFile(FileInfo* finfo)
 
     _lastLineStart = _fileInfo->contents().c_str();
     _lexer = new Lexer(bmcl::StringView(_fileInfo->contents()));
-    _ast = new Ast;
+    _ast = new Ast(_builtinTypes.get());
 
     _lexer->consumeNextToken(&_currentToken);
     TRY(skipCommentsAndSpace());

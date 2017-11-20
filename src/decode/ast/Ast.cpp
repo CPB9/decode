@@ -15,13 +15,15 @@
 #include "decode/ast/Constant.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/CmdTrait.h"
+#include "decode/ast/AllBuiltinTypes.h"
 #include "decode/core/Hash.h"
 
 #include <bmcl/Option.h>
 
 namespace decode {
 
-Ast::Ast()
+Ast::Ast(AllBuiltinTypes* builtinTypes)
+    : _allBuiltins(builtinTypes)
 {
 }
 
@@ -211,5 +213,15 @@ void Ast::setComponent(Component* comp)
 const std::string& Ast::fileName() const
 {
     return _moduleInfo->fileName();
+}
+
+const AllBuiltinTypes* Ast::builtinTypes() const
+{
+    return _allBuiltins.get();
+}
+
+AllBuiltinTypes* Ast::builtinTypes()
+{
+    return _allBuiltins.get();
 }
 }

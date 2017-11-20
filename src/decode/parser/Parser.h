@@ -13,6 +13,7 @@
 #include "decode/core/Hash.h"
 #include "decode/parser/Token.h"
 #include "decode/core/Iterator.h"
+#include "decode/core/HashMap.h"
 #include "decode/parser/Containers.h"
 
 #include <bmcl/StringView.h>
@@ -51,7 +52,7 @@ class StructType;
 class Type;
 class TypeDecl;
 class VariantType;
-struct AllBuiltinTypes;
+class AllBuiltinTypes;
 
 enum class BuiltinTypeKind;
 enum class ReferenceKind;
@@ -183,5 +184,6 @@ private:
     std::vector<bmcl::StringView> _docComments;
     RcVec<GenericParameterType> _currentGenericParameters;
     Rc<RangeAttr> _lastRangeAttr;
+    HashMap<bmcl::StringView, Rc<BuiltinType>> _btMap;
 };
 }

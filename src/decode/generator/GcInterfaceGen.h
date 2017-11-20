@@ -1,9 +1,12 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/core/HashSet.h"
+#include "decode/core/HashMap.h"
+#include "decode/core/Rc.h"
 
 #include "bmcl/Fwd.h"
+
+#include <string>
 
 namespace decode {
 
@@ -24,9 +27,10 @@ public:
 private:
     void appendTypeValidator(const Type* type);
     void appendNamedTypeInit(const NamedType* type, bmcl::StringView name);
-    void appendTestedType(const ModuleInfo* info, const Type* type);
+    void appendTestedType(const Type* type);
+    static void appendTestedType(const Type* type, SrcBuilder* dest);
 
     SrcBuilder* _output;
-    HashSet<const Type*> _validatedTypes;
+    HashMap<std::string, Rc<const Type>> _validatedTypes;
 };
 }

@@ -11,6 +11,7 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Hash.h"
+#include "decode/parser/Containers.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/StringView.h>
@@ -33,6 +34,7 @@ class TypeDecl;
 class Component;
 class Constant;
 class CmdTrait;
+class AllBuiltinTypes;
 
 class Ast : public RefCountable {
 public:
@@ -46,7 +48,7 @@ public:
     using ImplBlocks = RcSecondUnorderedMap<Rc<Type>, ImplBlock>;
     using CmdTraits = RcSecondUnorderedMap<bmcl::StringView, CmdTrait>;
 
-    Ast();
+    Ast(AllBuiltinTypes* builtinTypes);
     ~Ast();
 
     Types::ConstIterator typesBegin() const;
@@ -86,7 +88,8 @@ public:
     void addCmdTrait(CmdTrait* trait);
     void setComponent(Component* comp);
 
-    const BuiltinType* u8Type() const;
+    const AllBuiltinTypes* builtinTypes() const;
+    AllBuiltinTypes* builtinTypes();
 
 private:
     Imports _importDecls;
@@ -99,6 +102,7 @@ private:
     CmdTraits _cmdTraits;
     Rc<const ModuleInfo> _moduleInfo;
     Rc<ModuleDecl> _moduleDecl;
+    Rc<AllBuiltinTypes> _allBuiltins;
 };
 
 }

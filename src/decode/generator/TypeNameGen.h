@@ -31,6 +31,7 @@ public:
     bool visitReferenceType(const ReferenceType* type);
     bool visitDynArrayType(const DynArrayType* type);
     bool visitGenericInstantiationType(const GenericInstantiationType* type);
+    bool visitFunctionType(const FunctionType* type);
 
     bool appendTypeName(const NamedType* type);
 

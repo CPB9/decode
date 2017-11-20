@@ -267,7 +267,7 @@ void InlineTypeInspector::genGcVarSer(bmcl::StringView suffix)
         _output->append("(&");
     }
     appendArgumentName();
-    _output->append(") {\n");
+    _output->append(")) {\n");
     _output->appendIndent(context());
     _output->append("    return false;\n");
     _output->appendIndent(context());

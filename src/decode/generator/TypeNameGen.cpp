@@ -72,6 +72,33 @@ bool TypeNameGen::visitGenericInstantiationType(const GenericInstantiationType* 
     return false;
 }
 
+bool TypeNameGen::visitFunctionType(const FunctionType* type)
+{
+    _output->append("Fn");
+    for (const Field* field : type->argumentsRange()) {
+        genTypeName(field->type());
+    }
+    if (type->selfArgument().isSome()) {
+        _output->append("SelfArg");
+        switch (type->selfArgument().unwrap()) {
+        case SelfArgument::Reference:
+            _output->append("Reference");
+            break;
+        case SelfArgument::MutReference:
+            _output->append("MutReference");
+            break;
+        case SelfArgument::Value:
+            _output->append("Value");
+            break;
+        }
+    }
+    if (type->hasReturnValue()) {
+        _output->append("Rv");
+        genTypeName(type->returnValue().unwrap());
+    }
+    return false;
+}
+
 bool TypeNameGen::appendTypeName(const NamedType* type)
 {
     if (type->moduleName() != "core") {

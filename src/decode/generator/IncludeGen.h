@@ -16,6 +16,7 @@ class IncludeGen {
 public:
     IncludeGen(SrcBuilder* dest);
 
+    //FIXME: pass types by reference
     void genOnboardIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext = ".h");
     void genGcIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext = ".hpp");
 

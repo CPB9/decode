@@ -122,6 +122,9 @@ public:
     GenericInstantiationType* asGenericInstantiation();
     GenericParameterType* asGenericParemeter();
 
+    static bmcl::StringView renderTypeKind(TypeKind kind);
+    bmcl::StringView renderTypeKind() const;
+
     TypeKind typeKind() const;
     const Type* resolveFinalType() const;
     bmcl::Option<std::size_t> fixedSize() const;
@@ -304,17 +307,14 @@ public:
     using Pointer = Rc<DynArrayType>;
     using ConstPointer = Rc<const DynArrayType>;
 
-    DynArrayType(const ModuleInfo* info, std::uintmax_t maxSize, Type* elementType);
+    DynArrayType(std::uintmax_t maxSize, Type* elementType);
     ~DynArrayType();
 
     const Type* elementType() const;
     Type* elementType();
     std::uintmax_t maxSize() const;
-    const ModuleInfo* moduleInfo() const;
-    bmcl::StringView moduleName() const;
 
 private:
-    Rc<const ModuleInfo> _moduleInfo;
     std::uintmax_t _maxSize;
     Rc<Type> _elementType;
 };
@@ -359,7 +359,7 @@ public:
     using Pointer = Rc<FunctionType>;
     using ConstPointer = Rc<const FunctionType>;
 
-    FunctionType(const ModuleInfo* info);
+    FunctionType();
     ~FunctionType();
 
     bmcl::OptionPtr<Type> returnValue();
@@ -373,7 +373,6 @@ public:
     FieldVec::ConstIterator argumentsEnd() const;
     FieldVec::ConstRange argumentsRange() const;
     bmcl::Option<SelfArgument> selfArgument() const;
-    const ModuleInfo* moduleInfo() const;
 
     void addArgument(Field* field);
     void setReturnValue(bmcl::OptionPtr<Type> type);
@@ -383,7 +382,6 @@ private:
     bmcl::Option<SelfArgument> _self;
     FieldVec _arguments;
     Rc<Type> _returnValue;
-    Rc<const ModuleInfo> _modInfo;
 };
 
 class StructType : public NamedType {

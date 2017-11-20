@@ -51,7 +51,24 @@ void GcTypeGen::generateHeader(const TopLevelType* type)
     case TypeKind::DynArray:
     case TypeKind::Function:
     case TypeKind::Imported:
-    case TypeKind::Alias:
+    case TypeKind::Alias: {
+        _output->appendPragmaOnce();
+        _output->appendInclude("vector");
+        beginNamespace(type->asAlias()->moduleName());
+        IncludeGen includeGen(_output);
+        TypeDependsCollector coll;
+        TypeDependsCollector::Depends deps;
+        coll.collect(type, &deps);
+        includeGen.genGcIncludePaths(&deps);
+        _output->append("using ");
+        _output->append(type->asAlias()->name());
+        _output->append(" = ");
+        TypeReprGen gen(_output);
+        gen.genGcTypeRepr(type->asAlias()->alias());
+        _output->append(";\n");
+        endNamespace();
+        break;
+    }
     case TypeKind::GenericInstantiation:
     case TypeKind::GenericParameter:
         return;
@@ -81,22 +98,30 @@ void GcTypeGen::endNamespace()
     _output->append("}\n}\n");
 }
 
-void GcTypeGen::appendSerPrefix(const NamedType* type)
+void GcTypeGen::appendSerPrefix(const NamedType* type, const char* prefix)
 {
-    _output->append("inline bool serialize");
+    _output->append(bmcl::StringView(prefix));
+    _output->append(" bool serialize");
     _output->appendWithFirstUpper(type->name());
     _output->append("(const ");
     _output->appendWithFirstUpper(type->name());
     _output->append("& self, bmcl::MemWriter* dest, decode::CoderState* state)\n{\n");
 }
 
-void GcTypeGen::appendDeserPrefix(const NamedType* type)
+void GcTypeGen::appendDeserPrefix(const NamedType* type, const char* prefix)
 {
-    _output->append("inline bool deserialize");
+    appendDeserPrototype(type, prefix);
+    _output->append("\n{\n");
+}
+
+void GcTypeGen::appendDeserPrototype(const NamedType* type, const char* prefix)
+{
+    _output->append(bmcl::StringView(prefix));
+    _output->append(" bool deserialize");
     _output->appendWithFirstUpper(type->name());
     _output->append("(");
     _output->appendWithFirstUpper(type->name());
-    _output->append("* self, bmcl::MemReader* src, decode::CoderState* state)\n{\n");
+    _output->append("* self, bmcl::MemReader* src, decode::CoderState* state)");
 }
 
 void GcTypeGen::generateEnum(const EnumType* type)
@@ -106,7 +131,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
 
     _output->appendInclude("bmcl/MemReader.h");
     _output->appendInclude("bmcl/MemWriter.h");
-    _output->appendInclude("photon/model/CoderState.h");
+    _output->appendInclude("decode/model/CoderState.h");
     _output->appendEol();
 
     beginNamespace(type->moduleName());
@@ -124,7 +149,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
         _output->append(",\n");
     }
 
-    _output->append("}\n\n");
+    _output->append("};\n\n");
 
     //ser
     appendSerPrefix(type);
@@ -139,10 +164,10 @@ void GcTypeGen::generateEnum(const EnumType* type)
                     "    default:\n"
                     "        state->setError(\"Could not serialize enum `");
     appendFullTypeName(type);
-    _output->append("` with invalid value (\" + std::to_string(self) + \")\");\n"
+    _output->append("` with invalid value (\" + std::to_string((int64_t)self) + \")\");\n"
                     "        return false;\n"
                     "    }\n    "
-                    "if(!dest->writeVarint((int64_t)self)) {\n"
+                    "if(!dest->writeVarInt((int64_t)self)) {\n"
                     "        state->setError(\"Not enough space to serialize enum `");
     appendFullTypeName(type);
     _output->append("`\");\n        return false;\n    }\n"
@@ -150,7 +175,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
 
     //deser
     appendDeserPrefix(type);
-    _output->append("    int64_t value;\n    if (!src->readVarint(&value)) {\n"
+    _output->append("    int64_t value;\n    if (!src->readVarInt(&value)) {\n"
                     "        state->setError(\"Not enough data to deserialize enum `");
     appendFullTypeName(type);
     _output->append("`\");\n        return false;\n    }\n");
@@ -166,7 +191,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
     _output->append("    }\n    state->setError(\"Failed to deserialize enum `");
     appendFullTypeName(type);
     _output->append("`, got invalid value (\" + std::to_string(value) + \")\");\n"
-                    "    return false;\n");
+                    "    return false;\n}");
 
     endNamespace();
 }
@@ -179,10 +204,12 @@ void GcTypeGen::generateStruct(const StructType* type)
     _output->appendInclude("cstddef");
     _output->appendInclude("cstdint");
     _output->appendInclude("cstdbool");
+    _output->appendInclude("vector");
     _output->appendEol();
 
     _output->appendInclude("bmcl/MemReader.h");
     _output->appendInclude("bmcl/MemWriter.h");
+    _output->appendInclude("decode/model/CoderState.h");
     _output->appendEol();
 
     TypeDependsCollector coll;
@@ -295,10 +322,10 @@ void GcTypeGen::generateStruct(const StructType* type)
         } else {
             t = wrapType(field->type()->resolveFinalType(), false);
         }
-        gen.genGcTypeRepr(t.get());
-        _output->append(' ');
-        _output->append(field->name());
-        _output->append("()");
+        SrcBuilder fieldName;
+        fieldName.append(field->name());
+        fieldName.append("()");
+        gen.genGcTypeRepr(t.get(), fieldName.view());
         if (!isMutable) {
             _output->append(" const");
         }
@@ -309,10 +336,12 @@ void GcTypeGen::generateStruct(const StructType* type)
 
     for (const Field* field : type->fieldsRange()) {
         appendGetter(field, false);
-        appendGetter(field, true);
+        //appendGetter(field, true);
     }
 
-    _output->append("private:\n");
+    _output->append("private:\n    ");
+    appendDeserPrototype(type, "friend");
+    _output->append(";\n\n");
     SrcBuilder builder("_");
     for (const Field* field : type->fieldsRange()) {
         _output->appendIndent();
@@ -322,7 +351,7 @@ void GcTypeGen::generateStruct(const StructType* type)
         _output->append(";\n");
     }
 
-    _output->append("}\n\n");
+    _output->append("};\n\n");
 
     //TODO: use field inspector
     InlineTypeInspector inspector(&gen, _output);
@@ -339,12 +368,11 @@ void GcTypeGen::generateStruct(const StructType* type)
     _output->append("    return true;\n}\n\n");
 
     appendDeserPrefix(type);
-    builder.result().assign("self->");
+    builder.result().assign("self->_");
     for (const Field* field : type->fieldsRange()) {
         builder.append(field->name());
-        builder.append("()");
         inspector.inspect<false, false>(field->type(), ctx, builder.view());
-        builder.resize(6);
+        builder.resize(7);
     }
     _output->append("    return true;\n}\n");
 
@@ -359,6 +387,7 @@ void GcTypeGen::generateVariant(const VariantType* type)
     _output->appendInclude("cstddef");
     _output->appendInclude("cstdint");
     _output->appendInclude("cstdbool");
+    _output->appendInclude("decode/model/CoderState.h");
     _output->appendEol();
 
     TypeDependsCollector coll;
@@ -423,7 +452,12 @@ void GcTypeGen::generateVariant(const VariantType* type)
         }
     }
 
-    _output->append("}\n");
+    _output->append("};\n");
+
+    appendSerPrefix(type);
+    _output->append("}\n\n");
+    appendDeserPrefix(type);
+    _output->append("}\n\n");
     endNamespace();
 }
 }
