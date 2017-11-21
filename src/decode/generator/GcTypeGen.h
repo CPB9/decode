@@ -22,6 +22,7 @@ class VariantType;
 class NamedType;
 class SrcBuilder;
 class EnumConstant;
+class GenericType;
 
 class GcTypeGen {
 public:
@@ -31,10 +32,11 @@ public:
     void generateHeader(const TopLevelType* type);
 
 private:
-    void generateEnum(const EnumType* type);
-    void generateStruct(const StructType* type);
-    void generateVariant(const VariantType* type);
+    void generateEnum(const EnumType* type, bmcl::OptionPtr<const GenericType> parent);
+    void generateStruct(const StructType* type, bmcl::OptionPtr<const GenericType> parent);
+    void generateVariant(const VariantType* type, bmcl::OptionPtr<const GenericType> parent);
 
+    void appendTemplatePrefix(bmcl::OptionPtr<const GenericType> parent);
     void appendFullTypeName(const NamedType* type);
     void appendEnumConstantName(const EnumType* type, const EnumConstant* constant);
 

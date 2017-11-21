@@ -1070,6 +1070,11 @@ bmcl::ArrayView<Rc<GenericParameterType>> GenericType::parameters()
     return _parameters;
 }
 
+RcVec<GenericParameterType>::ConstRange GenericType::parametersRange() const
+{
+    return _parameters;
+}
+
 bmcl::Result<Rc<NamedType>, std::string> GenericType::instantiate(const bmcl::ArrayView<Rc<Type>> types)
 {
     if (_parameters.size() != types.size()) {

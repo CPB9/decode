@@ -415,14 +415,11 @@ void InlineTypeInspector::inspectNonInlineType(const NamedType* type)
     } else {
         _output->appendIndent(context());
         _output->append("if (!");
-        _output->append(type->moduleName());
-        _output->append("::");
         if (isSerializer) {
-            _output->append("serialize");
+            _output->append("photongenSerialize");
         } else {
-            _output->append("deserialize");
+            _output->append("photongenDeserialize");
         }
-        _output->append(type->name());
         if (!isSerializer) {
             _output->append("(&");
             appendArgumentName();

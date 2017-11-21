@@ -103,10 +103,21 @@ void TypeReprGen::writeBuiltin(const BuiltinType* type)
 template <bool isOnboard>
 void TypeReprGen::writeArray(const ArrayType* type)
 {
-    _output->append('[');
-    _output->append(std::to_string(type->elementCount()));
-    _output->append(']');
-    writeType<isOnboard>(type->elementType());
+    if (isOnboard) {
+        _output->append('[');
+        _output->append(std::to_string(type->elementCount()));
+        _output->append(']');
+        writeType<isOnboard>(type->elementType());
+    } else {
+        _temp.append("std::array<");
+        TypeReprGen gen(&_temp);
+        gen.genTypeRepr<false>(type->elementType());
+        _temp.append(", ");
+        _temp.appendNumericValue(type->elementCount());
+        _temp.append(">");
+        _output->insert(_currentOffset, _temp.view());
+        _temp.clear();
+    }
 }
 
 template <bool isOnboard>
@@ -144,7 +155,7 @@ void TypeReprGen::writeNamed(const NamedType* type)
 }
 
 template <bool isOnboard>
-void TypeReprGen::writeNamed(const NamedType* type, const NamedType* origin)
+void TypeReprGen::writeNamed(const NamedType* type, const NamedType* origin, bool originIsGeneric)
 {
     if (isOnboard) {
         _temp.append("Photon");
@@ -153,9 +164,20 @@ void TypeReprGen::writeNamed(const NamedType* type, const NamedType* origin)
         }
         _temp.appendWithFirstUpper(type->name());
     } else {
+        _temp.append("photongen::");
         _temp.append(origin->moduleName());
         _temp.append("::");
         _temp.append(type->name());
+
+        if (originIsGeneric) {
+            _temp.append("<");
+            foreachList(origin->asGeneric()->parametersRange(), [&](const GenericParameterType* t) {
+                _temp.append(t->name());
+            }, [this](const Type*) {
+                _temp.append(", ");
+            });
+            _temp.append(">");
+        }
     }
     _output->insert(_currentOffset, _temp.result());
     _temp.clear();
@@ -256,7 +278,7 @@ void TypeReprGen::writeType(const Type* type)
         writeNamed<isOnboard>(type->asAlias());
         break;
     case TypeKind::Generic:
-        //TODO:
+        writeNamed<isOnboard>(type->asGeneric()->innerType(), type->asGeneric(), true);
         break;
     case TypeKind::GenericInstantiation:
         writeGenericInstantiation<isOnboard>(type->asGenericInstantiation());

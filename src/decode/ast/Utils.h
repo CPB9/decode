@@ -4,6 +4,7 @@
 #include "decode/ast/Ast.h"
 #include "decode/parser/Project.h"
 #include "decode/ast/Component.h"
+#include "decode/ast/Function.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
 
@@ -88,6 +89,68 @@ static void expectField(Rc<const T>* container, std::size_t i, bmcl::StringView 
     if (!type->equals(other)) {
         *container = nullptr;
         //return "field " + wrapWithQuotes(fieldName) + " of struct " + wrapWithQuotes(container->name()) + " is of invalid type";
+    }
+}
+
+static const decode::Command* findCmd(const decode::Component* comp, bmcl::StringView name, std::size_t argNum)
+{
+    if (!comp) {
+        return nullptr;
+    }
+    auto it = std::find_if(comp->cmdsBegin(), comp->cmdsEnd(), [name](const decode::Command* func) {
+        return func->name() == name;
+    });
+    if (it == comp->cmdsEnd()) {
+        return nullptr;
+        //return "failed to find command " + wrapWithQuotes(name);
+    }
+    if (it->fieldsRange().size() != argNum) {
+        return nullptr;
+    }
+    return *it;
+}
+
+static void expectCmdArg(Rc<const Command>* cmd, std::size_t i, const Type* type)
+{
+    if (!cmd->get()) {
+        *cmd = nullptr;
+        return;
+    }
+    if (cmd->get()->fieldsRange().size() <= i) {
+        *cmd = nullptr;
+        return;
+    }
+    if (!cmd->get()->fieldAt(i)->type()->equals(type)) {
+        *cmd = nullptr;
+        return;
+    }
+}
+
+static void expectCmdRv(Rc<const Command>* cmd, const Type* type)
+{
+    if (!cmd->get()) {
+        *cmd = nullptr;
+        return;
+    }
+    if (!cmd->get()->type()->returnValue().isNone()) {
+        *cmd = nullptr;
+        return;
+    }
+    if (!cmd->get()->type()->returnValue()->equals(type)) {
+        *cmd = nullptr;
+        return;
+    }
+}
+
+static void expectCmdNoRv(Rc<const Command>* cmd)
+{
+    if (!cmd->get()) {
+        *cmd = nullptr;
+        return;
+    }
+    if (!cmd->get()->type()->returnValue().isSome()) {
+        *cmd = nullptr;
+        return;
     }
 }
 }

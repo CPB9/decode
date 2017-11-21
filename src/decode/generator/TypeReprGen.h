@@ -51,7 +51,7 @@ private:
     template <bool isOnboard>
     void writeNamed(const NamedType* type);
     template <bool isOnboard>
-    void writeNamed(const NamedType* type, const NamedType* origin);
+    void writeNamed(const NamedType* type, const NamedType* origin, bool originIsGeneric = false);
     template <bool isOnboard>
     void writeFunction(const FunctionType* type);
     template <bool isOnboard>

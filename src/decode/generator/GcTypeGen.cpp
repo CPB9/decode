@@ -54,12 +54,12 @@ void GcTypeGen::generateHeader(const TopLevelType* type)
     case TypeKind::Alias: {
         _output->appendPragmaOnce();
         _output->appendInclude("vector");
-        beginNamespace(type->asAlias()->moduleName());
         IncludeGen includeGen(_output);
         TypeDependsCollector coll;
         TypeDependsCollector::Depends deps;
         coll.collect(type, &deps);
         includeGen.genGcIncludePaths(&deps);
+        beginNamespace(type->asAlias()->moduleName());
         _output->append("using ");
         _output->append(type->asAlias()->name());
         _output->append(" = ");
@@ -73,16 +73,29 @@ void GcTypeGen::generateHeader(const TopLevelType* type)
     case TypeKind::GenericParameter:
         return;
     case TypeKind::Enum:
-        generateEnum(type->asEnum());
+        generateEnum(type->asEnum(), bmcl::None);
         break;
     case TypeKind::Struct:
-        generateStruct(type->asStruct());
+        generateStruct(type->asStruct(), bmcl::None);
         break;
     case TypeKind::Variant:
-        generateVariant(type->asVariant());
+        generateVariant(type->asVariant(), bmcl::None);
         break;
-    case TypeKind::Generic:
+    case TypeKind::Generic: {
+        const GenericType* g = type->asGeneric();
+        switch (g->innerType()->resolveFinalType()->typeKind()) {
+            case TypeKind::Enum:
+                generateEnum(g->innerType()->asEnum(), g);
+                break;
+            case TypeKind::Struct:
+                generateStruct(g->innerType()->asStruct(), g);
+                break;
+            case TypeKind::Variant:
+                generateVariant(g->innerType()->asVariant(), g);
+                break;
+        }
         break;
+    }
     }
 }
 
@@ -100,11 +113,11 @@ void GcTypeGen::endNamespace()
 
 void GcTypeGen::appendSerPrefix(const NamedType* type, const char* prefix)
 {
+    TypeReprGen reprGen(_output);
     _output->append(bmcl::StringView(prefix));
-    _output->append(" bool serialize");
-    _output->appendWithFirstUpper(type->name());
+    _output->append(" bool photongenSerialize");
     _output->append("(const ");
-    _output->appendWithFirstUpper(type->name());
+    reprGen.genGcTypeRepr(type);
     _output->append("& self, bmcl::MemWriter* dest, decode::CoderState* state)\n{\n");
 }
 
@@ -116,16 +129,17 @@ void GcTypeGen::appendDeserPrefix(const NamedType* type, const char* prefix)
 
 void GcTypeGen::appendDeserPrototype(const NamedType* type, const char* prefix)
 {
+    TypeReprGen reprGen(_output);
     _output->append(bmcl::StringView(prefix));
-    _output->append(" bool deserialize");
-    _output->appendWithFirstUpper(type->name());
+    _output->append(" bool photongenDeserialize");
     _output->append("(");
-    _output->appendWithFirstUpper(type->name());
+    reprGen.genGcTypeRepr(type);
     _output->append("* self, bmcl::MemReader* src, decode::CoderState* state)");
 }
 
-void GcTypeGen::generateEnum(const EnumType* type)
+void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const GenericType> parent)
 {
+
     _output->appendPragmaOnce();
     _output->appendEol();
 
@@ -137,6 +151,7 @@ void GcTypeGen::generateEnum(const EnumType* type)
     beginNamespace(type->moduleName());
 
     //type
+    appendTemplatePrefix(parent);
     _output->append("enum class ");
     _output->appendWithFirstUpper(type->name());
     _output->append(" {\n");
@@ -196,8 +211,12 @@ void GcTypeGen::generateEnum(const EnumType* type)
     endNamespace();
 }
 
-void GcTypeGen::generateStruct(const StructType* type)
+void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const GenericType> parent)
 {
+    const NamedType* serType = type;
+    if (parent.isSome()) {
+        serType = parent.unwrap();
+    }
     _output->appendPragmaOnce();
     _output->appendEol();
 
@@ -223,7 +242,8 @@ void GcTypeGen::generateStruct(const StructType* type)
 
     beginNamespace(type->moduleName());
 
-    _output->append("struct ");
+    appendTemplatePrefix(parent);
+    _output->append("class ");
     _output->appendWithFirstUpper(type->name());
     _output->append(" {\npublic:\n");
 
@@ -265,10 +285,10 @@ void GcTypeGen::generateStruct(const StructType* type)
         switch (t->typeKind()) {
         case TypeKind::Builtin:
         case TypeKind::Reference:
-        case TypeKind::Array:
         case TypeKind::Function:
         case TypeKind::GenericParameter:
             return t;
+        case TypeKind::Array:
         case TypeKind::DynArray:
         case TypeKind::Enum:
         case TypeKind::Struct:
@@ -339,9 +359,7 @@ void GcTypeGen::generateStruct(const StructType* type)
         //appendGetter(field, true);
     }
 
-    _output->append("private:\n    ");
-    appendDeserPrototype(type, "friend");
-    _output->append(";\n\n");
+    _output->append("\n");
     SrcBuilder builder("_");
     for (const Field* field : type->fieldsRange()) {
         _output->appendIndent();
@@ -353,11 +371,14 @@ void GcTypeGen::generateStruct(const StructType* type)
 
     _output->append("};\n\n");
 
+    endNamespace();
+
     //TODO: use field inspector
     InlineTypeInspector inspector(&gen, _output);
     InlineSerContext ctx;
 
-    appendSerPrefix(type);
+    appendTemplatePrefix(parent);
+    appendSerPrefix(serType);
     builder.result().assign("self.");
     for (const Field* field : type->fieldsRange()) {
         builder.append(field->name());
@@ -367,7 +388,8 @@ void GcTypeGen::generateStruct(const StructType* type)
     }
     _output->append("    return true;\n}\n\n");
 
-    appendDeserPrefix(type);
+    appendTemplatePrefix(parent);
+    appendDeserPrefix(serType);
     builder.result().assign("self->_");
     for (const Field* field : type->fieldsRange()) {
         builder.append(field->name());
@@ -376,11 +398,29 @@ void GcTypeGen::generateStruct(const StructType* type)
     }
     _output->append("    return true;\n}\n");
 
-    endNamespace();
 }
 
-void GcTypeGen::generateVariant(const VariantType* type)
+void GcTypeGen::appendTemplatePrefix(bmcl::OptionPtr<const GenericType> parent)
 {
+    if (parent.isNone()) {
+        return;
+    }
+    _output->append("template <");
+    foreachList(parent->parametersRange(), [this](const GenericParameterType* type) {
+        _output->append("typename ");
+        _output->append(type->name());
+    }, [this](const GenericParameterType*) {
+        _output->append(", ");
+    });
+    _output->append(">\n");
+}
+
+void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const GenericType> parent)
+{
+    const NamedType* serType = type;
+    if (parent.isSome()) {
+        serType = parent.unwrap();
+    }
     _output->appendPragmaOnce();
     _output->appendEol();
 
@@ -401,7 +441,8 @@ void GcTypeGen::generateVariant(const VariantType* type)
 
     beginNamespace(type->moduleName());
 
-    _output->append("struct ");
+    appendTemplatePrefix(parent);
+    _output->append("class ");
     _output->appendWithFirstUpper(type->name());
     _output->append(" {\npublic:\n");
 
@@ -453,11 +494,13 @@ void GcTypeGen::generateVariant(const VariantType* type)
     }
 
     _output->append("};\n");
-
-    appendSerPrefix(type);
-    _output->append("}\n\n");
-    appendDeserPrefix(type);
-    _output->append("}\n\n");
     endNamespace();
+
+    appendTemplatePrefix(parent);
+    appendSerPrefix(serType);
+    _output->append("return true;}\n\n");
+    appendTemplatePrefix(parent);
+    appendDeserPrefix(serType);
+    _output->append("return true;}\n\n");
 }
 }

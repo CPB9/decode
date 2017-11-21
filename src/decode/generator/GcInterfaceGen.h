@@ -16,6 +16,8 @@ class Ast;
 class Type;
 class NamedType;
 class ModuleInfo;
+class Component;
+class Command;
 
 class GcInterfaceGen {
 public:
@@ -25,10 +27,15 @@ public:
     void generateHeader(const Package* package);
 
 private:
-    void appendTypeValidator(const Type* type);
+    bool appendTypeValidator(const Type* type);
+    void appendCmdValidator(const Component* comp, const Command* cmd);
+    void appendCmdFieldName(const Component* comp, const Command* cmd);
+    void appendCmdMethods(const Component* comp, const Command* cmd);
     void appendNamedTypeInit(const NamedType* type, bmcl::StringView name);
     void appendTestedType(const Type* type);
     static void appendTestedType(const Type* type, SrcBuilder* dest);
+
+    bool insertValidatedType(const Type* type);
 
     SrcBuilder* _output;
     HashMap<std::string, Rc<const Type>> _validatedTypes;

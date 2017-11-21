@@ -2,11 +2,14 @@
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/TypeReprGen.h"
+#include "decode/generator/InlineTypeInspector.h"
 #include "decode/parser/Package.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
+#include "decode/core/Foreach.h"
 #include "decode/generator/SrcBuilder.h"
 
 namespace decode {
@@ -37,7 +40,8 @@ void GcInterfaceGen::generateHeader(const Package* package)
                     "#include <decode/ast/Type.h>\n"
                     "#include <decode/ast/AllBuiltinTypes.h>\n"
                     "#include <decode/ast/Field.h>\n"
-                    "#include <decode/parser/Project.h>\n"
+                    "#include <decode/parser/Project.h>\n\n"
+                    "namespace photongen {\n"
                     "class Validator {\npublic:\n"
                     "    Validator(const decode::Project* project, const decode::Device* device)\n"
                     "        : _project(project)\n"
@@ -83,7 +87,28 @@ void GcInterfaceGen::generateHeader(const Package* package)
         }
     }
 
+    for (const Ast* ast : package->modules()) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+        const Component* comp = ast->component().unwrap();
+        for (const Command* cmd : comp->cmdsRange()) {
+            appendCmdValidator(comp, cmd);
+        }
+    }
+
     _output->append("    }\n");
+
+    for (const Ast* ast : package->modules()) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+        const Component* comp = ast->component().unwrap();
+        for (const Command* cmd : comp->cmdsRange()) {
+            appendCmdMethods(comp, cmd);
+        }
+    }
+
     _output->append("private:\n"
                     "    decode::Rc<const decode::Project> _project;\n"
                     "    decode::Rc<const decode::Device> _device;\n"
@@ -145,23 +170,158 @@ void GcInterfaceGen::generateHeader(const Package* package)
         _output->append(";\n");
     }
 
-    _output->append("};\n\n");
+    for (const Ast* ast : package->modules()) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+        const Component* comp = ast->component().unwrap();
+        for (const Command* cmd : comp->cmdsRange()) {
+            _output->append("    decode::Rc<const decode::Command> ");
+            appendCmdFieldName(comp, cmd);
+            _output->append(";\n");
+        }
+    }
+
+    _output->append("};\n}\n\n");
     _validatedTypes.clear();
 }
 
-void GcInterfaceGen::appendTypeValidator(const Type* type)
+void GcInterfaceGen::appendCmdFieldName(const Component* comp, const Command* cmd)
+{
+    _output->append("_cmd");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendWithFirstUpper(cmd->name());
+}
+
+void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
+{
+    _output->append("    bool hasCmd");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendWithFirstUpper(cmd->name());
+    _output->append("() const\n    {\n        return ");
+    appendCmdFieldName(comp, cmd);
+    _output->append(";\n    }\n\n");
+
+    _output->append("    bool encodeCmd");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendWithFirstUpper(cmd->name());
+    _output->append("(");
+
+    TypeReprGen gen(_output);
+    for (const Field* field : cmd->fieldsRange()) {
+        gen.genGcTypeRepr(field->type(), field->name());
+        _output->append(", ");
+    }
+    _output->append("bmcl::MemWriter* dest, decode::CoderState* state) const\n    {\n");
+    _output->append("        if(!");
+    appendCmdFieldName(comp, cmd);
+    _output->append(") {\n            return false;\n        }\n");
+
+    _output->append("        if(!_");
+    _output->append(comp->moduleName());
+    _output->append("Component) {\n            return false;\n        }\n"
+                    "        if(!dest->writeVarUint(_");
+    _output->append(comp->moduleName());
+    _output->append("Component->number())) {\n            return false;\n        }\n");
+
+    _output->append("        if(!dest->writeVarUint(");
+    appendCmdFieldName(comp, cmd);
+    _output->append("->number())) {\n            return false;\n        }\n");
+
+    InlineSerContext ctx;
+    ctx = ctx.indent();
+    //TODO: use field inspector
+    InlineTypeInspector inspector(&gen, _output);
+    for (const Field* field : cmd->fieldsRange()) {
+        inspector.inspect<false, true>(field->type(), ctx, field->name());
+    }
+
+    _output->append("        return true;\n"
+                    "    }\n\n");
+
+    if (cmd->type()->returnValue().isSome()) {
+        _output->append("    bool decodeCmdRv");
+        _output->appendWithFirstUpper(comp->moduleName());
+        _output->appendWithFirstUpper(cmd->name());
+        _output->append("(");
+
+        Rc<ReferenceType> ref = new ReferenceType(ReferenceKind::Pointer, true, const_cast<Type*>(cmd->type()->returnValue().unwrap()));
+        gen.genGcTypeRepr(ref.get(), "rv");
+        _output->append(", bmcl::MemReader* src, decode::CoderState* state) const\n    {\n");
+
+
+        _output->append("        if(!");
+        appendCmdFieldName(comp, cmd);
+        _output->append(") {\n            return false;\n        }\n");
+
+        _output->append("        if(!_");
+        _output->append(comp->moduleName());
+        _output->append("Component) {\n            return false;\n        }\n");
+        inspector.inspect<false, false>(cmd->type()->returnValue().unwrap(), ctx, "(*rv)");
+
+        _output->append("        return true;\n"
+                        "    }\n\n");
+    }
+}
+
+void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cmd)
+{
+    _output->append("        ");
+    appendCmdFieldName(comp, cmd);
+    _output->append(" = decode::findCmd(");
+    _output->append("_");
+    _output->append(comp->moduleName());
+    _output->append("Component.get(), \"");
+    _output->append(cmd->name());
+    _output->append("\", ");
+    _output->appendNumericValue(cmd->fieldsRange().size());
+    _output->append(");\n");
+    std::size_t i = 0;
+    for (const Field* field : cmd->fieldsRange()) {
+        appendTypeValidator(field->type());
+        _output->append("        decode::expectCmdArg(&");
+        appendCmdFieldName(comp, cmd);
+        _output->append(", ");
+        _output->appendNumericValue(i);
+        _output->append(", ");
+        appendTestedType(field->type());
+        _output->append(".get());\n");
+        i++;
+    }
+    auto rv = cmd->type()->returnValue();
+    if (rv.isSome()) {
+        appendTypeValidator(rv.unwrap());
+        _output->append("        decode::expectCmdRv(&");
+        appendCmdFieldName(comp, cmd);
+        _output->append(", ");
+        appendTestedType(rv.unwrap());
+        _output->append(".get());\n");
+    } else {
+        _output->append("        decode::expectCmdNoRv(&");
+        appendCmdFieldName(comp, cmd);
+        _output->append(");\n");
+    }
+    _output->appendEol();
+}
+
+bool GcInterfaceGen::insertValidatedType(const Type* type)
 {
     if (type->resolveFinalType()->isGeneric()) {
-        return;
+        return false;
     }
     if (type->resolveFinalType()->isBuiltin()) {
-        return;
+        return false;
     }
     SrcBuilder nameBuilder;
     appendTestedType(type, &nameBuilder);
-    auto pair = _validatedTypes.emplace(nameBuilder.result(), type);
-    if (!pair.second) {
-        return;
+    auto pair = _validatedTypes.emplace(std::move(nameBuilder.result()), type);
+    return pair.second;
+}
+
+bool GcInterfaceGen::appendTypeValidator(const Type* type)
+{
+    if (!insertValidatedType(type)) {
+        return false;
     }
     switch (type->typeKind()) {
     case TypeKind::Builtin:
@@ -240,6 +400,7 @@ void GcInterfaceGen::appendTypeValidator(const Type* type)
             appendTestedType(field->type());
             _output->append(".get()));\n");
         }
+        _output->appendEol();
         break;
     }
     case TypeKind::GenericParameter:
@@ -305,6 +466,7 @@ void GcInterfaceGen::appendTypeValidator(const Type* type)
     case TypeKind::GenericInstantiation:
         break;
     }
+    return true;
 }
 
 void GcInterfaceGen::appendTestedType(const Type* type)

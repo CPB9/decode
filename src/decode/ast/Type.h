@@ -207,6 +207,8 @@ public:
     const NamedType* innerType() const;
     bmcl::ArrayView<Rc<GenericParameterType>> parameters();
 
+    RcVec<GenericParameterType>::ConstRange parametersRange() const;
+
     bmcl::Result<Rc<NamedType>, std::string> instantiate(bmcl::ArrayView<Rc<Type>> types);
 
 private:
