@@ -116,6 +116,10 @@ static void expectCmdArg(Rc<const Command>* cmd, std::size_t i, const Type* type
         *cmd = nullptr;
         return;
     }
+    if (!type) {
+        *cmd = nullptr;
+        return;
+    }
     if (cmd->get()->fieldsRange().size() <= i) {
         *cmd = nullptr;
         return;
@@ -129,6 +133,10 @@ static void expectCmdArg(Rc<const Command>* cmd, std::size_t i, const Type* type
 static void expectCmdRv(Rc<const Command>* cmd, const Type* type)
 {
     if (!cmd->get()) {
+        *cmd = nullptr;
+        return;
+    }
+    if (!type) {
         *cmd = nullptr;
         return;
     }
@@ -148,7 +156,7 @@ static void expectCmdNoRv(Rc<const Command>* cmd)
         *cmd = nullptr;
         return;
     }
-    if (!cmd->get()->type()->returnValue().isSome()) {
+    if (cmd->get()->type()->returnValue().isSome()) {
         *cmd = nullptr;
         return;
     }

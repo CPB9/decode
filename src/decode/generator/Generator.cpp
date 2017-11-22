@@ -367,7 +367,7 @@ bool Generator::generateProject(const Project* project)
 
     GcInterfaceGen igen(&_output);
     igen.generateHeader(package);
-    TRY(dumpIfNotEmpty("Interface", ".h", &_gcPhotonPath));
+    TRY(dumpIfNotEmpty("Interface", ".hpp", &_gcPhotonPath));
 
     future.wait();
     std::string packageDetailPath = _onboardPath + "/photon/Package.Private.inc.c"; //FIXME: joinPath

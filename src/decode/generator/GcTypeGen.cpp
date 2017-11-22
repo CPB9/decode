@@ -120,7 +120,7 @@ void GcTypeGen::appendSerPrefix(const NamedType* type, const char* prefix)
     _output->append(" bool photongenSerialize");
     _output->append("(const ");
     reprGen.genGcTypeRepr(type);
-    _output->append("& self, bmcl::MemWriter* dest, decode::CoderState* state)\n{\n");
+    _output->append("& self, bmcl::MemWriter* dest, photon::CoderState* state)\n{\n");
 }
 
 void GcTypeGen::appendDeserPrefix(const NamedType* type, const char* prefix)
@@ -136,7 +136,7 @@ void GcTypeGen::appendDeserPrototype(const NamedType* type, const char* prefix)
     _output->append(" bool photongenDeserialize");
     _output->append("(");
     reprGen.genGcTypeRepr(type);
-    _output->append("* self, bmcl::MemReader* src, decode::CoderState* state)");
+    _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)");
 }
 
 void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const GenericType> parent)
@@ -147,7 +147,7 @@ void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const Generic
 
     _output->appendInclude("bmcl/MemReader.h");
     _output->appendInclude("bmcl/MemWriter.h");
-    _output->appendInclude("decode/model/CoderState.h");
+    _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
     beginNamespace(type->moduleName());
@@ -230,7 +230,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
 
     _output->appendInclude("bmcl/MemReader.h");
     _output->appendInclude("bmcl/MemWriter.h");
-    _output->appendInclude("decode/model/CoderState.h");
+    _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
     TypeDependsCollector coll;
@@ -325,7 +325,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
         _output->appendWithFirstUpper(field->name());
         _output->append('(');
 
-        Rc<const Type> t = wrapType(field->type()->resolveFinalType(), false);
+        Rc<const Type> t = wrapType(field->type(), false);
         gen.genGcTypeRepr(t.get(), field->name());
         _output->append(")\n    {\n        _");
         _output->append(field->name());
@@ -342,7 +342,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
             ref->setMutable(isMutable);
             t = ref;
         } else {
-            t = wrapType(field->type()->resolveFinalType(), false);
+            t = wrapType(field->type(), false);
         }
         SrcBuilder fieldName;
         fieldName.append(field->name());
@@ -429,7 +429,7 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
     _output->appendInclude("cstddef");
     _output->appendInclude("cstdint");
     _output->appendInclude("cstdbool");
-    _output->appendInclude("decode/model/CoderState.h");
+    _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
     TypeDependsCollector coll;

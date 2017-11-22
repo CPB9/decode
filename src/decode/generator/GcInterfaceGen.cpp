@@ -212,7 +212,7 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
         gen.genGcTypeRepr(field->type(), field->name());
         _output->append(", ");
     }
-    _output->append("bmcl::MemWriter* dest, decode::CoderState* state) const\n    {\n");
+    _output->append("bmcl::MemWriter* dest, photon::CoderState* state) const\n    {\n");
     _output->append("        if(!");
     appendCmdFieldName(comp, cmd);
     _output->append(") {\n            return false;\n        }\n");
@@ -247,7 +247,7 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
 
         Rc<ReferenceType> ref = new ReferenceType(ReferenceKind::Pointer, true, const_cast<Type*>(cmd->type()->returnValue().unwrap()));
         gen.genGcTypeRepr(ref.get(), "rv");
-        _output->append(", bmcl::MemReader* src, decode::CoderState* state) const\n    {\n");
+        _output->append(", bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");
 
 
         _output->append("        if(!");
