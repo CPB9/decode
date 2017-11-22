@@ -51,63 +51,7 @@ add_library(zpaq STATIC
     thirdparty/zpaq/libzpaq.cpp
 )
 
-find_package(Qt5Widgets)
 find_package(Threads)
-
-# caf
-
-if (NOT CAF_INCLUDED) #for parent project
-    set(CAF_NO_EXAMPLES 1)
-    set(CAF_NO_BENCHMARKS 1)
-    set(CAF_NO_PYTHON 1)
-    set(CAF_NO_OPENCL 1)
-    set(CAF_NO_TOOLS 1)
-    set(CAF_NO_UNIT_TESTS 1)
-    set(CAF_LOG_LEVEL 0)
-    if (UNIX)
-        set(CAF_CORE_LIBRARIES libcaf_core_shared)
-        set(CAF_IO_LIBRARIES libcaf_io_shared)
-    else()
-        set(CAF_CORE_LIBRARIES libcaf_core_static)
-        set(CAF_IO_LIBRARIES libcaf_io_static)
-    endif()
-    if (NOT MSVC)
-        set(_TMP_FLAGS ${CMAKE_CXX_FLAGS})
-        set(CMAKE_CXX_FLAGS "")
-    endif()
-    add_subdirectory(thirdparty/caf EXCLUDE_FROM_ALL)
-    if (NOT MSVC)
-        set(CMAKE_CXX_FLAGS ${_TMP_FLAGS})
-    endif()
-    target_include_directories(${CAF_CORE_LIBRARIES} SYSTEM INTERFACE thirdparty/caf/libcaf_core)
-endif()
-
-set(DECODE_UI_SRC)
-
-if(Qt5Widgets_FOUND)
-    set(DECODE_UI_HEADERS
-        src/decode/ui/FirmwareWidget.h
-        src/decode/ui/FirmwareStatusWidget.h
-        src/decode/ui/QModelBase.h
-        src/decode/ui/QCmdModel.h
-        src/decode/ui/QNodeModel.h
-        src/decode/ui/QNodeViewModel.h
-    )
-    qt5_wrap_cpp(DECODE_UI_MOC
-        ${DECODE_UI_HEADERS}
-    )
-    set(DECODE_UI_SRC
-        src/decode/ui/FirmwareWidget.cpp
-        src/decode/ui/FirmwareStatusWidget.cpp
-        src/decode/ui/QModelBase.cpp
-        src/decode/ui/QCmdModel.cpp
-        src/decode/ui/QNodeModel.cpp
-        src/decode/ui/QNodeViewModel.cpp
-        ${DECODE_UI_MOC}
-    )
-    source_group("ui" FILES ${DECODE_UI_SRC})
-    source_group("ui_moc" FILES ${DECODE_UI_MOC})
-endif()
 
 set(DECODE_CORE_SRC
     src/decode/core/CfgOption.cpp
@@ -210,71 +154,6 @@ set(DECODE_GENERATOR_SRC
 )
 source_group("generator" FILES ${DECODE_GENERATOR_SRC})
 
-set(DECODE_GROUNDCONTROL_SRC
-    src/decode/groundcontrol/AllowUnsafeMessageType.h
-    src/decode/groundcontrol/Atoms.h
-    src/decode/groundcontrol/CmdState.cpp
-    src/decode/groundcontrol/CmdState.h
-    src/decode/groundcontrol/Crc.cpp
-    src/decode/groundcontrol/Crc.h
-    src/decode/groundcontrol/Exchange.cpp
-    src/decode/groundcontrol/Exchange.h
-    src/decode/groundcontrol/FwtState.cpp
-    src/decode/groundcontrol/FwtState.h
-    src/decode/groundcontrol/GcInterface.cpp
-    src/decode/groundcontrol/GcInterface.h
-    src/decode/groundcontrol/GcStructs.h
-    src/decode/groundcontrol/GroundControl.cpp
-    src/decode/groundcontrol/GroundControl.h
-    src/decode/groundcontrol/MemIntervalSet.cpp
-    src/decode/groundcontrol/MemIntervalSet.h
-    src/decode/groundcontrol/ProjectUpdate.cpp
-    src/decode/groundcontrol/ProjectUpdate.h
-    src/decode/groundcontrol/TmParamUpdate.h
-    src/decode/groundcontrol/TmState.cpp
-    src/decode/groundcontrol/TmState.h
-)
-source_group("groundcontrol" FILES ${DECODE_GROUNDCONTROL_SRC})
-
-set(DECODE_MODEL_SRC
-    src/decode/model/CmdModel.cpp
-    src/decode/model/CmdModel.h
-    src/decode/model/CmdNode.cpp
-    src/decode/model/CmdNode.h
-    src/decode/model/Decoder.cpp
-    src/decode/model/Decoder.h
-    src/decode/model/Encoder.cpp
-    src/decode/model/Encoder.h
-    src/decode/model/FieldsNode.cpp
-    src/decode/model/FieldsNode.h
-    src/decode/model/FindNode.cpp
-    src/decode/model/FindNode.h
-    src/decode/model/Node.cpp
-    src/decode/model/Node.h
-    src/decode/model/NodeView.cpp
-    src/decode/model/NodeView.h
-    src/decode/model/NodeViewStore.cpp
-    src/decode/model/NodeViewStore.h
-    src/decode/model/NodeViewUpdate.cpp
-    src/decode/model/NodeViewUpdate.h
-    src/decode/model/NodeViewUpdater.cpp
-    src/decode/model/NodeViewUpdater.h
-    src/decode/model/OnboardTime.cpp
-    src/decode/model/OnboardTime.h
-    src/decode/model/StatusDecoder.cpp
-    src/decode/model/StatusDecoder.h
-    src/decode/model/TmModel.cpp
-    src/decode/model/TmModel.h
-    src/decode/model/Value.cpp
-    src/decode/model/Value.h
-    src/decode/model/ValueInfoCache.cpp
-    src/decode/model/ValueInfoCache.h
-    src/decode/model/ValueKind.h
-    src/decode/model/ValueNode.cpp
-    src/decode/model/ValueNode.h
-)
-source_group("model" FILES ${DECODE_MODEL_SRC})
-
 set(DECODE_PARSER_SRC
     src/decode/parser/Containers.cpp
     src/decode/parser/Containers.h
@@ -295,7 +174,6 @@ add_library(decode
     ${DECODE_CORE_SRC}
     ${DECODE_AST_SRC}
     ${DECODE_GENERATOR_SRC}
-    ${DECODE_MODEL_SRC}
     ${DECODE_PARSER_SRC}
 )
 
@@ -313,30 +191,7 @@ set_target_properties(decode
 )
 
 if(Qt5Widgets_FOUND)
-    add_library(decode-gc
-        src/decode/Config.h
-        ${DECODE_UI_SRC}
-        ${DECODE_GROUNDCONTROL_SRC}
-    )
 
-    target_link_libraries(decode-gc decode bmcl Qt5::Widgets ${CAF_CORE_LIBRARIES})
-    target_compile_definitions(decode-gc PRIVATE -DBUILDING_DECODE_GC)
-
-    set_target_properties(decode-gc
-        PROPERTIES
-        PREFIX "lib"
-    )
-
-    if (NOT MSVC)
-        target_compile_options(decode-gc PUBLIC -std=c++11)
-        target_compile_options(decode-gc PRIVATE -Wall -Wextra -Wno-unused-parameter)
-    endif()
-
-    target_include_directories(decode-gc
-        PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
-    )
 endif()
 
 target_compile_definitions(decode PRIVATE -DBUILDING_DECODE)
@@ -359,14 +214,14 @@ if(NOT HAS_PARENT_SCOPE)
     add_subdirectory(tests)
 endif()
 
-set_target_properties(decode decode-gc decode_gen
+set_target_properties(decode decode_gen
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-install(TARGETS decode decode-gc decode_gen
+install(TARGETS decode decode_gen
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

@@ -93,6 +93,8 @@ void GcTypeGen::generateHeader(const TopLevelType* type)
             case TypeKind::Variant:
                 generateVariant(g->innerType()->asVariant(), g);
                 break;
+            default:
+                break;
         }
         break;
     }

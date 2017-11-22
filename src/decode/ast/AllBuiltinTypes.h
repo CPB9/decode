@@ -20,7 +20,7 @@ public:
         CREATE_BUILTIN(u8, U8);
         CREATE_BUILTIN(u16, U16);
         CREATE_BUILTIN(u32, U32);
-        CREATE_BUILTIN(u64, U32);
+        CREATE_BUILTIN(u64, U64);
         CREATE_BUILTIN(i8, I8);
         CREATE_BUILTIN(i16, I16);
         CREATE_BUILTIN(i32, I32);
