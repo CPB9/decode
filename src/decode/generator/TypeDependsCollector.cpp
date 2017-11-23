@@ -95,6 +95,9 @@ bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiat
     }
 
     _dest->emplace(type);
+    for (const Type* t : type->substitutedTypesRange()) {
+        collectType(t);
+    }
     return false;
 }
 
