@@ -43,9 +43,6 @@ inline bool TypeDependsCollector::visitVariantType(const VariantType* variant)
 
 inline bool TypeDependsCollector::visitImportedType(const ImportedType* u)
 {
-    if (u->link()->isGeneric()) {
-        return false;
-    }
     collectType(u->link());
     return false;
 }
@@ -94,7 +91,7 @@ bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiat
         return false;
     }
 
-    _dest->emplace(type);
+    collectType(type);
     for (const Type* t : type->substitutedTypesRange()) {
         collectType(t);
     }

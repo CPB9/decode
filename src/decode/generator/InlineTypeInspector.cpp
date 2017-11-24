@@ -121,14 +121,14 @@ void InlineTypeInspector::appendSizeCheck(const InlineSerContext& ctx, bmcl::Str
     } else {
         //TODO: refact, report error
         if (isSerializer) {
-            dest->appendIndent(ctx);
-            dest->append("if (dest->sizeLeft() < ");
-            dest->append(name);
-            dest->append(") {\n");
-            dest->appendIndent(ctx);
-            dest->append("    return false;\n");
-            dest->appendIndent(ctx);
-            dest->append("}\n");
+//             dest->appendIndent(ctx);
+//             dest->append("if (dest->sizeLeft() < ");
+//             dest->append(name);
+//             dest->append(") {\n");
+//             dest->appendIndent(ctx);
+//             dest->append("    return false;\n");
+//             dest->appendIndent(ctx);
+//             dest->append("}\n");
         } else {
             dest->appendIndent(ctx);
             dest->append("if (src->sizeLeft() < ");
@@ -256,22 +256,22 @@ void InlineTypeInspector::genGcVarSer(bmcl::StringView suffix)
 {
     _output->appendIndent(context());
     if (isSerializer) {
-        _output->append("if (!dest->write");
+        _output->append("dest->write");
+        _output->append(suffix);
+        _output->append('(');
+        appendArgumentName();
+        _output->append(");\n");
     } else {
         _output->append("if (!src->read");
-    }
-    _output->append(suffix);
-    if (isSerializer) {
-        _output->append('(');
-    } else {
+        _output->append(suffix);
         _output->append("(&");
+        appendArgumentName();
+        _output->append(")) {\n");
+        _output->appendIndent(context());
+        _output->append("    return false;\n");
+        _output->appendIndent(context());
+        _output->append("}\n");
     }
-    appendArgumentName();
-    _output->append(")) {\n");
-    _output->appendIndent(context());
-    _output->append("    return false;\n");
-    _output->appendIndent(context());
-    _output->append("}\n");
 }
 
 template <bool isSerializer>

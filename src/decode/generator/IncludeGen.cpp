@@ -93,6 +93,8 @@ void IncludeGen::genIncludePaths(const HashSet<Rc<const Type>>* types)
         case TypeKind::GenericInstantiation:
             if (isOnboard) {
                 genOnboardGenericInstantiation(type->asGenericInstantiation());
+            } else {
+                genNamedInclude(type->asGenericInstantiation()->genericType());
             }
             break;
         case TypeKind::GenericParameter:

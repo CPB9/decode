@@ -166,7 +166,7 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
         gen.genGcTypeRepr(field->type(), field->name());
         _output->append(", ");
     }
-    _output->append("bmcl::MemWriter* dest, photon::CoderState* state) const\n    {\n");
+    _output->append("bmcl::Buffer* dest, photon::CoderState* state) const\n    {\n");
     _output->append("        if(!");
     appendCmdFieldName(comp, cmd);
     _output->append(") {\n            return false;\n        }\n");
@@ -174,13 +174,13 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
     _output->append("        if(!_");
     _output->append(comp->moduleName());
     _output->append("Component) {\n            return false;\n        }\n"
-                    "        if(!dest->writeVarUint(_");
+                    "        dest->writeVarUint(_");
     _output->append(comp->moduleName());
-    _output->append("Component->number())) {\n            return false;\n        }\n");
+    _output->append("Component->number());\n");
 
-    _output->append("        if(!dest->writeVarUint(");
+    _output->append("        dest->writeVarUint(");
     appendCmdFieldName(comp, cmd);
-    _output->append("->number())) {\n            return false;\n        }\n");
+    _output->append("->number());\n");
 
     InlineSerContext ctx;
     ctx = ctx.indent();

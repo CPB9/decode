@@ -120,7 +120,7 @@ void GcTypeGen::appendSerPrefix(const NamedType* type, const char* prefix)
     _output->append(" bool photongenSerialize");
     _output->append("(const ");
     reprGen.genGcTypeRepr(type);
-    _output->append("& self, bmcl::MemWriter* dest, photon::CoderState* state)\n{\n");
+    _output->append("& self, bmcl::Buffer* dest, photon::CoderState* state)\n{\n");
 }
 
 void GcTypeGen::appendDeserPrefix(const NamedType* type, const char* prefix)
@@ -146,7 +146,7 @@ void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const Generic
     _output->appendEol();
 
     _output->appendInclude("bmcl/MemReader.h");
-    _output->appendInclude("bmcl/MemWriter.h");
+    _output->appendInclude("bmcl/Buffer.h");
     _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
@@ -184,10 +184,7 @@ void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const Generic
     _output->append("` with invalid value (\" + std::to_string((int64_t)self) + \")\");\n"
                     "        return false;\n"
                     "    }\n    "
-                    "if(!dest->writeVarInt((int64_t)self)) {\n"
-                    "        state->setError(\"Not enough space to serialize enum `");
-    appendFullTypeName(type);
-    _output->append("`\");\n        return false;\n    }\n"
+                    "dest->writeVarInt((int64_t)self);\n"
                     "    return true;\n}\n\n");
 
     //deser
@@ -229,7 +226,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     _output->appendEol();
 
     _output->appendInclude("bmcl/MemReader.h");
-    _output->appendInclude("bmcl/MemWriter.h");
+    _output->appendInclude("bmcl/Buffer.h");
     _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
