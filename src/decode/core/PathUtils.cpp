@@ -15,6 +15,7 @@
 # include <stdlib.h>
 # include <linux/limits.h>
 #elif defined(_MSC_VER) || defined(__MINGW32__)
+#include <windows.h>
 #endif
 
 namespace decode {
