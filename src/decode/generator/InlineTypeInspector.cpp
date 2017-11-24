@@ -53,7 +53,7 @@ void InlineTypeInspector::inspectType(const Type* type)
         if (isOnboard) {
             inspectOnboardNonInlineType<isSerializer>(type);
         } else {
-            //TODO:
+            inspectGcDynArray<isSerializer>(type->asDynArray());
         }
         break;
     case TypeKind::Function:
@@ -75,12 +75,13 @@ void InlineTypeInspector::inspectType(const Type* type)
         inspectType<isOnboard, isSerializer>(type->asAlias()->alias());
         break;
     case TypeKind::Generic:
+        inspectNonInlineType<isOnboard, isSerializer>(type->asGeneric());
         break;
     case TypeKind::GenericInstantiation:
         if (isOnboard) {
             inspectOnboardNonInlineType<isSerializer>(type);
         } else {
-            //TODO:
+            inspectNonInlineType<isOnboard, isSerializer>(type->asGenericInstantiation()->instantiatedType());
         }
         break;
     case TypeKind::GenericParameter:
@@ -140,6 +141,45 @@ void InlineTypeInspector::appendSizeCheck(const InlineSerContext& ctx, bmcl::Str
             dest->append("}\n");
         }
     }
+}
+
+template <bool isSerializer>
+void InlineTypeInspector::inspectGcDynArray(const DynArrayType* type)
+{
+    _output->appendIndent(context());
+    _output->append("{\n");
+    _ctxStack.push(context().indent());
+    _output->appendIndent(context());
+    if (isSerializer) {
+        _output->append("uint64_t _size = ");
+        appendArgumentName();
+        _output->append(".size();\n");
+        _output->appendIndent(context());
+        _output->append("dest->writeVarUint(_size);\n");
+    } else {
+        _output->append("uint64_t _size;\n");
+        _output->appendIndent(context());
+        _output->append("if (!src->readVarUint(&_size)) {\n");
+        _output->appendIndent(context());
+        _output->append("    return false;\n");
+        _output->appendIndent(context());
+        _output->append("}\n");
+        _output->appendIndent(context());
+        appendArgumentName();
+        _output->append(".resize(_size);\n");
+    }
+    _output->appendLoopHeader(context(), "_size");
+    _argName.push_back('[');
+    _argName.push_back(context().currentLoopVar());
+    _argName.push_back(']');
+    _ctxStack.push(context().indent().incLoopVar());
+    inspectType<false, isSerializer>(type->elementType());
+    _ctxStack.pop();
+    _output->appendIndent(context());
+    _output->append("}\n");
+    _ctxStack.pop();
+    _output->appendIndent(context());
+    _output->append("}\n");
 }
 
 template <bool isOnboard, bool isSerializer>

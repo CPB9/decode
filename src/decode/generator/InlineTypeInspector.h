@@ -112,6 +112,8 @@ private:
 
     template <bool isSerializer>
     void inspectGcBuiltin(const BuiltinType* type);
+    template <bool isSerializer>
+    void inspectGcDynArray(const DynArrayType* type);
 
     template <bool isSerializer>
     void inspectOnboardBuiltin(const BuiltinType* type);
