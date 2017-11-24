@@ -11,6 +11,12 @@
 #include <bmcl/StringView.h>
 #include <bmcl/Option.h>
 
+#if defined(__linux__)
+# include <stdlib.h>
+# include <linux/limits.h>
+#elif defined(_MSC_VER) || defined(__MINGW32__)
+#endif
+
 namespace decode {
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
@@ -116,5 +122,16 @@ bool isAbsPath(bmcl::StringView path)
     }
 #endif
     return false;
+}
+
+std::string absolutePath(const char* path)
+{
+    char fullPath[PATH_MAX];
+#if defined(__linux__)
+    realpath(path, fullPath);
+#else
+    GetFullPathName(path, MAX_PATH, fullPath, nullptr);
+#endif
+    return fullPath;
 }
 }

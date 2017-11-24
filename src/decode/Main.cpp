@@ -10,6 +10,7 @@
 #include "decode/core/Configuration.h"
 #include "decode/core/ProgressPrinter.h"
 #include "decode/parser/Project.h"
+#include "decode/generator/Generator.h"
 
 #include <bmcl/Result.h>
 
@@ -27,12 +28,14 @@ int main(int argc, char* argv[])
     TCLAP::ValueArg<unsigned> debugLevelArg("d", "debug-level", "Generated code debug level", false, 0, "0-5");
     TCLAP::SwitchArg verbLevelArg("v", "verbose", "Enable verbose output", false);
     TCLAP::ValueArg<unsigned> compLevelArg("c", "compression-level", "Package compression level", false, 4, "0-5");
+    TCLAP::SwitchArg absArg("a", "abs-path", "Use absolute paths for bundled src", false);
 
     cmdLine.add(&inPathArg);
     cmdLine.add(&outPathArg);
     cmdLine.add(&debugLevelArg);
     cmdLine.add(&verbLevelArg);
     cmdLine.add(&compLevelArg);
+    cmdLine.add(&absArg);
     cmdLine.parse(argc, argv);
 
     auto start = std::chrono::steady_clock::now();
@@ -52,7 +55,9 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    proj.unwrap()->generate(outPathArg.getValue().c_str());
+    GeneratorConfig genCfg;
+    genCfg.useAbsolutePathsForBundledSources = absArg.getValue();
+    proj.unwrap()->generate(outPathArg.getValue().c_str(), genCfg);
 
     auto end = std::chrono::steady_clock::now();
     auto delta = end - start;

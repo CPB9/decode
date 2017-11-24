@@ -28,6 +28,7 @@ class Project;
 class Package;
 class Ast;
 class Device;
+struct GeneratorConfig;
 
 using ProjectResult = bmcl::Result<Rc<Project>, void>;
 
@@ -75,7 +76,7 @@ public:
 
     static bmcl::Buffer hash(bmcl::Bytes data);
 
-    bool generate(const char* destDir);
+    bool generate(const char* destDir, const GeneratorConfig& cfg);
 
     const std::string& name() const;
     std::uint64_t mccId() const;

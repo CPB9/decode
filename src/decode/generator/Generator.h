@@ -29,6 +29,19 @@ class NamedType;
 class DynArrayType;
 class TypeReprGen;
 
+struct GeneratorConfig {
+    GeneratorConfig()
+        : useAbsolutePathsForBundledSources(false)
+      //  , generateOnboard(true)
+      //  , generateGroundcontrol(true)
+    {
+    }
+
+    bool useAbsolutePathsForBundledSources;
+    //bool generateOnboard;
+    //bool generateGroundcontrol;
+};
+
 class Generator : public RefCountable {
 public:
     using Pointer = Rc<Generator>;
@@ -39,7 +52,7 @@ public:
 
     void setOutPath(bmcl::StringView path);
 
-    bool generateProject(const Project* project);
+    bool generateProject(const Project* project, const GeneratorConfig& cfg = GeneratorConfig());
 
 private:
     bool generateTypesAndComponents(const Ast* ast);
@@ -71,5 +84,6 @@ private:
     std::unique_ptr<OnboardTypeSourceGen> _onboardSgen;
     Rc<TypeReprGen> _reprGen;
     RcSecondUnorderedMap<std::string, const DynArrayType> _dynArrays;
+    GeneratorConfig _config;
 };
 }

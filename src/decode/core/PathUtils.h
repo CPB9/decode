@@ -27,5 +27,6 @@ bmcl::StringView getFilePart(bmcl::StringView path);
 
 bool isAbsPath(bmcl::StringView path);
 
+std::string absolutePath(const char* path);
 }
 

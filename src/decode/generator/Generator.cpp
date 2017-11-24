@@ -153,19 +153,27 @@ bool Generator::generateDeviceFiles(const Project* project)
             continue;
         }
 
-        std::string dest = _onboardPath;
-        joinPath(&dest, src->relativeDest);
-        std::size_t destSize = dest.size();
+        if (_config.useAbsolutePathsForBundledSources) {
+            std::vector<std::string> paths;
+            for (const std::string& file : src->sources) {
+                paths.emplace_back(absolutePath(file.c_str()));
+            }
+            srcsPaths.emplace(mod, paths);
+        } else {
+            std::string dest = _onboardPath;
+            joinPath(&dest, src->relativeDest);
+            std::size_t destSize = dest.size();
 
-        std::vector<std::string> paths;
-        for (const std::string& file : src->sources) {
-            bmcl::StringView fname = getFilePart(file);
-            joinPath(&dest, fname);
-            TRY(copyFile(file.c_str(), dest.c_str(), _diag.get()));
-            dest.resize(destSize);
-            paths.push_back(joinPath(src->relativeDest, fname));
+            std::vector<std::string> paths;
+            for (const std::string& file : src->sources) {
+                bmcl::StringView fname = getFilePart(file);
+                joinPath(&dest, fname);
+                TRY(copyFile(file.c_str(), dest.c_str(), _diag.get()));
+                dest.resize(destSize);
+                paths.push_back(joinPath(src->relativeDest, fname));
+            }
+            srcsPaths.emplace(mod, std::move(paths));
         }
-        srcsPaths.emplace(mod, std::move(paths));
     }
 
     auto appendBundledSources = [this, &srcsPaths](const Device* dev, bmcl::StringView ext) {
@@ -326,8 +334,10 @@ bool Generator::generateConfig(const Project* project)
     return true;
 }
 
-bool Generator::generateProject(const Project* project)
+bool Generator::generateProject(const Project* project, const GeneratorConfig& cfg)
 {
+    _config = cfg;
+
     TRY(makeDirectory(_savePath.c_str(), _diag.get()));
     _onboardPath = joinPath(_savePath, "onboard");
     TRY(makeDirectory(_onboardPath.c_str(), _diag.get()));

@@ -366,14 +366,14 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
     return proj;
 }
 
-bool Project::generate(const char* destDir)
+bool Project::generate(const char* destDir, const GeneratorConfig& cfg)
 {
     ProgressPrinter printer(_cfg->verboseOutput());
     printer.printActionProgress("Generating", "sources");
 
     Rc<Generator> gen = new Generator(_diag.get());
     gen->setOutPath(destDir);
-    bool genOk = gen->generateProject(this);
+    bool genOk = gen->generateProject(this, cfg);
     //if (genOk) {
     //    BMCL_DEBUG() << "generating complete";
     //} else {
