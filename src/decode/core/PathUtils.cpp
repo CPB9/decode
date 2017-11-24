@@ -127,10 +127,11 @@ bool isAbsPath(bmcl::StringView path)
 
 std::string absolutePath(const char* path)
 {
-    char fullPath[PATH_MAX];
 #if defined(__linux__)
+    char fullPath[PATH_MAX];
     realpath(path, fullPath);
 #else
+    char fullPath[MAX_PATH];
     GetFullPathName(path, MAX_PATH, fullPath, nullptr);
 #endif
     return fullPath;
