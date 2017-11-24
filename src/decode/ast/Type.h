@@ -535,4 +535,16 @@ inline TypeKind deferTypeKind<AliasType>()
 {
     return TypeKind::Alias;
 }
+
+template <>
+inline TypeKind deferTypeKind<GenericType>()
+{
+    return TypeKind::Generic;
+}
+
+template <>
+inline TypeKind deferTypeKind<GenericInstantiationType>()
+{
+    return TypeKind::GenericInstantiation;
+}
 }

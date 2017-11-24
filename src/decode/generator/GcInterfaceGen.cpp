@@ -25,6 +25,8 @@ GcInterfaceGen::~GcInterfaceGen()
 
 void GcInterfaceGen::generateHeader(const Package* package)
 {
+    _output->appendPragmaOnce();
+    _output->appendEol();
     TypeDependsCollector coll;
     TypeDependsCollector::Depends depends;
     for (const Ast* ast : package->modules()) {
@@ -32,8 +34,10 @@ void GcInterfaceGen::generateHeader(const Package* package)
     }
     IncludeGen includeGen(_output);
     includeGen.genGcIncludePaths(&depends);
+    _output->appendEol();
 
     _output->append(
+                    "#include <photon/core/Rc.h>\n\n"
                     "#include <decode/ast/Ast.h>\n"
                     "#include <decode/ast/Component.h>\n"
                     "#include <decode/ast/Utils.h>\n"
@@ -42,14 +46,14 @@ void GcInterfaceGen::generateHeader(const Package* package)
                     "#include <decode/ast/Field.h>\n"
                     "#include <decode/parser/Project.h>\n\n"
                     "namespace photongen {\n"
-                    "class Validator {\npublic:\n"
+                    "class Validator : public photon::RefCountable {\npublic:\n"
                     "    Validator(const decode::Project* project, const decode::Device* device)\n"
                     "        : _project(project)\n"
                     "        , _device(device)\n"
                     "    {\n");
 
     for (const Ast* ast : package->modules()) {
-        _output->append("        _");
+        _output->append("        decode::Rc<const decode::Ast> _");
         _output->append(ast->moduleName());
         _output->append("Ast = decode::findModule(_device.get(), \"");
         _output->append(ast->moduleName());
@@ -63,23 +67,23 @@ void GcInterfaceGen::generateHeader(const Package* package)
 
     _output->append(
                     "        if (!_coreAst) {\n            return;\n        }\n"
-                    "        _builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
-                    "        _builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
-                    "        _builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
-                    "        _builtinU16 = _coreAst->builtinTypes()->u16Type();\n"
-                    "        _builtinU32 = _coreAst->builtinTypes()->u32Type();\n"
-                    "        _builtinU64 = _coreAst->builtinTypes()->u64Type();\n"
-                    "        _builtinI8 = _coreAst->builtinTypes()->i8Type();\n"
-                    "        _builtinI16 = _coreAst->builtinTypes()->i16Type();\n"
-                    "        _builtinI32 = _coreAst->builtinTypes()->i32Type();\n"
-                    "        _builtinI64 = _coreAst->builtinTypes()->i64Type();\n"
-                    "        _builtinF32 = _coreAst->builtinTypes()->f32Type();\n"
-                    "        _builtinF64 = _coreAst->builtinTypes()->f64Type();\n"
-                    "        _builtinVaruint = _coreAst->builtinTypes()->varuintType();\n"
-                    "        _builtinVarint = _coreAst->builtinTypes()->varintType();\n"
-                    "        _builtinBool = _coreAst->builtinTypes()->boolType();\n"
-                    "        _builtinVoid = _coreAst->builtinTypes()->voidType();\n"
-                    "        _builtinChar = _coreAst->builtinTypes()->charType();\n\n");
+                    "        decode::Rc<const decode::BuiltinType>_builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinU16 = _coreAst->builtinTypes()->u16Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinU32 = _coreAst->builtinTypes()->u32Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinU64 = _coreAst->builtinTypes()->u64Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinI8 = _coreAst->builtinTypes()->i8Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinI16 = _coreAst->builtinTypes()->i16Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinI32 = _coreAst->builtinTypes()->i32Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinI64 = _coreAst->builtinTypes()->i64Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinF32 = _coreAst->builtinTypes()->f32Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinF64 = _coreAst->builtinTypes()->f64Type();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinVaruint = _coreAst->builtinTypes()->varuintType();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinVarint = _coreAst->builtinTypes()->varintType();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinBool = _coreAst->builtinTypes()->boolType();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinVoid = _coreAst->builtinTypes()->voidType();\n"
+                    "        decode::Rc<const decode::BuiltinType>_builtinChar = _coreAst->builtinTypes()->charType();\n\n");
 
     for (const Ast* ast : package->modules()) {
         for (const Type* type : ast->typesRange()) {
@@ -112,62 +116,12 @@ void GcInterfaceGen::generateHeader(const Package* package)
     _output->append("private:\n"
                     "    decode::Rc<const decode::Project> _project;\n"
                     "    decode::Rc<const decode::Device> _device;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinUsize;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinIsize;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinU8;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinU16;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinU32;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinU64;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinI8;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinI16;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinI32;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinI64;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinF32;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinF64;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinVaruint;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinVarint;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinBool;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinVoid;\n"
-                    "    decode::Rc<const decode::BuiltinType> _builtinChar;\n"
                    );
 
     for (const Ast* ast : package->modules()) {
-        _output->append("    decode::Rc<const decode::Ast> _");
-        _output->append(ast->moduleName());
-        _output->append("Ast;\n");
         _output->append("    decode::Rc<const decode::Component> _");
         _output->append(ast->moduleName());
         _output->append("Component;\n");
-    }
-
-    for (auto pair : _validatedTypes) {
-        if (pair.first.size() == 0) {
-            continue;
-        }
-        _output->append("    decode::Rc<");
-        switch (pair.second->resolveFinalType()->typeKind()) {
-        case TypeKind::Reference:
-        case TypeKind::Array:
-        case TypeKind::Function:
-        case TypeKind::DynArray:
-            break;
-        case TypeKind::Builtin:
-        case TypeKind::GenericParameter:
-        case TypeKind::GenericInstantiation:
-        case TypeKind::Enum:
-        case TypeKind::Struct:
-        case TypeKind::Variant:
-        case TypeKind::Imported:
-        case TypeKind::Alias:
-        case TypeKind::Generic:
-            _output->append("const ");
-            break;
-        }
-        _output->append("decode::");
-        _output->append(pair.second->resolveFinalType()->renderTypeKind());
-        _output->append("Type> ");
-        _output->append(pair.first);
-        _output->append(";\n");
     }
 
     for (const Ast* ast : package->modules()) {
@@ -306,8 +260,8 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
 
 bool GcInterfaceGen::insertValidatedType(const Type* type)
 {
-    if (type->resolveFinalType()->isGeneric()) {
-        return false;
+    if (type->isImported()) {
+        return true;
     }
     if (type->resolveFinalType()->isBuiltin()) {
         return false;
@@ -316,6 +270,66 @@ bool GcInterfaceGen::insertValidatedType(const Type* type)
     appendTestedType(type, &nameBuilder);
     auto pair = _validatedTypes.emplace(std::move(nameBuilder.result()), type);
     return pair.second;
+}
+
+void GcInterfaceGen::appendStructValidator(const StructType* type)
+{
+    for (const Field* field : type->fieldsRange()) {
+        appendTypeValidator(field->type());
+    }
+    appendNamedTypeInit(type, "Struct");
+    _output->append("        decode::expectFieldNum(&_");
+    _output->append(type->moduleName());
+    _output->appendWithFirstUpper(type->name());
+    _output->append(", ");
+    _output->appendNumericValue(type->fieldsRange().size());
+    _output->append(");\n");
+
+    std::size_t i = 0;
+    for (const Field* field : type->fieldsRange()) {
+        _output->append("        decode::expectField(&_");
+        _output->append(type->moduleName());
+        _output->appendWithFirstUpper(type->name());
+        _output->append(", ");
+        _output->appendNumericValue(i);
+        _output->append(", \"");
+        _output->append(field->name());
+        _output->append("\", ");
+        appendTestedType(field->type());
+        _output->append(".get()");
+        _output->append(");\n");
+        i++;
+    }
+    _output->appendEol();
+}
+
+void GcInterfaceGen::appendEnumValidator(const EnumType* type)
+{
+    appendNamedTypeInit(type, "Enum");
+    _output->appendEol();
+}
+
+void GcInterfaceGen::appendVariantValidator(const VariantType* type)
+{
+    const VariantType* v = type;
+    for (const VariantField* field : v->fieldsRange()) {
+        switch (field->variantFieldKind()) {
+        case VariantFieldKind::Constant:
+            break;
+        case VariantFieldKind::Tuple:
+            for (const Type* t : field->asTupleField()->typesRange()) {
+                appendTypeValidator(t);
+            }
+            break;
+        case VariantFieldKind::Struct:
+            for (const Field* f : field->asStructField()->fieldsRange()) {
+                appendTypeValidator(f->type());
+            }
+            break;
+        }
+    }
+    appendNamedTypeInit(type->asVariant(), "Variant");
+    _output->appendEol();
 }
 
 bool GcInterfaceGen::appendTypeValidator(const Type* type)
@@ -328,7 +342,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         break;
     case TypeKind::Reference: {
         appendTypeValidator(type->asReference()->pointee());
-        _output->append("        ");
+        _output->append("        decode::Rc<decode::ReferenceType> ");
         appendTestedType(type);
         _output->append(" = new decode::ReferenceType(");
         switch (type->asReference()->referenceKind()) {
@@ -350,7 +364,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
     }
     case TypeKind::Array:
         appendTypeValidator(type->asArray()->elementType());
-        _output->append("        ");
+        _output->append("        decode::Rc<decode::ArrayType> ");
         appendTestedType(type);
         _output->append(" = new decode::ArrayType(");
         _output->appendNumericValue(type->asArray()->elementCount());
@@ -366,7 +380,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         for (const Field* field : f->argumentsRange()) {
             appendTypeValidator(field->type());
         }
-        _output->append("        ");
+        _output->append("        decode::Rc<decode::FunctionType> ");
         appendTestedType(type);
         _output->append(" = new decode::FunctionType();\n");
         if (f->hasReturnValue()) {
@@ -407,7 +421,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         break;
     case TypeKind::DynArray:
         appendTypeValidator(type->asDynArray()->elementType());
-        _output->append("        ");
+        _output->append("        decode::Rc<decode::DynArrayType> ");
         appendTestedType(type);
         _output->append(" = new decode::DynArrayType(");
         _output->appendNumericValue(type->asDynArray()->maxSize());
@@ -416,43 +430,15 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         _output->append(".get());\n\n");
         break;
     case TypeKind::Enum: {
-        appendNamedTypeInit(type->asEnum(), "Enum");
-        _output->appendEol();
+        appendEnumValidator(type->asEnum());
         break;
     }
     case TypeKind::Struct: {
-        for (const Field* field : type->asStruct()->fieldsRange()) {
-            appendTypeValidator(field->type());
-        }
-        appendNamedTypeInit(type->asStruct(), "Struct");
-        _output->append("        decode::expectFieldNum(&_");
-        _output->append(type->asStruct()->moduleName());
-        _output->appendWithFirstUpper(type->asStruct()->name());
-        _output->append(", ");
-        _output->appendNumericValue(type->asStruct()->fieldsRange().size());
-        _output->append(");\n");
-
-        std::size_t i = 0;
-        for (const Field* field : type->asStruct()->fieldsRange()) {
-            _output->append("        decode::expectField(&_");
-            _output->append(type->asStruct()->moduleName());
-            _output->appendWithFirstUpper(type->asStruct()->name());
-            _output->append(", ");
-            _output->appendNumericValue(i);
-            _output->append(", \"");
-            _output->append(field->name());
-            _output->append("\", ");
-            appendTestedType(field->type());
-            _output->append(".get()");
-            _output->append(");\n");
-            i++;
-        }
-        _output->appendEol();
+        appendStructValidator(type->asStruct());
         break;
     }
     case TypeKind::Variant: {
-        appendNamedTypeInit(type->asVariant(), "Variant");
-        _output->appendEol();
+        appendVariantValidator(type->asVariant());
         break;
     }
     case TypeKind::Imported:
@@ -462,9 +448,26 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         appendTypeValidator(type->asAlias()->alias());
         break;
     case TypeKind::Generic:
+        appendNamedTypeInit(type->asGeneric(), "Generic");
         break;
-    case TypeKind::GenericInstantiation:
+    case TypeKind::GenericInstantiation: {
+        const GenericInstantiationType* g = type->asGenericInstantiation();
+        appendTypeValidator(g->genericType());
+        _output->append("        decode::Rc<decode::NamedType> ");
+        appendTestedType(g);
+        _output->append(" = decode::instantiateGeneric(&");
+        appendTestedType(g->genericType());
+        _output->append(", {");
+        foreachList(g->substitutedTypesRange(), [this](const Type* type) {
+            _output->append("decode::Rc<decode::Type>((decode::Type*)(");
+            appendTestedType(type);
+            _output->append(".get()))");
+        }, [this](const Type* type) {
+            _output->append(", ");
+        });
+        _output->append("});\n");
         break;
+    }
     }
     return true;
 }
@@ -513,13 +516,16 @@ void GcInterfaceGen::appendTestedType(const Type* type, SrcBuilder* dest)
         appendTestedType(type->asAlias()->alias(), dest);
         break;
     case TypeKind::Generic:
+        appendNamed(type->asGeneric());
         break;
     }
 }
 
 void GcInterfaceGen::appendNamedTypeInit(const NamedType* type, bmcl::StringView name)
 {
-    _output->append("        _");
+    _output->append("        decode::Rc<const decode::");
+    _output->append(name);
+    _output->append("Type> _");
     _output->append(type->moduleName());
     _output->appendWithFirstUpper(type->name());
     _output->append(" = decode::findType<decode::");

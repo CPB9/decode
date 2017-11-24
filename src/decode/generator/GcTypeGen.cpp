@@ -288,8 +288,8 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
         case TypeKind::Builtin:
         case TypeKind::Reference:
         case TypeKind::Function:
-        case TypeKind::GenericParameter:
             return t;
+        case TypeKind::GenericParameter:
         case TypeKind::Array:
         case TypeKind::DynArray:
         case TypeKind::Enum:

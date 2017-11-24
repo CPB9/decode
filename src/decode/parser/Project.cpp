@@ -288,7 +288,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         addParseError(path, "device with name '" + master + "' marked as master does not exist", diag);
         return ProjectResult();
     }
-    std::vector<Rc<Ast>> commonModules;
+    RcVec<Ast> commonModules;
     for (const std::string& modName : commonModuleNames) {
         bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName((modName));
         commonModules.emplace_back(mod.unwrap());
@@ -309,10 +309,10 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
     for (auto& it : deviceDescMap) {
         Rc<Device> dev = new Device;
-        dev->package = proj->_package;
-        dev->id = it.second.id;
-        dev->name = std::move(it.second.name);
-        dev->modules = commonModules;
+        dev->_package = proj->_package;
+        dev->_id = it.second.id;
+        dev->_name = std::move(it.second.name);
+        dev->_modules = commonModules;
 
         for (const std::string& modName : it.second.modules) {
             bmcl::OptionPtr<Ast> mod = proj->_package->moduleWithName(modName);
@@ -320,7 +320,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
                 addParseError(path, "module '" + it.second.name + "' does not exist", diag);
                 return ProjectResult();
             }
-            dev->modules.emplace_back(mod.unwrap());
+            dev->_modules.emplace_back(mod.unwrap());
         }
 
         it.second.device = dev;
@@ -334,33 +334,33 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         Rc<Device> dev = it.second.device;
 
         for (const std::string& deviceName : it.second.tmSources) {
-            if (deviceName == dev->name) {
+            if (deviceName == dev->_name) {
                 //TODO: do not ignore
                 continue;
             }
             auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
-                return d->name == deviceName;
+                return d->_name == deviceName;
             });
             if (jt == proj->_devices.end()) {
                 addParseError(path, "unknown tm source (" + deviceName + ")", diag);
                 return ProjectResult();
             }
-            dev->tmSources.push_back(*jt);
+            dev->_tmSources.push_back(*jt);
         }
 
         for (const std::string& deviceName : it.second.cmdTargets) {
-            if (deviceName == dev->name) {
+            if (deviceName == dev->_name) {
                 //TODO: do not ignore
                 continue;
             }
             auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
-                return d->name == deviceName;
+                return d->_name == deviceName;
             });
             if (jt == proj->_devices.end()) {
                 addParseError(path, "unknown cmd target (" + deviceName + ")", diag);
                 return ProjectResult();
             }
-            dev->cmdTargets.push_back(*jt);
+            dev->_cmdTargets.push_back(*jt);
         }
     }
     return proj;
@@ -512,8 +512,8 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     std::vector<Rc<Device>> devices;
     for (uint64_t i = 0; i < devNum; i++) {
         Rc<Device> dev = new Device;
-        dev->package = package.unwrap();
-        if (!reader.readVarUint(&dev->id)) {
+        dev->_package = package.unwrap();
+        if (!reader.readVarUint(&dev->_id)) {
             addReadErr("Error reading device id");
             return ProjectResult();
         }
@@ -523,7 +523,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
             addReadStrErr("Error reading device name", name.unwrapErr());
             return ProjectResult();
         }
-        dev->name = name.unwrap().toStdString();
+        dev->_name = name.unwrap().toStdString();
 
         uint64_t modNum;
         if (!reader.readVarUint(&modNum)) {
@@ -542,7 +542,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
                 addReadErr("Invalid module name reference");
                 return ProjectResult();
             }
-            dev->modules.emplace_back(mod.unwrap());
+            dev->_modules.emplace_back(mod.unwrap());
         }
         devices.push_back(std::move(dev));
     }
@@ -580,11 +580,11 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
             }
             return true;
         };
-        if (!updateRefs(&current->tmSources)) {
+        if (!updateRefs(&current->_tmSources)) {
             return ProjectResult();
         }
 
-        if (!updateRefs(&current->cmdTargets)) {
+        if (!updateRefs(&current->_cmdTargets)) {
             return ProjectResult();
         }
     }
@@ -641,10 +641,10 @@ bmcl::Buffer Project::encode() const
     dest.writeVarUint(mt - _devices.begin());
 
     for (const Rc<Device>& dev : _devices) {
-        dest.writeVarUint(dev->id);
-        serializeString(dev->name, &dest);
-        dest.writeVarUint(dev->modules.size());
-        for (const Rc<Ast>& module : dev->modules) {
+        dest.writeVarUint(dev->_id);
+        serializeString(dev->_name, &dest);
+        dest.writeVarUint(dev->_modules.size());
+        for (const Rc<Ast>& module : dev->_modules) {
             serializeString(module->moduleInfo()->moduleName(), &dest);
         }
     }
@@ -652,16 +652,16 @@ bmcl::Buffer Project::encode() const
     for (std::size_t i = 0; i < _devices.size(); i++) {
         const Rc<Device>& dev = _devices[i];
         dest.writeVarUint(i);
-        dest.writeVarUint(dev->tmSources.size());
+        dest.writeVarUint(dev->_tmSources.size());
         //TODO: refact
-        for (const Rc<Device>& tmSrc : dev->tmSources) {
+        for (const Rc<Device>& tmSrc : dev->_tmSources) {
             auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
             assert(it != _devices.end());
             dest.writeVarUint(it - _devices.begin());
         }
 
-        dest.writeVarUint(dev->cmdTargets.size());
-        for (const Rc<Device>& tmSrc : dev->cmdTargets) {
+        dest.writeVarUint(dev->_cmdTargets.size());
+        for (const Rc<Device>& tmSrc : dev->_cmdTargets) {
             auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
             assert(it != _devices.end());
             dest.writeVarUint(it - _devices.begin());
@@ -707,10 +707,10 @@ bmcl::Option<const Project::SourcesToCopy&> Project::sourcesForModule(const Ast*
     return it->second;
 }
 
-bmcl::OptionPtr<Device> Project::deviceWithName(bmcl::StringView name) const
+bmcl::OptionPtr<const Device> Project::deviceWithName(bmcl::StringView name) const
 {
     auto it = std::find_if(_devices.begin(), _devices.end(), [&name](const Rc<Device>& dev) {
-        return dev->name == name;
+        return dev->_name == name;
     });
     if (it == _devices.end()) {
         return bmcl::None;
@@ -718,9 +718,57 @@ bmcl::OptionPtr<Device> Project::deviceWithName(bmcl::StringView name) const
     return it->get();
 }
 
+bmcl::OptionPtr<Device> Project::deviceWithName(bmcl::StringView name)
+{
+    auto it = std::find_if(_devices.begin(), _devices.end(), [&name](const Rc<Device>& dev) {
+        return dev->_name == name;
+    });
+    if (it == _devices.end()) {
+        return bmcl::None;
+    }
+    return it->get();
+}
 
 bmcl::Buffer Project::hash(bmcl::Bytes data)
 {
     return Project::HashType::calcInOneStep(data);
+}
+
+Device::Device()
+{
+}
+
+Device::~Device()
+{
+}
+
+const Package* Device::package() const
+{
+    return _package.get();
+}
+
+uint64_t Device::id() const
+{
+    return _id;
+}
+
+const std::string& Device::name() const
+{
+    return _name;
+}
+
+DeviceVec::ConstRange Device::tmSources() const
+{
+    return _tmSources;
+}
+
+DeviceVec::ConstRange Device::cmdTargets() const
+{
+    return _cmdTargets;
+}
+
+RcVec<Ast>::ConstRange Device::modules() const
+{
+    return _modules;
 }
 }

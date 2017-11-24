@@ -76,9 +76,9 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
     _output->appendEol();
 
     for (const Device* dev : project->devices()) {
-        _output->appendSourceDeviceIfdef(dev->name);
+        _output->appendSourceDeviceIfdef(dev->name());
         _output->append("typedef struct {\n");
-        for (const Rc<Ast>& ast : dev->modules) {
+        for (const Ast* ast : dev->modules()) {
             if (ast->component().isNone()) {
                 continue;
             }
@@ -94,12 +94,12 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
             _output->appendEndif();
         }
         _output->append("} Photon_");
-        _output->appendWithFirstUpper(dev->name);
+        _output->appendWithFirstUpper(dev->name());
         _output->append("TmState;\n\n");
         _output->append("extern Photon_");
-        _output->appendWithFirstUpper(dev->name);
+        _output->appendWithFirstUpper(dev->name());
         _output->append("TmState _photonTmState_");
-        _output->appendWithFirstUpper(dev->name);
+        _output->appendWithFirstUpper(dev->name());
         _output->append(";\n");
         _output->appendEndif();
         _output->appendEol();
@@ -108,8 +108,8 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
     _output->startCppGuard();
 
     for (const Device* dev : project->devices()) {
-        _output->appendSourceDeviceIfdef(dev->name);
-        appendTmDecoderPrototype(dev->name);
+        _output->appendSourceDeviceIfdef(dev->name());
+        appendTmDecoderPrototype(dev->name());
         _output->append(";\n");
         _output->appendEndif();
     }
@@ -118,15 +118,15 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
 
     for (const Device* dev : project->devices()) {
         _output->append("#ifdef PHOTON_DEVICE_");
-        _output->appendUpper(dev->name);
+        _output->appendUpper(dev->name());
         _output->appendEol();
-        _output->appendSourceDeviceIfdef(dev->name);
+        _output->appendSourceDeviceIfdef(dev->name());
 
         _output->append("typedef Photon_Tm");
-        _output->appendWithFirstUpper(dev->name);
+        _output->appendWithFirstUpper(dev->name());
         _output->append("State Photon_TmState;\n");
         _output->append("#define Photon_DecodeTelemetry Photon_Decode");
-        _output->appendWithFirstUpper(dev->name);
+        _output->appendWithFirstUpper(dev->name());
         _output->append("Telemetry\n");
 
         _output->appendEndif();
@@ -250,15 +250,15 @@ void StatusEncoderGen::generateDecoderSource(const Project* project)
     }
 
     for (const Device* dev : project->devices()) {
-        _output->appendSourceDeviceIfdef(dev->name);
-        appendTmDecoderPrototype(dev->name);
+        _output->appendSourceDeviceIfdef(dev->name());
+        appendTmDecoderPrototype(dev->name());
 
         _output->append("\n{\n");
         _output->append("    uint64_t id;\n");
         _output->append("    PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
         _output->append("    switch (id) {\n");
 
-        for (const Rc<Ast>& ast : dev->modules) {
+        for (const Ast* ast : dev->modules()) {
             if (ast->component().isNone()) {
                 continue;
             }

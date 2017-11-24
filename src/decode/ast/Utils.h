@@ -1,3 +1,5 @@
+//TODO: move to photon
+
 #pragma once
 
 #include "decode/Config.h"
@@ -9,19 +11,20 @@
 #include "decode/ast/Field.h"
 
 #include <bmcl/StringView.h>
+#include <bmcl/Result.h>
 
 namespace decode {
 
 static const decode::Ast* findModule(const decode::Device* dev, bmcl::StringView name)
 {
-    auto it = std::find_if(dev->modules.begin(), dev->modules.end(), [name](const Rc<decode::Ast>& module) {
+    auto it = std::find_if(dev->modules().begin(), dev->modules().end(), [name](const decode::Ast* module) {
         return module->moduleName() == name;
     });
-    if (it == dev->modules.end()) {
+    if (it == dev->modules().end()) {
         return nullptr;
         //return "failed to find module " + wrapWithQuotes(name);
     }
-    return it->get();
+    return *it;
 }
 
 static const decode::Component* getComponent(const decode::Ast* ast)
@@ -160,5 +163,20 @@ static void expectCmdNoRv(Rc<const Command>* cmd)
         *cmd = nullptr;
         return;
     }
+}
+
+static Rc<NamedType> instantiateGeneric(Rc<const GenericType>* type, bmcl::ArrayView<Rc<Type>> params)
+{
+
+    if (!type->get()) {
+        *type = nullptr;
+        return nullptr;
+    }
+    auto rv = ((GenericType*)type->get())->instantiate(params);
+    if (rv.isErr()) {
+        *type = nullptr;
+        return nullptr;
+    }
+    return rv.unwrap();
 }
 }

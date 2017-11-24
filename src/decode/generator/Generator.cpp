@@ -119,9 +119,9 @@ void Generator::generateSerializedPackage(const Project* project, SrcBuilder* de
     dest->appendEol();
 
     for (const Device* dev : project->devices()) {
-        dest->appendDeviceIfDef(dev->name);
+        dest->appendDeviceIfDef(dev->name());
         dest->appendEol();
-        bmcl::Bytes name = bmcl::StringView(dev->name).asBytes();
+        bmcl::Bytes name = bmcl::StringView(dev->name()).asBytes();
         dest->appendNumericValueDefine(name.size(), "_PHOTON_DEVICE_NAME_SIZE");
         dest->appendEol();
         dest->appendByteArrayDefinition("static const", "_deviceName", name);
@@ -169,7 +169,7 @@ bool Generator::generateDeviceFiles(const Project* project)
     }
 
     auto appendBundledSources = [this, &srcsPaths](const Device* dev, bmcl::StringView ext) {
-        for (const Rc<Ast>& module : dev->modules) {
+        for (const Ast* module : dev->modules()) {
             auto it = srcsPaths.find(module);
             if (it == srcsPaths.end()) {
                 continue;
@@ -192,14 +192,14 @@ bool Generator::generateDeviceFiles(const Project* project)
 //         types.insert("core/Writer");
 //         types.insert("core/Error");
 
-        for (const Rc<Ast>& module : dev->modules) {
-            coll.collect(module.get(), &types);
+        for (const Ast* module : dev->modules()) {
+            coll.collect(module, &types);
         }
-        HashSet<Rc<Ast>> targetMods;
-        HashSet<Rc<Ast>> sourceMods;
+        HashSet<Rc<const Ast>> targetMods;
+        HashSet<Rc<const Ast>> sourceMods;
 
-        for (const Rc<Device>& dep : dev->cmdTargets) {
-            for (const Rc<Ast>& module : dep->modules) {
+        for (const Device* dep : dev->cmdTargets()) {
+            for (const Ast* module : dep->modules()) {
                 targetMods.emplace(module);
                 if (module->component().isNone()) {
                     continue;
@@ -207,8 +207,8 @@ bool Generator::generateDeviceFiles(const Project* project)
                 coll.collectCmds(module->component()->cmdsRange(), &types);
             }
         }
-        for (const Rc<Device>& dep : dev->tmSources) {
-            for (const Rc<Ast>& module : dep->modules) {
+        for (const Device* dep : dev->tmSources()) {
+            for (const Ast* module : dep->modules()) {
                 sourceMods.emplace(module);
                 if (module->component().isNone()) {
                     continue;
@@ -222,40 +222,40 @@ bool Generator::generateDeviceFiles(const Project* project)
             _output.append("#define PHOTON_IS_MASTER\n\n");
         }
         _output.append("#define PHOTON_DEVICE_");
-        _output.appendUpper(dev->name);
+        _output.appendUpper(dev->name());
         _output.append("\n\n");
 
-        _output.appendNumericValueDefine(dev->id, "PHOTON_DEVICE_ID");
+        _output.appendNumericValueDefine(dev->id(), "PHOTON_DEVICE_ID");
         for (const Device* d : project->devices()) {
             _output.append("#define PHOTON_DEVICE_ID_");
-            _output.appendUpper(d->name);
+            _output.appendUpper(d->name());
             _output.appendSpace();
-            _output.appendNumericValue(d->id);
+            _output.appendNumericValue(d->id());
             _output.append("\n");
         }
         _output.appendEol();
 
-        for (const Rc<Device>& dep : dev->cmdTargets) {
+        for (const Device* dep : dev->cmdTargets()) {
             _output.append("#define PHOTON_HAS_DEVICE_TARGET_");
-            _output.appendUpper(dep->name);
+            _output.appendUpper(dep->name());
             _output.appendEol();
         }
-        for (const Rc<Device>& dep : dev->tmSources) {
+        for (const Device* dep : dev->tmSources()) {
             _output.append("#define PHOTON_HAS_DEVICE_SOURCE_");
-            _output.appendUpper(dep->name);
+            _output.appendUpper(dep->name());
             _output.appendEol();
         }
-        for (const Rc<Ast>& module : dev->modules) {
+        for (const Ast* module : dev->modules()) {
             _output.append("#define PHOTON_HAS_MODULE_");
             _output.appendUpper(module->moduleInfo()->moduleName());
             _output.appendEol();
         }
-        for (const Rc<Ast>& module : targetMods) {
+        for (const Rc<const Ast>& module : targetMods) {
             _output.append("#define PHOTON_HAS_CMD_TARGET_");
             _output.appendUpper(module->moduleInfo()->moduleName());
             _output.appendEol();
         }
-        for (const Rc<Ast>& module : sourceMods) {
+        for (const Rc<const Ast>& module : sourceMods) {
             _output.append("#define PHOTON_HAS_TM_SOURCE_");
             _output.appendUpper(module->moduleInfo()->moduleName());
             _output.appendEol();
@@ -268,7 +268,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         includeGen.genOnboardIncludePaths(&types, ".h");
         _output.appendEol();
 
-        for (const Rc<Ast>& module : dev->modules) {
+        for (const Ast* module : dev->modules()) {
             if (module->component().isSome()) {
                 _output.appendComponentInclude(module->moduleInfo()->moduleName(), ".h");
             }
@@ -283,19 +283,19 @@ bool Generator::generateDeviceFiles(const Project* project)
         SrcBuilder path;
         path.append(_onboardPath);
         path.append("/Photon"); //FIXME: joinPath
-        path.appendWithFirstUpper(dev->name);
+        path.appendWithFirstUpper(dev->name());
         path.append(".h");
         TRY(saveOutput(path.result().c_str(), _output.view(), _diag.get()));
         _output.clear();
 
         //src
         _output.append("#include \"Photon");
-        _output.appendWithFirstUpper(dev->name);
+        _output.appendWithFirstUpper(dev->name());
         _output.append(".h\"\n\n");
         includeGen.genOnboardIncludePaths(&types, ".gen.c");
         _output.appendEol();
 
-        for (const Rc<Ast>& module : dev->modules) {
+        for (const Ast* module : dev->modules()) {
             if (module->component().isSome()) {
                 _output.appendComponentInclude(module->moduleInfo()->moduleName(), ".c");
             }

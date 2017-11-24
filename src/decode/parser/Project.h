@@ -27,22 +27,35 @@ class Configuration;
 class Project;
 class Package;
 class Ast;
-struct Device;
+class Device;
 
 using ProjectResult = bmcl::Result<Rc<Project>, void>;
 
 using DeviceVec = RcVec<Device>;
 
-struct Device : public RefCountable {
+class Device : public RefCountable {
+public:
     using Pointer = Rc<Device>;
     using ConstPointer = Rc<const Device>;
 
-    std::vector<Rc<Ast>> modules;
-    DeviceVec tmSources;
-    DeviceVec cmdTargets;
-    std::string name;
-    uint64_t id;
-    Rc<Package> package;
+    const Package* package() const;
+    uint64_t id() const;
+    const std::string& name() const;
+    DeviceVec::ConstRange tmSources() const;
+    DeviceVec::ConstRange cmdTargets() const;
+    RcVec<Ast>::ConstRange modules() const;
+
+private:
+    friend class Project;
+    Device();
+    ~Device();
+
+    RcVec<Ast> _modules;
+    DeviceVec _tmSources;
+    DeviceVec _cmdTargets;
+    std::string _name;
+    uint64_t _id;
+    Rc<Package> _package;
 };
 
 class Project : public RefCountable {
@@ -73,8 +86,10 @@ public:
     DeviceVec::ConstRange devices() const;
 
     bmcl::Buffer encode() const;
+    void encode(bmcl::Buffer* dest) const;
     bmcl::Option<const SourcesToCopy&> sourcesForModule(const Ast* module) const;
-    bmcl::OptionPtr<Device> deviceWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<const Device> deviceWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<Device> deviceWithName(bmcl::StringView name);
 
 private:
     Project(Configuration* cfg, Diagnostics* diag);

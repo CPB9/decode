@@ -14,6 +14,9 @@ class SrcBuilder;
 class Package;
 class Ast;
 class Type;
+class StructType;
+class EnumType;
+class VariantType;
 class NamedType;
 class ModuleInfo;
 class Component;
@@ -28,6 +31,9 @@ public:
 
 private:
     bool appendTypeValidator(const Type* type);
+    void appendStructValidator(const StructType* type);
+    void appendEnumValidator(const EnumType* type);
+    void appendVariantValidator(const VariantType* type);
     void appendCmdValidator(const Component* comp, const Command* cmd);
     void appendCmdFieldName(const Component* comp, const Command* cmd);
     void appendCmdMethods(const Component* comp, const Command* cmd);
