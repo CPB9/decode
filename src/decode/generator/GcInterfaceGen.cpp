@@ -48,7 +48,7 @@ void GcInterfaceGen::generateHeader(const Package* package)
             _output->append("#include \"photon/_msgs_/");
             _output->appendWithFirstUpper(comp->name());
             _output->append("Msg");
-            _output->appendNumericValue(msg->number());
+            _output->appendWithFirstUpper(msg->name());
             _output->append(".hpp\"\n");
         }
     }
@@ -177,14 +177,14 @@ void GcInterfaceGen::appendStatusFieldName(const Component* comp, const StatusMs
 {
     _output->append("_statusMsg");
     _output->appendWithFirstUpper(comp->moduleName());
-    _output->appendNumericValue(msg->number());
+    _output->appendWithFirstUpper(msg->name());
 }
 
 void GcInterfaceGen::appendTmMethods(const Component* comp, const StatusMsg* msg)
 {
     _output->append("    bool hasStatusMsg");
     _output->appendWithFirstUpper(comp->moduleName());
-    _output->appendNumericValue(msg->number());
+    _output->appendWithFirstUpper(msg->name());
     _output->append("() const\n    {\n        return ");
     appendStatusFieldName(comp, msg);
     _output->append(";\n    }\n\n");
@@ -192,7 +192,7 @@ void GcInterfaceGen::appendTmMethods(const Component* comp, const StatusMsg* msg
 
     _output->append("    bool decodeStatusMsg");
     _output->appendWithFirstUpper(comp->moduleName());
-    _output->appendNumericValue(msg->number());
+    _output->appendWithFirstUpper(msg->name());
     _output->append("(");
     GcStatusMsgGen::genMsgType(comp, msg, _output);
     _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");

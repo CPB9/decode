@@ -441,7 +441,7 @@ bool Generator::generateStatusMessages(const Project* project)
         for (const StatusMsg* msg : comp->statusesRange()) {
             msgName.appendWithFirstUpper(comp->name());
             msgName.append("Msg");
-            msgName.appendNumericValue(msg->number());
+            msgName.appendWithFirstUpper(msg->name());
             msgGen.generateHeader(comp, msg);
             TRY(dumpIfNotEmpty(msgName.view(), ".hpp", &_gcPhotonPath));
             msgName.clear();

@@ -6,6 +6,7 @@
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/InlineTypeInspector.h"
 #include "decode/ast/Component.h"
+#include "decode/core/Foreach.h"
 
 namespace decode {
 
@@ -46,19 +47,21 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
     _output->append(" {\n\n");
 
     _output->append("struct Msg");
-    _output->appendNumericValue(msg->number());
+    _output->appendWithFirstUpper(msg->name());
     _output->append(" {\n");
 
+    SrcBuilder partName;
     std::size_t i = 0;
     std::vector<MsgPartsDesc> descs;
     descs.reserve(msg->partsRange().size());
     for (const StatusRegexp* regexp : msg->partsRange()) {
         const SubscriptAccessor* lastSubscript = nullptr;
         const FieldAccessor* lastField = nullptr;
-        for (const Accessor* acc : regexp->accessorsRange()) {
-            switch (acc->accessorKind()) {
+        foreachList(regexp->accessorsRange(), [&](const Accessor* acc) {
+             switch (acc->accessorKind()) {
                 case AccessorKind::Field:
                     lastField = acc->asFieldAccessor();
+                    partName.append(lastField->field()->name());
                     break;
                 case AccessorKind::Subscript:
                     lastSubscript = acc->asSubscriptAccessor();
@@ -66,7 +69,10 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
                 default:
                     assert(false);
             }
-        }
+        }, [&](const Accessor* acc) {
+            partName.append("_");
+        });
+
         const Type* contType = nullptr;
         assert(lastField);
         if (lastSubscript) {
@@ -81,9 +87,6 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
         } else {
             contType = lastField->field()->type();
         }
-
-        SrcBuilder partName("part");
-        partName.appendNumericValue(i);
         descs.emplace_back(contType, std::move(partName.result()));
         i++;
     }
@@ -125,6 +128,6 @@ void GcStatusMsgGen::genMsgType(const Component* comp, const StatusMsg* msg, Src
     dest->append("photongen::");
     dest->append(comp->name());
     dest->append("::Msg");
-    dest->appendNumericValue(msg->number());
+    dest->appendWithFirstUpper(msg->name());
 }
 }
