@@ -416,6 +416,41 @@ void GcTypeGen::appendTemplatePrefix(bmcl::OptionPtr<const GenericType> parent)
 
 void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const GenericType> parent)
 {
+    //TODO: replace with ptr comparison
+    if (type->moduleName() == "core" && type->name() == "Option") {
+        _output->append("#pragma once\n\n"
+                        "#include <photon/model/CoderState.h>\n\n"
+                        "#include <bmcl/Option.h>\n"
+                        "#include <bmcl/Buffer.h>\n"
+                        "#include <bmcl/MemReader.h>\n\n"
+                        "namespace photongen {\nnamespace core {\n\n"
+                        "template <typename T>\n"
+                        "using Option = bmcl::Option<T>;\n"
+                        "}\n}\n\n"
+                        "template <typename T>\n"
+                        "bool photongenSerialize(const photongen::core::Option<T>& self, bmcl::Buffer* dest, photon::CoderState* state)\n"
+                        "{\n"
+                        "    dest->writeVarInt(self.isSome());\n"
+                        "    return photongenSerialize(self.unwrap(), dest, state);\n"
+                        "}\n\n"
+
+                        "template <typename T>\n"
+                        "bool photongenDeserialize(photongen::core::Option<T>* self, bmcl::MemReader* src, photon::CoderState* state)\n"
+                        "{\n"
+                        "    int64_t isSome;\n"
+                        "    if (!src->readVarInt(&isSome)) {\n"
+                        "        return false;\n"
+                        "    }\n"
+                        "    if (isSome) {\n"
+                        "        self->emplace();\n"
+                        "        return photongenDeserialize(&self->unwrap(), src, state);\n"
+                        "    }\n"
+                        "    self->clear();\n"
+                        "    return true;\n"
+                        "}\n");
+        return;
+    }
+
     const NamedType* serType = type;
     if (parent.isSome()) {
         serType = parent.unwrap();

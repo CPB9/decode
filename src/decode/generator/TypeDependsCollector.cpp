@@ -91,10 +91,10 @@ bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiat
         return false;
     }
 
-    collectType(type);
     for (const Type* t : type->substitutedTypesRange()) {
-        collectType(t);
+        traverseType(t);
     }
+    collectType(type);
     return false;
 }
 
