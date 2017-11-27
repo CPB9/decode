@@ -4,6 +4,7 @@
 #include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/InlineTypeInspector.h"
+#include "decode/generator/GcStatusMsgGen.h"
 #include "decode/parser/Package.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/ModuleInfo.h"
@@ -11,6 +12,8 @@
 #include "decode/ast/Field.h"
 #include "decode/core/Foreach.h"
 #include "decode/generator/SrcBuilder.h"
+
+//TODO: refact
 
 namespace decode {
 
@@ -34,6 +37,21 @@ void GcInterfaceGen::generateHeader(const Package* package)
     }
     IncludeGen includeGen(_output);
     includeGen.genGcIncludePaths(&depends);
+    _output->appendEol();
+
+    for (const Ast* ast : package->modules()) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+        const Component* comp = ast->component().unwrap();
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            _output->append("#include \"photon/_msgs_/");
+            _output->appendWithFirstUpper(comp->name());
+            _output->append("Msg");
+            _output->appendNumericValue(msg->number());
+            _output->append(".hpp\"\n");
+        }
+    }
     _output->appendEol();
 
     _output->append(
@@ -67,23 +85,23 @@ void GcInterfaceGen::generateHeader(const Package* package)
 
     _output->append(
                     "        if (!_coreAst) {\n            return;\n        }\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinU16 = _coreAst->builtinTypes()->u16Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinU32 = _coreAst->builtinTypes()->u32Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinU64 = _coreAst->builtinTypes()->u64Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinI8 = _coreAst->builtinTypes()->i8Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinI16 = _coreAst->builtinTypes()->i16Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinI32 = _coreAst->builtinTypes()->i32Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinI64 = _coreAst->builtinTypes()->i64Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinF32 = _coreAst->builtinTypes()->f32Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinF64 = _coreAst->builtinTypes()->f64Type();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinVaruint = _coreAst->builtinTypes()->varuintType();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinVarint = _coreAst->builtinTypes()->varintType();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinBool = _coreAst->builtinTypes()->boolType();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinVoid = _coreAst->builtinTypes()->voidType();\n"
-                    "        decode::Rc<const decode::BuiltinType>_builtinChar = _coreAst->builtinTypes()->charType();\n\n");
+                    "        decode::Rc<const decode::BuiltinType> _builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinU16 = _coreAst->builtinTypes()->u16Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinU32 = _coreAst->builtinTypes()->u32Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinU64 = _coreAst->builtinTypes()->u64Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinI8 = _coreAst->builtinTypes()->i8Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinI16 = _coreAst->builtinTypes()->i16Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinI32 = _coreAst->builtinTypes()->i32Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinI64 = _coreAst->builtinTypes()->i64Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinF32 = _coreAst->builtinTypes()->f32Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinF64 = _coreAst->builtinTypes()->f64Type();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinVaruint = _coreAst->builtinTypes()->varuintType();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinVarint = _coreAst->builtinTypes()->varintType();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinBool = _coreAst->builtinTypes()->boolType();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinVoid = _coreAst->builtinTypes()->voidType();\n"
+                    "        decode::Rc<const decode::BuiltinType> _builtinChar = _coreAst->builtinTypes()->charType();\n\n");
 
     for (const Ast* ast : package->modules()) {
         for (const Type* type : ast->typesRange()) {
@@ -111,6 +129,9 @@ void GcInterfaceGen::generateHeader(const Package* package)
         for (const Command* cmd : comp->cmdsRange()) {
             appendCmdMethods(comp, cmd);
         }
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            appendTmMethods(comp, msg);
+        }
     }
 
     _output->append("private:\n"
@@ -134,6 +155,11 @@ void GcInterfaceGen::generateHeader(const Package* package)
             appendCmdFieldName(comp, cmd);
             _output->append(";\n");
         }
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            _output->append("    decode::Rc<const decode::StatusMsg> ");
+            appendStatusFieldName(comp, msg);
+            _output->append(";\n");
+        }
     }
 
     _output->append("};\n}\n\n");
@@ -145,6 +171,42 @@ void GcInterfaceGen::appendCmdFieldName(const Component* comp, const Command* cm
     _output->append("_cmd");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(cmd->name());
+}
+
+void GcInterfaceGen::appendStatusFieldName(const Component* comp, const StatusMsg* msg)
+{
+    _output->append("_statusMsg");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendNumericValue(msg->number());
+}
+
+void GcInterfaceGen::appendTmMethods(const Component* comp, const StatusMsg* msg)
+{
+    _output->append("    bool hasStatusMsg");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendNumericValue(msg->number());
+    _output->append("() const\n    {\n        return ");
+    appendStatusFieldName(comp, msg);
+    _output->append(";\n    }\n\n");
+
+
+    _output->append("    bool decodeStatusMsg");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendNumericValue(msg->number());
+    _output->append("(");
+    GcStatusMsgGen::genMsgType(comp, msg, _output);
+    _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");
+    //TODO: validate msgs
+    //_output->append("        if(!");
+    //appendStatusFieldName(comp, msg);
+    //_output->append(") {\n            return false;\n        }\n");
+
+    _output->append("        if(!_");
+    _output->append(comp->moduleName());
+    _output->append("Component) {\n            return false;\n        }\n");
+
+    _output->append("        return photongenDeserialize(msg, src, state);\n"
+                    "    }\n\n");
 }
 
 void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)

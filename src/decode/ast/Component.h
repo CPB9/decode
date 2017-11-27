@@ -45,6 +45,9 @@ public:
 
     AccessorKind accessorKind() const;
 
+    bool isFieldAccessor() const;
+    bool isSubscriptAccessor() const;
+
     FieldAccessor* asFieldAccessor();
     SubscriptAccessor* asSubscriptAccessor();
 

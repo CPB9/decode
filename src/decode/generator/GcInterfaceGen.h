@@ -21,6 +21,7 @@ class NamedType;
 class ModuleInfo;
 class Component;
 class Command;
+class StatusMsg;
 
 class GcInterfaceGen {
 public:
@@ -36,7 +37,9 @@ private:
     void appendVariantValidator(const VariantType* type);
     void appendCmdValidator(const Component* comp, const Command* cmd);
     void appendCmdFieldName(const Component* comp, const Command* cmd);
+    void appendStatusFieldName(const Component* comp, const StatusMsg* msg);
     void appendCmdMethods(const Component* comp, const Command* cmd);
+    void appendTmMethods(const Component* comp, const StatusMsg* msg);
     void appendNamedTypeInit(const NamedType* type, bmcl::StringView name);
     void appendTestedType(const Type* type);
     static void appendTestedType(const Type* type, SrcBuilder* dest);

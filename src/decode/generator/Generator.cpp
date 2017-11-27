@@ -17,6 +17,7 @@
 #include "decode/generator/GcTypeGen.h"
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/GcInterfaceGen.h"
+#include "decode/generator/GcStatusMsgGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -428,6 +429,25 @@ bool Generator::generateStatusMessages(const Project* project)
 
     gen.generateDecoderSource(project);
     TRY(dumpIfNotEmpty("StatusDecoder.Private", ".c", &_onboardPhotonPath));
+
+    std::size_t pathSize = _gcPhotonPath.result().size();
+    _gcPhotonPath.append("_msgs_");
+    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    _gcPhotonPath.append('/');
+
+    GcStatusMsgGen msgGen(&_output);
+    SrcBuilder msgName;
+    for (const Component* comp : project->package()->components()) {
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            msgName.appendWithFirstUpper(comp->name());
+            msgName.append("Msg");
+            msgName.appendNumericValue(msg->number());
+            msgGen.generateHeader(comp, msg);
+            TRY(dumpIfNotEmpty(msgName.view(), ".hpp", &_gcPhotonPath));
+            msgName.clear();
+        }
+    }
+    _gcPhotonPath.resize(pathSize);
 
     return true;
 }

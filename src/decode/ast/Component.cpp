@@ -31,23 +31,37 @@ AccessorKind Accessor::accessorKind() const
     return _accessorKind;
 }
 
+bool Accessor::isFieldAccessor() const
+{
+    return _accessorKind == AccessorKind::Field;
+}
+
+bool Accessor::isSubscriptAccessor() const
+{
+    return _accessorKind == AccessorKind::Subscript;
+}
+
 FieldAccessor* Accessor::asFieldAccessor()
 {
+    assert(isFieldAccessor());
     return static_cast<FieldAccessor*>(this);
 }
 
 SubscriptAccessor* Accessor::asSubscriptAccessor()
 {
+    assert(isSubscriptAccessor());
     return static_cast<SubscriptAccessor*>(this);
 }
 
 const FieldAccessor* Accessor::asFieldAccessor() const
 {
+    assert(isFieldAccessor());
     return static_cast<const FieldAccessor*>(this);
 }
 
 const SubscriptAccessor* Accessor::asSubscriptAccessor() const
 {
+    assert(isSubscriptAccessor());
     return static_cast<const SubscriptAccessor*>(this);
 }
 

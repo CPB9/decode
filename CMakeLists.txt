@@ -123,6 +123,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/FuncPrototypeGen.h
     src/decode/generator/GcInterfaceGen.cpp
     src/decode/generator/GcInterfaceGen.h
+    src/decode/generator/GcStatusMsgGen.cpp
+    src/decode/generator/GcStatusMsgGen.h
     src/decode/generator/GcTypeGen.cpp
     src/decode/generator/GcTypeGen.h
     src/decode/generator/Generator.cpp
