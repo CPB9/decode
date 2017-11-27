@@ -88,6 +88,11 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
         i++;
     }
 
+    _output->append("    static constexpr uint64_t COMP_NUM = ");
+    _output->appendNumericValue(comp->number());
+    _output->append(";\n    static constexpr uint64_t MSG_NUM = ");
+    _output->appendNumericValue(msg->number());
+    _output->append(";\n\n");
     TypeReprGen reprGen(_output);
     for (const MsgPartsDesc& desc : descs) {
         _output->append("    ");
