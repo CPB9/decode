@@ -76,7 +76,7 @@ void TypeDefGen::appendDynArray(const DynArrayType* type)
     _output->append("];\n");
 
     _output->appendIndent(1);
-    _output->append("size_t size;\n");
+    _output->append("uint64_t size;\n");
 
     _output->append("} Photon");
     gen.genTypeName(type);
