@@ -42,6 +42,9 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
     gen.genGcIncludePaths(&deps);
     _output->appendEol();
 
+    _output->appendInclude("photon/groundcontrol/NumberedSub.h");
+    _output->appendEol();
+
     _output->append("namespace photongen {\nnamespace ");
     _output->append(comp->name());
     _output->append(" {\n\n");
@@ -91,11 +94,15 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
         i++;
     }
 
-    _output->append("    static constexpr uint64_t COMP_NUM = ");
+    _output->append("    static constexpr uint32_t COMP_NUM = ");
     _output->appendNumericValue(comp->number());
-    _output->append(";\n    static constexpr uint64_t MSG_NUM = ");
+    _output->append(";\n    static constexpr uint32_t MSG_NUM = ");
     _output->appendNumericValue(msg->number());
     _output->append(";\n\n");
+    _output->append("    static constexpr uint64_t id()\n    {\n        return (uint64_t(COMP_NUM) << 32) | uint64_t(MSG_NUM);\n    }\n\n");
+    _output->append("    static photon::NumberedSub sub()\n    {\n        return photon::NumberedSub::fromMsg<Msg");
+    _output->appendWithFirstUpper(msg->name());
+    _output->append(">();\n    }\n\n");
     TypeReprGen reprGen(_output);
     for (const MsgPartsDesc& desc : descs) {
         _output->append("    ");
