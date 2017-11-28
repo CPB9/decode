@@ -37,6 +37,9 @@ void GcTypeGen::appendFullTypeName(const NamedType* type)
 
 void GcTypeGen::appendEnumConstantName(const EnumType* type, const EnumConstant* constant)
 {
+    _output->append("photongen::");
+    _output->append(type->moduleName());
+    _output->append("::");
     _output->append(type->name());
     _output->append("::");
     _output->append(constant->name());
@@ -54,6 +57,7 @@ void GcTypeGen::generateHeader(const TopLevelType* type)
     case TypeKind::Alias: {
         _output->appendPragmaOnce();
         _output->appendInclude("vector");
+        _output->appendInclude("photon/model/CoderState.h");
         IncludeGen includeGen(_output);
         TypeDependsCollector coll;
         TypeDependsCollector::Depends deps;
@@ -113,9 +117,14 @@ void GcTypeGen::endNamespace()
     _output->append("}\n}\n");
 }
 
-void GcTypeGen::appendSerPrefix(const NamedType* type, const char* prefix)
+void GcTypeGen::appendSerPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
 {
     TypeReprGen reprGen(_output);
+    if (parent.isSome()) {
+        appendTemplatePrefix(parent);
+    } else {
+        _output->append("template <>\n");
+    }
     _output->append(bmcl::StringView(prefix));
     _output->append(" bool photongenSerialize");
     _output->append("(const ");
@@ -123,15 +132,20 @@ void GcTypeGen::appendSerPrefix(const NamedType* type, const char* prefix)
     _output->append("& self, bmcl::Buffer* dest, photon::CoderState* state)\n{\n");
 }
 
-void GcTypeGen::appendDeserPrefix(const NamedType* type, const char* prefix)
+void GcTypeGen::appendDeserPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
 {
-    appendDeserPrototype(type, prefix);
+    appendDeserPrototype(type, parent, prefix);
     _output->append("\n{\n");
 }
 
-void GcTypeGen::appendDeserPrototype(const NamedType* type, const char* prefix)
+void GcTypeGen::appendDeserPrototype(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
 {
     TypeReprGen reprGen(_output);
+    if (parent.isSome()) {
+        appendTemplatePrefix(parent);
+    } else {
+        _output->append("template <>\n");
+    }
     _output->append(bmcl::StringView(prefix));
     _output->append(" bool photongenDeserialize");
     _output->append("(");
@@ -167,9 +181,10 @@ void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const Generic
     }
 
     _output->append("};\n\n");
+    endNamespace();
 
     //ser
-    appendSerPrefix(type);
+    appendSerPrefix(type, parent);
 
     _output->append("    switch(self) {\n");
     for (const EnumConstant* c : type->constantsRange()) {
@@ -188,7 +203,7 @@ void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const Generic
                     "    return true;\n}\n\n");
 
     //deser
-    appendDeserPrefix(type);
+    appendDeserPrefix(type, parent);
     _output->append("    int64_t value;\n    if (!src->readVarInt(&value)) {\n"
                     "        state->setError(\"Not enough data to deserialize enum `");
     appendFullTypeName(type);
@@ -207,7 +222,6 @@ void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const Generic
     _output->append("`, got invalid value (\" + std::to_string(value) + \")\");\n"
                     "    return false;\n}");
 
-    endNamespace();
 }
 
 void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const GenericType> parent)
@@ -376,8 +390,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     InlineTypeInspector inspector(&gen, _output);
     InlineSerContext ctx;
 
-    appendTemplatePrefix(parent);
-    appendSerPrefix(serType);
+    appendSerPrefix(serType, parent);
     builder.result().assign("self.");
     for (const Field* field : type->fieldsRange()) {
         builder.append(field->name());
@@ -387,8 +400,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     }
     _output->append("    return true;\n}\n\n");
 
-    appendTemplatePrefix(parent);
-    appendDeserPrefix(serType);
+    appendDeserPrefix(serType, parent);
     builder.result().assign("self->_");
     for (const Field* field : type->fieldsRange()) {
         builder.append(field->name());
@@ -530,11 +542,9 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
     _output->append("};\n");
     endNamespace();
 
-    appendTemplatePrefix(parent);
-    appendSerPrefix(serType);
+    appendSerPrefix(serType, parent);
     _output->append("return true;}\n\n");
-    appendTemplatePrefix(parent);
-    appendDeserPrefix(serType);
+    appendDeserPrefix(serType, parent);
     _output->append("return true;}\n\n");
 }
 }

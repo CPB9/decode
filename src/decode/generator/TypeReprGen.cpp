@@ -43,12 +43,18 @@ void TypeReprGen::writeBuiltin(const BuiltinType* type)
         insertStd();
         break;
     case BuiltinTypeKind::Varuint:
-        _output->insert(_currentOffset, "uint64_t");
-        insertStd();
+        if (isOnboard) {
+            _output->insert(_currentOffset, "uint64_t");
+        } else {
+            _output->insert(_currentOffset, "photon::VarUint");
+        }
         break;
     case BuiltinTypeKind::Varint:
-        _output->insert(_currentOffset, "int64_t");
-        insertStd();
+        if (isOnboard) {
+            _output->insert(_currentOffset, "int64_t");
+        } else {
+            _output->insert(_currentOffset, "photon::VarInt");
+        }
         break;
     case BuiltinTypeKind::U8:
         _output->insert(_currentOffset, "uint8_t");

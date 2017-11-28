@@ -40,9 +40,9 @@ private:
     void appendFullTypeName(const NamedType* type);
     void appendEnumConstantName(const EnumType* type, const EnumConstant* constant);
 
-    void appendSerPrefix(const NamedType* type, const char* prefix = "inline");
-    void appendDeserPrefix(const NamedType* type, const char* prefix = "inline");
-    void appendDeserPrototype(const NamedType* type, const char* prefix = "inline");
+    void appendSerPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
+    void appendDeserPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
+    void appendDeserPrototype(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
 
     void beginNamespace(bmcl::StringView modName);
     void endNamespace();
