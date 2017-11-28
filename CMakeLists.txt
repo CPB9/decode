@@ -51,6 +51,12 @@ add_library(zpaq STATIC
     thirdparty/zpaq/libzpaq.cpp
 )
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
+
+else()
+    target_compile_definitions(zpaq PRIVATE NOJIT)
+endif()
+
 find_package(Threads)
 
 set(DECODE_CORE_SRC
