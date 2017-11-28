@@ -106,7 +106,7 @@ private:
     template <bool isOnboard, bool isSerializer>
     void inspectPointer(const Type* type);
     template <bool isOnboard, bool isSerializer>
-    void inspectNonInlineType(const NamedType* type);
+    void inspectNonInlineType(const Type* type);
     template <bool isOnboard, bool isSerializer>
     void inspectArray(const ArrayType* type);
 

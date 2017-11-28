@@ -43,18 +43,12 @@ void TypeReprGen::writeBuiltin(const BuiltinType* type)
         insertStd();
         break;
     case BuiltinTypeKind::Varuint:
-        if (isOnboard) {
-            _output->insert(_currentOffset, "uint64_t");
-        } else {
-            _output->insert(_currentOffset, "photon::VarUint");
-        }
+        _output->insert(_currentOffset, "uint64_t");
+        insertStd();
         break;
     case BuiltinTypeKind::Varint:
-        if (isOnboard) {
-            _output->insert(_currentOffset, "int64_t");
-        } else {
-            _output->insert(_currentOffset, "photon::VarInt");
-        }
+        _output->insert(_currentOffset, "int64_t");
+        insertStd();
         break;
     case BuiltinTypeKind::U8:
         _output->insert(_currentOffset, "uint8_t");
@@ -217,6 +211,7 @@ void TypeReprGen::writeGenericInstantiation(const GenericInstantiationType* type
     if (isOnboard) {
         writeOnboardTypeName(type);
     } else {
+        _temp.append("photongen::");
         _temp.append(type->moduleName());
         _temp.append("::");
         _temp.append(type->genericName());

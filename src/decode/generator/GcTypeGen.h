@@ -23,13 +23,15 @@ class NamedType;
 class SrcBuilder;
 class EnumConstant;
 class GenericType;
+class GenericInstantiationType;
 
 class GcTypeGen {
 public:
     GcTypeGen(SrcBuilder* output);
     ~GcTypeGen();
 
-    void generateHeader(const TopLevelType* type);
+    void generateHeader(const NamedType* type);
+    void generateHeader(const GenericInstantiationType* type);
 
 private:
     void generateEnum(const EnumType* type, bmcl::OptionPtr<const GenericType> parent);
@@ -40,9 +42,9 @@ private:
     void appendFullTypeName(const NamedType* type);
     void appendEnumConstantName(const EnumType* type, const EnumConstant* constant);
 
-    void appendSerPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
-    void appendDeserPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
-    void appendDeserPrototype(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
+    void appendSerPrefix(const Type* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
+    void appendDeserPrefix(const Type* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
+    void appendDeserPrototype(const Type* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix = "inline");
 
     void beginNamespace(bmcl::StringView modName);
     void endNamespace();

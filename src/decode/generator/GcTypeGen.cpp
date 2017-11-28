@@ -13,6 +13,7 @@
 #include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/InlineTypeInspector.h"
 #include "decode/generator/TypeReprGen.h"
+#include "decode/generator/TypeNameGen.h"
 #include "decode/generator/IncludeGen.h"
 
 #include <bmcl/StringView.h>
@@ -45,7 +46,79 @@ void GcTypeGen::appendEnumConstantName(const EnumType* type, const EnumConstant*
     _output->append(constant->name());
 }
 
-void GcTypeGen::generateHeader(const TopLevelType* type)
+void GcTypeGen::generateHeader(const GenericInstantiationType* type)
+{
+    _output->appendPragmaOnce();
+    _output->appendEol();
+
+    _output->appendInclude("cstddef");
+    _output->appendInclude("cstdint");
+    _output->appendInclude("cstdbool");
+    _output->appendInclude("vector");
+    _output->appendEol();
+
+    _output->appendInclude("bmcl/MemReader.h");
+    _output->appendInclude("bmcl/Buffer.h");
+    _output->appendInclude("photon/model/CoderState.h");
+    _output->appendEol();
+
+    TypeDependsCollector coll;
+    TypeDependsCollector::Depends depends;
+    coll.collect(type, &depends);
+    IncludeGen includeGen(_output);
+    includeGen.genGcIncludePaths(&depends);
+    if (!depends.empty()) {
+        _output->appendEol();
+    }
+
+    if (type->genericType()->moduleName() == "core" && type->genericName() == "Option") {
+        TypeReprGen gen(_output);
+        const Type* inner = *type->substitutedTypesRange().begin();
+        _output->append("inline bool photongenSerialize");
+        TypeNameGen nameGen(_output);
+        nameGen.genTypeName(type);
+        _output->append("(const photongen::core::Option<");
+        gen.genGcTypeRepr(inner);
+        _output->append(">& self, bmcl::Buffer* dest, photon::CoderState* state)\n"
+                        "{\n"
+                        "    dest->writeVarInt(self.isSome());\n");
+        InlineTypeInspector inspector(&gen, _output);
+        InlineSerContext ctx;
+        inspector.inspect<false, true>(inner, ctx, "self.unwrap()");
+        _output->append("    return true;\n"
+                    "}\n\n");
+
+        _output->append("inline bool photongenDeserialize");
+        nameGen.genTypeName(type);
+        _output->append("(photongen::core::Option<");
+        gen.genGcTypeRepr(inner);
+        _output->append(">* self, bmcl::MemReader* src, photon::CoderState* state)\n"
+                        "{\n"
+                        "    int64_t isSome;\n"
+                        "    if (!src->readVarInt(&isSome)) {\n"
+                        "        return false;\n"
+                        "    }\n"
+                        "    if (isSome) {\n"
+                        "        self->emplace();\n");
+        ctx = ctx.indent();
+        inspector.inspect<false, false>(inner, ctx, "self->unwrap()");
+        _output->append("        return true;\n"
+                        "    }\n"
+                        "    self->clear();\n"
+                        "    return true;\n"
+                        "}\n");
+
+        return;
+    }
+
+    appendSerPrefix(type, bmcl::None);
+    _output->append("return true;}\n\n");
+
+    appendDeserPrefix(type, bmcl::None);
+    _output->append("return true;}\n\n");
+}
+
+void GcTypeGen::generateHeader(const NamedType* type)
 {
     switch (type->typeKind()) {
     case TypeKind::Builtin:
@@ -117,37 +190,37 @@ void GcTypeGen::endNamespace()
     _output->append("}\n}\n");
 }
 
-void GcTypeGen::appendSerPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
+void GcTypeGen::appendSerPrefix(const Type* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
 {
     TypeReprGen reprGen(_output);
     if (parent.isSome()) {
         appendTemplatePrefix(parent);
-    } else {
-        _output->append("template <>\n");
     }
     _output->append(bmcl::StringView(prefix));
     _output->append(" bool photongenSerialize");
+    TypeNameGen nameGen(_output);
+    nameGen.genTypeName(type);
     _output->append("(const ");
     reprGen.genGcTypeRepr(type);
     _output->append("& self, bmcl::Buffer* dest, photon::CoderState* state)\n{\n");
 }
 
-void GcTypeGen::appendDeserPrefix(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
+void GcTypeGen::appendDeserPrefix(const Type* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
 {
     appendDeserPrototype(type, parent, prefix);
     _output->append("\n{\n");
 }
 
-void GcTypeGen::appendDeserPrototype(const NamedType* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
+void GcTypeGen::appendDeserPrototype(const Type* type, bmcl::OptionPtr<const GenericType> parent, const char* prefix)
 {
     TypeReprGen reprGen(_output);
     if (parent.isSome()) {
         appendTemplatePrefix(parent);
-    } else {
-        _output->append("template <>\n");
     }
     _output->append(bmcl::StringView(prefix));
     _output->append(" bool photongenDeserialize");
+    TypeNameGen nameGen(_output);
+    nameGen.genTypeName(type);
     _output->append("(");
     reprGen.genGcTypeRepr(type);
     _output->append("* self, bmcl::MemReader* src, photon::CoderState* state)");
@@ -390,25 +463,26 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     InlineTypeInspector inspector(&gen, _output);
     InlineSerContext ctx;
 
-    appendSerPrefix(serType, parent);
-    builder.result().assign("self.");
-    for (const Field* field : type->fieldsRange()) {
-        builder.append(field->name());
-        builder.append("()");
-        inspector.inspect<false, true>(field->type(), ctx, builder.view());
-        builder.resize(5);
-    }
-    _output->append("    return true;\n}\n\n");
+    if (parent.isNone()) {
+        appendSerPrefix(serType, parent);
+        builder.result().assign("self.");
+        for (const Field* field : type->fieldsRange()) {
+            builder.append(field->name());
+            builder.append("()");
+            inspector.inspect<false, true>(field->type(), ctx, builder.view());
+            builder.resize(5);
+        }
+        _output->append("    return true;\n}\n\n");
 
-    appendDeserPrefix(serType, parent);
-    builder.result().assign("self->_");
-    for (const Field* field : type->fieldsRange()) {
-        builder.append(field->name());
-        inspector.inspect<false, false>(field->type(), ctx, builder.view());
-        builder.resize(7);
+        appendDeserPrefix(serType, parent);
+        builder.result().assign("self->_");
+        for (const Field* field : type->fieldsRange()) {
+            builder.append(field->name());
+            inspector.inspect<false, false>(field->type(), ctx, builder.view());
+            builder.resize(7);
+        }
+        _output->append("    return true;\n}\n");
     }
-    _output->append("    return true;\n}\n");
-
 }
 
 void GcTypeGen::appendTemplatePrefix(bmcl::OptionPtr<const GenericType> parent)
@@ -439,27 +513,7 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
                         "template <typename T>\n"
                         "using Option = bmcl::Option<T>;\n"
                         "}\n}\n\n"
-                        "template <typename T>\n"
-                        "bool photongenSerialize(const photongen::core::Option<T>& self, bmcl::Buffer* dest, photon::CoderState* state)\n"
-                        "{\n"
-                        "    dest->writeVarInt(self.isSome());\n"
-                        "    return photongenSerialize(self.unwrap(), dest, state);\n"
-                        "}\n\n"
-
-                        "template <typename T>\n"
-                        "bool photongenDeserialize(photongen::core::Option<T>* self, bmcl::MemReader* src, photon::CoderState* state)\n"
-                        "{\n"
-                        "    int64_t isSome;\n"
-                        "    if (!src->readVarInt(&isSome)) {\n"
-                        "        return false;\n"
-                        "    }\n"
-                        "    if (isSome) {\n"
-                        "        self->emplace();\n"
-                        "        return photongenDeserialize(&self->unwrap(), src, state);\n"
-                        "    }\n"
-                        "    self->clear();\n"
-                        "    return true;\n"
-                        "}\n");
+);
         return;
     }
 
@@ -542,9 +596,11 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
     _output->append("};\n");
     endNamespace();
 
-    appendSerPrefix(serType, parent);
-    _output->append("return true;}\n\n");
-    appendDeserPrefix(serType, parent);
-    _output->append("return true;}\n\n");
+    if (parent.isNone()) {
+        appendSerPrefix(serType, parent);
+        _output->append("return true;}\n\n");
+        appendDeserPrefix(serType, parent);
+        _output->append("return true;}\n\n");
+    }
 }
 }

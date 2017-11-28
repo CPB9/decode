@@ -94,6 +94,7 @@ void IncludeGen::genIncludePaths(const HashSet<Rc<const Type>>* types)
             if (isOnboard) {
                 genOnboardGenericInstantiation(type->asGenericInstantiation());
             } else {
+                genOnboardGenericInstantiation(type->asGenericInstantiation());
                 genNamedInclude(type->asGenericInstantiation()->genericType());
             }
             break;

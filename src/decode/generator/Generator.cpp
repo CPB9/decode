@@ -494,8 +494,14 @@ bool Generator::generateGenerics(const Package* package)
     _onboardPhotonPath.append("_generic_");
     TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
     _onboardPhotonPath.append('/');
+
+    _gcPhotonPath.append("_generic_");
+    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    _gcPhotonPath.append('/');
+
     SrcBuilder typeNameBuilder;
     TypeNameGen typeNameGen(&typeNameBuilder);
+    GcTypeGen gcTypeGen(&_output);
     for (const Ast* ast : package->modules()) {
         for (const GenericInstantiationType* type : ast->genericInstantiationsRange()) {
             typeNameGen.genTypeName(type);
@@ -506,10 +512,14 @@ bool Generator::generateGenerics(const Package* package)
             _onboardSgen->genTypeSource(type, typeNameBuilder.result());
             TRY(dump(typeNameBuilder.result(), GEN_PREFIX ".c", &_onboardPhotonPath));
 
+            gcTypeGen.generateHeader(type);
+            TRY(dump(typeNameBuilder.result(), ".hpp", &_gcPhotonPath));
+
             typeNameBuilder.clear();
         }
     }
     _onboardPhotonPath.removeFromBack(10);
+    _gcPhotonPath.removeFromBack(10);
     return true;
 }
 

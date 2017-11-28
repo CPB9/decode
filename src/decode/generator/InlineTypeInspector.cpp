@@ -3,6 +3,7 @@
 #include "decode/ast/Type.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeReprGen.h"
+#include "decode/generator/TypeNameGen.h"
 
 namespace decode {
 
@@ -81,7 +82,7 @@ void InlineTypeInspector::inspectType(const Type* type)
         if (isOnboard) {
             inspectOnboardNonInlineType<isSerializer>(type);
         } else {
-            inspectNonInlineType<isOnboard, isSerializer>(type->asGenericInstantiation()->instantiatedType());
+            inspectNonInlineType<isOnboard, isSerializer>(type);
         }
         break;
     case TypeKind::GenericParameter:
@@ -306,7 +307,7 @@ void InlineTypeInspector::genGcVarSer(bmcl::StringView suffix)
         _output->append(suffix);
         _output->append("(&");
         appendArgumentName();
-        _output->append(".value())) {\n");
+        _output->append(")) {\n");
         _output->appendIndent(context());
         _output->append("    return false;\n");
         _output->appendIndent(context());
@@ -448,7 +449,7 @@ void InlineTypeInspector::inspectOnboardNonInlineType(const Type* type)
 }
 
 template <bool isOnboard, bool isSerializer>
-void InlineTypeInspector::inspectNonInlineType(const NamedType* type)
+void InlineTypeInspector::inspectNonInlineType(const Type* type)
 {
     if (isOnboard) {
         inspectOnboardNonInlineType<isSerializer>(type);
@@ -460,6 +461,8 @@ void InlineTypeInspector::inspectNonInlineType(const NamedType* type)
         } else {
             _output->append("photongenDeserialize");
         }
+        TypeNameGen gen(_output);
+        gen.genTypeName(type);
         if (!isSerializer) {
             _output->append("(&");
             appendArgumentName();

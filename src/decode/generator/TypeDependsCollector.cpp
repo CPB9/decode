@@ -85,6 +85,7 @@ bool TypeDependsCollector::visitDynArrayType(const DynArrayType* dynArray)
 
 bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiationType* type)
 {
+    collectType(type->genericType());
     if (type == _currentType) {
         _currentType = type->instantiatedType();
         traverseType(_currentType);
