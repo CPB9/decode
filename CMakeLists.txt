@@ -2,50 +2,14 @@ project(decode)
 
 cmake_minimum_required(VERSION 2.8.11)
 
-if(NOT MSVC)
-    add_definitions()
-endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/bmcl/cmake/Bmcl.cmake)
 
-macro(enable_asan)
-    add_definitions(
-        -fsanitize=address
-        -fsanitize=undefined
-        -fsanitize-address-use-after-scope
-        -fno-common
-        -fno-omit-frame-pointer
-        -ggdb
-        #-fsanitize-blacklist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer-blacklist.txt
-    )
-    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address -fsanitize=undefined")
-endmacro()
+bmcl_add_dep_bmcl(thirdparty/bmcl)
+bmcl_add_dep_tclap(thirdparty/tclap)
 
-macro(enable_msan)
-    add_definitions(
-        -fsanitize=memory
-        -fno-common
-        -fno-omit-frame-pointer
-        -ggdb
-        #-fsanitize-blacklist=${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizer-blacklist.txt
-    )
-    SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=memory")
-endmacro()
+find_package(Threads)
 
-if(ASAN)
-    enable_asan()
-endif()
-
-if(MSAN)
-    enable_msan()
-endif()
-
-add_subdirectory(thirdparty/bmcl EXCLUDE_FROM_ALL)
-
-include_directories(
-    thirdparty/zpaq
-    thirdparty/tclap/include
-    thirdparty
-    thirdparty/pegtl
-)
+#zpaq
 
 add_library(zpaq STATIC
     thirdparty/zpaq/libzpaq.cpp
@@ -57,7 +21,9 @@ else()
     target_compile_definitions(zpaq PRIVATE NOJIT)
 endif()
 
-find_package(Threads)
+bmcl_disable_warnings(zpaq)
+
+#decode
 
 set(DECODE_CORE_SRC
     src/decode/core/CfgOption.cpp
@@ -177,7 +143,7 @@ set(DECODE_PARSER_SRC
 )
 source_group("parser" FILES ${DECODE_PARSER_SRC})
 
-add_library(decode
+bmcl_add_library(decode
     src/decode/Config.h
     ${DECODE_CORE_SRC}
     ${DECODE_AST_SRC}
@@ -185,52 +151,39 @@ add_library(decode
     ${DECODE_PARSER_SRC}
 )
 
-target_link_libraries(decode zpaq bmcl Threads::Threads)
+target_link_libraries(decode
+    zpaq
+    bmcl
+    tclap
+    Threads::Threads
+)
 
-add_executable(decode_gen
+bmcl_add_executable(decode-gen
     src/decode/Main.cpp
 )
 
-target_link_libraries(decode_gen decode)
-
-set_target_properties(decode
-    PROPERTIES
-    PREFIX "lib"
+target_link_libraries(decode-gen
+    decode
+    tclap
 )
 
-if(Qt5Widgets_FOUND)
-
-endif()
-
 target_compile_definitions(decode PRIVATE -DBUILDING_DECODE)
-
-if(NOT MSVC)
-    target_compile_options(decode PUBLIC -std=c++11)
-    target_compile_options(decode PRIVATE -Wall -Wextra -Wno-unused-parameter)
-    target_compile_options(zpaq PRIVATE -w)
-endif()
 
 target_include_directories(decode
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
 )
 
+bmcl_include_system_private_directories(decode
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
+    thirdparty/zpaq
+    thirdparty/pegtl
+)
+
+#tests
 get_directory_property(HAS_PARENT_SCOPE PARENT_DIRECTORY)
 if(NOT HAS_PARENT_SCOPE)
-    add_subdirectory(thirdparty/gtest EXCLUDE_FROM_ALL)
+    bmcl_add_dep_gtest(thirdparty/gtest)
     add_subdirectory(tests)
 endif()
 
-set_target_properties(decode decode_gen
-    PROPERTIES
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
-install(TARGETS decode decode_gen
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-)
