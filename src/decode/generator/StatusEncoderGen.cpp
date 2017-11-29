@@ -122,9 +122,9 @@ void StatusEncoderGen::generateDecoderHeader(const Project* project)
         _output->appendEol();
         _output->appendSourceDeviceIfdef(dev->name());
 
-        _output->append("typedef Photon_Tm");
+        _output->append("typedef Photon_");
         _output->appendWithFirstUpper(dev->name());
-        _output->append("State Photon_TmState;\n");
+        _output->append("TmState Photon_TmState;\n");
         _output->append("#define Photon_DecodeTelemetry Photon_Decode");
         _output->appendWithFirstUpper(dev->name());
         _output->append("Telemetry\n");
