@@ -45,6 +45,8 @@ public:
     DeviceVec::ConstRange tmSources() const;
     DeviceVec::ConstRange cmdTargets() const;
     RcVec<Ast>::ConstRange modules() const;
+    bool hasSelfCmdTarget() const;
+    bool hasSelfTmSource() const;
 
 private:
     friend class Project;
@@ -57,6 +59,8 @@ private:
     std::string _name;
     uint64_t _id;
     Rc<Package> _package;
+    bool _hasSelfCmds;
+    bool _hasSelfTm;
 };
 
 class Project : public RefCountable {

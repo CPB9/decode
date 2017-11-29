@@ -335,7 +335,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
         for (const std::string& deviceName : it.second.tmSources) {
             if (deviceName == dev->_name) {
-                //TODO: do not ignore
+                dev->_hasSelfTm = true;
                 continue;
             }
             auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
@@ -350,7 +350,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
 
         for (const std::string& deviceName : it.second.cmdTargets) {
             if (deviceName == dev->_name) {
-                //TODO: do not ignore
+                dev->_hasSelfCmds = true;
                 continue;
             }
             auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
@@ -735,6 +735,9 @@ bmcl::Buffer Project::hash(bmcl::Bytes data)
 }
 
 Device::Device()
+    : _id(0)
+    , _hasSelfCmds(false)
+    , _hasSelfTm(false)
 {
 }
 
@@ -770,5 +773,15 @@ DeviceVec::ConstRange Device::cmdTargets() const
 RcVec<Ast>::ConstRange Device::modules() const
 {
     return _modules;
+}
+
+bool Device::hasSelfCmdTarget() const
+{
+    return _hasSelfCmds;
+}
+
+bool Device::hasSelfTmSource() const
+{
+    return _hasSelfTm;
 }
 }

@@ -145,6 +145,7 @@ void Generator::appendBuiltinSources(bmcl::StringView ext)
     }
 }
 
+//TODO: refact
 bool Generator::generateDeviceFiles(const Project* project)
 {
     HashMap<Rc<const Ast>, std::vector<std::string>> srcsPaths;
@@ -207,7 +208,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         HashSet<Rc<const Ast>> targetMods;
         HashSet<Rc<const Ast>> sourceMods;
 
-        for (const Device* dep : dev->cmdTargets()) {
+        auto appendTargetMods = [&](const Device* dep) {
             for (const Ast* module : dep->modules()) {
                 targetMods.emplace(module);
                 if (module->component().isNone()) {
@@ -215,8 +216,16 @@ bool Generator::generateDeviceFiles(const Project* project)
                 }
                 coll.collectCmds(module->component()->cmdsRange(), &types);
             }
+        };
+        for (const Device* dep : dev->cmdTargets()) {
+            appendTargetMods(dep);
         }
-        for (const Device* dep : dev->tmSources()) {
+        if (dev->hasSelfCmdTarget()) {
+            appendTargetMods(dev);
+        }
+
+
+        auto appendSourceMods = [&](const Device* dep) {
             for (const Ast* module : dep->modules()) {
                 sourceMods.emplace(module);
                 if (module->component().isNone()) {
@@ -224,6 +233,12 @@ bool Generator::generateDeviceFiles(const Project* project)
                 }
                 coll.collectParams(module->component()->paramsRange(), &types);
             }
+        };
+        for (const Device* dep : dev->tmSources()) {
+            appendSourceMods(dep);
+        }
+        if (dev->hasSelfTmSource()) {
+            appendSourceMods(dev);
         }
 
         //header
@@ -244,15 +259,27 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
         _output.appendEol();
 
-        for (const Device* dep : dev->cmdTargets()) {
+        auto appendDevTarget = [this](const Device* dep) {
             _output.append("#define PHOTON_HAS_DEVICE_TARGET_");
             _output.appendUpper(dep->name());
             _output.appendEol();
+        };
+        for (const Device* dep : dev->cmdTargets()) {
+            appendDevTarget(dep);
         }
-        for (const Device* dep : dev->tmSources()) {
+        if (dev->hasSelfCmdTarget()) {
+            appendDevTarget(dev);
+        }
+        auto appendDevSource = [this](const Device* dep) {
             _output.append("#define PHOTON_HAS_DEVICE_SOURCE_");
             _output.appendUpper(dep->name());
             _output.appendEol();
+        };
+        for (const Device* dep : dev->tmSources()) {
+            appendDevSource(dep);
+        }
+        if (dev->hasSelfTmSource()) {
+            appendDevSource(dev);
         }
         for (const Ast* module : dev->modules()) {
             _output.append("#define PHOTON_HAS_MODULE_");
