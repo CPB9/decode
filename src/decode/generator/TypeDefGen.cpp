@@ -14,9 +14,8 @@
 
 namespace decode {
 
-TypeDefGen::TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output)
-    : _typeReprGen(reprGen)
-    , _output(output)
+TypeDefGen::TypeDefGen(SrcBuilder* output)
+    : _output(output)
 {
 }
 
@@ -66,8 +65,9 @@ void TypeDefGen::appendDynArray(const DynArrayType* type)
     TypeNameGen gen(_output);
     _output->appendTagHeader("struct");
 
+    TypeReprGen reprGen(_output);
     _output->appendIndent();
-    _typeReprGen->genOnboardTypeRepr(type->elementType());
+    reprGen.genOnboardTypeRepr(type->elementType());
     _output->append(" data[");
     _output->appendNumericValue(type->maxSize());
     if (type->elementType()->isBuiltinChar()) {
@@ -88,10 +88,11 @@ void TypeDefGen::appendFieldVec(TypeVec::ConstRange fields, bmcl::StringView nam
 {
     _output->appendTagHeader("struct");
 
+    TypeReprGen reprGen(_output);
     std::size_t i = 1;
     for (const Type* type : fields) {
         _output->appendIndent();
-        _typeReprGen->genOnboardTypeRepr(type, "_" + std::to_string(i));
+        reprGen.genOnboardTypeRepr(type, "_" + std::to_string(i));
         _output->append(";\n");
         i++;
     }
@@ -104,9 +105,10 @@ void TypeDefGen::appendFieldVec(FieldVec::ConstRange fields, bmcl::StringView na
 {
     _output->appendTagHeader("struct");
 
+    TypeReprGen reprGen(_output);
     for (const Field* field : fields) {
         _output->appendIndent();
-        _typeReprGen->genOnboardTypeRepr(field->type(), field->name());
+        reprGen.genOnboardTypeRepr(field->type(), field->name());
         _output->append(";\n");
     }
 
@@ -214,12 +216,13 @@ void TypeDefGen::appendAlias(const AliasType* type, bmcl::StringView name)
 {
     _output->append("typedef ");
     const Type* link = type->alias();
+    TypeReprGen reprGen(_output);
     if (link->isFunction()) {
         StringBuilder typedefName("Photon");
         typedefName.append(name);
-        _typeReprGen->genOnboardTypeRepr(link, typedefName.result());
+        reprGen.genOnboardTypeRepr(link, typedefName.result());
     } else {
-        _typeReprGen->genOnboardTypeRepr(link);
+        reprGen.genOnboardTypeRepr(link);
         _output->append(" Photon");
         _output->append(name);
     }

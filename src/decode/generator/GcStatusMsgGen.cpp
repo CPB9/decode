@@ -119,7 +119,7 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
     genMsgType(comp, msg, _output);
     _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state)\n{\n");
 
-    InlineTypeInspector inspector(&reprGen, _output);
+    InlineTypeInspector inspector(_output);
     InlineSerContext ctx;
     for (const MsgPartsDesc& desc : descs) {
         std::string argName("msg->");

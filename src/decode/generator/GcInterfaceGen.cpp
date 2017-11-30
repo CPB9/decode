@@ -247,7 +247,7 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
     InlineSerContext ctx;
     ctx = ctx.indent();
     //TODO: use field inspector
-    InlineTypeInspector inspector(&gen, _output);
+    InlineTypeInspector inspector(_output);
     for (const Field* field : cmd->fieldsRange()) {
         inspector.inspect<false, true>(field->type(), ctx, field->name());
     }

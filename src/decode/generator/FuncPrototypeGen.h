@@ -22,7 +22,7 @@ class Component;
 
 class FuncPrototypeGen {
 public:
-    FuncPrototypeGen(TypeReprGen* reprGen, SrcBuilder* output);
+    FuncPrototypeGen(SrcBuilder* output);
     ~FuncPrototypeGen();
 
     void appendDeserializerFuncDecl(const Type* type);
@@ -31,7 +31,6 @@ public:
     void appendStatusMessageGenFuncName(const Component* comp, std::uintmax_t msgNum);
 
 private:
-    Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _dest;
 };
 

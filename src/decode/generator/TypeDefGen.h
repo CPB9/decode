@@ -21,7 +21,7 @@ class TypeReprGen;
 
 class TypeDefGen {
 public:
-    TypeDefGen(TypeReprGen* reprGen, SrcBuilder* output);
+    TypeDefGen(SrcBuilder* output);
     ~TypeDefGen();
 
     void genTypeDef(const TopLevelType* type, bmcl::StringView name);
@@ -38,7 +38,6 @@ private:
     void appendAlias(const AliasType* type, bmcl::StringView name);
     void appendDynArray(const DynArrayType* type);
 
-    Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
 };
 }

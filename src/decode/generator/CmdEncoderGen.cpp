@@ -3,16 +3,16 @@
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/IncludeGen.h"
+#include "decode/generator/InlineFieldInspector.h"
 #include "decode/ast/Function.h"
 #include "decode/core/Foreach.h"
 #include "decode/core/HashSet.h"
 
 namespace decode {
 
-CmdEncoderGen::CmdEncoderGen(TypeReprGen* reprGen, SrcBuilder* output)
-    : _reprGen(reprGen)
-    , _output(output)
-    , _inlineSer(reprGen, output)
+CmdEncoderGen::CmdEncoderGen(SrcBuilder* output)
+    : _output(output)
+    , _inlineSer(output)
 {
 }
 
@@ -30,8 +30,9 @@ void CmdEncoderGen::appendEncoderPrototype(const Component* comp, const Function
         _output->append("(PhotonWriter* dest)");
     } else {
         _output->append("(");
-        foreachList(func->type()->argumentsRange(), [this](const Field* arg) {
-            _reprGen->genOnboardTypeRepr(arg->type(), arg->name());
+        TypeReprGen reprGen(_output);
+        foreachList(func->type()->argumentsRange(), [&](const Field* arg) {
+            reprGen.genOnboardTypeRepr(arg->type(), arg->name());
         }, [this](const Field*) {
             _output->append(", ");
         });
@@ -89,32 +90,6 @@ void CmdEncoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->endIncludeGuard();
 }
 
-class SimpleInlineFieldInspector : public InlineFieldInspector<SimpleInlineFieldInspector> {
-public:
-    SimpleInlineFieldInspector(SrcBuilder* dest)
-        : InlineFieldInspector<SimpleInlineFieldInspector>(dest)
-        , _current(nullptr)
-    {
-    }
-
-    void beginField(const Field* field)
-    {
-        _current = field;
-    }
-
-    void endField(const Field*)
-    {
-    }
-
-    bmcl::StringView currentFieldName() const
-    {
-        return _current->name();
-    }
-
-private:
-    const Field* _current;
-};
-
 void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
 {
     _output->appendOnboardIncludePath("CmdEncoder.Private"); //TODO: pass as argument
@@ -123,6 +98,7 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
 
     _output->append("#define _PHOTON_FNAME \"CmdDecoder.Private.c\"\n\n");
 
+    SimpleInlineFieldInspector inspector(_output);
     for (const Component* it : comps) {
         if (!it->hasCmds()) {
             continue;
@@ -143,7 +119,6 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
             _output->appendNumericValue(funcNum);
             _output->append("), \"Failed to write cmd number\");\n");
 
-            SimpleInlineFieldInspector inspector(_output);
             inspector.inspect<true, true>(jt->type()->argumentsRange(), &_inlineSer);
 
             _output->append("    return PhotonError_Ok;\n}\n\n");

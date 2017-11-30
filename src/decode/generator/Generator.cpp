@@ -66,7 +66,7 @@ bool Generator::generateTmPrivate(const Package* package)
     _output.clear();
 
     _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
-    FuncPrototypeGen prototypeGen(_reprGen.get(), &_output);
+    FuncPrototypeGen prototypeGen(&_output);
     std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendModIfdef(msg.component->moduleName());
@@ -377,8 +377,8 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
 
     SrcBuilder dest;
-    dest.result().reserve(32 * 1024);
-    _output.result().reserve(32 * 1024);
+    dest.result().reserve(1024 * 1024);
+    _output.result().reserve(1024 * 1024);
     auto future = std::async(std::launch::async, &Generator::generateSerializedPackage, project, &dest);
 
     _onboardPhotonPath.append('/'); //FIXME: remove
@@ -386,9 +386,8 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
 
     const Package* package = project->package();
 
-    _reprGen = new TypeReprGen(&_output);
-    _onboardHgen.reset(new OnboardTypeHeaderGen(_reprGen.get(), &_output));
-    _onboardSgen.reset(new OnboardTypeSourceGen(_reprGen.get(), &_output));
+    _onboardHgen.reset(new OnboardTypeHeaderGen(&_output));
+    _onboardSgen.reset(new OnboardTypeSourceGen(&_output));
     for (const Ast* it : package->modules()) {
         if (!generateTypesAndComponents(it)) {
             return false;
@@ -414,7 +413,6 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     _output.resize(0);
     _onboardHgen.reset();
     _onboardSgen.reset();
-    _reprGen.reset();
     _dynArrays.clear();
     _onboardPhotonPath.resize(0);
     _onboardPath.clear();
@@ -444,7 +442,7 @@ bool Generator::generateDynArrays()
 
 bool Generator::generateStatusMessages(const Project* project)
 {
-    StatusEncoderGen gen(_reprGen.get(), &_output);
+    StatusEncoderGen gen(&_output);
     gen.generateEncoderHeader(project);
     TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_onboardPhotonPath));
 
@@ -481,14 +479,14 @@ bool Generator::generateStatusMessages(const Project* project)
 
 bool Generator::generateCommands(const Package* package)
 {
-    CmdDecoderGen decGen(_reprGen.get(), &_output);
+    CmdDecoderGen decGen(&_output);
     decGen.generateHeader(package->components());
     TRY(dumpIfNotEmpty("CmdDecoder.Private", ".h", &_onboardPhotonPath));
 
     decGen.generateSource(package->components());
     TRY(dumpIfNotEmpty("CmdDecoder.Private", ".c", &_onboardPhotonPath));
 
-    CmdEncoderGen encGen(_reprGen.get(), &_output);
+    CmdEncoderGen encGen(&_output);
     encGen.generateHeader(package->components());
     TRY(dumpIfNotEmpty("CmdEncoder.Private", ".h", &_onboardPhotonPath));
 

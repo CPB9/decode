@@ -13,10 +13,9 @@
 
 namespace decode {
 
-CmdDecoderGen::CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output)
-    : _typeReprGen(reprGen)
-    , _output(output)
-    , _inlineInspector(reprGen, _output)
+CmdDecoderGen::CmdDecoderGen(SrcBuilder* output)
+    : _output(output)
+    , _inlineInspector(_output)
     , _paramInspector(_output)
 {
 }
@@ -228,17 +227,17 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
     if (!func->type()->hasArguments()) {
         _output->append("    (void)src;\n");
     }
-
-    foreachParam(func, [this](const Field* field, bmcl::StringView name) {
+    TypeReprGen reprGen(_output);
+    foreachParam(func, [&](const Field* field, bmcl::StringView name) {
         _output->append("    ");
-        _typeReprGen->genOnboardTypeRepr(field->type(), name);
+        reprGen.genOnboardTypeRepr(field->type(), name);
         _output->append(";\n");
     });
 
     bmcl::OptionPtr<const Type> rv = ftype->returnValue();
     if (rv.isSome()) {
         _output->append("    ");
-        _typeReprGen->genOnboardTypeRepr(rv.unwrap(), "_rv");
+        reprGen.genOnboardTypeRepr(rv.unwrap(), "_rv");
         _output->append(";\n");
     } else {
         _output->append("    (void)dest;\n");

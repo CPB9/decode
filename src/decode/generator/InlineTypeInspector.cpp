@@ -7,9 +7,8 @@
 
 namespace decode {
 
-InlineTypeInspector::InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output)
-    : _reprGen(reprGen)
-    , _output(output)
+InlineTypeInspector::InlineTypeInspector(SrcBuilder* output)
+    : _output(output)
 {
 }
 
@@ -384,7 +383,8 @@ void InlineTypeInspector::deserializeOnboardPointer(const Type* type)
     _output->appendIndent(context());
     appendArgumentName();
     _output->append(" = (");
-    _reprGen->genOnboardTypeRepr(type);
+    TypeReprGen reprGen(_output);
+    reprGen.genOnboardTypeRepr(type);
     _output->append(")PhotonReader_ReadPtrLe(src);\n");
 }
 
@@ -432,7 +432,8 @@ void InlineTypeInspector::inspectOnboardNonInlineType(const Type* type)
 {
     _output->appendIndent(context());
     _output->appendWithTryMacro([&, this, type](SrcBuilder* output) {
-        _reprGen->genOnboardTypeRepr(type);
+        TypeReprGen reprGen(_output);
+        reprGen.genOnboardTypeRepr(type);
         if (isSerializer) {
             output->append("_Serialize(");
             if (type->typeKind() != TypeKind::Enum) {

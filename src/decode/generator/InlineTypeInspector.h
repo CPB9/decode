@@ -11,9 +11,6 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/generator/InlineSerContext.h"
-#include "decode/parser/Containers.h"
-#include "decode/ast/Type.h"
-#include "decode/ast/Field.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/Option.h>
@@ -26,66 +23,14 @@ namespace decode {
 class Type;
 class SrcBuilder;
 
-template <typename B>
-class InlineFieldInspector {
-public:
-    InlineFieldInspector(SrcBuilder* dest)
-        : _dest(dest)
-    {
-    }
-
-    B& base()
-    {
-        return *static_cast<B*>(this);
-    }
-
-    template <bool isOnboard, bool isSerializer, typename F, typename I>
-    void inspect(F&& fields, I* typeInspector)
-    {
-        InlineSerContext ctx;
-        auto begin = fields.begin();
-        auto it = begin;
-        auto end = fields.end();
-
-        while (it != end) {
-            bmcl::Option<std::size_t> totalSize;
-            while (it != end) {
-                bmcl::Option<std::size_t> size = it->type()->fixedSize();
-                if (size.isNone()) {
-                    break;
-                }
-                totalSize.emplace(totalSize.unwrapOr(0) + size.unwrap());
-                it++;
-            }
-            if (totalSize.isSome()) {
-                typeInspector->template appendSizeCheck<isOnboard, isSerializer>(ctx, std::to_string(totalSize.unwrap()), _dest);
-                for (auto jt = begin; jt < it; jt++) {
-                    base().beginField(*jt);
-                    typeInspector->template inspect<isOnboard, isSerializer>(jt->type(), ctx, base().currentFieldName(), false);
-                    base().endField(*jt);
-                }
-                totalSize.clear();
-            } else {
-                base().beginField(*it);
-                typeInspector->template inspect<isOnboard, isSerializer>(it->type(), ctx, base().currentFieldName());
-                base().endField(*it);
-                it++;
-                begin = it;
-            }
-        }
-    }
-
-private:
-    SrcBuilder* _dest;
-};
-
 class ArrayType;
 class BuiltinType;
+class DynArrayType;
 class TypeReprGen;
 
 class InlineTypeInspector {
 public:
-    InlineTypeInspector(TypeReprGen* reprGen, SrcBuilder* output);
+    InlineTypeInspector(SrcBuilder* output);
 
     void genOnboardSerializer(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
     void genOnboardDeserializer(const Type* type, const InlineSerContext& ctx, bmcl::StringView argName, bool checkSizes = true);
@@ -134,7 +79,6 @@ private:
     void deserializeGcPointer(const Type* type);
     void serializeGcPointer(const Type* type);
 
-    TypeReprGen* _reprGen;
     SrcBuilder* _output;
     std::stack<InlineSerContext, std::vector<InlineSerContext>> _ctxStack;
     std::string _argName;

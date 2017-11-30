@@ -12,6 +12,8 @@
 #include "decode/generator/FuncPrototypeGen.h"
 #include "decode/generator/InlineTypeInspector.h"
 
+#include <bmcl/StringView.h>
+
 #include <string>
 
 namespace decode {
@@ -19,11 +21,16 @@ namespace decode {
 class SrcBuilder;
 class TypeReprGen;
 class DynArrayType;
+class EnumType;
+class StructType;
+class VariantType;
+class NamedType;
+class DynArrayType;
 class GenericInstantiationType;
 
 class OnboardTypeSourceGen {
 public:
-    OnboardTypeSourceGen(TypeReprGen* reprGen, SrcBuilder* output);
+    OnboardTypeSourceGen(SrcBuilder* output);
     ~OnboardTypeSourceGen();
 
     void genTypeSource(const NamedType* type, bmcl::StringView name);
@@ -53,7 +60,6 @@ private:
     void appendIncludes(bmcl::StringView modName);
 
     SrcBuilder* _output;
-    Rc<TypeReprGen> _typeReprGen;
     InlineTypeInspector _inlineInspector;
     FuncPrototypeGen _prototypeGen;
     bmcl::StringView _name;

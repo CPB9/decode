@@ -22,7 +22,7 @@ class Function;
 
 class CmdEncoderGen {
 public:
-    CmdEncoderGen(TypeReprGen* reprGen, SrcBuilder* output);
+    CmdEncoderGen(SrcBuilder* output);
     ~CmdEncoderGen();
 
     void generateHeader(ComponentMap::ConstRange comps); //TODO: make generic
@@ -31,7 +31,6 @@ public:
 private:
     void appendEncoderPrototype(const Component* comp, const Function* func);
 
-    Rc<TypeReprGen> _reprGen;
     SrcBuilder* _output;
     InlineTypeInspector _inlineSer;
 };

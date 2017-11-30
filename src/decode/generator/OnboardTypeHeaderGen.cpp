@@ -20,11 +20,10 @@ namespace decode {
 
 //TODO: refact
 
-OnboardTypeHeaderGen::OnboardTypeHeaderGen(TypeReprGen* reprGen, SrcBuilder* output)
+OnboardTypeHeaderGen::OnboardTypeHeaderGen(SrcBuilder* output)
     : _output(output)
-    , _typeDefGen(reprGen, output)
-    , _prototypeGen(reprGen, output)
-    , _typeReprGen(reprGen)
+    , _typeDefGen(output)
+    , _prototypeGen(output)
 {
 }
 
@@ -318,6 +317,7 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
     if (!comp->hasCmds()) {
         return;
     }
+    TypeReprGen reprGen(_output);
     for (const Function* func : comp->cmdsRange()) {
         const FunctionType* ftype = func->type();
         _output->append("PhotonError Photon");
@@ -326,9 +326,9 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
         _output->appendWithFirstUpper(func->name());
         _output->append("(");
 
-        foreachList(ftype->argumentsRange(), [this](const Field* field) {
+        foreachList(ftype->argumentsRange(), [&](const Field* field) {
             Rc<Type> type = wrapIntoPointerIfNeeded(const_cast<Type*>(field->type())); //HACK
-            _typeReprGen->genOnboardTypeRepr(type.get(), field->name());
+            reprGen.genOnboardTypeRepr(type.get(), field->name());
         }, [this](const Field*) {
             _output->append(", ");
         });
@@ -338,10 +338,10 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
                 _output->append(", ");
             }
             if (rv->isArray()) {
-                _typeReprGen->genOnboardTypeRepr(rv.unwrap(), "rv");
+                reprGen.genOnboardTypeRepr(rv.unwrap(), "rv");
             } else {
                 Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
-                _typeReprGen->genOnboardTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
+                reprGen.genOnboardTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
             }
         }
 
@@ -354,8 +354,9 @@ void OnboardTypeHeaderGen::appendFunctionPrototype(const Function* func, bmcl::S
 {
     const FunctionType* type = func->type();
     bmcl::OptionPtr<const Type> rv = type->returnValue();
+    TypeReprGen reprGen(_output);
     if (rv.isSome()) {
-        _typeReprGen->genOnboardTypeRepr(rv.unwrap());
+        reprGen.genOnboardTypeRepr(rv.unwrap());
         _output->append(' ');
     } else {
         _output->append("void ");
@@ -395,8 +396,8 @@ void OnboardTypeHeaderGen::appendFunctionPrototype(const Function* func, bmcl::S
         }
     }
 
-    foreachList(type->argumentsRange(), [this](const Field* field) {
-        _typeReprGen->genOnboardTypeRepr(field->type(), field->name());
+    foreachList(type->argumentsRange(), [&](const Field* field) {
+        reprGen.genOnboardTypeRepr(field->type(), field->name());
     }, [this](const Field*) {
         _output->append(", ");
     });

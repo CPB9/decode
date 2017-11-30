@@ -12,6 +12,7 @@
 #include "decode/core/Rc.h"
 #include "decode/parser/Containers.h"
 #include "decode/generator/InlineTypeInspector.h"
+#include "decode/generator/InlineFieldInspector.h"
 #include "decode/generator/SrcBuilder.h"
 
 #include <vector>
@@ -62,7 +63,7 @@ public:
 
 class CmdDecoderGen {
 public:
-    CmdDecoderGen(TypeReprGen* reprGen, SrcBuilder* output);
+    CmdDecoderGen(SrcBuilder* output);
     ~CmdDecoderGen();
 
     void generateHeader(ComponentMap::ConstRange comps); //TODO: make generic
@@ -82,7 +83,6 @@ private:
     void writePointerOp(const Type* type);
     void writeReturnOp(const Type* type);
 
-    Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
     InlineTypeInspector _inlineInspector;
     InlineCmdParamInspector _paramInspector;

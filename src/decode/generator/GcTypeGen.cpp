@@ -12,6 +12,7 @@
 #include "decode/ast/Type.h"
 #include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/InlineTypeInspector.h"
+#include "decode/generator/InlineFieldInspector.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/IncludeGen.h"
@@ -22,6 +23,7 @@ namespace decode {
 
 GcTypeGen::GcTypeGen(SrcBuilder* output)
     : _output(output)
+    , _typeInspector(output)
 {
 }
 
@@ -62,14 +64,8 @@ void GcTypeGen::generateHeader(const GenericInstantiationType* type)
     _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
-    TypeDependsCollector coll;
-    TypeDependsCollector::Depends depends;
-    coll.collect(type, &depends);
     IncludeGen includeGen(_output);
-    includeGen.genGcIncludePaths(&depends);
-    if (!depends.empty()) {
-        _output->appendEol();
-    }
+    includeGen.genGcIncludePaths(type);
 
     if (type->genericType()->moduleName() == "core" && type->genericName() == "Option") {
         TypeReprGen gen(_output);
@@ -82,9 +78,8 @@ void GcTypeGen::generateHeader(const GenericInstantiationType* type)
         _output->append(">& self, bmcl::Buffer* dest, photon::CoderState* state)\n"
                         "{\n"
                         "    dest->writeVarInt(self.isSome());\n");
-        InlineTypeInspector inspector(&gen, _output);
         InlineSerContext ctx;
-        inspector.inspect<false, true>(inner, ctx, "self.unwrap()");
+        _typeInspector.inspect<false, true>(inner, ctx, "self.unwrap()");
         _output->append("    return true;\n"
                     "}\n\n");
 
@@ -101,7 +96,7 @@ void GcTypeGen::generateHeader(const GenericInstantiationType* type)
                         "    if (isSome) {\n"
                         "        self->emplace();\n");
         ctx = ctx.indent();
-        inspector.inspect<false, false>(inner, ctx, "self->unwrap()");
+        _typeInspector.inspect<false, false>(inner, ctx, "self->unwrap()");
         _output->append("        return true;\n"
                         "    }\n"
                         "    self->clear();\n"
@@ -132,10 +127,7 @@ void GcTypeGen::generateHeader(const NamedType* type)
         _output->appendInclude("vector");
         _output->appendInclude("photon/model/CoderState.h");
         IncludeGen includeGen(_output);
-        TypeDependsCollector coll;
-        TypeDependsCollector::Depends deps;
-        coll.collect(type, &deps);
-        includeGen.genGcIncludePaths(&deps);
+        includeGen.genGcIncludePaths(type);
         beginNamespace(type->asAlias()->moduleName());
         _output->append("using ");
         _output->append(type->asAlias()->name());
@@ -228,7 +220,6 @@ void GcTypeGen::appendDeserPrototype(const Type* type, bmcl::OptionPtr<const Gen
 
 void GcTypeGen::generateEnum(const EnumType* type, bmcl::OptionPtr<const GenericType> parent)
 {
-
     _output->appendPragmaOnce();
     _output->appendEol();
 
@@ -317,14 +308,8 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
-    TypeDependsCollector coll;
-    TypeDependsCollector::Depends depends;
-    coll.collect(type, &depends);
     IncludeGen includeGen(_output);
-    includeGen.genGcIncludePaths(&depends);
-    if (!depends.empty()) {
-        _output->appendEol();
-    }
+    includeGen.genGcIncludePaths(type);
 
     beginNamespace(type->moduleName());
 
@@ -460,29 +445,23 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     endNamespace();
 
     //TODO: use field inspector
-    InlineTypeInspector inspector(&gen, _output);
     InlineSerContext ctx;
-
     if (parent.isNone()) {
         appendSerPrefix(serType, parent);
         builder.result().assign("self.");
         for (const Field* field : type->fieldsRange()) {
             builder.append(field->name());
             builder.append("()");
-            inspector.inspect<false, true>(field->type(), ctx, builder.view());
+            _typeInspector.inspect<false, true>(field->type(), ctx, builder.view());
             builder.resize(5);
         }
         _output->append("    return true;\n}\n\n");
-
-        appendDeserPrefix(serType, parent);
-        builder.result().assign("self->_");
-        for (const Field* field : type->fieldsRange()) {
-            builder.append(field->name());
-            inspector.inspect<false, false>(field->type(), ctx, builder.view());
-            builder.resize(7);
-        }
-        _output->append("    return true;\n}\n");
     }
+
+    InlineStructInspector structInspector(_output, "self->_");
+    appendDeserPrefix(serType, parent);
+    structInspector.inspect<false, false>(type->fieldsRange(), &_typeInspector);
+    _output->append("    return true;\n}\n");
 }
 
 void GcTypeGen::appendTemplatePrefix(bmcl::OptionPtr<const GenericType> parent)
@@ -512,8 +491,7 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
                         "namespace photongen {\nnamespace core {\n\n"
                         "template <typename T>\n"
                         "using Option = bmcl::Option<T>;\n"
-                        "}\n}\n\n"
-);
+                        "}\n}\n\n");
         return;
     }
 
@@ -530,14 +508,8 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
     _output->appendInclude("photon/model/CoderState.h");
     _output->appendEol();
 
-    TypeDependsCollector coll;
-    TypeDependsCollector::Depends depends;
-    coll.collect(type, &depends);
     IncludeGen includeGen(_output);
-    includeGen.genGcIncludePaths(&depends);
-    if (!depends.empty()) {
-        _output->appendEol();
-    }
+    includeGen.genGcIncludePaths(type);
 
     beginNamespace(type->moduleName());
 

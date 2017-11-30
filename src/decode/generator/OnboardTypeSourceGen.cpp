@@ -11,16 +11,16 @@
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/InlineFieldInspector.h"
 
 namespace decode {
 
 //TODO: refact
 
-OnboardTypeSourceGen::OnboardTypeSourceGen(TypeReprGen* reprGen, SrcBuilder* output)
+OnboardTypeSourceGen::OnboardTypeSourceGen(SrcBuilder* output)
     : _output(output)
-    , _typeReprGen(reprGen)
-    , _inlineInspector(reprGen, output)
-    , _prototypeGen(reprGen, output)
+    , _inlineInspector(output)
+    , _prototypeGen(output)
 {
 }
 
@@ -96,42 +96,15 @@ static bmcl::Option<std::size_t> typeFixedSize(const Type* type)
     return type->fixedSize();
 }
 
-class InlineStructInspector : public InlineFieldInspector<InlineStructInspector> {
-public:
-    InlineStructInspector(SrcBuilder* dest)
-        : InlineFieldInspector<InlineStructInspector>(dest)
-        , _argName("self->")
-    {
-    }
-
-    void beginField(const Field* field)
-    {
-        _argName.append(field->name().begin(), field->name().end());
-    }
-
-    void endField(const Field*)
-    {
-        _argName.resize(6);
-    }
-
-    bmcl::StringView currentFieldName() const
-    {
-        return _argName.view();
-    }
-
-private:
-    StringBuilder _argName;
-};
-
 void OnboardTypeSourceGen::appendStructSerializer(const StructType* type)
 {
-    InlineStructInspector inspector(_output);
+    InlineStructInspector inspector(_output, "self->");
     inspector.inspect<true, true>(type->fieldsRange(), &_inlineInspector);
 }
 
 void OnboardTypeSourceGen::appendStructDeserializer(const StructType* type)
 {
-    InlineStructInspector inspector(_output);
+    InlineStructInspector inspector(_output, "self->");
     inspector.inspect<true, false>(type->fieldsRange(), &_inlineInspector);
 }
 

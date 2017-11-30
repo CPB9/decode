@@ -9,6 +9,7 @@
 #pragma once
 
 #include "decode/Config.h"
+#include "decode/generator/InlineTypeInspector.h"
 
 #include <bmcl/Fwd.h>
 
@@ -50,5 +51,6 @@ private:
     void endNamespace();
 
     SrcBuilder* _output;
+    InlineTypeInspector _typeInspector;
 };
 }

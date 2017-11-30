@@ -1,6 +1,7 @@
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeNameGen.h"
+#include "decode/generator/TypeDependsCollector.h"
 #include "decode/ast/Type.h"
 
 namespace decode {
@@ -114,5 +115,16 @@ void IncludeGen::genGcIncludePaths(const HashSet<Rc<const Type>>* types, const c
 {
     _ext = ext;
     genIncludePaths<false>(types);
+}
+
+void IncludeGen::genGcIncludePaths(const Type* type, const char* ext)
+{
+    TypeDependsCollector coll;
+    TypeDependsCollector::Depends deps;
+    coll.collect(type, &deps);
+    genGcIncludePaths(&deps, ext);
+    if (!deps.empty()) {
+        _output->appendEol();
+    }
 }
 }

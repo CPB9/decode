@@ -25,7 +25,7 @@ class Function;
 
 class OnboardTypeHeaderGen {
 public:
-    OnboardTypeHeaderGen(TypeReprGen* reprGen, SrcBuilder* output);
+    OnboardTypeHeaderGen(SrcBuilder* output);
     ~OnboardTypeHeaderGen();
 
     void genTypeHeader(const Ast* ast, const TopLevelType* type, bmcl::StringView name);
@@ -66,6 +66,5 @@ private:
     TypeDefGen _typeDefGen;
     SrcBuilder _dynArrayName;
     FuncPrototypeGen _prototypeGen;
-    Rc<TypeReprGen> _typeReprGen;
 };
 }

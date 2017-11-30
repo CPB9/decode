@@ -20,6 +20,8 @@ public:
     void genOnboardIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext = ".h");
     void genGcIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext = ".hpp");
 
+    void genGcIncludePaths(const Type* type, const char* ext = ".hpp");
+
 private:
     template <bool isOnboard>
     void genIncludePaths(const HashSet<Rc<const Type>>* types);

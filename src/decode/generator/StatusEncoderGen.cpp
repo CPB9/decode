@@ -22,11 +22,10 @@
 
 namespace decode {
 
-StatusEncoderGen::StatusEncoderGen(TypeReprGen* reprGen, SrcBuilder* output)
-    : _typeReprGen(reprGen)
-    , _output(output)
-    , _inlineInspector(reprGen, output)
-    , _prototypeGen(reprGen, output)
+StatusEncoderGen::StatusEncoderGen(SrcBuilder* output)
+    : _output(output)
+    , _inlineInspector(output)
+    , _prototypeGen(output)
 {
 }
 

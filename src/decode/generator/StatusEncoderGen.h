@@ -26,7 +26,7 @@ class Type;
 
 class StatusEncoderGen {
 public:
-    StatusEncoderGen(TypeReprGen* reprGen, SrcBuilder* output);
+    StatusEncoderGen(SrcBuilder* output);
     ~StatusEncoderGen();
 
     void generateDecoderHeader(const Project* project);
@@ -39,7 +39,6 @@ private:
     void appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer);
     void appendTmDecoderPrototype(bmcl::StringView name);
 
-    Rc<TypeReprGen> _typeReprGen;
     SrcBuilder* _output;
     InlineTypeInspector _inlineInspector;
     FuncPrototypeGen _prototypeGen;

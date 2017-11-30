@@ -14,9 +14,8 @@
 
 namespace decode {
 
-FuncPrototypeGen::FuncPrototypeGen(TypeReprGen* reprGen, SrcBuilder* output)
-    : _typeReprGen(reprGen)
-    , _dest(output)
+FuncPrototypeGen::FuncPrototypeGen(SrcBuilder* output)
+    : _dest(output)
 {
 }
 
@@ -26,10 +25,11 @@ FuncPrototypeGen::~FuncPrototypeGen()
 
 void FuncPrototypeGen::appendSerializerFuncDecl(const Type* type)
 {
+    TypeReprGen reprGen(_dest);
     _dest->append("PhotonError ");
-    _typeReprGen->genOnboardTypeRepr(type);
+    reprGen.genOnboardTypeRepr(type);
     _dest->append("_Serialize(const ");
-    _typeReprGen->genOnboardTypeRepr(type);
+    reprGen.genOnboardTypeRepr(type);
     if (type->typeKind() != TypeKind::Enum) {
         _dest->append('*');
     }
@@ -38,10 +38,11 @@ void FuncPrototypeGen::appendSerializerFuncDecl(const Type* type)
 
 void FuncPrototypeGen::appendDeserializerFuncDecl(const Type* type)
 {
+    TypeReprGen reprGen(_dest);
     _dest->append("PhotonError ");
-    _typeReprGen->genOnboardTypeRepr(type);
+    reprGen.genOnboardTypeRepr(type);
     _dest->append("_Deserialize(");
-    _typeReprGen->genOnboardTypeRepr(type);
+    reprGen.genOnboardTypeRepr(type);
     _dest->append("* self, PhotonReader* src)");
 }
 

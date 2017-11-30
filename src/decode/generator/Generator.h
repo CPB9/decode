@@ -82,7 +82,6 @@ private:
     SrcBuilder _output;
     std::unique_ptr<OnboardTypeHeaderGen> _onboardHgen;
     std::unique_ptr<OnboardTypeSourceGen> _onboardSgen;
-    Rc<TypeReprGen> _reprGen;
     RcSecondUnorderedMap<std::string, const DynArrayType> _dynArrays;
     GeneratorConfig _config;
 };
