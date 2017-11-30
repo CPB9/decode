@@ -26,7 +26,7 @@ struct MsgPartsDesc {
     {
     }
 
-    const Type* type;
+    Rc<const Type> type;
     std::string fieldName;
 };
 
@@ -76,7 +76,7 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
             partName.append("_");
         });
 
-        const Type* contType = nullptr;
+        Rc<const Type> contType = nullptr;
         assert(lastField);
         if (lastSubscript) {
             if (lastSubscript->type()->isArray()) {
@@ -90,7 +90,7 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
         } else {
             contType = lastField->field()->type();
         }
-        descs.emplace_back(contType, std::move(partName.result()));
+        descs.emplace_back(contType.get(), std::move(partName.result()));
         i++;
     }
 
@@ -106,7 +106,7 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
     TypeReprGen reprGen(_output);
     for (const MsgPartsDesc& desc : descs) {
         _output->append("    ");
-        reprGen.genGcTypeRepr(desc.type, desc.fieldName);
+        reprGen.genGcTypeRepr(desc.type.get(), desc.fieldName);
         _output->append(";\n");
     }
 
@@ -124,7 +124,7 @@ void GcStatusMsgGen::generateHeader(const Component* comp, const StatusMsg* msg)
     for (const MsgPartsDesc& desc : descs) {
         std::string argName("msg->");
         argName.append(desc.fieldName);
-        inspector.inspect<false, false>(desc.type, ctx, argName);
+        inspector.inspect<false, false>(desc.type.get(), ctx, argName);
     }
 
     _output->append("    return true;\n}\n\n");
