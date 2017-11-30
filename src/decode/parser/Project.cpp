@@ -51,6 +51,7 @@ struct DeviceDesc {
     std::string name;
     std::uint64_t id;
     Rc<Device> device;
+    Rc<DeviceConnection> connection;
 };
 
 struct ModuleDesc {
@@ -324,7 +325,9 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         }
 
         it.second.device = dev;
+        it.second.connection = new DeviceConnection(dev.get());
         proj->_devices.push_back(dev);
+        proj->_connections.push_back(it.second.connection);
         if (it.first == master) {
             proj->_master = dev;
         }
@@ -334,10 +337,6 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         Rc<Device> dev = it.second.device;
 
         for (const std::string& deviceName : it.second.tmSources) {
-            if (deviceName == dev->_name) {
-                dev->_hasSelfTm = true;
-                continue;
-            }
             auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
                 return d->_name == deviceName;
             });
@@ -345,14 +344,10 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
                 addParseError(path, "unknown tm source (" + deviceName + ")", diag);
                 return ProjectResult();
             }
-            dev->_tmSources.push_back(*jt);
+            it.second.connection->_tmSources.push_back(*jt);
         }
 
         for (const std::string& deviceName : it.second.cmdTargets) {
-            if (deviceName == dev->_name) {
-                dev->_hasSelfCmds = true;
-                continue;
-            }
             auto jt = std::find_if(proj->_devices.begin(), proj->_devices.end(), [&deviceName](const Rc<Device>& d) {
                 return d->_name == deviceName;
             });
@@ -360,7 +355,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
                 addParseError(path, "unknown cmd target (" + deviceName + ")", diag);
                 return ProjectResult();
             }
-            dev->_cmdTargets.push_back(*jt);
+            it.second.connection->_cmdTargets.push_back(*jt);
         }
     }
     return proj;
@@ -510,8 +505,11 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     }
 
     std::vector<Rc<Device>> devices;
+    std::vector<Rc<DeviceConnection>> connections;
     for (uint64_t i = 0; i < devNum; i++) {
         Rc<Device> dev = new Device;
+        Rc<DeviceConnection> conn = new DeviceConnection(dev.get());
+        connections.push_back(conn);
         dev->_package = package.unwrap();
         if (!reader.readVarUint(&dev->_id)) {
             addReadErr("Error reading device id");
@@ -558,6 +556,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
             return ProjectResult();
         }
         Rc<Device> current = devices[deviceIndex];
+        Rc<DeviceConnection> conn = connections[deviceIndex];
 
         auto updateRefs = [&reader, &devices, &addReadErr](std::vector<Rc<Device>>* target) -> bool {
             uint64_t num;
@@ -580,11 +579,11 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
             }
             return true;
         };
-        if (!updateRefs(&current->_tmSources)) {
+        if (!updateRefs(&conn->_tmSources)) {
             return ProjectResult();
         }
 
-        if (!updateRefs(&current->_cmdTargets)) {
+        if (!updateRefs(&conn->_cmdTargets)) {
             return ProjectResult();
         }
     }
@@ -597,6 +596,7 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
     Rc<Project> proj = new Project(cfg.get(), diag);
     proj->_master = devices[masterIndex];
     proj->_devices = std::move(devices);
+    proj->_connections = std::move(connections);
     proj->_package = package.take();
     proj->_mccId = mccId;
     proj->_name = name.unwrap().toStdString();
@@ -650,18 +650,18 @@ bmcl::Buffer Project::encode() const
     }
 
     for (std::size_t i = 0; i < _devices.size(); i++) {
-        const Rc<Device>& dev = _devices[i];
+        const Rc<DeviceConnection>& conn = _connections[i];
         dest.writeVarUint(i);
-        dest.writeVarUint(dev->_tmSources.size());
+        dest.writeVarUint(conn->_tmSources.size());
         //TODO: refact
-        for (const Rc<Device>& tmSrc : dev->_tmSources) {
+        for (const Rc<Device>& tmSrc : conn->_tmSources) {
             auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
             assert(it != _devices.end());
             dest.writeVarUint(it - _devices.begin());
         }
 
-        dest.writeVarUint(dev->_cmdTargets.size());
-        for (const Rc<Device>& tmSrc : dev->_cmdTargets) {
+        dest.writeVarUint(conn->_cmdTargets.size());
+        for (const Rc<Device>& tmSrc : conn->_cmdTargets) {
             auto it = std::find(_devices.begin(), _devices.end(), tmSrc);
             assert(it != _devices.end());
             dest.writeVarUint(it - _devices.begin());
@@ -691,6 +691,11 @@ DeviceVec::ConstIterator Project::devicesEnd() const
 DeviceVec::ConstRange Project::devices() const
 {
     return _devices;
+}
+
+RcVec<DeviceConnection>::ConstRange Project::deviceConnections() const
+{
+    return _connections;
 }
 
 const Device* Project::master() const
@@ -736,8 +741,6 @@ bmcl::Buffer Project::hash(bmcl::Bytes data)
 
 Device::Device()
     : _id(0)
-    , _hasSelfCmds(false)
-    , _hasSelfTm(false)
 {
 }
 
@@ -760,28 +763,32 @@ const std::string& Device::name() const
     return _name;
 }
 
-DeviceVec::ConstRange Device::tmSources() const
-{
-    return _tmSources;
-}
-
-DeviceVec::ConstRange Device::cmdTargets() const
-{
-    return _cmdTargets;
-}
-
 RcVec<Ast>::ConstRange Device::modules() const
 {
     return _modules;
 }
 
-bool Device::hasSelfCmdTarget() const
+DeviceConnection::DeviceConnection(const Device* dev)
+    : _device(dev)
 {
-    return _hasSelfCmds;
 }
 
-bool Device::hasSelfTmSource() const
+DeviceConnection::~DeviceConnection()
 {
-    return _hasSelfTm;
+}
+
+const Device* DeviceConnection::device() const
+{
+    return _device.get();
+}
+
+DeviceVec::ConstRange DeviceConnection::tmSources() const
+{
+    return _tmSources;
+}
+
+DeviceVec::ConstRange DeviceConnection::cmdTargets() const
+{
+    return _cmdTargets;
 }
 }

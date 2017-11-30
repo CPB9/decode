@@ -42,11 +42,7 @@ public:
     const Package* package() const;
     uint64_t id() const;
     const std::string& name() const;
-    DeviceVec::ConstRange tmSources() const;
-    DeviceVec::ConstRange cmdTargets() const;
     RcVec<Ast>::ConstRange modules() const;
-    bool hasSelfCmdTarget() const;
-    bool hasSelfTmSource() const;
 
 private:
     friend class Project;
@@ -54,13 +50,30 @@ private:
     ~Device();
 
     RcVec<Ast> _modules;
-    DeviceVec _tmSources;
-    DeviceVec _cmdTargets;
     std::string _name;
     uint64_t _id;
     Rc<Package> _package;
-    bool _hasSelfCmds;
-    bool _hasSelfTm;
+};
+
+class DeviceConnection : public RefCountable {
+public:
+    using Pointer = Rc<DeviceConnection>;
+    using ConstPointer = Rc<const DeviceConnection>;
+
+    ~DeviceConnection();
+
+    const Device* device() const;
+    DeviceVec::ConstRange tmSources() const;
+    DeviceVec::ConstRange cmdTargets() const;
+
+private:
+    friend class Project;
+
+    DeviceConnection(const Device* dev);
+
+    Rc<const Device> _device;
+    DeviceVec _tmSources;
+    DeviceVec _cmdTargets;
 };
 
 class Project : public RefCountable {
@@ -89,6 +102,7 @@ public:
     DeviceVec::ConstIterator devicesBegin() const;
     DeviceVec::ConstIterator devicesEnd() const;
     DeviceVec::ConstRange devices() const;
+    RcVec<DeviceConnection>::ConstRange deviceConnections() const;
 
     bmcl::Buffer encode() const;
     void encode(bmcl::Buffer* dest) const;
@@ -104,6 +118,7 @@ private:
     Rc<Package> _package;
     Rc<Device> _master;
     std::vector<Rc<Device>> _devices;
+    std::vector<Rc<DeviceConnection>> _connections;
     HashMap<Rc<const Ast>, SourcesToCopy> _sourcesMap;
     std::string _name;
     std::uint64_t _mccId;

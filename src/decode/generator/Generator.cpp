@@ -196,7 +196,8 @@ bool Generator::generateDeviceFiles(const Project* project)
     };
 
     TypeDependsCollector coll;
-    for (const Device* dev : project->devices()) {
+    for (const DeviceConnection* conn : project->deviceConnections()) {
+        const Device* dev = conn->device();
         TypeDependsCollector::Depends types;
 //         types.insert("core/Reader");
 //         types.insert("core/Writer");
@@ -217,13 +218,9 @@ bool Generator::generateDeviceFiles(const Project* project)
                 coll.collectCmds(module->component()->cmdsRange(), &types);
             }
         };
-        for (const Device* dep : dev->cmdTargets()) {
+        for (const Device* dep : conn->cmdTargets()) {
             appendTargetMods(dep);
         }
-        if (dev->hasSelfCmdTarget()) {
-            appendTargetMods(dev);
-        }
-
 
         auto appendSourceMods = [&](const Device* dep) {
             for (const Ast* module : dep->modules()) {
@@ -234,11 +231,8 @@ bool Generator::generateDeviceFiles(const Project* project)
                 coll.collectParams(module->component()->paramsRange(), &types);
             }
         };
-        for (const Device* dep : dev->tmSources()) {
+        for (const Device* dep : conn->tmSources()) {
             appendSourceMods(dep);
-        }
-        if (dev->hasSelfTmSource()) {
-            appendSourceMods(dev);
         }
 
         //header
@@ -264,22 +258,16 @@ bool Generator::generateDeviceFiles(const Project* project)
             _output.appendUpper(dep->name());
             _output.appendEol();
         };
-        for (const Device* dep : dev->cmdTargets()) {
+        for (const Device* dep : conn->cmdTargets()) {
             appendDevTarget(dep);
-        }
-        if (dev->hasSelfCmdTarget()) {
-            appendDevTarget(dev);
         }
         auto appendDevSource = [this](const Device* dep) {
             _output.append("#define PHOTON_HAS_DEVICE_SOURCE_");
             _output.appendUpper(dep->name());
             _output.appendEol();
         };
-        for (const Device* dep : dev->tmSources()) {
+        for (const Device* dep : conn->tmSources()) {
             appendDevSource(dep);
-        }
-        if (dev->hasSelfTmSource()) {
-            appendDevSource(dev);
         }
         for (const Ast* module : dev->modules()) {
             _output.append("#define PHOTON_HAS_MODULE_");
