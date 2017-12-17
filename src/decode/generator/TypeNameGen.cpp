@@ -7,7 +7,7 @@
  */
 
 #include "decode/generator/TypeNameGen.h"
-#include "decode/generator/StringBuilder.h"
+#include "decode/core/StringBuilder.h"
 #include "decode/ast/Decl.h"
 
 #include <bmcl/StringView.h>

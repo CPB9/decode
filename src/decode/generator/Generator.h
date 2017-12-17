@@ -56,7 +56,7 @@ public:
 
 private:
     bool generateTypesAndComponents(const Ast* ast);
-    bool generateDynArrays();
+    bool generateDynArrays(const Package* package);
     bool generateStatusMessages(const Project* package);
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
@@ -84,7 +84,6 @@ private:
     SrcBuilder _output;
     std::unique_ptr<OnboardTypeHeaderGen> _onboardHgen;
     std::unique_ptr<OnboardTypeSourceGen> _onboardSgen;
-    RcSecondUnorderedMap<std::string, const DynArrayType> _dynArrays;
     GeneratorConfig _config;
 };
 }

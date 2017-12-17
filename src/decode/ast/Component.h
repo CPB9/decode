@@ -30,6 +30,7 @@ class Type;
 class ModuleInfo;
 class FieldAccessor;
 class SubscriptAccessor;
+class StringBuilder;
 
 enum class AccessorKind {
     Field,
@@ -127,8 +128,15 @@ public:
 
     void addAccessor(Accessor* acc);
 
+    const Type* type() const;
+    Type* type();
+    void setType(Type* type);
+
+    void buildFieldName(StringBuilder* dest) const;
+
 private:
     Accessors _accessors;
+    Rc<Type> _type;
 };
 
 class StatusMsg : public RefCountable {

@@ -49,6 +49,8 @@ set(DECODE_CORE_SRC
     src/decode/core/RangeAttr.cpp
     src/decode/core/RangeAttr.h
     src/decode/core/Rc.h
+    src/decode/core/StringBuilder.cpp
+    src/decode/core/StringBuilder.h
     src/decode/core/Try.h
     src/decode/core/Utils.h
     src/decode/core/Utils.cpp
@@ -95,8 +97,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/FuncPrototypeGen.h
     src/decode/generator/GcInterfaceGen.cpp
     src/decode/generator/GcInterfaceGen.h
-    src/decode/generator/GcStatusMsgGen.cpp
-    src/decode/generator/GcStatusMsgGen.h
+    src/decode/generator/GcMsgGen.cpp
+    src/decode/generator/GcMsgGen.h
     src/decode/generator/GcTypeGen.cpp
     src/decode/generator/GcTypeGen.h
     src/decode/generator/Generator.cpp
@@ -115,8 +117,6 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/SrcBuilder.h
     src/decode/generator/StatusEncoderGen.cpp
     src/decode/generator/StatusEncoderGen.h
-    src/decode/generator/StringBuilder.cpp
-    src/decode/generator/StringBuilder.h
     src/decode/generator/TypeDefGen.cpp
     src/decode/generator/TypeDefGen.h
     src/decode/generator/TypeDependsCollector.cpp

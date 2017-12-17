@@ -9,7 +9,7 @@
 #pragma once
 
 #include "decode/Config.h"
-#include "decode/generator/StringBuilder.h"
+#include "decode/core/StringBuilder.h"
 
 #include <cstdint>
 

@@ -225,8 +225,9 @@ bool Package::resolveStatuses(Ast* ast)
         _statusMsgs.emplace_back(comp.unwrap(), it);
         for (StatusRegexp* re : it->partsRange()) {
             FieldVec::Range fields = comp->paramsRange();
-            Rc<Type> lastType;
-            Rc<Field> lastField;
+            Rc<Type> lastType = nullptr;
+            Rc<Field> lastField = nullptr;
+            Rc<SubscriptAccessor> lastSubscript = nullptr;
 
             if (!re->hasAccessors()) {
                 continue;
@@ -267,6 +268,7 @@ bool Package::resolveStatuses(Ast* ast)
                     }
                 } else if (acc->accessorKind() == AccessorKind::Subscript) {
                     SubscriptAccessor* sacc = static_cast<SubscriptAccessor*>(acc.get());
+                    lastSubscript = sacc;
                     sacc->setType(lastType.get());
                     if (lastType->isDynArray()) {
                         DynArrayType* dynArray = lastType->asDynArray();
@@ -285,6 +287,21 @@ bool Package::resolveStatuses(Ast* ast)
                     return false;
                 }
             }
+            Rc<Type> contType = nullptr;
+            if (lastSubscript) {
+                if (lastSubscript->type()->isArray()) {
+                    //TODO: support range
+                    contType = new ArrayType(lastSubscript->type()->asArray()->elementCount(), lastField->type());
+                } else if (lastSubscript->type()->isDynArray()) {
+                    contType = new DynArrayType(lastSubscript->type()->asDynArray()->maxSize(), lastField->type());
+                } else {
+                    assert(false);
+                }
+                ast->addType(contType.get());
+            } else {
+                contType = lastField->type();
+            }
+            re->setType(contType.get());
         }
     }
 

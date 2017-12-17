@@ -130,10 +130,36 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     appendCmdEncoderPrototypes(comp);
     appendCmdDecoderPrototypes(comp);
     appendStatusEncoderPrototypes(comp);
+    appendStatusStructs(comp);
     appendStatusDecoderPrototypes(comp);
-    appendEventPrototypes(comp);
+    appendEventSenderPrototypes(comp);
     _output->endCppGuard();
     endIncludeGuard();
+}
+
+void OnboardTypeHeaderGen::appendStatusStructs(const Component* comp)
+{
+    TypeReprGen reprGen(_output);
+    StringBuilder fieldName;
+    fieldName.reserve(31);
+    _output->append("/*statuses*/\n");
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        _output->append("typedef struct {\n");
+
+        for (const StatusRegexp* part : msg->partsRange()) {
+            _output->appendIndent();
+            part->buildFieldName(&fieldName);
+            reprGen.genOnboardTypeRepr(part->type(), fieldName.view());
+            _output->append(";\n");
+            fieldName.clear();
+        }
+
+        _output->append("} Photon");
+        _output->appendWithFirstUpper(comp->moduleName());
+        _output->append("_StatusMsg_");
+        _output->appendWithFirstUpper(msg->name());
+        _output->append(";\n\n");
+    }
 }
 
 void OnboardTypeHeaderGen::genDynArrayHeader(const DynArrayType* dynArray)
@@ -351,9 +377,9 @@ void OnboardTypeHeaderGen::appendStatusDecoderPrototypes(const Component* comp)
     _output->appendEol();
 }
 
-void OnboardTypeHeaderGen::appendEventPrototypes(const Component* comp)
+void OnboardTypeHeaderGen::appendEventSenderPrototypes(const Component* comp)
 {
-    _output->append("/*events*/\n");
+    _output->append("/*event senders*/\n");
     TypeReprGen reprGen(_output);
     for (const EventMsg* msg : comp->eventsRange()) {
         _prototypeGen.appendEventEncoderFuncPrototype(comp, msg, &reprGen);

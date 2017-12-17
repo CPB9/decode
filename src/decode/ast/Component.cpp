@@ -7,6 +7,8 @@
  */
 
 #include "decode/ast/Component.h"
+#include "decode/core/Foreach.h"
+#include "decode/core/StringBuilder.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/ast/Field.h"
 #include "decode/ast/Decl.h"
@@ -150,6 +152,7 @@ void SubscriptAccessor::setType(Type* type)
 }
 
 StatusRegexp::StatusRegexp()
+    : _type(nullptr)
 {
 }
 
@@ -195,6 +198,41 @@ bool StatusRegexp::hasAccessors() const
 void StatusRegexp::addAccessor(Accessor* acc)
 {
     _accessors.emplace_back(acc);
+}
+
+const Type* StatusRegexp::type() const
+{
+    return _type.get();
+}
+
+Type* StatusRegexp::type()
+{
+    return _type.get();
+}
+
+void StatusRegexp::setType(Type* type)
+{
+    _type = type;
+}
+
+void StatusRegexp::buildFieldName(StringBuilder* dest) const
+{
+    foreachList(accessorsRange(), [dest](const Accessor* acc) {
+         switch (acc->accessorKind()) {
+            case AccessorKind::Field: {
+                bmcl::StringView name = acc->asFieldAccessor()->field()->name();
+                dest->append(name.begin(), name.end());
+                break;
+            }
+            case AccessorKind::Subscript: {
+                break;
+            }
+            default:
+                assert(false);
+        }
+    }, [&](const Accessor* acc) {
+        dest->append("_");
+    });
 }
 
 StatusMsg::StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled)

@@ -1,4 +1,4 @@
-#include "decode/generator/StringBuilder.h"
+#include "decode/core/StringBuilder.h"
 
 #include <bmcl/StringView.h>
 #include <bmcl/Alloca.h>

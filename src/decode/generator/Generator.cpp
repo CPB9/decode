@@ -17,7 +17,7 @@
 #include "decode/generator/GcTypeGen.h"
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/GcInterfaceGen.h"
-#include "decode/generator/GcStatusMsgGen.h"
+#include "decode/generator/GcMsgGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -394,7 +394,7 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
 
     TRY(generateGenerics(package));
     TRY(generateConfig(project));
-    TRY(generateDynArrays());
+    TRY(generateDynArrays(package));
     TRY(generateTmPrivate(package));
     TRY(generateStatusMessages(project));
     TRY(generateCommands(package));
@@ -411,7 +411,6 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     _output.resize(0);
     _onboardHgen.reset();
     _onboardSgen.reset();
-    _dynArrays.clear();
     _onboardPhotonPath.resize(0);
     _onboardPath.clear();
     _gcPath.clear();
@@ -420,13 +419,21 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
 
 #define GEN_PREFIX ".gen"
 
-bool Generator::generateDynArrays()
+bool Generator::generateDynArrays(const Package* package)
 {
+    RcSecondUnorderedMap<std::string, const DynArrayType> dynArrays;
+    DynArrayCollector coll;
+    for (const Ast* ast : package->modules()) {
+        for (const Type* type : ast->typesRange()) {
+            coll.collectUniqueDynArrays(type, &dynArrays);
+        }
+    }
+
     _onboardPhotonPath.append("_dynarray_");
     TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
     _onboardPhotonPath.append('/');
 
-    for (const auto& it : _dynArrays) {
+    for (const auto& it : dynArrays) {
         _onboardHgen->genDynArrayHeader(it.second.get());
         TRY(dumpIfNotEmpty(it.first, ".h", &_onboardPhotonPath));
 
@@ -570,12 +577,10 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
     TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
     _gcPhotonPath.append('/'); //FIXME: joinPath
 
-    DynArrayCollector coll;
     SrcBuilder typeNameBuilder;
     TypeNameGen typeNameGen(&typeNameBuilder);
     GcTypeGen gcTypeGen(&_output);
     for (const NamedType* type : ast->namedTypesRange()) {
-        coll.collectUniqueDynArrays(type, &_dynArrays);
         if (type->typeKind() == TypeKind::Imported) {
             continue;
         }
@@ -597,7 +602,6 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
 
     if (ast->component().isSome()) {
         bmcl::OptionPtr<const Component> comp = ast->component();
-        coll.collectUniqueDynArrays(comp.unwrap(), &_dynArrays);
 
         _onboardHgen->genComponentHeader(ast, comp.unwrap());
         TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_onboardPhotonPath));

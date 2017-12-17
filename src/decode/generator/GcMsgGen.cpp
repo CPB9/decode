@@ -1,4 +1,4 @@
-#include "decode/generator/GcStatusMsgGen.h"
+#include "decode/generator/GcMsgGen.h"
 
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeDependsCollector.h"
@@ -18,17 +18,6 @@ GcMsgGen::GcMsgGen(SrcBuilder* dest)
 GcMsgGen::~GcMsgGen()
 {
 }
-
-struct MsgPartsDesc {
-    MsgPartsDesc(const Type* type, std::string&& fieldName)
-        : type(type)
-        , fieldName(std::move(fieldName))
-    {
-    }
-
-    Rc<const Type> type;
-    std::string fieldName;
-};
 
 template <typename T>
 void GcMsgGen::appendPrelude(const Component* comp, const T* msg, bmcl::StringView namespaceName)
@@ -72,54 +61,15 @@ void GcMsgGen::generateStatusHeader(const Component* comp, const StatusMsg* msg)
 {
     appendPrelude(comp, msg, "statuses");
 
-    SrcBuilder partName;
-    std::size_t i = 0;
-    std::vector<MsgPartsDesc> descs;
-    descs.reserve(msg->partsRange().size());
-    for (const StatusRegexp* regexp : msg->partsRange()) {
-        const SubscriptAccessor* lastSubscript = nullptr;
-        const FieldAccessor* lastField = nullptr;
-        foreachList(regexp->accessorsRange(), [&](const Accessor* acc) {
-             switch (acc->accessorKind()) {
-                case AccessorKind::Field:
-                    lastField = acc->asFieldAccessor();
-                    partName.append(lastField->field()->name());
-                    break;
-                case AccessorKind::Subscript:
-                    lastSubscript = acc->asSubscriptAccessor();
-                    break;
-                default:
-                    assert(false);
-            }
-        }, [&](const Accessor* acc) {
-            partName.append("_");
-        });
-
-        Rc<const Type> contType = nullptr;
-        assert(lastField);
-        if (lastSubscript) {
-            if (lastSubscript->type()->isArray()) {
-                //TODO: support range
-                contType = new ArrayType(lastSubscript->type()->asArray()->elementCount(), const_cast<Type*>(lastField->field()->type()));
-            } else if (lastSubscript->type()->isDynArray()) {
-                contType = new DynArrayType(lastSubscript->type()->asDynArray()->maxSize(), const_cast<Type*>(lastField->field()->type()));
-            } else {
-                assert(false);
-            }
-        } else {
-            contType = lastField->field()->type();
-        }
-        descs.emplace_back(contType.get(), std::move(partName.result()));
-        i++;
-    }
-
-
-
     TypeReprGen reprGen(_output);
-    for (const MsgPartsDesc& desc : descs) {
+    StringBuilder fieldName;
+    fieldName.reserve(31);
+    for (const StatusRegexp* regexp : msg->partsRange()) {
         _output->append("    ");
-        reprGen.genGcTypeRepr(desc.type.get(), desc.fieldName);
+        regexp->buildFieldName(&fieldName);
+        reprGen.genGcTypeRepr(regexp->type(), fieldName.view());
         _output->append(";\n");
+        fieldName.clear();
     }
 
     _output->append("};\n\n""}\n}\n}\n\n");
@@ -130,11 +80,11 @@ void GcMsgGen::generateStatusHeader(const Component* comp, const StatusMsg* msg)
 
     InlineTypeInspector inspector(_output);
     InlineSerContext ctx;
-    StringBuilder argName("msg->");
-    for (const MsgPartsDesc& desc : descs) {
-        argName.append(desc.fieldName);
-        inspector.inspect<false, false>(desc.type.get(), ctx, argName.view());
-        argName.resize(5);
+    fieldName.result().assign("msg->");
+    for (const StatusRegexp* regexp : msg->partsRange()) {
+        regexp->buildFieldName(&fieldName);
+        inspector.inspect<false, false>(regexp->type(), ctx, fieldName.view());
+        fieldName.resize(5);
     }
 
     _output->append("    return true;\n}\n\n");

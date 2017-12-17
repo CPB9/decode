@@ -53,6 +53,8 @@ private:
     void appendIncludesAndFwds(const Component* comp);
     void appendCommonIncludePaths();
 
+    void appendStatusStructs(const Component* comp);
+
     void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
     void appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name);
@@ -62,7 +64,7 @@ private:
     void appendCmdDecoderPrototypes(const Component* comp);
     void appendStatusEncoderPrototypes(const Component* comp);
     void appendStatusDecoderPrototypes(const Component* comp);
-    void appendEventPrototypes(const Component* comp);
+    void appendEventSenderPrototypes(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
 
     template <typename T>

@@ -4,7 +4,7 @@
 #include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/InlineTypeInspector.h"
-#include "decode/generator/GcStatusMsgGen.h"
+#include "decode/generator/GcMsgGen.h"
 #include "decode/parser/Package.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/ModuleInfo.h"
