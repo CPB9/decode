@@ -54,6 +54,7 @@ private:
     void appendCommonIncludePaths();
 
     void appendStatusStructs(const Component* comp);
+    void appendEventStructs(const Component* comp);
 
     void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);

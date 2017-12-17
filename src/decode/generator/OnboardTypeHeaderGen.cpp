@@ -133,6 +133,7 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     appendStatusStructs(comp);
     appendStatusDecoderPrototypes(comp);
     appendEventSenderPrototypes(comp);
+    appendEventStructs(comp);
     _output->endCppGuard();
     endIncludeGuard();
 }
@@ -157,6 +158,25 @@ void OnboardTypeHeaderGen::appendStatusStructs(const Component* comp)
         _output->append("} Photon");
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append("_StatusMsg_");
+        _output->appendWithFirstUpper(msg->name());
+        _output->append(";\n\n");
+    }
+}
+
+void OnboardTypeHeaderGen::appendEventStructs(const Component* comp)
+{
+    TypeReprGen reprGen(_output);
+    _output->append("/*events*/\n");
+    for (const EventMsg* msg : comp->eventsRange()) {
+        _output->append("typedef struct {\n");
+        for (const Field* field : msg->partsRange()) {
+            _output->appendIndent();
+            reprGen.genOnboardTypeRepr(field->type(), field->name());
+            _output->append(";\n");
+        }
+        _output->append("} Photon");
+        _output->appendWithFirstUpper(comp->moduleName());
+        _output->append("_EventMsg_");
         _output->appendWithFirstUpper(msg->name());
         _output->append(";\n\n");
     }
