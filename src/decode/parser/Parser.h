@@ -142,6 +142,7 @@ private:
     bool parseParameters(Component* parent);
     bool parseCommands(Component* parent);
     bool parseStatuses(Component* parent);
+    bool parseEvents(Component* parent);
     bool parseComponentImpl(Component* parent);
 
     template <typename T>
@@ -157,6 +158,8 @@ private:
     Rc<T> beginNamedType(bmcl::StringView name);
     template <typename T>
     void consumeAndEndType(const Rc<T>& type);
+
+    bool parseBoolean(bool* value);
 
     bool currentTokenIs(TokenKind kind);
 
@@ -181,6 +184,8 @@ private:
     Rc<AllBuiltinTypes> _builtinTypes;
 
     const char* _lastLineStart;
+    std::size_t _currentTmMsgNum;
+    std::size_t _currentCmdRegexpNum;
     std::vector<bmcl::StringView> _docComments;
     RcVec<GenericParameterType> _currentGenericParameters;
     Rc<RangeAttr> _lastRangeAttr;

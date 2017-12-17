@@ -67,13 +67,12 @@ bool Generator::generateTmPrivate(const Package* package)
 
     _output.append("static PhotonTmMessageDesc _messageDesc[] = {\n");
     FuncPrototypeGen prototypeGen(&_output);
-    std::size_t statusesNum = 0;
     for (const ComponentAndMsg& msg : package->statusMsgs()) {
         _output.appendModIfdef(msg.component->moduleName());
         _output.appendIndent();
         _output.append("{");
         _output.append(".func = ");
-        prototypeGen.appendStatusMessageGenFuncName(msg.component.get(), statusesNum);
+        prototypeGen.appendStatusMessageGenFuncName(msg.component.get(), msg.msg.get());
         _output.append(", .compNum = ");
         _output.appendNumericValue(msg.component->number());
         _output.append(", .msgNum = ");
@@ -86,7 +85,6 @@ bool Generator::generateTmPrivate(const Package* package)
         _output.appendBoolValue(msg.msg->isEnabled());
         _output.append("},\n");
         _output.appendEndif();
-        statusesNum++;
     }
     _output.append("};\n\n");
 
@@ -136,7 +134,7 @@ void Generator::generateSerializedPackage(const Project* project, SrcBuilder* de
 void Generator::appendBuiltinSources(bmcl::StringView ext)
 {
     std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private",
-                                                       "StatusEncoder.Private", "StatusDecoder.Private"};
+                                                       "StatusEncoder.Private", "StatusDecoder.Private", "EventEncoder.Private"};
     for (bmcl::StringView str : builtin) {
         _output.append("#include \"photon/");
         _output.append(str);
@@ -431,17 +429,22 @@ bool Generator::generateDynArrays()
 bool Generator::generateStatusMessages(const Project* project)
 {
     StatusEncoderGen gen(&_output);
-    gen.generateEncoderHeader(project);
+    gen.generateStatusEncoderHeader(project);
     TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_onboardPhotonPath));
 
-    gen.generateEncoderSource(project);
+    gen.generateStatusEncoderSource(project);
     TRY(dumpIfNotEmpty("StatusEncoder.Private", ".c", &_onboardPhotonPath));
 
-    gen.generateDecoderHeader(project);
+    gen.generateStatusDecoderHeader(project);
     TRY(dumpIfNotEmpty("StatusDecoder.Private", ".h", &_onboardPhotonPath));
 
-    gen.generateDecoderSource(project);
+    gen.generateStatusDecoderSource(project);
     TRY(dumpIfNotEmpty("StatusDecoder.Private", ".c", &_onboardPhotonPath));
+
+    gen.generateEventEncoderSource(project);
+    TRY(dumpIfNotEmpty("EventEncoder.Private", ".c", &_onboardPhotonPath));
+
+    TRY(dump("EventEncoder.Private", ".h", &_onboardPhotonPath));
 
     std::size_t pathSize = _gcPhotonPath.result().size();
     _gcPhotonPath.append("_msgs_");

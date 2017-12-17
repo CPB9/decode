@@ -13,6 +13,7 @@
 #include "decode/generator/TypeReprGen.h"
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/TypeDependsCollector.h"
+#include "decode/generator/Utils.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/parser/Containers.h"
@@ -33,7 +34,7 @@ StatusEncoderGen::~StatusEncoderGen()
 {
 }
 
-void StatusEncoderGen::generateEncoderHeader(const Project* project)
+void StatusEncoderGen::generateStatusEncoderHeader(const Project* project)
 {
     _output->startIncludeGuard("PRIVATE", "STATUS_ENCODER");
     _output->appendEol();
@@ -44,13 +45,11 @@ void StatusEncoderGen::generateEncoderHeader(const Project* project)
     _output->startCppGuard();
     _output->appendEol();
 
-    std::size_t n = 0;
     for (const ComponentAndMsg& msg : project->package()->statusMsgs()) {
         _output->appendModIfdef(msg.component->moduleName());
-        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), n);
+        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), msg.msg.get());
         _output->append(";\n");
         _output->appendEndif();
-        n++;
     }
 
     _output->appendEol();
@@ -59,7 +58,7 @@ void StatusEncoderGen::generateEncoderHeader(const Project* project)
     _output->endIncludeGuard();
 }
 
-void StatusEncoderGen::generateDecoderHeader(const Project* project)
+void StatusEncoderGen::generateStatusDecoderHeader(const Project* project)
 {
     _output->startIncludeGuard("PRIVATE", "STATUS_DECODER");
 
@@ -147,7 +146,7 @@ void StatusEncoderGen::appendTmDecoderPrototype(bmcl::StringView name)
     _output->append("TmState* dest)");
 }
 
-void StatusEncoderGen::generateEncoderSource(const Project* project)
+void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
 {
     TypeDependsCollector coll;
     TypeDependsCollector::Depends includes;
@@ -170,10 +169,9 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"StatusEncoder.Private.c\"\n\n");
 
-    std::size_t n = 0;
     for (const ComponentAndMsg& msg : project->package()->statusMsgs()) {
         _output->appendModIfdef(msg.component->moduleName());
-        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), n);
+        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), msg.msg.get());
         _output->append("\n{\n");
 
         for (const StatusRegexp* part : msg.msg->partsRange()) {
@@ -184,12 +182,11 @@ void StatusEncoderGen::generateEncoderSource(const Project* project)
         _output->append("    return PhotonError_Ok;\n}\n");
         _output->appendEndif();
         _output->appendEol();
-        n++;
     }
     _output->append("#undef _PHOTON_FNAME\n");
 }
 
-void StatusEncoderGen::generateDecoderSource(const Project* project)
+void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 {
     _output->append("#include \"photon/StatusDecoder.Private.h\"\n\n");
     _output->appendOnboardIncludePath("core/Try");
@@ -388,6 +385,50 @@ void StatusEncoderGen::appendInlineSerializer(const StatusRegexp* part, SrcBuild
     for (std::size_t indent = ctx.indentLevel; indent > 1; indent--) {
         _output->appendIndent(indent - 1);
         _output->append("}\n");
+    }
+}
+
+void StatusEncoderGen::generateEventEncoderSource(const Project* project)
+{
+    for (const Ast* ast : project->package()->modules()) {
+        _output->appendModIfdef(ast->moduleName());
+        _output->append("#include \"photon/");
+        _output->append(ast->moduleName());
+        _output->append("/");
+        _output->appendWithFirstUpper(ast->moduleName());
+        _output->append(".Component.h\"\n");
+        _output->appendEndif();
+    }
+    _output->appendEol();
+
+    TypeReprGen reprGen(_output);
+    for (const Component* comp : project->package()->components()) {
+        if (!comp->hasEvents()) {
+            continue;
+        }
+        _output->appendModIfdef(comp->moduleName());
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _prototypeGen.appendEventFuncDecl(comp, msg, &reprGen);
+            _output->append("\n{\n    PhotonWriter* dest = PhotonTm_BeginEventMsg(");
+            _output->appendNumericValue(comp->number());
+            _output->append(", ");
+            _output->appendNumericValue(msg->number());
+            _output->append(");\n");
+
+            InlineSerContext ctx;
+            StringBuilder nameBuilder;
+            nameBuilder.reserve(15);
+            for (const Field* field : msg->partsRange()) {
+                derefPassedVarNameIfRequired(field->type(), field->name(), &nameBuilder);
+                _inlineInspector.inspect<true, true>(field->type(), ctx, nameBuilder.view());
+                nameBuilder.clear();
+            }
+
+            _output->append("    PhotonTm_EndEventMsg();\n    return PhotonError_Ok;\n");
+            _output->append("}\n");
+        }
+        _output->appendEndif();
+        _output->appendEol();
     }
 }
 }

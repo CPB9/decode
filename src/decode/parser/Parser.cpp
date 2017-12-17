@@ -54,6 +54,7 @@ namespace decode {
 Parser::Parser(Diagnostics* diag)
     : _diag(diag)
     , _builtinTypes(new AllBuiltinTypes)
+    , _currentTmMsgNum(0)
 {
     ADD_BUILTIN_MAP(usize, "usize");
     ADD_BUILTIN_MAP(isize, "isize");
@@ -157,6 +158,8 @@ static std::string tokenKindToString(TokenKind kind)
         return "'parameters'";
     case TokenKind::Statuses:
         return "'statuses'";
+    case TokenKind::Events:
+        return "'events'";
     case TokenKind::Commands:
         return "'commands'";
     case TokenKind::Fn:
@@ -169,6 +172,10 @@ static std::string tokenKindToString(TokenKind kind)
         return "'mut'";
     case TokenKind::Const:
         return "'const'";
+    case TokenKind::True:
+        return "'true'";
+    case TokenKind::False:
+        return "'false'";
     case TokenKind::Eol:
         return "end of line";
     case TokenKind::Eof:
@@ -1404,10 +1411,6 @@ bool Parser::parseNamelessTag(TokenKind startToken, TokenKind sep, T* dest, F&& 
 
 bool Parser::parseCommands(Component* parent)
 {
-    if(parent->hasCmds()) {
-        reportCurrentTokenError("component can have only one commands declaration");
-        return false;
-    }
     TRY(expectCurrentToken(TokenKind::Commands));
     consumeAndSkipBlanks();
 
@@ -1476,10 +1479,6 @@ bool Parser::parseComponentImpl(Component* parent)
 
 bool Parser::parseParameters(Component* parent)
 {
-    if(parent->hasParams()) {
-        reportCurrentTokenError("component can have only one parameters declaration");
-        return false;
-    }
     TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
         Rc<Field> field = parseField();
         if (!field) {
@@ -1493,17 +1492,79 @@ bool Parser::parseParameters(Component* parent)
     return true;
 }
 
+bool Parser::parseBoolean(bool* value)
+{
+    if (_currentToken.kind() == TokenKind::True) {
+        *value = true;
+        return true;
+    } else if (_currentToken.kind() == TokenKind::False) {
+        *value = false;
+        return true;
+    }
+    reportCurrentTokenError("expected 'true' or 'false'");
+    return false;
+}
+
+
+bool Parser::parseEvents(Component* parent)
+{
+    TRY(parseNamelessTag(TokenKind::Events, TokenKind::Comma, parent, [this](Component* comp) -> bool {
+        TRY(expectCurrentToken(TokenKind::LBracket));
+        consumeAndSkipBlanks();
+
+        Token nameToken = _currentToken;
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        bmcl::StringView name = _currentToken.value();
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Comma));
+        consumeAndSkipBlanks();
+
+        bool isEnabled;
+        TRY(parseBoolean(&isEnabled));
+
+        consumeAndSkipBlanks();
+        TRY(expectCurrentToken(TokenKind::RBracket));
+
+        EventMsg* msg = new EventMsg(name, _currentTmMsgNum, isEnabled);
+        _currentTmMsgNum++;
+        bool isOk = comp->addEvent(msg);
+        if (!isOk) {
+            std::string msg =  "event with name " + name.toStdString() + " already defined";
+            reportTokenError(&nameToken, msg.c_str());
+            return false;
+        }
+        consumeAndSkipBlanks();
+        TRY(expectCurrentToken(TokenKind::Colon));
+        consumeAndSkipBlanks();
+
+        auto parseOne = [this](EventMsg* msg) -> bool {
+            Rc<Field> field = parseField();
+            if (!field) {
+                return false;
+            }
+            msg->addField(field.get());
+            return true;
+        };
+
+        if (currentTokenIs(TokenKind::LBrace)) {
+            TRY(parseBraceList(msg, parseOne));
+        } else if (currentTokenIs(TokenKind::Identifier)) {
+            TRY(parseOne(msg));
+        }
+        return true;
+    }));
+
+    return true;
+}
+
 bool Parser::parseStatuses(Component* parent)
 {
-    if(parent->hasStatuses()) {
-        reportCurrentTokenError("component can have only one statuses declaration");
-        return false;
-    }
     TRY(parseNamelessTag(TokenKind::Statuses, TokenKind::Comma, parent, [this](Component* comp) -> bool {
         TRY(expectCurrentToken(TokenKind::LBracket));
         consumeAndSkipBlanks();
 
-        Token numToken = _currentToken;
+        Token nameToken = _currentToken;
         TRY(expectCurrentToken(TokenKind::Identifier));
         bmcl::StringView name = _currentToken.value();
         consumeAndSkipBlanks();
@@ -1518,26 +1579,18 @@ bool Parser::parseStatuses(Component* parent)
         TRY(expectCurrentToken(TokenKind::Comma));
         consumeAndSkipBlanks();
 
-        TRY(expectCurrentToken(TokenKind::Identifier));
-
         bool isEnabled;
-        if (_currentToken.value() == "false") {
-            isEnabled = false;
-        } else if (_currentToken.value() == "true") {
-            isEnabled = true;
-        } else {
-            reportCurrentTokenError("expected 'true' or 'false'");
-            return false;
-        }
+        TRY(parseBoolean(&isEnabled));
 
         consumeAndSkipBlanks();
         TRY(expectCurrentToken(TokenKind::RBracket));
 
-        StatusMsg* msg = new StatusMsg(name, prio, isEnabled);
+        StatusMsg* msg = new StatusMsg(name, _currentTmMsgNum, prio, isEnabled);
+        _currentTmMsgNum++;
         bool isOk = comp->addStatus(msg);
         if (!isOk) {
             std::string msg =  "status with name " + name.toStdString() + " already defined";
-            reportTokenError(&numToken, msg.c_str());
+            reportTokenError(&nameToken, msg.c_str());
             return false;
         }
         consumeAndSkipBlanks();
@@ -1640,6 +1693,10 @@ bool Parser::parseComponent()
             TRY(parseStatuses(comp.get()));
             break;
         }
+        case TokenKind::Events: {
+            TRY(parseEvents(comp.get()));
+            break;
+        }
         case TokenKind::Impl: {
             TRY(parseComponentImpl(comp.get()));
             break;
@@ -1661,6 +1718,7 @@ finish:
 
 bool Parser::parseOneFile(FileInfo* finfo)
 {
+    _currentTmMsgNum = 0;
     _fileInfo = finfo;
 
     _lastLineStart = _fileInfo->contents().c_str();

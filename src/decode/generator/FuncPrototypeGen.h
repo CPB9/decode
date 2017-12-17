@@ -18,20 +18,25 @@ namespace decode {
 class SrcBuilder;
 class TypeReprGen;
 class Type;
+class EventMsg;
 class Component;
+class Command;
+class StatusMsg;
 
 class FuncPrototypeGen {
 public:
     FuncPrototypeGen(SrcBuilder* output);
     ~FuncPrototypeGen();
 
+    void appendEventFuncDecl(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen);
+    void appendCmdFuncDecl(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
     void appendDeserializerFuncDecl(const Type* type);
     void appendSerializerFuncDecl(const Type* type);
-    void appendStatusMessageGenFuncDecl(const Component* comp, std::uintmax_t msgNum);
-    void appendStatusMessageGenFuncName(const Component* comp, std::uintmax_t msgNum);
+    void appendStatusMessageGenFuncDecl(const Component* comp, const StatusMsg* msg);
+    void appendStatusMessageGenFuncName(const Component* comp, const StatusMsg* msg);
 
 private:
-    SrcBuilder* _dest;
+    SrcBuilder* _output;
 };
 
 }

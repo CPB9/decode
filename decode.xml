@@ -28,6 +28,7 @@
 		<item> commands </item>
 		<item> component </item>
 		<item> statuses </item>
+		<item> events </item>
 		<item> impl </item>
 		<item> module </item>
 		<item> mut </item>

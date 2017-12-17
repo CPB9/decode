@@ -99,6 +99,13 @@ bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiat
     return false;
 }
 
+void TypeDependsCollector::collect(const EventMsg* msg, Depends* dest)
+{
+    for (const Field* field : msg->partsRange()) {
+        collect(field->type(), dest);
+    };
+}
+
 void TypeDependsCollector::collect(const StatusMsg* msg, TypeDependsCollector::Depends* dest)
 {
     _currentType = 0;

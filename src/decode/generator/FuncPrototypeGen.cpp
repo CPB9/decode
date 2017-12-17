@@ -7,15 +7,19 @@
  */
 
 #include "decode/generator/FuncPrototypeGen.h"
+#include "decode/core/Foreach.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Component.h"
+#include "decode/ast/Function.h"
+#include "decode/ast/Field.h"
 #include "decode/generator/SrcBuilder.h"
 #include "decode/generator/TypeReprGen.h"
+#include "decode/generator/Utils.h"
 
 namespace decode {
 
 FuncPrototypeGen::FuncPrototypeGen(SrcBuilder* output)
-    : _dest(output)
+    : _output(output)
 {
 }
 
@@ -23,41 +27,88 @@ FuncPrototypeGen::~FuncPrototypeGen()
 {
 }
 
+void FuncPrototypeGen::appendEventFuncDecl(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen)
+{
+   _output->append("PhotonError Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_QueueEvent_");
+    _output->appendWithFirstUpper(msg->name());
+    _output->append("(");
+    foreachList(msg->partsRange(), [&](const Field* field) {
+        Rc<Type> type = wrapPassedTypeIntoPointerIfRequired(const_cast<Type*>(field->type())); //HACK
+        reprGen->genOnboardTypeRepr(type.get(), field->name());
+    }, [this](const Field*) {
+        _output->append(", ");
+    });
+    _output->append(")");
+}
+
+void FuncPrototypeGen::appendCmdFuncDecl(const Component* comp, const Command* cmd, TypeReprGen* reprGen)
+{
+    const FunctionType* ftype = cmd->type();
+    _output->append("PhotonError Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_");
+    _output->appendWithFirstUpper(cmd->name());
+    _output->append("(");
+
+    foreachList(ftype->argumentsRange(), [&](const Field* field) {
+        Rc<Type> type = wrapPassedTypeIntoPointerIfRequired(const_cast<Type*>(field->type())); //HACK
+        reprGen->genOnboardTypeRepr(type.get(), field->name());
+    }, [this](const Field*) {
+        _output->append(", ");
+    });
+
+    auto rv = const_cast<FunctionType*>(ftype)->returnValue(); //HACK
+    if (rv.isSome()) {
+        if (ftype->hasArguments()) {
+            _output->append(", ");
+        }
+        if (rv->isArray()) {
+            reprGen->genOnboardTypeRepr(rv.unwrap(), "rv");
+        } else {
+            Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
+            reprGen->genOnboardTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
+        }
+    }
+    _output->append(")");
+}
+
 void FuncPrototypeGen::appendSerializerFuncDecl(const Type* type)
 {
-    TypeReprGen reprGen(_dest);
-    _dest->append("PhotonError ");
+    TypeReprGen reprGen(_output);
+    _output->append("PhotonError ");
     reprGen.genOnboardTypeRepr(type);
-    _dest->append("_Serialize(const ");
+    _output->append("_Serialize(const ");
     reprGen.genOnboardTypeRepr(type);
     if (type->typeKind() != TypeKind::Enum) {
-        _dest->append('*');
+        _output->append('*');
     }
-    _dest->append(" self, PhotonWriter* dest)");
+    _output->append(" self, PhotonWriter* dest)");
 }
 
 void FuncPrototypeGen::appendDeserializerFuncDecl(const Type* type)
 {
-    TypeReprGen reprGen(_dest);
-    _dest->append("PhotonError ");
+    TypeReprGen reprGen(_output);
+    _output->append("PhotonError ");
     reprGen.genOnboardTypeRepr(type);
-    _dest->append("_Deserialize(");
+    _output->append("_Deserialize(");
     reprGen.genOnboardTypeRepr(type);
-    _dest->append("* self, PhotonReader* src)");
+    _output->append("* self, PhotonReader* src)");
 }
 
-void FuncPrototypeGen::appendStatusMessageGenFuncName(const Component* comp, std::uintmax_t msgNum)
+void FuncPrototypeGen::appendStatusMessageGenFuncName(const Component* comp, const StatusMsg* msg)
 {
-    _dest->append("_Photon");
-    _dest->appendWithFirstUpper(comp->moduleName());
-    _dest->append("_GenerateMsg");
-    _dest->appendNumericValue(msgNum);
+    _output->append("Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_SerializeStatus_");
+    _output->appendWithFirstUpper(msg->name());
 }
 
-void FuncPrototypeGen::appendStatusMessageGenFuncDecl(const Component* comp, std::uintmax_t msgNum)
+void FuncPrototypeGen::appendStatusMessageGenFuncDecl(const Component* comp, const StatusMsg* msg)
 {
-    _dest->append("PhotonError ");
-    appendStatusMessageGenFuncName(comp, msgNum);
-    _dest->append("(PhotonWriter* dest)");
+    _output->append("PhotonError ");
+    appendStatusMessageGenFuncName(comp, msg);
+    _output->append("(PhotonWriter* dest)");
 }
 }

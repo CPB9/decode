@@ -197,10 +197,10 @@ void StatusRegexp::addAccessor(Accessor* acc)
     _accessors.emplace_back(acc);
 }
 
-StatusMsg::StatusMsg(bmcl::StringView name, std::size_t priority, bool isEnabled)
-    : _number(0)
+StatusMsg::StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled)
+    : _name(name)
+    , _number(number)
     , _priority(priority)
-    , _name(name)
     , _isEnabled(isEnabled)
 {
 }
@@ -259,14 +259,45 @@ bool StatusMsg::isEnabled() const
     return _isEnabled;
 }
 
-void StatusMsg::setNumber(std::size_t num)
-{
-    _number = num;
-}
-
 void StatusMsg::addPart(StatusRegexp* part)
 {
     _parts.emplace_back(part);
+}
+
+EventMsg::EventMsg(bmcl::StringView name, std::size_t number, bool isEnabled)
+    : _name(name)
+    , _number(number)
+    , _isEnabled(isEnabled)
+{
+}
+
+EventMsg::~EventMsg()
+{
+}
+
+bmcl::StringView EventMsg::name() const
+{
+    return _name;
+}
+
+FieldVec::ConstRange EventMsg::partsRange() const
+{
+    return _fields;
+}
+
+std::size_t EventMsg::number() const
+{
+    return _number;
+}
+
+bool EventMsg::isEnabled() const
+{
+    return _isEnabled;
+}
+
+void EventMsg::addField(Field* field)
+{
+    _fields.emplace_back(field);
 }
 
 Component::Component(std::size_t compNum, const ModuleInfo* info)
@@ -292,6 +323,11 @@ bool Component::hasCmds() const
 bool Component::hasStatuses() const
 {
     return !_statuses.empty();
+}
+
+bool Component::hasEvents() const
+{
+    return !_events.empty();
 }
 
 Component::Cmds::ConstIterator Component::cmdsBegin() const
@@ -369,6 +405,11 @@ Component::Statuses::ConstRange Component::statusesRange() const
     return _statuses;
 }
 
+Component::Events::ConstRange Component::eventsRange() const
+{
+    return _events;
+}
+
 Component::Statuses::Iterator Component::statusesBegin()
 {
     return _statuses.begin();
@@ -436,8 +477,13 @@ void Component::addCommand(Command* func)
 
 bool Component::addStatus(StatusMsg* msg)
 {
-    msg->setNumber(_statuses.size());
     auto it = _statuses.emplace(std::piecewise_construct, std::forward_as_tuple(msg->name()), std::forward_as_tuple(msg));
+    return it.second;
+}
+
+bool Component::addEvent(EventMsg* msg)
+{
+    auto it = _events.emplace(std::piecewise_construct, std::forward_as_tuple(msg->name()), std::forward_as_tuple(msg));
     return it.second;
 }
 
@@ -450,18 +496,6 @@ void Component::setNumber(std::size_t number)
 {
     _number = number;
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 ComponentAndMsg::ComponentAndMsg(const Rc<Component>& component, const Rc<StatusMsg>& msg)
     : component(component)

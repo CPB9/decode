@@ -137,7 +137,7 @@ public:
     using ConstPointer = Rc<const StatusMsg>;
     using Parts = RcVec<StatusRegexp>;
 
-    StatusMsg(bmcl::StringView name, std::size_t priority, bool isEnabled);
+    StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled);
     ~StatusMsg();
 
     Parts::Iterator partsBegin();
@@ -151,15 +151,36 @@ public:
     std::size_t priority() const;
     bool isEnabled() const;
 
-    void setNumber(std::size_t num);
     void addPart(StatusRegexp* part);
 
 private:
     Parts _parts;
+    bmcl::StringView _name;
     std::size_t _number;
     std::size_t _priority;
-    bmcl::StringView _name;
     bool _isEnabled;
+};
+
+class EventMsg : public RefCountable {
+public:
+    using Pointer = Rc<EventMsg>;
+    using ConstPointer = Rc<const EventMsg>;
+
+    EventMsg(bmcl::StringView name, std::size_t number, bool isEnabled);
+    ~EventMsg();
+
+    bmcl::StringView name() const;
+    std::size_t number() const;
+    bool isEnabled() const;
+    FieldVec::ConstRange partsRange() const;
+
+    void addField(Field* field); //TODO: check conflicts
+
+private:
+    bmcl::StringView _name;
+    std::size_t _number;
+    bool _isEnabled;
+    FieldVec _fields;
 };
 
 class Component : public RefCountable {
@@ -169,6 +190,7 @@ public:
     using Cmds = RcVec<Command>;
     using Params = FieldVec;
     using Statuses = RcSecondUnorderedMap<bmcl::StringView, StatusMsg>;
+    using Events = RcSecondUnorderedMap<bmcl::StringView, EventMsg>;
 
     Component(std::size_t compNum, const ModuleInfo* info);
     ~Component();
@@ -176,6 +198,7 @@ public:
     bool hasParams() const;
     bool hasCmds() const;
     bool hasStatuses() const;
+    bool hasEvents() const;
     Cmds::Iterator cmdsBegin();
     Cmds::Iterator cmdsEnd();
     Cmds::Range cmdsRange();
@@ -194,6 +217,7 @@ public:
     Statuses::ConstIterator statusesBegin() const;
     Statuses::ConstIterator statusesEnd() const;
     Statuses::ConstRange statusesRange() const;
+    Events::ConstRange eventsRange() const;
     bmcl::OptionPtr<const ImplBlock> implBlock() const;
     bmcl::StringView moduleName() const;
     const ModuleInfo* moduleInfo() const;
@@ -203,9 +227,10 @@ public:
     bmcl::OptionPtr<const Field> paramWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<const Command> cmdWithName(bmcl::StringView name) const;
 
-    void addParam(Field* param);
-    void addCommand(Command* func);
+    void addParam(Field* param); //TODO: check name conflicts
+    void addCommand(Command* func); //TODO: check name conflicts
     bool addStatus(StatusMsg* msg);
+    bool addEvent(EventMsg* msg);
     void setImplBlock(ImplBlock* block);
     void setNumber(std::size_t number);
 
@@ -214,6 +239,7 @@ private:
     Params _params;
     Cmds _cmds;
     Statuses _statuses;
+    Events _events;
     Rc<ImplBlock> _implBlock;
     Rc<const ModuleInfo> _modInfo;
 };

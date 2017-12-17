@@ -24,6 +24,8 @@ public:
     StringBuilder(A&&... args);
     ~StringBuilder();
 
+    void reserve(std::size_t size);
+
     template <std::size_t N>
     void append(const char(&data)[N]);
     void append(char c);

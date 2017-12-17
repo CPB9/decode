@@ -58,7 +58,11 @@ private:
     void appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name);
     void appendFunctionPrototypes(const Component* comp);
     void appendCommandPrototypes(const Component* comp);
+    void appendEventPrototypes(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
+
+    template <typename T>
+    void appendComponentVarDefine(const Component* comp, const T* value, bmcl::StringView sep);
 
     const Ast* _ast;
     SrcBuilder* _output;

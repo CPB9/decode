@@ -64,6 +64,18 @@ void OnboardTypeHeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* typ
     endIncludeGuard();
 }
 
+template <typename T>
+void OnboardTypeHeaderGen::appendComponentVarDefine(const Component* comp, const T* value, bmcl::StringView sep)
+{
+    _output->append("#define PHOTON_");
+    _output->appendUpper(comp->name());
+    _output->append(sep);
+    _output->appendUpper(value->name());
+    _output->append("_ID ");
+    _output->appendNumericValue(value->number());
+    _output->appendEol();
+}
+
 void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* comp)
 {
     _ast = ast;
@@ -71,33 +83,26 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     _output->appendOnboardIncludePath("Config");
     _output->appendEol();
 
+    appendIncludesAndFwds(comp);
+    appendCommonIncludePaths();
+
     _output->append("#define PHOTON_");
     _output->appendUpper(comp->name());
     _output->append("_COMPONENT_ID ");
     _output->appendNumericValue(comp->number());
     _output->appendEol();
+
     for (const StatusMsg* msg : comp->statusesRange()) {
-        _output->append("#define PHOTON_");
-        _output->appendUpper(comp->name());
-        _output->append("_STATUS_");
-        _output->appendUpper(msg->name());
-        _output->append("_ID ");
-        _output->appendNumericValue(msg->number());
-        _output->appendEol();
+        appendComponentVarDefine(comp, msg, "_STATUS_");
+    }
+    for (const EventMsg* msg : comp->eventsRange()) {
+        appendComponentVarDefine(comp, msg, "_EVENT_");
     }
     for (const Command* func : comp->cmdsRange()) {
-        _output->append("#define PHOTON_");
-        _output->appendUpper(comp->name());
-        _output->append("_CMD_");
-        _output->appendUpper(func->name());
-        _output->append("_ID ");
-        _output->appendNumericValue(func->number());
-        _output->appendEol();
+        appendComponentVarDefine(comp, func, "_CMD_");
     }
     _output->appendEol();
 
-    appendIncludesAndFwds(comp);
-    appendCommonIncludePaths();
     _typeDefGen.genComponentDef(comp);
     if (comp->hasParams()) {
         _output->append("extern Photon");
@@ -111,6 +116,7 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     _output->startCppGuard();
     appendFunctionPrototypes(comp);
     appendCommandPrototypes(comp);
+    appendEventPrototypes(comp);
     appendSerializerFuncPrototypes(comp);
     _output->endCppGuard();
     endIncludeGuard();
@@ -194,6 +200,9 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
     TypeDependsCollector::Depends dest;
     for (const Function* fn : comp->cmdsRange()) {
         _includeCollector.collect(fn->type(), &dest);
+    }
+    for (const EventMsg* msg : comp->eventsRange()) {
+        _includeCollector.collect(msg, &dest);
     }
     bmcl::OptionPtr<const ImplBlock> block = comp->implBlock();
     if (block.isSome()) {
@@ -283,33 +292,17 @@ void OnboardTypeHeaderGen::appendFunctionPrototypes(const NamedType* type)
     appendFunctionPrototypes(type, type->name());
 }
 
-static Rc<Type> wrapIntoPointerIfNeeded(Type* type)
+void OnboardTypeHeaderGen::appendEventPrototypes(const Component* comp)
 {
-    switch (type->typeKind()) {
-    case TypeKind::Reference:
-    case TypeKind::Array:
-    case TypeKind::Function:
-    case TypeKind::Enum:
-    case TypeKind::Builtin:
-        return type;
-    case TypeKind::DynArray:
-    case TypeKind::Struct:
-    case TypeKind::Variant:
-    case TypeKind::GenericInstantiation:
-        return new ReferenceType(ReferenceKind::Pointer, false, type);
-    case TypeKind::Imported:
-        return wrapIntoPointerIfNeeded(type->asImported()->link());
-    case TypeKind::Alias:
-        return wrapIntoPointerIfNeeded(type->asAlias()->alias());
-    case TypeKind::Generic:
-        assert(false);
-        return nullptr;
-    case TypeKind::GenericParameter:
-        assert(false);
-        return nullptr;
+    if (!comp->hasEvents()) {
+        return;
     }
-    assert(false);
-    return nullptr;
+    TypeReprGen reprGen(_output);
+    for (const EventMsg* msg : comp->eventsRange()) {
+        _prototypeGen.appendEventFuncDecl(comp, msg, &reprGen);
+        _output->append(";\n");
+    };
+    _output->appendEol();
 }
 
 void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
@@ -318,34 +311,9 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
         return;
     }
     TypeReprGen reprGen(_output);
-    for (const Function* func : comp->cmdsRange()) {
-        const FunctionType* ftype = func->type();
-        _output->append("PhotonError Photon");
-        _output->appendWithFirstUpper(comp->moduleName());
-        _output->append("_");
-        _output->appendWithFirstUpper(func->name());
-        _output->append("(");
-
-        foreachList(ftype->argumentsRange(), [&](const Field* field) {
-            Rc<Type> type = wrapIntoPointerIfNeeded(const_cast<Type*>(field->type())); //HACK
-            reprGen.genOnboardTypeRepr(type.get(), field->name());
-        }, [this](const Field*) {
-            _output->append(", ");
-        });
-        auto rv = const_cast<FunctionType*>(ftype)->returnValue(); //HACK
-        if (rv.isSome()) {
-            if (ftype->hasArguments()) {
-                _output->append(", ");
-            }
-            if (rv->isArray()) {
-                reprGen.genOnboardTypeRepr(rv.unwrap(), "rv");
-            } else {
-                Rc<const ReferenceType> rtype = new ReferenceType(ReferenceKind::Pointer, true, rv.unwrap());  //HACK
-                reprGen.genOnboardTypeRepr(rtype.get(), "rv"); //TODO: check name conflicts
-            }
-        }
-
-        _output->append(");\n");
+    for (const Command* cmd : comp->cmdsRange()) {
+        _prototypeGen.appendCmdFuncDecl(comp, cmd, &reprGen);
+        _output->append(";\n");
     }
     _output->appendEol();
 }

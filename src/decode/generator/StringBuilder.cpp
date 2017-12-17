@@ -9,6 +9,11 @@ StringBuilder::~StringBuilder()
 {
 }
 
+void StringBuilder::reserve(std::size_t size)
+{
+    _output.reserve(size);
+}
+
 void StringBuilder::append(char c)
 {
     _output.push_back(c);

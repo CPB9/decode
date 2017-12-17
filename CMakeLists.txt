@@ -125,6 +125,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/TypeNameGen.h
     src/decode/generator/TypeReprGen.cpp
     src/decode/generator/TypeReprGen.h
+    src/decode/generator/Utils.cpp
+    src/decode/generator/Utils.h
 )
 source_group("generator" FILES ${DECODE_GENERATOR_SRC})
 

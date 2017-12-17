@@ -29,11 +29,13 @@ public:
     StatusEncoderGen(SrcBuilder* output);
     ~StatusEncoderGen();
 
-    void generateDecoderHeader(const Project* project);
-    void generateDecoderSource(const Project* project);
+    void generateStatusDecoderHeader(const Project* project);
+    void generateStatusDecoderSource(const Project* project);
 
-    void generateEncoderHeader(const Project* project);
-    void generateEncoderSource(const Project* project);
+    void generateStatusEncoderHeader(const Project* project);
+    void generateStatusEncoderSource(const Project* project);
+
+    void generateEventEncoderSource(const Project* project);
 
 private:
     void appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer);
