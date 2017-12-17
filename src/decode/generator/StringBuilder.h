@@ -42,6 +42,7 @@ public:
     template <std::size_t N>
     void insert(std::size_t index, const char(&data)[N]);
     void insert(std::size_t i, bmcl::StringView view);
+    void insert(std::size_t i, char c);
 
     void resize(std::size_t size);
 

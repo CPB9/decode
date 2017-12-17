@@ -212,8 +212,11 @@ void OnboardTypeHeaderGen::appendImplBlockIncludes(const Component* comp)
     _output->appendEol();
 
     TypeDependsCollector::Depends dest;
-    for (const Function* fn : comp->cmdsRange()) {
-        _includeCollector.collect(fn->type(), &dest);
+    for (const Command* cmd : comp->cmdsRange()) {
+        _includeCollector.collect(cmd->type(), &dest);
+    }
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        _includeCollector.collect(msg, &dest);
     }
     for (const EventMsg* msg : comp->eventsRange()) {
         _includeCollector.collect(msg, &dest);

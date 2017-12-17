@@ -123,20 +123,46 @@ void TypeReprGen::writeArray(const ArrayType* type)
 template <bool isOnboard>
 void TypeReprGen::writePointer(const ReferenceType* type)
 {
+    char ptrPrefix;
+    bmcl::StringView constPrefix;
     if (type->referenceKind() == ReferenceKind::Pointer) {
-        if (type->isMutable()) {
-            _output->insert(_currentOffset,"*");
-        } else {
-            _output->insert(_currentOffset, " const*");
-        }
+        ptrPrefix = '*';
     } else {
-        if (type->isMutable()) {
-            _output->insert(_currentOffset,"&");
+        if (isOnboard) {
+            ptrPrefix = '*';
         } else {
-            _output->insert(_currentOffset, " const&");
+            ptrPrefix = '&';
         }
     }
-    writeType<isOnboard>(type->pointee());
+    if (!type->isMutable()) {
+        constPrefix = "const";
+    }
+
+    switch (type->pointee()->resolveFinalType()->typeKind()) {
+    case TypeKind::Enum:
+    case TypeKind::Struct:
+    case TypeKind::GenericInstantiation:
+    case TypeKind::DynArray:
+    case TypeKind::Variant:
+    case TypeKind::Builtin:
+        _output->insert(_currentOffset, ptrPrefix);
+        writeType<isOnboard>(type->pointee());
+        _output->insert(_currentOffset, ' ');
+        _output->insert(_currentOffset, constPrefix);
+        break;
+    case TypeKind::Reference:
+    case TypeKind::Array:
+    case TypeKind::Function:
+    case TypeKind::Generic:
+    case TypeKind::GenericParameter:
+    case TypeKind::Imported:
+    case TypeKind::Alias:
+        _output->insert(_currentOffset, ptrPrefix);
+        _output->insert(_currentOffset, constPrefix);
+        _output->insert(_currentOffset, ' ');
+        writeType<isOnboard>(type->pointee());
+        break;
+    }
 }
 
 void TypeReprGen::writeOnboardTypeName(const Type* type)

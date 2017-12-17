@@ -54,6 +54,11 @@ void StringBuilder::insert(std::size_t i, bmcl::StringView view)
     _output.insert(i, view.begin(), view.size());
 }
 
+void StringBuilder::insert(std::size_t i, char c)
+{
+    _output.insert(_output.begin() + i, c);
+}
+
 void StringBuilder::resize(std::size_t size)
 {
     _output.resize(size);
