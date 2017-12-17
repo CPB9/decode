@@ -4,6 +4,7 @@
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
 #include "decode/generator/SrcBuilder.h"
+#include "decode/generator/Utils.h"
 
 namespace decode {
 
@@ -60,32 +61,6 @@ private:
     SrcBuilder* _dest;
 };
 
-class SimpleInlineFieldInspector : public InlineFieldInspector<SimpleInlineFieldInspector> {
-public:
-    SimpleInlineFieldInspector(SrcBuilder* dest)
-        : InlineFieldInspector<SimpleInlineFieldInspector>(dest)
-        , _current(nullptr)
-    {
-    }
-
-    void beginField(const Field* field)
-    {
-        _current = field;
-    }
-
-    void endField(const Field*)
-    {
-    }
-
-    bmcl::StringView currentFieldName() const
-    {
-        return _current->name();
-    }
-
-private:
-    const Field* _current;
-};
-
 class InlineStructInspector : public InlineFieldInspector<InlineStructInspector> {
 public:
     InlineStructInspector(SrcBuilder* dest, bmcl::StringView name = bmcl::StringView::empty())
@@ -98,6 +73,42 @@ public:
     void beginField(const Field* field)
     {
         _argName.append(field->name().begin(), field->name().end());
+    }
+
+    void endField(const Field*)
+    {
+        _argName.resize(_argSize);
+    }
+
+    void setArgName(bmcl::StringView name)
+    {
+        _argName.clear();
+        _argName.append(name);
+        _argSize = name.size();
+    }
+
+    bmcl::StringView currentFieldName() const
+    {
+        return _argName.view();
+    }
+
+private:
+    StringBuilder _argName;
+    std::size_t _argSize;
+};
+
+class WrappingInlineStructInspector : public InlineFieldInspector<WrappingInlineStructInspector> {
+public:
+    WrappingInlineStructInspector(SrcBuilder* dest, bmcl::StringView name = bmcl::StringView::empty())
+        : InlineFieldInspector<WrappingInlineStructInspector>(dest)
+        , _argName(name.begin(), name.size())
+        , _argSize(name.size())
+    {
+    }
+
+    void beginField(const Field* field)
+    {
+        derefPassedVarNameIfRequired(field->type(), field->name(), &_argName);
     }
 
     void endField(const Field*)

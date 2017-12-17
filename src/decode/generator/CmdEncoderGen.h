@@ -25,12 +25,9 @@ public:
     CmdEncoderGen(SrcBuilder* output);
     ~CmdEncoderGen();
 
-    void generateHeader(ComponentMap::ConstRange comps); //TODO: make generic
     void generateSource(ComponentMap::ConstRange comps);
 
 private:
-    void appendEncoderPrototype(const Component* comp, const Function* func);
-
     SrcBuilder* _output;
     InlineTypeInspector _inlineSer;
 };

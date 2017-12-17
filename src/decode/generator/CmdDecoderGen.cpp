@@ -10,6 +10,7 @@
 #include "decode/ast/Function.h"
 #include "decode/ast/Component.h"
 #include "decode/generator/TypeReprGen.h"
+#include "decode/generator/FuncPrototypeGen.h"
 
 namespace decode {
 
@@ -47,27 +48,12 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->endIncludeGuard();
 }
 
-void CmdDecoderGen::appendFunctionPrototype(unsigned componenNum, unsigned cmdNum)
-{
-    _output->append("PhotonError ");
-    appendFunctionName(componenNum, cmdNum);
-    _output->append("(PhotonReader* src, PhotonWriter* dest)");
-}
-
-void CmdDecoderGen::appendFunctionName(unsigned componenNum, unsigned cmdNum)
-{
-    _output->append("decodeCmd");
-    _output->appendNumericValue(componenNum);
-    _output->append('_');
-    _output->appendNumericValue(cmdNum);
-}
-
 void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 {
-    _output->appendOnboardIncludePath("CmdDecoder.Private");
+    _output->appendOnboardIncludePath("CmdDecoder");
     _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
-    _output->append("#define _PHOTON_FNAME \"CmdDecoder.Private.c\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"CmdDecoder.c\"\n\n");
 
     for (const Component* it : comps) {
         _output->appendModIfdef(it->moduleName());
@@ -75,16 +61,14 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendEndif();
     }
 
-    for (const Component* it : comps) {
-        if (!it->hasCmds()) {
+    for (const Component* comp : comps) {
+        if (!comp->hasCmds()) {
             continue;
         }
-        std::size_t cmdNum = 0;
-        _output->appendModIfdef(it->moduleName());
+        _output->appendModIfdef(comp->moduleName());
         _output->appendEol();
-        for (const Function* jt : it->cmdsRange()) {
-            generateFunc(it, jt, it->number(), cmdNum);
-            cmdNum++;
+        for (const Command* cmd : comp->cmdsRange()) {
+            generateDecoder(comp, cmd);
             _output->appendEol();
             _output->appendEol();
         }
@@ -98,36 +82,35 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 
 void CmdDecoderGen::appendMainFunctionPrototype()
 {
-    _output->append("PhotonError Photon_ExecCmd(uint8_t compNum, uint8_t cmdNum, PhotonReader* src, PhotonWriter* dest)");
+    _output->append("PhotonError Photon_DeserializeAndExecCmd(uint8_t compNum, uint8_t cmdNum, PhotonReader* src, PhotonWriter* dest)");
 }
 
 void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
 {
+    FuncPrototypeGen prototypeGen(_output);
     appendMainFunctionPrototype();
-    _output->append("\n{\n");
-    _output->append("    switch (compNum) {\n");
-    for (const Component* it : comps) {
-        if (!it->hasCmds()) {
+    _output->append("\n{\n"
+                    "    switch (compNum) {\n");
+    for (const Component* comp : comps) {
+        if (!comp->hasCmds()) {
             continue;
         }
-        _output->appendModIfdef(it->moduleName());
+        _output->appendModIfdef(comp->moduleName());
 
         _output->append("    case ");
-        _output->appendNumericValue(it->number());
+        _output->appendNumericValue(comp->number());
         _output->append(": {\n");
 
         _output->append("        switch (cmdNum) {\n");
 
-        std::size_t cmdNum = 0;
-        for (const Function* func : it->cmdsRange()) {
-            (void)func;
+        for (const Command* cmd : comp->cmdsRange()) {
+            (void)cmd;
             _output->append("        case ");
-            _output->appendNumericValue(cmdNum);
+            _output->appendNumericValue(cmd->number());
             _output->append(":\n");
             _output->append("            return ");
-            appendFunctionName(it->number(), cmdNum);
+            prototypeGen.appendCmdDecoderFunctionName(comp, cmd);
             _output->append("(src, dest);\n");
-            cmdNum++;
         }
         _output->append("        default:\n");
         _output->append("            PHOTON_CRITICAL(\"Recieved invalid cmd id\");\n");
@@ -217,18 +200,18 @@ void CmdDecoderGen::writeReturnOp(const Type* type)
     }
 }
 
-void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, unsigned componenNum, unsigned cmdNum)
+void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
 {
-    const FunctionType* ftype = func->type();
-    _output->append("static ");
-    appendFunctionPrototype(componenNum, cmdNum);
+    FuncPrototypeGen prototypeGen(_output);
+    const FunctionType* ftype = cmd->type();
+    prototypeGen.appendCmdDecoderFunctionPrototype(comp, cmd);
     _output->append("\n{\n");
 
-    if (!func->type()->hasArguments()) {
+    if (!cmd->type()->hasArguments()) {
         _output->append("    (void)src;\n");
     }
     TypeReprGen reprGen(_output);
-    foreachParam(func, [&](const Field* field, bmcl::StringView name) {
+    foreachParam(cmd, [&](const Field* field, bmcl::StringView name) {
         _output->append("    ");
         reprGen.genOnboardTypeRepr(field->type(), name);
         _output->append(";\n");
@@ -246,16 +229,14 @@ void CmdDecoderGen::generateFunc(const Component* comp, const Function* func, un
 
 
     _paramInspector.reset();
-    _paramInspector.inspect<true, false>(func->fieldsRange(), &_inlineInspector);
+    _paramInspector.inspect<true, false>(cmd->fieldsRange(), &_inlineInspector);
     _output->appendEol();
 
     //TODO: gen command call
-    _output->append("    PHOTON_TRY_MSG(Photon");
-    _output->appendWithFirstUpper(comp->moduleName());
-    _output->append("_");
-    _output->appendWithFirstUpper(func->name());
+    _output->append("    PHOTON_TRY_MSG(");
+    prototypeGen.appendCmdHandlerFunctionName(comp, cmd);
     _output->append("(");
-    foreachParam(func, [this](const Field* field, bmcl::StringView name) {
+    foreachParam(cmd, [this](const Field* field, bmcl::StringView name) {
         (void)field;
         writePointerOp(field->type());
         _output->append(name);

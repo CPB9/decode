@@ -56,8 +56,12 @@ private:
     void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
     void appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name);
-    void appendFunctionPrototypes(const Component* comp);
+    void appendImplPrototypes(const Component* comp);
     void appendCommandPrototypes(const Component* comp);
+    void appendCmdEncoderPrototypes(const Component* comp);
+    void appendCmdDecoderPrototypes(const Component* comp);
+    void appendStatusEncoderPrototypes(const Component* comp);
+    void appendStatusDecoderPrototypes(const Component* comp);
     void appendEventPrototypes(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
 

@@ -32,7 +32,6 @@ public:
     void generateStatusDecoderHeader(const Project* project);
     void generateStatusDecoderSource(const Project* project);
 
-    void generateStatusEncoderHeader(const Project* project);
     void generateStatusEncoderSource(const Project* project);
 
     void generateEventEncoderSource(const Project* project);

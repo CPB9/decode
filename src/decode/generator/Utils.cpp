@@ -49,7 +49,7 @@ void derefPassedVarNameIfRequired(const Type* type, bmcl::StringView name, Strin
     case TypeKind::Struct:
     case TypeKind::Variant:
     case TypeKind::GenericInstantiation:
-        dest->append("(*");
+        dest->prepend("(*");
         dest->append(name);
         dest->append(")");
         return;

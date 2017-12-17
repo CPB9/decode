@@ -14,6 +14,7 @@
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/TypeDependsCollector.h"
 #include "decode/generator/Utils.h"
+#include "decode/generator/FuncPrototypeGen.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/parser/Containers.h"
@@ -32,30 +33,6 @@ StatusEncoderGen::StatusEncoderGen(SrcBuilder* output)
 
 StatusEncoderGen::~StatusEncoderGen()
 {
-}
-
-void StatusEncoderGen::generateStatusEncoderHeader(const Project* project)
-{
-    _output->startIncludeGuard("PRIVATE", "STATUS_ENCODER");
-    _output->appendEol();
-
-    _output->appendOnboardIncludePath("core/Error");
-    _output->appendOnboardIncludePath("core/Writer");
-    _output->appendEol();
-    _output->startCppGuard();
-    _output->appendEol();
-
-    for (const ComponentAndMsg& msg : project->package()->statusMsgs()) {
-        _output->appendModIfdef(msg.component->moduleName());
-        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), msg.msg.get());
-        _output->append(";\n");
-        _output->appendEndif();
-    }
-
-    _output->appendEol();
-    _output->endCppGuard();
-    _output->appendEol();
-    _output->endIncludeGuard();
 }
 
 void StatusEncoderGen::generateStatusDecoderHeader(const Project* project)
@@ -167,11 +144,11 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
         includes.clear();
     }
     _output->appendEol();
-    _output->append("#define _PHOTON_FNAME \"StatusEncoder.Private.c\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"StatusEncoder.c\"\n\n");
 
     for (const ComponentAndMsg& msg : project->package()->statusMsgs()) {
         _output->appendModIfdef(msg.component->moduleName());
-        _prototypeGen.appendStatusMessageGenFuncDecl(msg.component.get(), msg.msg.get());
+        _prototypeGen.appendStatusEncoderFunctionPrototype(msg.component.get(), msg.msg.get());
         _output->append("\n{\n");
 
         for (const StatusRegexp* part : msg.msg->partsRange()) {
@@ -188,12 +165,12 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
 
 void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 {
-    _output->append("#include \"photon/StatusDecoder.Private.h\"\n\n");
+    _output->append("#include \"photon/StatusDecoder.h\"\n\n");
     _output->appendOnboardIncludePath("core/Try");
     _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
 
-    _output->append("#define _PHOTON_FNAME \"StatusDecoder.Private.c\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"StatusDecoder.c\"\n\n");
 
     for (const Component* comp : project->package()->components()) {
         if (!comp->hasStatuses()) {
@@ -202,14 +179,9 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
         _output->appendSourceModIfdef(comp->moduleName());
 
         for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("static PhotonError ");
-            _output->append("decode");
-            _output->appendWithFirstUpper(comp->moduleName());
-            _output->append("Msg");
-            _output->appendNumericValue(msg->number());
-            _output->append("(PhotonReader* src, Photon");
-            _output->appendWithFirstUpper(comp->moduleName());
-            _output->append("* dest)\n{\n");
+            _prototypeGen.appendStatusDecoderFunctionPrototype(comp, msg);
+
+            _output->append("\n{\n");
 
             for (const StatusRegexp* part : msg->partsRange()) {
                 SrcBuilder currentField("(*dest)");
@@ -232,10 +204,9 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
             _output->append("    case ");
             _output->appendNumericValue(msg->number());
             _output->append(":\n");
-            _output->append("        return decode");
-            _output->appendWithFirstUpper(comp->moduleName());
-            _output->append("Msg");
-            _output->appendNumericValue(msg->number());
+            _output->append("        return ");
+
+            _prototypeGen.appendStatusDecoderFunctionName(comp, msg);
             _output->append("(src, dest);\n");
         }
         _output->append("    }\n");
@@ -408,7 +379,7 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         }
         _output->appendModIfdef(comp->moduleName());
         for (const EventMsg* msg : comp->eventsRange()) {
-            _prototypeGen.appendEventFuncDecl(comp, msg, &reprGen);
+            _prototypeGen.appendEventEncoderFuncPrototype(comp, msg, &reprGen);
             _output->append("\n{\n    PhotonWriter* dest = PhotonTm_BeginEventMsg(");
             _output->appendNumericValue(comp->number());
             _output->append(", ");

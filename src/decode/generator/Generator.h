@@ -71,7 +71,9 @@ private:
     bool dumpIfNotEmpty(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
     bool dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath);
 
-    void appendBuiltinSources(bmcl::StringView ext);
+    void appendBuiltinHeaders();
+    void appendBuiltinSources();
+    void appendBuiltins(bmcl::ArrayView<bmcl::StringView> names, bmcl::StringView ext);
 
     SrcBuilder _onboardPhotonPath;
     SrcBuilder _gcPhotonPath;

@@ -280,12 +280,12 @@ template <typename T, typename F>
 void OnboardTypeSourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 {
     _output->appendEol();
-    _prototypeGen.appendSerializerFuncDecl(_baseType);
+    _prototypeGen.appendTypeSerializerFunctionPrototype(_baseType);
     _output->append("\n{\n");
     (this->*serGen)(type);
     _output->append("    return PhotonError_Ok;\n}\n");
     _output->appendEol();
-    _prototypeGen.appendDeserializerFuncDecl(_baseType);
+    _prototypeGen.appendTypeDeserializerFunctionPrototype(_baseType);
     _output->append("\n{\n");
     (this->*deserGen)(type);
     _output->append("    return PhotonError_Ok;\n"
@@ -306,12 +306,12 @@ bool OnboardTypeSourceGen::visitDynArrayType(const DynArrayType* type)
     _output->append("#define _PHOTON_FNAME \"");
     _output->append(path.result());
     _output->append(".gen.c\"\n\n");
-    _prototypeGen.appendSerializerFuncDecl(type);
+    _prototypeGen.appendTypeSerializerFunctionPrototype(type);
     _output->append("\n{\n");
     appendDynArraySerializer(type);
     _output->append("    return PhotonError_Ok;\n}\n");
     _output->appendEol();
-    _prototypeGen.appendDeserializerFuncDecl(type);
+    _prototypeGen.appendTypeDeserializerFunctionPrototype(type);
     _output->append("\n{\n");
     appendDynArrayDeserializer(type);
     _output->append("    return PhotonError_Ok;\n"

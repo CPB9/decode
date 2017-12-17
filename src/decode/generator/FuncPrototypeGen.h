@@ -28,14 +28,23 @@ public:
     FuncPrototypeGen(SrcBuilder* output);
     ~FuncPrototypeGen();
 
-    void appendEventFuncDecl(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen);
-    void appendCmdFuncDecl(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
-    void appendDeserializerFuncDecl(const Type* type);
-    void appendSerializerFuncDecl(const Type* type);
-    void appendStatusMessageGenFuncDecl(const Component* comp, const StatusMsg* msg);
-    void appendStatusMessageGenFuncName(const Component* comp, const StatusMsg* msg);
+    void appendCmdDecoderFunctionPrototype(const Component* comp, const Command* cmd);
+    void appendCmdDecoderFunctionName(const Component* comp, const Command* cmd);
+    void appendCmdEncoderFunctionPrototype(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
+    void appendEventEncoderFuncPrototype(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen);
+    void appendCmdHandlerFunctionProrotype(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
+    void appendCmdHandlerFunctionName(const Component* comp, const Command* cmd);
+    void appendTypeDeserializerFunctionPrototype(const Type* type);
+    void appendTypeSerializerFunctionPrototype(const Type* type);
+    void appendStatusEncoderFunctionPrototype(const Component* comp, const StatusMsg* msg);
+    void appendStatusEncoderFunctionName(const Component* comp, const StatusMsg* msg);
+    void appendStatusDecoderFunctionPrototype(const Component* comp, const StatusMsg* msg);
+    void appendStatusDecoderFunctionName(const Component* comp, const StatusMsg* msg);
 
 private:
+    template <typename T>
+    void appendWrappedArgs(T range, TypeReprGen* reprGen);
+
     SrcBuilder* _output;
 };
 

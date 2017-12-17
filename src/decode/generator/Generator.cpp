@@ -72,7 +72,7 @@ bool Generator::generateTmPrivate(const Package* package)
         _output.appendIndent();
         _output.append("{");
         _output.append(".func = ");
-        prototypeGen.appendStatusMessageGenFuncName(msg.component.get(), msg.msg.get());
+        prototypeGen.appendStatusEncoderFunctionName(msg.component.get(), msg.msg.get());
         _output.append(", .compNum = ");
         _output.appendNumericValue(msg.component->number());
         _output.append(", .msgNum = ");
@@ -90,7 +90,7 @@ bool Generator::generateTmPrivate(const Package* package)
 
     _output.append("#define _PHOTON_TM_MSG_COUNT sizeof(_messageDesc) / sizeof(_messageDesc[0])\n\n");
 
-    std::string tmDetailPath = _onboardPath + "/photon/Tm.Private.inc.c"; //FIXME: joinPath
+    std::string tmDetailPath = _onboardPath + "/photon/StatusTable.inc.c"; //FIXME: joinPath
     TRY(saveOutput(tmDetailPath.c_str(), _output.view(), _diag.get()));
     _output.clear();
 
@@ -131,11 +131,23 @@ void Generator::generateSerializedPackage(const Project* project, SrcBuilder* de
 
 }
 
-void Generator::appendBuiltinSources(bmcl::StringView ext)
+
+void Generator::appendBuiltinHeaders()
 {
-    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder.Private", "CmdEncoder.Private",
-                                                       "StatusEncoder.Private", "StatusDecoder.Private", "EventEncoder.Private"};
-    for (bmcl::StringView str : builtin) {
+    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder", "StatusDecoder"};
+    appendBuiltins(builtin, ".h");
+}
+
+void Generator::appendBuiltinSources()
+{
+    std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder", "CmdEncoder",
+                                                       "StatusEncoder", "StatusDecoder", "EventEncoder"};
+    appendBuiltins(builtin, ".c");
+}
+
+void Generator::appendBuiltins(bmcl::ArrayView<bmcl::StringView> names, bmcl::StringView ext)
+{
+    for (bmcl::StringView str : names) {
         _output.append("#include \"photon/");
         _output.append(str);
         _output.append(ext);
@@ -297,7 +309,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
         _output.appendEol();
 
-        appendBuiltinSources(".h");
+        appendBuiltinHeaders();
         _output.appendEol();
 
         appendBundledSources(dev, ".h");
@@ -324,7 +336,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         }
         _output.appendEol();
 
-        appendBuiltinSources(".c");
+        appendBuiltinSources();
         _output.appendEol();
 
         appendBundledSources(dev, ".c");
@@ -362,10 +374,10 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     _gcPhotonPath.result() = joinPath(_gcPath, "photon");
     TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
 
-    SrcBuilder dest;
-    dest.result().reserve(1024 * 1024);
+    SrcBuilder packageC;
+    packageC.result().reserve(1024 * 1024);
     _output.result().reserve(1024 * 1024);
-    auto future = std::async(std::launch::async, &Generator::generateSerializedPackage, project, &dest);
+    auto future = std::async(std::launch::async, &Generator::generateSerializedPackage, project, &packageC);
 
     _onboardPhotonPath.append('/'); //FIXME: remove
     _gcPhotonPath.append('/'); //FIXME: remove
@@ -393,8 +405,8 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     TRY(dumpIfNotEmpty("Interface", ".hpp", &_gcPhotonPath));
 
     future.wait();
-    std::string packageDetailPath = _onboardPath + "/photon/Package.Private.inc.c"; //FIXME: joinPath
-    TRY(saveOutput(packageDetailPath.c_str(), dest.view(), _diag.get()));
+    std::string packageDetailPath = _onboardPath + "/photon/Package.inc.c"; //FIXME: joinPath
+    TRY(saveOutput(packageDetailPath.c_str(), packageC.view(), _diag.get()));
 
     _output.resize(0);
     _onboardHgen.reset();
@@ -429,22 +441,17 @@ bool Generator::generateDynArrays()
 bool Generator::generateStatusMessages(const Project* project)
 {
     StatusEncoderGen gen(&_output);
-    gen.generateStatusEncoderHeader(project);
-    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".h", &_onboardPhotonPath));
-
     gen.generateStatusEncoderSource(project);
-    TRY(dumpIfNotEmpty("StatusEncoder.Private", ".c", &_onboardPhotonPath));
+    TRY(dump("StatusEncoder", ".c", &_onboardPhotonPath));
 
     gen.generateStatusDecoderHeader(project);
-    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".h", &_onboardPhotonPath));
+    TRY(dump("StatusDecoder", ".h", &_onboardPhotonPath));
 
     gen.generateStatusDecoderSource(project);
-    TRY(dumpIfNotEmpty("StatusDecoder.Private", ".c", &_onboardPhotonPath));
+    TRY(dump("StatusDecoder", ".c", &_onboardPhotonPath));
 
     gen.generateEventEncoderSource(project);
-    TRY(dumpIfNotEmpty("EventEncoder.Private", ".c", &_onboardPhotonPath));
-
-    TRY(dump("EventEncoder.Private", ".h", &_onboardPhotonPath));
+    TRY(dump("EventEncoder", ".c", &_onboardPhotonPath));
 
     std::size_t pathSize = _gcPhotonPath.result().size();
     _gcPhotonPath.append("_msgs_");
@@ -472,17 +479,14 @@ bool Generator::generateCommands(const Package* package)
 {
     CmdDecoderGen decGen(&_output);
     decGen.generateHeader(package->components());
-    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".h", &_onboardPhotonPath));
+    TRY(dump("CmdDecoder", ".h", &_onboardPhotonPath));
 
     decGen.generateSource(package->components());
-    TRY(dumpIfNotEmpty("CmdDecoder.Private", ".c", &_onboardPhotonPath));
+    TRY(dump("CmdDecoder", ".c", &_onboardPhotonPath));
 
     CmdEncoderGen encGen(&_output);
-    encGen.generateHeader(package->components());
-    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".h", &_onboardPhotonPath));
-
     encGen.generateSource(package->components());
-    TRY(dumpIfNotEmpty("CmdEncoder.Private", ".c", &_onboardPhotonPath));
+    TRY(dump("CmdEncoder", ".c", &_onboardPhotonPath));
 
     return true;
 }

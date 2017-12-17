@@ -23,6 +23,7 @@ namespace decode {
 struct ComponentAndMsg;
 class TypeReprGen;
 class Function;
+class Command;
 class SrcBuilder;
 class Type;
 
@@ -70,15 +71,13 @@ public:
     void generateSource(ComponentMap::ConstRange comps);
 
 private:
-    void appendFunctionPrototype(unsigned componenNum, unsigned cmdNum);
     void appendMainFunctionPrototype();
-    void appendFunctionName(unsigned componenNum, unsigned cmdNum);
 
     template <typename C>
     void foreachParam(const Function* func, C&& callable);
 
-    void generateFunc(const Component* comp, const Function* func, unsigned componenNum, unsigned cmdNum);
     void generateMainFunc(ComponentMap::ConstRange comps);
+    void generateDecoder(const Component* comp, const Command* cmd);
 
     void writePointerOp(const Type* type);
     void writeReturnOp(const Type* type);

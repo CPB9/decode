@@ -86,23 +86,30 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     appendIncludesAndFwds(comp);
     appendCommonIncludePaths();
 
+    _output->append("/*component id*/\n");
     _output->append("#define PHOTON_");
     _output->appendUpper(comp->name());
     _output->append("_COMPONENT_ID ");
     _output->appendNumericValue(comp->number());
-    _output->appendEol();
+    _output->append("\n\n");
 
-    for (const StatusMsg* msg : comp->statusesRange()) {
-        appendComponentVarDefine(comp, msg, "_STATUS_");
-    }
-    for (const EventMsg* msg : comp->eventsRange()) {
-        appendComponentVarDefine(comp, msg, "_EVENT_");
-    }
+    _output->append("/*cmd ids*/\n");
     for (const Command* func : comp->cmdsRange()) {
         appendComponentVarDefine(comp, func, "_CMD_");
     }
     _output->appendEol();
+    _output->append("/*status ids*/\n");
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        appendComponentVarDefine(comp, msg, "_STATUS_");
+    }
+    _output->appendEol();
+    _output->append("/*event ids*/\n");
+    for (const EventMsg* msg : comp->eventsRange()) {
+        appendComponentVarDefine(comp, msg, "_EVENT_");
+    }
+    _output->appendEol();
 
+    _output->append("/*component state*/\n");
     _typeDefGen.genComponentDef(comp);
     if (comp->hasParams()) {
         _output->append("extern Photon");
@@ -114,10 +121,17 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
 
     appendImplBlockIncludes(comp);
     _output->startCppGuard();
-    appendFunctionPrototypes(comp);
+
+    _output->append("/**********************************IMPLEMENT***********************************/\n\n");
+    appendImplPrototypes(comp);
     appendCommandPrototypes(comp);
+    _output->append("/******************************************************************************/\n\n");
+
+    appendCmdEncoderPrototypes(comp);
+    appendCmdDecoderPrototypes(comp);
+    appendStatusEncoderPrototypes(comp);
+    appendStatusDecoderPrototypes(comp);
     appendEventPrototypes(comp);
-    appendSerializerFuncPrototypes(comp);
     _output->endCppGuard();
     endIncludeGuard();
 }
@@ -146,9 +160,9 @@ void OnboardTypeHeaderGen::appendSerializerFuncPrototypes(const Component*)
 
 void OnboardTypeHeaderGen::appendSerializerFuncPrototypes(const Type* type)
 {
-    _prototypeGen.appendSerializerFuncDecl(type);
+    _prototypeGen.appendTypeSerializerFunctionPrototype(type);
     _output->append(";\n");
-    _prototypeGen.appendDeserializerFuncDecl(type);
+    _prototypeGen.appendTypeDeserializerFunctionPrototype(type);
     _output->append(";\n\n");
 }
 
@@ -259,8 +273,9 @@ void OnboardTypeHeaderGen::appendIncludesAndFwds(const Type* topLevelType)
     appendIncludes(includePaths);
 }
 
-void OnboardTypeHeaderGen::appendFunctionPrototypes(const Component* comp)
+void OnboardTypeHeaderGen::appendImplPrototypes(const Component* comp)
 {
+    _output->append("/*impl*/\n");
     bmcl::OptionPtr<const ImplBlock> impl = comp->implBlock();
     if (impl.isNone()) {
         return;
@@ -292,14 +307,53 @@ void OnboardTypeHeaderGen::appendFunctionPrototypes(const NamedType* type)
     appendFunctionPrototypes(type, type->name());
 }
 
+void OnboardTypeHeaderGen::appendCmdEncoderPrototypes(const Component* comp)
+{
+    _output->append("/*cmd encoders*/\n");
+    TypeReprGen reprGen(_output);
+    for (const Command* cmd : comp->cmdsRange()) {
+        _prototypeGen.appendCmdEncoderFunctionPrototype(comp, cmd, &reprGen);
+        _output->append(";\n");
+    }
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendCmdDecoderPrototypes(const Component* comp)
+{
+    _output->append("/*cmd decoders*/\n");
+    for (const Command* cmd : comp->cmdsRange()) {
+        _prototypeGen.appendCmdDecoderFunctionPrototype(comp, cmd);
+        _output->append(";\n");
+    }
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendStatusEncoderPrototypes(const Component* comp)
+{
+    _output->append("/*status encoders*/\n");
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        _prototypeGen.appendStatusEncoderFunctionPrototype(comp, msg);
+        _output->append(";\n");
+    }
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendStatusDecoderPrototypes(const Component* comp)
+{
+    _output->append("/*status decoders*/\n");
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        _prototypeGen.appendStatusDecoderFunctionPrototype(comp, msg);
+        _output->append(";\n");
+    }
+    _output->appendEol();
+}
+
 void OnboardTypeHeaderGen::appendEventPrototypes(const Component* comp)
 {
-    if (!comp->hasEvents()) {
-        return;
-    }
+    _output->append("/*events*/\n");
     TypeReprGen reprGen(_output);
     for (const EventMsg* msg : comp->eventsRange()) {
-        _prototypeGen.appendEventFuncDecl(comp, msg, &reprGen);
+        _prototypeGen.appendEventEncoderFuncPrototype(comp, msg, &reprGen);
         _output->append(";\n");
     };
     _output->appendEol();
@@ -307,12 +361,10 @@ void OnboardTypeHeaderGen::appendEventPrototypes(const Component* comp)
 
 void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
 {
-    if (!comp->hasCmds()) {
-        return;
-    }
+    _output->append("/*cmd handlers*/\n");
     TypeReprGen reprGen(_output);
     for (const Command* cmd : comp->cmdsRange()) {
-        _prototypeGen.appendCmdFuncDecl(comp, cmd, &reprGen);
+        _prototypeGen.appendCmdHandlerFunctionProrotype(comp, cmd, &reprGen);
         _output->append(";\n");
     }
     _output->appendEol();
