@@ -454,24 +454,41 @@ bool Generator::generateStatusMessages(const Project* project)
     TRY(dump("EventEncoder", ".c", &_onboardPhotonPath));
 
     std::size_t pathSize = _gcPhotonPath.result().size();
-    _gcPhotonPath.append("_msgs_");
+    _gcPhotonPath.append("_statuses_");
     TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
     _gcPhotonPath.append('/');
 
-    GcStatusMsgGen msgGen(&_output);
+    //refact
+    GcMsgGen msgGen(&_output);
     SrcBuilder msgName;
     for (const Component* comp : project->package()->components()) {
         for (const StatusMsg* msg : comp->statusesRange()) {
             msgName.appendWithFirstUpper(comp->name());
-            msgName.append("Msg");
+            msgName.append("_");
             msgName.appendWithFirstUpper(msg->name());
-            msgGen.generateHeader(comp, msg);
+            msgGen.generateStatusHeader(comp, msg);
             TRY(dumpIfNotEmpty(msgName.view(), ".hpp", &_gcPhotonPath));
             msgName.clear();
         }
     }
     _gcPhotonPath.resize(pathSize);
 
+    _gcPhotonPath.append("_events_");
+    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    _gcPhotonPath.append('/');
+
+    for (const Component* comp : project->package()->components()) {
+        for (const EventMsg* msg : comp->eventsRange()) {
+            msgName.appendWithFirstUpper(comp->name());
+            msgName.append("_");
+            msgName.appendWithFirstUpper(msg->name());
+            msgGen.generateEventHeader(comp, msg);
+            TRY(dumpIfNotEmpty(msgName.view(), ".hpp", &_gcPhotonPath));
+            msgName.clear();
+        }
+    }
+
+    _gcPhotonPath.resize(pathSize);
     return true;
 }
 

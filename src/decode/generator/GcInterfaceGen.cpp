@@ -39,15 +39,22 @@ void GcInterfaceGen::generateHeader(const Package* package)
     includeGen.genGcIncludePaths(&depends);
     _output->appendEol();
 
-    for (const Ast* ast : package->modules()) {
-        if (ast->component().isNone()) {
-            continue;
-        }
-        const Component* comp = ast->component().unwrap();
+    for (const Component* comp : package->components()) {
         for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("#include \"photon/_msgs_/");
+            _output->append("#include \"photon/_statuses_/");
             _output->appendWithFirstUpper(comp->name());
-            _output->append("Msg");
+            _output->append("_");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(".hpp\"\n");
+        }
+    }
+    _output->appendEol();
+
+    for (const Component* comp : package->components()) {
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _output->append("#include \"photon/_events_/");
+            _output->appendWithFirstUpper(comp->name());
+            _output->append("_");
             _output->appendWithFirstUpper(msg->name());
             _output->append(".hpp\"\n");
         }
@@ -194,7 +201,7 @@ void GcInterfaceGen::appendTmMethods(const Component* comp, const StatusMsg* msg
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
     _output->append("(");
-    GcStatusMsgGen::genMsgType(comp, msg, _output);
+    GcMsgGen::genStatusMsgType(comp, msg, _output);
     _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");
     //TODO: validate msgs
     //_output->append("        if(!");
