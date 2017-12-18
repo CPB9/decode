@@ -61,7 +61,7 @@ private:
     bool generateCommands(const Package* package);
     bool generateTmPrivate(const Package* package);
     bool generateGenerics(const Package* package);
-    static void generateSerializedPackage(const Project* project, SrcBuilder* dest);
+    static void generateSerializedPackage(const Project* project, bmcl::Buffer* serialized, SrcBuilder* sourceCode);
     bool generateDeviceFiles(const Project* project);
     bool generateConfig(const Project* project);
 

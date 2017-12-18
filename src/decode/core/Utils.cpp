@@ -95,6 +95,11 @@ bool makeDirectory(const char* path, Diagnostics* diag)
 
 bool saveOutput(const char* path, bmcl::StringView output, Diagnostics* diag)
 {
+    return saveOutput(path, output.asBytes(), diag);
+}
+
+bool saveOutput(const char* path, bmcl::Bytes output, Diagnostics* diag)
+{
 #if defined(__linux__)
     int fd;
     while (true) {

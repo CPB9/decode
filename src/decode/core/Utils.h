@@ -25,6 +25,7 @@ bool doubleEq(double a, double b, unsigned int maxUlps = 4);
 
 bool makeDirectory(const char* path, Diagnostics* diag);
 bool saveOutput(const char* path, bmcl::StringView output, Diagnostics* diag);
+bool saveOutput(const char* path, bmcl::Bytes output, Diagnostics* diag);
 bool copyFile(const char* from, const char* to, Diagnostics* diag);
 
 }
