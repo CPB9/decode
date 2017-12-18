@@ -101,6 +101,49 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
     _output->append("#undef _PHOTON_FNAME\n");
 }
 
+static void appendInfix(SrcBuilder* dest, const StatusMsg*)
+{
+    dest->append("_StatusMsg_");
+}
+
+static void appendInfix(SrcBuilder* dest, const EventMsg*)
+{
+    dest->append("_EventMsg_");
+}
+
+static void appendPrototype(FuncPrototypeGen* dest, const Component* comp, const StatusMsg* msg)
+{
+    dest->appendStatusDecoderFunctionName(comp, msg);
+}
+
+static void appendPrototype(FuncPrototypeGen* dest, const Component* comp, const EventMsg* msg)
+{
+    dest->appendEventDecoderFunctionName(comp, msg);
+}
+
+template <typename T>
+void StatusEncoderGen::appendMsgSwitch(const Component* comp, const T* msg)
+{
+    _output->append("            case ");
+    _output->appendNumericValue(msg->number());
+    _output->append(": {\n"
+                    "                Photon");
+
+    _output->appendWithFirstUpper(comp->moduleName());
+    appendInfix(_output, msg);
+    _output->appendWithFirstUpper(msg->name());
+
+    _output->append(" msg;\n"
+                    "                PHOTON_TRY(");
+
+    appendPrototype(&_prototypeGen, comp, msg);
+
+    _output->append("(src, &msg));\n"
+                    "                handler(id, num, &msg, userData);\n"
+                    "                continue;\n"
+                    "            }\n");
+}
+
 void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 {
     _output->append("#include \"photon/StatusDecoder.h\"\n\n");
@@ -129,7 +172,6 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 
         for (const StatusMsg* msg : comp->statusesRange()) {
             _prototypeGen.appendStatusDecoderFunctionPrototype(comp, msg);
-
             _output->append("\n{\n");
 
             for (const StatusRegexp* part : msg->partsRange()) {
@@ -141,28 +183,18 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
             _output->append("    return PhotonError_Ok;\n}\n\n");
         }
 
-//         _output->append("static PhotonError decode");
-//         _output->appendWithFirstUpper(comp->moduleName());
-//         _output->append("Telemetry(PhotonReader* src, Photon");
-//         _output->appendWithFirstUpper(comp->moduleName());
-//         _output->append("* dest)\n{\n");
-//
-//         _output->append("    uint64_t id;\n");
-//         _output->append("    PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
-//         _output->append("    switch (id) {\n");
-//
-//         for (const StatusMsg* msg : comp->statusesRange()) {
-//             _output->append("    case ");
-//             _output->appendNumericValue(msg->number());
-//             _output->append(":\n");
-//             _output->append("        return ");
-//
-//             _prototypeGen.appendStatusDecoderFunctionName(comp, msg);
-//             _output->append("(src, dest);\n");
-//         }
-//         _output->append("    }\n");
-//
-//         _output->append("    return PhotonError_InvalidMessageId;\n}\n");
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _prototypeGen.appendEventDecoderFunctionPrototype(comp, msg);
+            _output->append("\n{\n");
+            for (const Field* part : msg->partsRange()) {
+                fieldName.assign("dest->");
+                fieldName.append(part->name());
+                _inlineInspector.genOnboardDeserializer(part->type(), ctx, fieldName.view());
+            }
+
+            _output->append("    return PhotonError_Ok;\n}\n\n");
+        }
+
         _output->appendEndif();
         _output->appendEol();
     }
@@ -185,32 +217,19 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
         _output->appendSourceModIfdef(comp->moduleName());
         _output->append("            switch (num) {\n");
         for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("            case ");
-            _output->appendNumericValue(msg->number());
-            _output->append(": {\n");
-
-            _output->append("                Photon");
-            _output->appendWithFirstUpper(comp->moduleName());
-            _output->append("_StatusMsg_");
-            _output->appendWithFirstUpper(msg->name());
-            _output->append(" msg;\n");
-
-            _output->append("                PHOTON_TRY(");
-            _prototypeGen.appendStatusDecoderFunctionName(comp, msg);
-            _output->append("(src, &msg));\n");
-            _output->append("                handler(id, num, &msg, userData);\n");
-
-
-            _output->append("                continue;\n");
-
-            _output->append("            }\n");
+            appendMsgSwitch(comp, msg);
+        }
+        for (const EventMsg* msg : comp->eventsRange()) {
+            appendMsgSwitch(comp, msg);
         }
 
-        _output->append("            default:\n                return PhotonError_InvalidMessageId;\n");
-        _output->append("            }\n");
-
-        _output->append("#else\n");
-        _output->append("            return PhotonError_InvalidComponentId;\n");
+        _output->append("            default:\n"
+                        "                PHOTON_CRITICAL(\"Recieved invalid message id\");\n"
+                        "                return PhotonError_InvalidMessageId;\n"
+                        "            }\n"
+                        "#else\n"
+                        "            PHOTON_CRITICAL(\"Recieved invalid component id\");\n"
+                        "            return PhotonError_InvalidComponentId;\n");
 
         _output->appendEndif();
         _output->append("        }\n");
@@ -218,9 +237,12 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 
     }
 
-    _output->append("        default:\n            return PhotonError_InvalidComponentId;\n        }\n");
-    _output->append("    }\n");
-    _output->append("    return PhotonError_Ok;\n}\n");
+    _output->append("        default:\n"
+                    "            PHOTON_CRITICAL(\"Recieved invalid component id\");\n"
+                    "            return PhotonError_InvalidComponentId;\n"
+                    "        }\n"
+                    "    }\n"
+                    "    return PhotonError_Ok;\n}\n");
     _output->appendEol();
 
     _output->append("#undef _PHOTON_FNAME\n");
@@ -351,7 +373,7 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         }
         _output->appendModIfdef(comp->moduleName());
         for (const EventMsg* msg : comp->eventsRange()) {
-            _prototypeGen.appendEventEncoderFuncPrototype(comp, msg, &reprGen);
+            _prototypeGen.appendEventEncoderFunctionPrototype(comp, msg, &reprGen);
             _output->append("\n{\n    PhotonWriter* dest = PhotonTm_BeginEventMsg(");
             _output->appendNumericValue(comp->number());
             _output->append(", ");

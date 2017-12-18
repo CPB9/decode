@@ -31,7 +31,9 @@ public:
     void appendCmdDecoderFunctionPrototype(const Component* comp, const Command* cmd);
     void appendCmdDecoderFunctionName(const Component* comp, const Command* cmd);
     void appendCmdEncoderFunctionPrototype(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
-    void appendEventEncoderFuncPrototype(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen);
+    void appendEventEncoderFunctionPrototype(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen);
+    void appendEventDecoderFunctionPrototype(const Component* comp, const EventMsg* msg);
+    void appendEventDecoderFunctionName(const Component* comp, const EventMsg* msg);
     void appendCmdHandlerFunctionProrotype(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
     void appendCmdHandlerFunctionName(const Component* comp, const Command* cmd);
     void appendTypeDeserializerFunctionPrototype(const Type* type);

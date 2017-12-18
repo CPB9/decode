@@ -66,6 +66,7 @@ private:
     void appendStatusEncoderPrototypes(const Component* comp);
     void appendStatusDecoderPrototypes(const Component* comp);
     void appendEventSenderPrototypes(const Component* comp);
+    void appendEventDecoderPrototypes(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
 
     template <typename T>

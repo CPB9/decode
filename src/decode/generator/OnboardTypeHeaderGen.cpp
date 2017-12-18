@@ -134,6 +134,7 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     appendStatusDecoderPrototypes(comp);
     appendEventSenderPrototypes(comp);
     appendEventStructs(comp);
+    appendEventDecoderPrototypes(comp);
     _output->endCppGuard();
     endIncludeGuard();
 }
@@ -402,7 +403,17 @@ void OnboardTypeHeaderGen::appendEventSenderPrototypes(const Component* comp)
     _output->append("/*event senders*/\n");
     TypeReprGen reprGen(_output);
     for (const EventMsg* msg : comp->eventsRange()) {
-        _prototypeGen.appendEventEncoderFuncPrototype(comp, msg, &reprGen);
+        _prototypeGen.appendEventEncoderFunctionPrototype(comp, msg, &reprGen);
+        _output->append(";\n");
+    };
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendEventDecoderPrototypes(const Component* comp)
+{
+    _output->append("/*event decoders*/\n");
+    for (const EventMsg* msg : comp->eventsRange()) {
+        _prototypeGen.appendEventDecoderFunctionPrototype(comp, msg);
         _output->append(";\n");
     };
     _output->appendEol();

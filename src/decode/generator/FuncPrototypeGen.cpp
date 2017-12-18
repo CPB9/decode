@@ -69,7 +69,7 @@ void FuncPrototypeGen::appendCmdEncoderFunctionPrototype(const Component* comp, 
     }
 }
 
-void FuncPrototypeGen::appendEventEncoderFuncPrototype(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen)
+void FuncPrototypeGen::appendEventEncoderFunctionPrototype(const Component* comp, const EventMsg* msg, TypeReprGen* reprGen)
 {
    _output->append("PhotonError Photon");
     _output->appendWithFirstUpper(comp->moduleName());
@@ -80,6 +80,26 @@ void FuncPrototypeGen::appendEventEncoderFuncPrototype(const Component* comp, co
     _output->append(")");
 }
 
+
+void FuncPrototypeGen::appendEventDecoderFunctionName(const Component* comp, const EventMsg* msg)
+{
+    _output->append("Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_DeserializeEvent_");
+    _output->appendWithFirstUpper(msg->name());
+}
+
+void FuncPrototypeGen::appendEventDecoderFunctionPrototype(const Component* comp, const EventMsg* msg)
+{
+    _output->append("PhotonError ");
+    appendEventDecoderFunctionName(comp, msg);
+    _output->append("(PhotonReader* src, ");
+    _output->append("Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_EventMsg_");
+    _output->appendWithFirstUpper(msg->name());
+    _output->append("* dest)");
+}
 
 void FuncPrototypeGen::appendCmdHandlerFunctionName(const Component* comp, const Command* cmd)
 {

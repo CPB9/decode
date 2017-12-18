@@ -38,6 +38,8 @@ public:
 
 private:
     void appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer);
+    template <typename T>
+    void appendMsgSwitch(const Component* comp, const T* msg);
 
     SrcBuilder* _output;
     InlineTypeInspector _inlineInspector;
