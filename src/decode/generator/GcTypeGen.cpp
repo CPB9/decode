@@ -448,7 +448,7 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
     InlineSerContext ctx;
     if (parent.isNone()) {
         appendSerPrefix(serType, parent);
-        builder.result().assign("self.");
+        builder.assign("self.");
         for (const Field* field : type->fieldsRange()) {
             builder.append(field->name());
             builder.append("()");

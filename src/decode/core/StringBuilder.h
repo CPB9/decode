@@ -35,6 +35,14 @@ public:
     void append(bmcl::StringView view);
 
     template <std::size_t N>
+    void assign(const char(&data)[N]);
+    void assign(char c);
+    void assign(const char* begin, const char* end);
+    void assign(const char* begin, std::size_t size);
+    void assign(const std::string& str);
+    void assign(bmcl::StringView view);
+
+    template <std::size_t N>
     void prepend(const char(&data)[N]);
     void prepend(const char* begin, std::size_t size);
     void prepend(bmcl::StringView view);
@@ -47,6 +55,13 @@ public:
     void resize(std::size_t size);
 
     bmcl::StringView view() const;
+    std::size_t size() const;
+    const char* c_str() const;
+    bool isEmpty() const;
+    bool empty() const;
+
+    char& back();
+    char back() const;
 
     template <typename... A>
     void appendSeveral(std::size_t n, A&&... args);
@@ -76,9 +91,6 @@ public:
 
     void removeFromBack(std::size_t size);
 
-    const std::string& result() const;
-    std::string& result();
-
 private:
     template <typename T>
     std::size_t appendNumericValueFormat(T value, const char* format);
@@ -100,6 +112,14 @@ void StringBuilder::append(const char(&data)[N])
     static_assert(N != 0, "Static string cannot be empty");
     assert(data[N - 1] == '\0');
     append(data, N - 1);
+}
+
+template <std::size_t N>
+void StringBuilder::assign(const char(&data)[N])
+{
+    static_assert(N != 0, "Static string cannot be empty");
+    assert(data[N - 1] == '\0');
+    assign(data, N - 1);
 }
 
 template <std::size_t N>

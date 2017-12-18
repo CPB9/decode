@@ -319,7 +319,7 @@ bool Generator::generateDeviceFiles(const Project* project)
         path.append("/Photon"); //FIXME: joinPath
         path.appendWithFirstUpper(dev->name());
         path.append(".h");
-        TRY(saveOutput(path.result().c_str(), _output.view(), _diag.get()));
+        TRY(saveOutput(path.c_str(), _output.view(), _diag.get()));
         _output.clear();
 
         //src
@@ -341,8 +341,8 @@ bool Generator::generateDeviceFiles(const Project* project)
 
         appendBundledSources(dev, ".c");
 
-        path.result().back() = 'c';
-        TRY(saveOutput(path.result().c_str(), _output.view(), _diag.get()));
+        path.back() = 'c';
+        TRY(saveOutput(path.c_str(), _output.view(), _diag.get()));
         _output.clear();
     }
     return true;
@@ -369,14 +369,14 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     TRY(makeDirectory(_onboardPath.c_str(), _diag.get()));
     _gcPath = joinPath(_savePath, "groundcontrol");
     TRY(makeDirectory(_gcPath.c_str(), _diag.get()));
-    _onboardPhotonPath.result() = joinPath(_onboardPath, "photon");
-    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
-    _gcPhotonPath.result() = joinPath(_gcPath, "photon");
-    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    _onboardPhotonPath.assign(joinPath(_onboardPath, "photon"));
+    TRY(makeDirectory(_onboardPhotonPath.c_str(), _diag.get()));
+    _gcPhotonPath.assign(joinPath(_gcPath, "photon"));
+    TRY(makeDirectory(_gcPhotonPath.c_str(), _diag.get()));
 
     SrcBuilder packageC;
-    packageC.result().reserve(1024 * 1024);
-    _output.result().reserve(1024 * 1024);
+    packageC.reserve(1024 * 1024);
+    _output.reserve(1024 * 1024);
     auto future = std::async(std::launch::async, &Generator::generateSerializedPackage, project, &packageC);
 
     _onboardPhotonPath.append('/'); //FIXME: remove
@@ -430,7 +430,7 @@ bool Generator::generateDynArrays(const Package* package)
     }
 
     _onboardPhotonPath.append("_dynarray_");
-    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_onboardPhotonPath.c_str(), _diag.get()));
     _onboardPhotonPath.append('/');
 
     for (const auto& it : dynArrays) {
@@ -460,9 +460,9 @@ bool Generator::generateStatusMessages(const Project* project)
     gen.generateEventEncoderSource(project);
     TRY(dump("EventEncoder", ".c", &_onboardPhotonPath));
 
-    std::size_t pathSize = _gcPhotonPath.result().size();
+    std::size_t pathSize = _gcPhotonPath.size();
     _gcPhotonPath.append("_statuses_");
-    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_gcPhotonPath.c_str(), _diag.get()));
     _gcPhotonPath.append('/');
 
     //refact
@@ -481,7 +481,7 @@ bool Generator::generateStatusMessages(const Project* project)
     _gcPhotonPath.resize(pathSize);
 
     _gcPhotonPath.append("_events_");
-    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_gcPhotonPath.c_str(), _diag.get()));
     _gcPhotonPath.append('/');
 
     for (const Component* comp : project->package()->components()) {
@@ -517,7 +517,7 @@ bool Generator::generateCommands(const Package* package)
 
 bool Generator::dumpIfNotEmpty(bmcl::StringView name, bmcl::StringView ext, StringBuilder* currentPath)
 {
-    if (!_output.result().empty()) {
+    if (!_output.empty()) {
         TRY(dump(name, ext, currentPath));
     }
     return true;
@@ -527,7 +527,7 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
 {
     currentPath->appendWithFirstUpper(name);
     currentPath->append(ext);
-    TRY(saveOutput(currentPath->result().c_str(), _output.view(), _diag.get()));
+    TRY(saveOutput(currentPath->c_str(), _output.view(), _diag.get()));
     currentPath->removeFromBack(name.size() + ext.size());
     _output.clear();
     return true;
@@ -536,11 +536,11 @@ bool Generator::dump(bmcl::StringView name, bmcl::StringView ext, StringBuilder*
 bool Generator::generateGenerics(const Package* package)
 {
     _onboardPhotonPath.append("_generic_");
-    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_onboardPhotonPath.c_str(), _diag.get()));
     _onboardPhotonPath.append('/');
 
     _gcPhotonPath.append("_generic_");
-    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_gcPhotonPath.c_str(), _diag.get()));
     _gcPhotonPath.append('/');
 
     SrcBuilder typeNameBuilder;
@@ -550,14 +550,14 @@ bool Generator::generateGenerics(const Package* package)
         for (const GenericInstantiationType* type : ast->genericInstantiationsRange()) {
             typeNameGen.genTypeName(type);
 
-            _onboardHgen->genTypeHeader(ast, type, typeNameBuilder.result());
-            TRY(dump(typeNameBuilder.result(), ".h", &_onboardPhotonPath));
+            _onboardHgen->genTypeHeader(ast, type, typeNameBuilder.view());
+            TRY(dump(typeNameBuilder.view(), ".h", &_onboardPhotonPath));
 
-            _onboardSgen->genTypeSource(type, typeNameBuilder.result());
-            TRY(dump(typeNameBuilder.result(), GEN_PREFIX ".c", &_onboardPhotonPath));
+            _onboardSgen->genTypeSource(type, typeNameBuilder.view());
+            TRY(dump(typeNameBuilder.view(), GEN_PREFIX ".c", &_onboardPhotonPath));
 
             gcTypeGen.generateHeader(type);
-            TRY(dump(typeNameBuilder.result(), ".hpp", &_gcPhotonPath));
+            TRY(dump(typeNameBuilder.view(), ".hpp", &_gcPhotonPath));
 
             typeNameBuilder.clear();
         }
@@ -570,11 +570,11 @@ bool Generator::generateGenerics(const Package* package)
 bool Generator::generateTypesAndComponents(const Ast* ast)
 {
     _onboardPhotonPath.append(ast->moduleName());
-    TRY(makeDirectory(_onboardPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_onboardPhotonPath.c_str(), _diag.get()));
     _onboardPhotonPath.append('/'); //FIXME: joinPath
 
     _gcPhotonPath.append(ast->moduleName());
-    TRY(makeDirectory(_gcPhotonPath.result().c_str(), _diag.get()));
+    TRY(makeDirectory(_gcPhotonPath.c_str(), _diag.get()));
     _gcPhotonPath.append('/'); //FIXME: joinPath
 
     SrcBuilder typeNameBuilder;
@@ -587,10 +587,10 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         if (type->typeKind() != TypeKind::Generic) {
             typeNameGen.genTypeName(type);
 
-            _onboardHgen->genTypeHeader(ast, type, typeNameBuilder.result());
+            _onboardHgen->genTypeHeader(ast, type, typeNameBuilder.view());
             TRY(dump(type->name(), ".h", &_onboardPhotonPath));
 
-            _onboardSgen->genTypeSource(type, typeNameBuilder.result());
+            _onboardSgen->genTypeSource(type, typeNameBuilder.view());
             TRY(dump(type->name(), GEN_PREFIX ".c", &_onboardPhotonPath));
 
             typeNameBuilder.clear();

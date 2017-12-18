@@ -80,7 +80,7 @@ void GcMsgGen::generateStatusHeader(const Component* comp, const StatusMsg* msg)
 
     InlineTypeInspector inspector(_output);
     InlineSerContext ctx;
-    fieldName.result().assign("msg->");
+    fieldName.assign("msg->");
     for (const StatusRegexp* regexp : msg->partsRange()) {
         regexp->buildFieldName(&fieldName);
         inspector.inspect<false, false>(regexp->type(), ctx, fieldName.view());

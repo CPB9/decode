@@ -337,7 +337,7 @@ bool GcInterfaceGen::insertValidatedType(const Type* type)
     }
     SrcBuilder nameBuilder;
     appendTestedType(type, &nameBuilder);
-    auto pair = _validatedTypes.emplace(std::move(nameBuilder.result()), type);
+    auto pair = _validatedTypes.emplace(nameBuilder.view().toStdString(), type);
     return pair.second;
 }
 

@@ -39,6 +39,32 @@ void StringBuilder::append(const std::string& str)
     _output.append(str);
 }
 
+void StringBuilder::assign(char c)
+{
+    _output.resize(1);
+    _output[0] = c;
+}
+
+void StringBuilder::assign(bmcl::StringView view)
+{
+    assign(view.begin(), view.end());
+}
+
+void StringBuilder::assign(const char* begin, const char* end)
+{
+    _output.assign(begin, end);
+}
+
+void StringBuilder::assign(const char* begin, std::size_t size)
+{
+    _output.assign(begin, size);
+}
+
+void StringBuilder::assign(const std::string& str)
+{
+    _output.assign(str);
+}
+
 void StringBuilder::prepend(const char* begin, std::size_t size)
 {
     _output.insert(0, begin, size);
@@ -69,14 +95,34 @@ bmcl::StringView StringBuilder::view() const
     return bmcl::StringView(_output);
 }
 
-const std::string& decode::StringBuilder::result() const
+std::size_t StringBuilder::size() const
 {
-    return _output;
+    return _output.size();
 }
 
-std::string& decode::StringBuilder::result()
+const char* StringBuilder::c_str() const
 {
-    return _output;
+    return _output.c_str();
+}
+
+bool StringBuilder::isEmpty() const
+{
+    return _output.empty();
+}
+
+bool StringBuilder::empty() const
+{
+    return _output.empty();
+}
+
+char& StringBuilder::back()
+{
+    return _output.back();
+}
+
+char StringBuilder::back() const
+{
+    return _output.back();
 }
 
 void StringBuilder::clear()

@@ -22,8 +22,6 @@ public:
     TypeNameGen(SrcBuilder* dest);
     ~TypeNameGen();
 
-    static std::string genTypeNameAsString(const Type* type);
-
     void genTypeName(const Type* type);
 
     bool visitBuiltinType(const BuiltinType* type);

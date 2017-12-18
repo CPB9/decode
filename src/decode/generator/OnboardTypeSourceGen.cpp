@@ -38,7 +38,7 @@ void OnboardTypeSourceGen::appendIncludes(bmcl::StringView modName)
     _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"");
-    _output->append(path.result());
+    _output->append(path.view());
     _output->append(".gen.c\"\n");
 }
 
@@ -297,14 +297,15 @@ void OnboardTypeSourceGen::genSource(const T* type, F&& serGen, F&& deserGen)
 bool OnboardTypeSourceGen::visitDynArrayType(const DynArrayType* type)
 {
     _output->appendPragmaOnce(); //HACK
-    StringBuilder path("_dynarray_/");
-    path.append(TypeNameGen::genTypeNameAsString(type));
+    SrcBuilder path("_dynarray_/");
+    TypeNameGen gen(&path);
+    gen.genTypeName(type);
     _output->appendOnboardIncludePath(path.view());
     _output->appendOnboardIncludePath("core/Try");
     _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"");
-    _output->append(path.result());
+    _output->append(path.view());
     _output->append(".gen.c\"\n\n");
     _prototypeGen.appendTypeSerializerFunctionPrototype(type);
     _output->append("\n{\n");

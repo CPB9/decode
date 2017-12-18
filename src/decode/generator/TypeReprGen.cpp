@@ -170,7 +170,7 @@ void TypeReprGen::writeOnboardTypeName(const Type* type)
     _temp.append("Photon");
     TypeNameGen sng(&_temp);
     sng.genTypeName(type);
-    _output->insert(_currentOffset, _temp.result());
+    _output->insert(_currentOffset, _temp.view());
     _temp.clear();
 }
 
@@ -205,7 +205,7 @@ void TypeReprGen::writeNamed(const NamedType* type, const NamedType* origin, boo
             _temp.append(">");
         }
     }
-    _output->insert(_currentOffset, _temp.result());
+    _output->insert(_currentOffset, _temp.view());
     _temp.clear();
 }
 
@@ -215,12 +215,12 @@ void TypeReprGen::writeFunction(const FunctionType* type)
     _output->insert(_currentOffset, "(*");
     _output->append(")(");
     std::size_t oldOffset = _currentOffset;
-    _currentOffset = _output->result().size();
+    _currentOffset = _output->size();
     foreachList(type->argumentsRange(), [this](const Field* arg) {
         writeType<isOnboard>(arg->type());
     }, [this](const Field*) {
          _output->append(", ");
-         _currentOffset = _output->result().size();
+         _currentOffset = _output->size();
     });
     _currentOffset = oldOffset;
     _output->append(')');
@@ -339,14 +339,14 @@ void TypeReprGen::genGcTypeRepr(const Type* type, bmcl::StringView fieldName)
 template <bool isOnboard>
 void TypeReprGen::genTypeRepr(const Type* type)
 {
-    _currentOffset = _output->result().size();
+    _currentOffset = _output->size();
     writeType<isOnboard>(type);
 }
 
 template <bool isOnboard>
 void TypeReprGen::genTypeRepr(const Type* type, bmcl::StringView fieldName)
 {
-    _currentOffset = _output->result().size();
+    _currentOffset = _output->size();
     if (!fieldName.isEmpty()) {
         _output->append(' ');
     }

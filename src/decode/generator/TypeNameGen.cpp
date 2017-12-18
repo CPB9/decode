@@ -112,12 +112,4 @@ void TypeNameGen::genTypeName(const Type* type)
 {
     traverseType(type);
 }
-
-std::string TypeNameGen::genTypeNameAsString(const Type* type)
-{
-    SrcBuilder output;
-    TypeNameGen gen(&output);
-    gen.genTypeName(type);
-    return std::move(output.result());
-}
 }

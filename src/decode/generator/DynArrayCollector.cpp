@@ -30,7 +30,7 @@ bool DynArrayCollector::visitDynArrayType(const DynArrayType* dynArray)
     _dynArrayName.clear();
     TypeNameGen gen(&_dynArrayName);
     gen.genTypeName(dynArray);
-    _dest->emplace(_dynArrayName.result(), dynArray);
+    _dest->emplace(_dynArrayName.view().toStdString(), dynArray);
     return true;
 }
 }
