@@ -35,6 +35,14 @@ StatusEncoderGen::~StatusEncoderGen()
 {
 }
 
+static void appendTmDeserializerPrototype(SrcBuilder* dest)
+{
+
+    dest->append("PhotonError Photon_DeserializeTelemetry("
+                    "PhotonReader* src, void (*handler)(uint8_t compNum, uint8_t msgNum, "
+                    "const void* msg, void* userData), void* userData)");
+}
+
 void StatusEncoderGen::generateStatusDecoderHeader(const Project* project)
 {
     _output->startIncludeGuard("PRIVATE", "STATUS_DECODER");
@@ -43,84 +51,14 @@ void StatusEncoderGen::generateStatusDecoderHeader(const Project* project)
     _output->appendOnboardIncludePath("core/Reader");
     _output->appendEol();
 
-    for (const Component* comp : project->package()->components()) {
-        _output->appendSourceModIfdef(comp->moduleName());
-        _output->appendComponentInclude(comp->moduleName(), ".h");
-        _output->appendEndif();
-    }
-    _output->appendEol();
-
-    for (const Device* dev : project->devices()) {
-        _output->appendSourceDeviceIfdef(dev->name());
-        _output->append("typedef struct {\n");
-        for (const Ast* ast : dev->modules()) {
-            if (ast->component().isNone()) {
-                continue;
-            }
-            if (!ast->component()->hasParams()) {
-                continue;
-            }
-            _output->appendSourceModIfdef(ast->component()->moduleName());
-            _output->append("    Photon");
-            _output->appendWithFirstUpper(ast->component()->moduleName());
-            _output->appendSpace();
-            _output->appendWithFirstLower(ast->component()->moduleName());
-            _output->append(";\n");
-            _output->appendEndif();
-        }
-        _output->append("} Photon_");
-        _output->appendWithFirstUpper(dev->name());
-        _output->append("TmState;\n\n");
-        _output->append("extern Photon_");
-        _output->appendWithFirstUpper(dev->name());
-        _output->append("TmState _photonTmState_");
-        _output->appendWithFirstUpper(dev->name());
-        _output->append(";\n");
-        _output->appendEndif();
-        _output->appendEol();
-    }
-
     _output->startCppGuard();
 
-    for (const Device* dev : project->devices()) {
-        _output->appendSourceDeviceIfdef(dev->name());
-        appendTmDecoderPrototype(dev->name());
-        _output->append(";\n");
-        _output->appendEndif();
-    }
-    _output->appendEol();
+    appendTmDeserializerPrototype(_output);
+    _output->append(";\n\n");
+
     _output->endCppGuard();
 
-    for (const Device* dev : project->devices()) {
-        _output->append("#ifdef PHOTON_DEVICE_");
-        _output->appendUpper(dev->name());
-        _output->appendEol();
-        _output->appendSourceDeviceIfdef(dev->name());
-
-        _output->append("typedef Photon_");
-        _output->appendWithFirstUpper(dev->name());
-        _output->append("TmState Photon_TmState;\n");
-        _output->append("#define Photon_DecodeTelemetry Photon_Decode");
-        _output->appendWithFirstUpper(dev->name());
-        _output->append("Telemetry\n");
-
-        _output->appendEndif();
-        _output->appendEndif();
-    }
-    _output->appendEol();
-
-
     _output->endIncludeGuard();
-}
-
-void StatusEncoderGen::appendTmDecoderPrototype(bmcl::StringView name)
-{
-    _output->append("PhotonError Photon_Decode");
-    _output->appendWithFirstUpper(name);
-    _output->append("Telemetry(");
-    _output->append("PhotonReader* src, Photon_");
-    _output->appendWithFirstUpper(name);
-    _output->append("TmState* dest)");
 }
 
 void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
@@ -170,7 +108,18 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     _output->appendOnboardIncludePath("core/Logging");
     _output->appendEol();
 
+    for (const Component* comp : project->package()->components()) {
+        _output->appendSourceModIfdef(comp->moduleName());
+        _output->appendComponentInclude(comp->moduleName(), ".h");
+        _output->appendEndif();
+    }
+    _output->appendEol();
+
     _output->append("#define _PHOTON_FNAME \"StatusDecoder.c\"\n\n");
+
+    StringBuilder fieldName;
+    fieldName.reserve(31);
+    InlineSerContext ctx;
 
     for (const Component* comp : project->package()->components()) {
         if (!comp->hasStatuses()) {
@@ -184,72 +133,95 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
             _output->append("\n{\n");
 
             for (const StatusRegexp* part : msg->partsRange()) {
-                SrcBuilder currentField("(*dest)");
-                appendInlineSerializer(part, &currentField, false);
+                fieldName.assign("dest->");
+                part->buildFieldName(&fieldName);
+                _inlineInspector.inspect<true, false>(part->type(), ctx, fieldName.view());
+                fieldName.resize(6);
             }
             _output->append("    return PhotonError_Ok;\n}\n\n");
         }
 
-        _output->append("static PhotonError decode");
-        _output->appendWithFirstUpper(comp->moduleName());
-        _output->append("Telemetry(PhotonReader* src, Photon");
-        _output->appendWithFirstUpper(comp->moduleName());
-        _output->append("* dest)\n{\n");
+//         _output->append("static PhotonError decode");
+//         _output->appendWithFirstUpper(comp->moduleName());
+//         _output->append("Telemetry(PhotonReader* src, Photon");
+//         _output->appendWithFirstUpper(comp->moduleName());
+//         _output->append("* dest)\n{\n");
+//
+//         _output->append("    uint64_t id;\n");
+//         _output->append("    PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
+//         _output->append("    switch (id) {\n");
+//
+//         for (const StatusMsg* msg : comp->statusesRange()) {
+//             _output->append("    case ");
+//             _output->appendNumericValue(msg->number());
+//             _output->append(":\n");
+//             _output->append("        return ");
+//
+//             _prototypeGen.appendStatusDecoderFunctionName(comp, msg);
+//             _output->append("(src, dest);\n");
+//         }
+//         _output->append("    }\n");
+//
+//         _output->append("    return PhotonError_InvalidMessageId;\n}\n");
+        _output->appendEndif();
+        _output->appendEol();
+    }
 
-        _output->append("    uint64_t id;\n");
-        _output->append("    PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
-        _output->append("    switch (id) {\n");
+    appendTmDeserializerPrototype(_output);
 
+    _output->append("\n{\n");
+    _output->append("    uint64_t id;\n");
+    _output->append("    uint64_t num;\n");
+    _output->append("    while (PhotonReader_ReadableSize(src) != 0) {\n");
+    _output->append("        PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
+    _output->append("        PHOTON_TRY(PhotonReader_ReadVaruint(src, &num));\n");
+    _output->append("        switch (id) {\n");
+
+    for (const Component* comp : project->package()->components()) {
+        _output->append("        case ");
+        _output->appendNumericValue(comp->number());
+        _output->append(": {\n");
+
+        _output->appendSourceModIfdef(comp->moduleName());
+        _output->append("            switch (num) {\n");
         for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("    case ");
+            _output->append("            case ");
             _output->appendNumericValue(msg->number());
-            _output->append(":\n");
-            _output->append("        return ");
+            _output->append(": {\n");
 
-            _prototypeGen.appendStatusDecoderFunctionName(comp, msg);
-            _output->append("(src, dest);\n");
-        }
-        _output->append("    }\n");
-
-        _output->append("    return PhotonError_InvalidMessageId;\n}\n");
-        _output->appendEndif();
-        _output->appendEol();
-    }
-
-    for (const Device* dev : project->devices()) {
-        _output->appendSourceDeviceIfdef(dev->name());
-        appendTmDecoderPrototype(dev->name());
-
-        _output->append("\n{\n");
-        _output->append("    uint64_t id;\n");
-        _output->append("    PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
-        _output->append("    switch (id) {\n");
-
-        for (const Ast* ast : dev->modules()) {
-            if (ast->component().isNone()) {
-                continue;
-            }
-            const Component* comp = ast->component().unwrap();
-            if (!comp->hasStatuses()) {
-                continue;
-            }
-            _output->appendSourceModIfdef(comp->moduleName());
-            _output->append("    case PHOTON_");
-            _output->appendUpper(comp->moduleName());
-            _output->append("_COMPONENT_ID:\n");
-            _output->append("        return decode");
+            _output->append("                Photon");
             _output->appendWithFirstUpper(comp->moduleName());
-            _output->append("Telemetry(src, &dest->");
-            _output->appendWithFirstLower(comp->moduleName());
-            _output->append(");\n");
-            _output->appendEndif();
+            _output->append("_StatusMsg_");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(" msg;\n");
+
+            _output->append("                PHOTON_TRY(");
+            _prototypeGen.appendStatusDecoderFunctionName(comp, msg);
+            _output->append("(src, &msg));\n");
+            _output->append("                handler(id, num, &msg, userData);\n");
+
+
+            _output->append("                continue;\n");
+
+            _output->append("            }\n");
         }
 
-        _output->append("    }\n");
-        _output->append("    return PhotonError_InvalidComponentId;\n}\n");
+        _output->append("            default:\n                return PhotonError_InvalidMessageId;\n");
+        _output->append("            }\n");
+
+        _output->append("#else\n");
+        _output->append("            return PhotonError_InvalidComponentId;\n");
+
         _output->appendEndif();
-        _output->appendEol();
+        _output->append("        }\n");
+
+
     }
+
+    _output->append("        default:\n            return PhotonError_InvalidComponentId;\n        }\n");
+    _output->append("    }\n");
+    _output->append("    return PhotonError_Ok;\n}\n");
+    _output->appendEol();
 
     _output->append("#undef _PHOTON_FNAME\n");
 }

@@ -38,7 +38,6 @@ public:
 
 private:
     void appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer);
-    void appendTmDecoderPrototype(bmcl::StringView name);
 
     SrcBuilder* _output;
     InlineTypeInspector _inlineInspector;

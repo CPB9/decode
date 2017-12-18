@@ -157,6 +157,8 @@ void FuncPrototypeGen::appendStatusDecoderFunctionPrototype(const Component* com
     appendStatusDecoderFunctionName(comp, msg);
     _output->append("(PhotonReader* src, Photon");
     _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_StatusMsg_");
+    _output->appendWithFirstUpper(msg->name());
     _output->append("* dest)");
 }
 

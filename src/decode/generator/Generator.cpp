@@ -131,7 +131,6 @@ void Generator::generateSerializedPackage(const Project* project, bmcl::Buffer* 
 
 }
 
-
 void Generator::appendBuiltinHeaders()
 {
     std::initializer_list<bmcl::StringView> builtin = {"CmdDecoder", "StatusDecoder"};
@@ -238,7 +237,8 @@ bool Generator::generateDeviceFiles(const Project* project)
                 if (module->component().isNone()) {
                     continue;
                 }
-                coll.collectParams(module->component()->paramsRange(), &types);
+                coll.collectEvents(module->component()->eventsRange(), &types);
+                coll.collectStatuses(module->component()->statusesRange(), &types);
             }
         };
         for (const Device* dep : conn->tmSources()) {
@@ -411,10 +411,10 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     std::string packageBlobPath = _onboardPath + "/photon/Package.bin"; //FIXME: joinPath
     TRY(saveOutput(packageBlobPath.c_str(), serializedProject, _diag.get()));
 
-    _output.resize(0);
+    _output.clear();
     _onboardHgen.reset();
     _onboardSgen.reset();
-    _onboardPhotonPath.resize(0);
+    _onboardPhotonPath.clear();
     _onboardPath.clear();
     _gcPath.clear();
     return true;

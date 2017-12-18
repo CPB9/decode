@@ -193,5 +193,12 @@ void TypeDependsCollector::collectStatuses(Component::Statuses::ConstRange statu
         collect(msg, dest);
     }
 }
+
+void TypeDependsCollector::collectEvents(Component::Events::ConstRange events, TypeDependsCollector::Depends* dest)
+{
+    for (const EventMsg* msg : events) {
+        collect(msg, dest);
+    }
+}
 }
 

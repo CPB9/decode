@@ -32,6 +32,7 @@ public:
     void collectCmds(Component::Cmds::ConstRange cmds, Depends* dest);
     void collectParams(Component::Params::ConstRange cmds, Depends* dest);
     void collectStatuses(Component::Statuses::ConstRange statuses, Depends* dest);
+    void collectEvents(Component::Events::ConstRange events, TypeDependsCollector::Depends* dest);
     void collect(const Component* comp, Depends* dest);
     void collect(const Function* func, Depends* dest);
     void collect(const Ast* ast, Depends* dest);
