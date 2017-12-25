@@ -143,7 +143,7 @@ static void expectCmdRv(Rc<const Command>* cmd, const Type* type)
         *cmd = nullptr;
         return;
     }
-    if (!cmd->get()->type()->returnValue().isNone()) {
+    if (cmd->get()->type()->returnValue().isNone()) {
         *cmd = nullptr;
         return;
     }
@@ -165,7 +165,7 @@ static void expectCmdNoRv(Rc<const Command>* cmd)
     }
 }
 
-static Rc<NamedType> instantiateGeneric(Rc<const GenericType>* type, bmcl::ArrayView<Rc<Type>> params)
+static Rc<GenericInstantiationType> instantiateGeneric(Rc<const GenericType>* type, bmcl::ArrayView<Rc<Type>> params)
 {
 
     if (!type->get()) {
@@ -177,6 +177,6 @@ static Rc<NamedType> instantiateGeneric(Rc<const GenericType>* type, bmcl::Array
         *type = nullptr;
         return nullptr;
     }
-    return rv.unwrap();
+    return new GenericInstantiationType((*type)->name(), params, rv.unwrap().get());
 }
 }

@@ -522,7 +522,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
     case TypeKind::GenericInstantiation: {
         const GenericInstantiationType* g = type->asGenericInstantiation();
         appendTypeValidator(g->genericType());
-        _output->append("        decode::Rc<decode::NamedType> ");
+        _output->append("        decode::Rc<decode::GenericInstantiationType> ");
         appendTestedType(g);
         _output->append(" = decode::instantiateGeneric(&");
         appendTestedType(g->genericType());
