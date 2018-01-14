@@ -1,0 +1,6 @@
+[wrap-file]
+directory = tclap-1.2.2-mesonwrap
+
+source_url = https://github.com/acsl-mipt/tclap/archive/v1.2.2-mesonwrap.zip
+source_filename = v1.2.2-mesonwrap.zip
+source_hash = 5b4e2ac767249771adbd3d84c84fc4c6648ec263620b369471b287aafbea7a73

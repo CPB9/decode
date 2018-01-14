@@ -1,3 +1,9 @@
 *.kdev4
 .kdev_include_paths
 build*
+subprojects/PEGTL-2.3.3-mesonwrap/
+subprojects/bmcl/
+subprojects/packagecache/
+subprojects/tclap-1.2.2-mesonwrap/
+subprojects/toml11/
+subprojects/zpaq-7.15-mesonwrap/

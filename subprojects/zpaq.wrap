@@ -1,0 +1,6 @@
+[wrap-file]
+directory = zpaq-7.15-mesonwrap
+
+source_url = https://github.com/acsl-mipt/zpaq/archive/7.15-mesonwrap.zip
+source_filename = 7.15-mesonwrap.zip
+source_hash = f8de390378fd6120cf49f373905e66c30c7b8635e2ed604cb28c903e249d7a32
