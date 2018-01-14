@@ -179,7 +179,7 @@ target_include_directories(decode
 bmcl_include_system_private_directories(decode
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty
     thirdparty/zpaq
-    thirdparty/pegtl
+    thirdparty/pegtl/include
 )
 
 #tests

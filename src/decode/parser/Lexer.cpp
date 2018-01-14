@@ -11,10 +11,12 @@
 
 #include <bmcl/Logging.h>
 
-#include <pegtl/input.hh>
-#include <pegtl/parse.hh>
-#include <pegtl/rules.hh>
-#include <pegtl/ascii.hh>
+#include <tao/pegtl/memory_input.hpp>
+#include <tao/pegtl/parse.hpp>
+#include <tao/pegtl/rules.hpp>
+#include <tao/pegtl/ascii.hpp>
+
+using namespace tao; //temp
 
 namespace decode {
 
@@ -35,7 +37,7 @@ struct Blank
 
 #define KEYWORD_RULE(name, str) \
 struct name \
-        : pegtl::seq<pegtl_string_t(str), pegtl::not_at<pegtl::alnum>> {};
+        : pegtl::seq<TAOCPP_PEGTL_STRING(str), pegtl::not_at<pegtl::alnum>> {};
 
 KEYWORD_RULE(Module,     "module");
 KEYWORD_RULE(Import,     "import");
@@ -141,11 +143,16 @@ struct DocComment
 struct Number
         : pegtl::plus<pegtl::digit> {};
 
+// eof
+
+struct Eof
+        : pegtl::eof {};
+
 // grammar
 
 template <typename... A>
 struct Helper
-        : pegtl::must<pegtl::plus<pegtl::sor<A...>>, pegtl::eof> {};
+        : pegtl::must<pegtl::plus<pegtl::sor<A...>>, Eof> {};
 
 struct Grammar
         : Helper<DocComment,
@@ -205,9 +212,10 @@ struct Action
 #define RULE_TO_TOKEN(name) \
 template <> \
 struct Action<grammar::name> {\
-    static void apply(const pegtl::input& in, std::vector<Token>* tokens)\
+    template<typename Input>\
+    static void apply(const Input& in, std::vector<Token>* tokens)\
     {\
-        tokens->emplace_back(TokenKind::name, in.begin(), in.end(), in.line(), in.column() + 1);\
+        tokens->emplace_back(TokenKind::name, in.begin(), in.end(), in.position().line, in.position().byte_in_line + 1);\
     }\
 };
 
@@ -259,14 +267,7 @@ RULE_TO_TOKEN(Const);
 RULE_TO_TOKEN(True);
 RULE_TO_TOKEN(False);
 RULE_TO_TOKEN(CmdTrait);
-
-template <>
-struct Action<pegtl::eof> {
-    static void apply(const pegtl::input& in, std::vector<Token>* tokens)
-    {
-        tokens->emplace_back(TokenKind::Eof, in.begin(), in.end(), in.line(), in.column() + 1);
-    }
-};
+RULE_TO_TOKEN(Eof);
 
 Lexer::Lexer()
     : _nextToken(0)
@@ -285,11 +286,12 @@ void Lexer::reset(bmcl::StringView data)
     _data = data;
     _nextToken = 0;
     //TODO: catch pegtl exceptions
+    pegtl::memory_input<> input(data.begin(), data.size(), "");
     try {
-        pegtl::parse<grammar::Grammar, Action>(data.begin(), data.end(), "", &_tokens);
+        pegtl::parse<grammar::Grammar, Action>(input, &_tokens);
     } catch (const pegtl::parse_error& err) {
-        for (const pegtl::position_info& info : err.positions) {
-            _tokens.emplace_back(TokenKind::Invalid, info.begin, info.begin, info.line, info.column + 1);
+        for (const pegtl::position& info : err.positions) {
+            _tokens.emplace_back(TokenKind::Invalid, info.source.data(), info.source.data() + info.source.size(), info.line, info.byte_in_line + 1);
         }
     }
 }
