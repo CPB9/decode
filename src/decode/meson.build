@@ -145,7 +145,7 @@ libdecode_dep = declare_dependency(
   dependencies: deps,
 )
 
-executable('decode-gen',
+decode_gen = executable('decode-gen',
   sources: 'Main.cpp',
   dependencies: [libdecode_dep, tclap.get_variable('tclap_dep')],
 )
