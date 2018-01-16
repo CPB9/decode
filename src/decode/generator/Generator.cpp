@@ -249,9 +249,6 @@ bool Generator::generateDeviceFiles(const Project* project)
         if (dev == project->master()) {
             _output.append("#define PHOTON_IS_MASTER\n\n");
         }
-        _output.append("#define PHOTON_DEVICE_");
-        _output.appendUpper(dev->name());
-        _output.append("\n\n");
 
         _output.appendNumericValueDefine(dev->id(), "PHOTON_DEVICE_ID");
         for (const Device* d : project->devices()) {
@@ -365,9 +362,31 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     _config = cfg;
 
     TRY(makeDirectory(_savePath.c_str(), _diag.get()));
-    _onboardPath = joinPath(_savePath, "onboard");
+
+    std::string dummyPath = _savePath + "/Photon.dummy.h"; //FIXME: joinPath
+    TRY(saveOutput(dummyPath.c_str(), bmcl::StringView::empty(), _diag.get()));
+
+    bmcl::StringView exts[2] = {".c", ".h"};
+    for (bmcl::StringView ext : exts) {
+        for (const Device* dev : project->devices()) {
+            _output.append("#ifdef PHOTON_DEVICE_");
+            _output.appendUpper(dev->name());
+            _output.appendEol();
+            _output.append("#include \"Photon");
+            _output.appendWithFirstUpper(dev->name());
+            _output.append(ext);
+            _output.append("\"\n");
+            _output.appendEndif();
+        }
+
+        std::string photoncPath = _savePath + "/Photon" + ext.toStdString();
+        TRY(saveOutput(photoncPath.c_str(), _output.view(), _diag.get()));
+        _output.clear();
+    }
+
+    _onboardPath = _savePath;
     TRY(makeDirectory(_onboardPath.c_str(), _diag.get()));
-    _gcPath = joinPath(_savePath, "groundcontrol");
+    _gcPath = _savePath;
     TRY(makeDirectory(_gcPath.c_str(), _diag.get()));
     _onboardPhotonPath.assign(joinPath(_onboardPath, "photon"));
     TRY(makeDirectory(_onboardPhotonPath.c_str(), _diag.get()));
@@ -403,7 +422,9 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
 
     GcInterfaceGen igen(&_output);
     igen.generateHeader(package);
-    TRY(dumpIfNotEmpty("Interface", ".hpp", &_gcPhotonPath));
+    std::string interfacePath = _savePath + "/Photon.hpp";
+    TRY(saveOutput(interfacePath.c_str(), _output.view(), _diag.get()));
+    _output.clear();
 
     future.wait();
     std::string packageDetailPath = _onboardPath + "/photon/Package.inc.c"; //FIXME: joinPath
