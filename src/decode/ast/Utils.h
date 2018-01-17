@@ -180,4 +180,47 @@ static Rc<GenericInstantiationType> instantiateGeneric(Rc<const GenericType>* ty
     }
     return new GenericInstantiationType((*type)->name(), params, rv.unwrap().get());
 }
+
+static Rc<ReferenceType> tryMakeReference(ReferenceKind kind, bool isMutable, Type* pointee)
+{
+    if (!pointee) {
+        return nullptr;
+    }
+    return new ReferenceType(kind, isMutable, pointee);
+}
+
+static Rc<ArrayType> tryMakeArray(std::uintmax_t elementCount, Type* elementType)
+{
+    if (!elementType) {
+        return nullptr;
+    }
+    return new ArrayType(elementCount, elementType);
+}
+
+static Rc<FunctionType> tryMakeFunction(bmcl::OptionPtr<Type> rv, bmcl::Option<SelfArgument> arg, bmcl::ArrayView<Type*> argTypes)
+{
+    Rc<FunctionType> f = new FunctionType();
+    if (rv.isSome()) {
+        if (!rv.unwrap()) {
+            return nullptr;
+        }
+        f->setReturnValue(rv.unwrap());
+    }
+    f->setSelfArgument(arg);
+    for (Type* t : argTypes) {
+        if (!t) {
+            return nullptr;
+        }
+        f->addArgument(new Field("", t));
+    }
+    return f;
+}
+
+static Rc<DynArrayType> tryMakeDynArray(std::uintmax_t maxSize, Type* elementType)
+{
+    if (!elementType) {
+        return nullptr;
+    }
+    return new DynArrayType(maxSize, elementType);
+}
 }

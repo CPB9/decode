@@ -413,7 +413,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         appendTypeValidator(type->asReference()->pointee());
         _output->append("        decode::Rc<decode::ReferenceType> ");
         appendTestedType(type);
-        _output->append(" = new decode::ReferenceType(");
+        _output->append(" = decode::tryMakeReference(");
         switch (type->asReference()->referenceKind()) {
         case ReferenceKind::Pointer:
             _output->append("decode::ReferenceKind::Pointer, ");
@@ -435,7 +435,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         appendTypeValidator(type->asArray()->elementType());
         _output->append("        decode::Rc<decode::ArrayType> ");
         appendTestedType(type);
-        _output->append(" = new decode::ArrayType(");
+        _output->append(" = tryMakeArray(");
         _output->appendNumericValue(type->asArray()->elementCount());
         _output->append(", (decode::Type*)");
         appendTestedType(type->asArray()->elementType());
@@ -451,39 +451,39 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         }
         _output->append("        decode::Rc<decode::FunctionType> ");
         appendTestedType(type);
-        _output->append(" = new decode::FunctionType();\n");
+        _output->append(" = tryMakeFunction(");
         if (f->hasReturnValue()) {
-            _output->append("        ");
-            appendTestedType(type);
-            _output->append("->setReturnValue((decode::Type*)");
+            _output->append("(decode::Type*)");
             appendTestedType(f->returnValue().unwrap());
-            _output->append(".get());\n");
+            _output->append(".get(), ");
+        } else {
+            _output->append("bmcl::None, ");
         }
         if (f->selfArgument().isSome()) {
-            _output->append("        ");
-            appendTestedType(type);
-            _output->append("->setSelfArgument(decode::SelfArgument::");
+            _output->append("decode::SelfArgument::");
             switch (f->selfArgument().unwrap()) {
                 case SelfArgument::Reference:
-                    _output->append("Reference");
+                    _output->append("Reference, ");
                     break;
                 case SelfArgument::MutReference:
-                    _output->append("MutReference");
+                    _output->append("MutReference, ");
                     break;
                 case SelfArgument::Value:
-                    _output->append("Value");
+                    _output->append("Value, ");
                     break;
             }
-            _output->append(");\n");
+        } else {
+            _output->append("bmcl::None, ");
         }
-        for (const Field* field : f->argumentsRange()) {
-            _output->append("        ");
-            appendTestedType(type);
-            _output->append("->addArgument(new decode::Field(\"\", (decode::Type*)");
+        _output->append("bmcl::ArrayView<decode::Type*>{");
+        foreachList(f->argumentsRange(), [this](const Field* field) {
+            _output->append("(decode::Type*)");
             appendTestedType(field->type());
-            _output->append(".get()));\n");
-        }
-        _output->appendEol();
+            _output->append(".get()");
+        }, [this](const Field* field) {
+            _output->append(", ");
+        });
+        _output->append("});\n\n");
         break;
     }
     case TypeKind::GenericParameter:
@@ -492,7 +492,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         appendTypeValidator(type->asDynArray()->elementType());
         _output->append("        decode::Rc<decode::DynArrayType> ");
         appendTestedType(type);
-        _output->append(" = new decode::DynArrayType(");
+        _output->append(" = tryMakeDynArray(");
         _output->appendNumericValue(type->asDynArray()->maxSize());
         _output->append(", (decode::Type*)");
         appendTestedType(type->asDynArray()->elementType());
