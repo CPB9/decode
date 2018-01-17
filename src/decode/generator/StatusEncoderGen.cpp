@@ -82,7 +82,7 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
         includes.clear();
     }
     _output->appendEol();
-    _output->append("#define _PHOTON_FNAME \"StatusEncoder.c\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"photon/StatusEncoder.c\"\n\n");
 
     for (const ComponentAndMsg& msg : project->package()->statusMsgs()) {
         _output->appendModIfdef(msg.component->moduleName());
@@ -158,7 +158,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     }
     _output->appendEol();
 
-    _output->append("#define _PHOTON_FNAME \"StatusDecoder.c\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"photon/StatusDecoder.c\"\n\n");
 
     StringBuilder fieldName;
     fieldName.reserve(31);
@@ -365,6 +365,7 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         _output->appendEndif();
     }
     _output->appendEol();
+    _output->append("#define _PHOTON_FNAME \"photon/EventEncoder.c\"\n\n");
 
     TypeReprGen reprGen(_output);
     for (const Component* comp : project->package()->components()) {
@@ -395,5 +396,6 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         _output->appendEndif();
         _output->appendEol();
     }
+    _output->append("#undef _PHOTON_FNAME\n");
 }
 }
