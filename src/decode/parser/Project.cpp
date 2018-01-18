@@ -148,10 +148,13 @@ static TableResult readToml(const std::string& path, Diagnostics* diag)
         diag->buildSystemFileErrorReport("failed to read file", file.unwrapErr(), path);
         return TableResult();
     }
+    std::string::iterator begin = file.unwrap().begin();
+    std::string::iterator end = file.unwrap().end();
     try {
-        return toml::parse_data::invoke(file.unwrap().begin(), file.unwrap().end());
-    } catch (const toml::syntax_error& exc) {
-        addParseError(path, exc.what(), diag);
+        return toml::parse_data::invoke(begin, end);
+    } catch (const std::pair<std::string::iterator, toml::syntax_error>& exc) {
+        addParseError(path, exc.second.what(), diag);
+        //BMCL_DEBUG() << std::string(exc.first, end);
         return TableResult();
     }
     return TableResult();
