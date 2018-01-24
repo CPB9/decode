@@ -100,6 +100,11 @@ std::size_t StringBuilder::size() const
     return _output.size();
 }
 
+const char* StringBuilder::data() const
+{
+    return _output.data();
+}
+
 const char* StringBuilder::c_str() const
 {
     return _output.c_str();
@@ -185,6 +190,11 @@ void StringBuilder::removeFromBack(std::size_t size)
 {
     assert(_output.size() >= size);
     _output.erase(_output.end() - size, _output.end());
+}
+
+std::string StringBuilder::toStdString() const
+{
+    return _output;
 }
 
 void StringBuilder::appendHexValue(uint8_t value)

@@ -68,6 +68,11 @@ bool doubleEq(double a, double b, unsigned int maxUlps)
     return false;
 }
 
+bool makeDirectory(const std::string& path, Diagnostics* diag)
+{
+    return makeDirectory(path.c_str(), diag);
+}
+
 bool makeDirectory(const char* path, Diagnostics* diag)
 {
 #if defined(__linux__)
@@ -93,9 +98,67 @@ bool makeDirectory(const char* path, Diagnostics* diag)
     return true;
 }
 
+bool makeDirectoryRecursive(const std::string& path, Diagnostics* diag)
+{
+    return makeDirectoryRecursive(path.c_str(), diag);
+}
+
+bool makeDirectoryRecursive(const char* path, Diagnostics* diag)
+{
+    const char* it = path;
+begin:
+    while (true) {
+        char c = *it;
+        if (c == '\0') {
+            return true;
+        }
+        if(c == '/'
+#if defined(_MSC_VER) || defined(__MINGW32__)
+            || c == '\\'
+#endif
+        ) {
+            it++;
+            continue;
+        }
+        break;
+    }
+    while (true) {
+        char c = *it;
+        if (c == '\0') {
+            if (!makeDirectory(std::string(path, it), diag)) {
+                return false;
+            }
+            return true;
+        }
+        if(c == '/'
+#if defined(_MSC_VER) || defined(__MINGW32__)
+            || c == '\\'
+#endif
+        ) {
+            if (!makeDirectory(std::string(path, it), diag)) {
+                return false;
+            }
+            it++;
+            goto begin;
+        }
+        it++;
+    }
+
+}
+
 bool saveOutput(const char* path, bmcl::StringView output, Diagnostics* diag)
 {
     return saveOutput(path, output.asBytes(), diag);
+}
+
+bool saveOutput(const std::string& path, bmcl::StringView output, Diagnostics* diag)
+{
+    return saveOutput(path.c_str(), output, diag);
+}
+
+bool saveOutput(const std::string& path, bmcl::Bytes output, Diagnostics* diag)
+{
+    return saveOutput(path.c_str(), output, diag);
 }
 
 bool saveOutput(const char* path, bmcl::Bytes output, Diagnostics* diag)

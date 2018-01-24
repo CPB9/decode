@@ -34,8 +34,8 @@ void OnboardTypeSourceGen::appendIncludes(bmcl::StringView modName)
     path.append('/');
     path.append(_fileName);
     _output->appendOnboardIncludePath(path.view());
-    _output->appendOnboardIncludePath("core/Try");
-    _output->appendOnboardIncludePath("core/Logging");
+    _output->appendImplIncludePath("core/Try");
+    _output->appendImplIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"");
     _output->append(path.view());
@@ -301,8 +301,8 @@ bool OnboardTypeSourceGen::visitDynArrayType(const DynArrayType* type)
     TypeNameGen gen(&path);
     gen.genTypeName(type);
     _output->appendOnboardIncludePath(path.view());
-    _output->appendOnboardIncludePath("core/Try");
-    _output->appendOnboardIncludePath("core/Logging");
+    _output->appendImplIncludePath("core/Try");
+    _output->appendImplIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"");
     _output->append(path.view());

@@ -34,7 +34,7 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
     _output->appendOnboardIncludePath("core/Error");
     _output->appendOnboardIncludePath("core/Reader");
     _output->appendOnboardIncludePath("core/Writer");
-    _output->appendOnboardIncludePath("core/Try");
+    _output->appendImplIncludePath("core/Try");
     _output->appendEol();
 
     _output->startCppGuard();
@@ -52,13 +52,13 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
 void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 {
     _output->appendOnboardIncludePath("CmdDecoder");
-    _output->appendOnboardIncludePath("core/Logging");
+    _output->appendImplIncludePath("core/Logging");
     _output->appendEol();
     _output->append("#define _PHOTON_FNAME \"CmdDecoder.c\"\n\n");
 
     for (const Component* it : comps) {
         _output->appendModIfdef(it->moduleName());
-        _output->appendComponentInclude(it->moduleName(), ".h");
+        _output->appendOnboardComponentInclude(it->moduleName(), ".h");
         _output->appendEndif();
     }
 
@@ -110,7 +110,7 @@ void CmdDecoderGen::generateScriptFunc()
                     "        PHOTON_TRY(Photon_DeserializeAndExecCmd(compNum, cmdNum, src, dest));\n"
                    );
 
-    _output->append("    }\n}\n\n");
+    _output->append("    }\n    return PhotonError_Ok;\n}\n\n");
 }
 
 void CmdDecoderGen::generateCmdFunc(ComponentMap::ConstRange comps)

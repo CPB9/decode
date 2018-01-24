@@ -67,7 +67,10 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
     TypeDependsCollector::Depends includes;
     IncludeGen includeGen(_output);
 
-    for (const char* inc : {"core/Writer", "core/Error", "core/Try", "core/Logging"}) {
+    for (const char* inc : {"core/Try", "core/Logging"}) {
+        _output->appendImplIncludePath(inc);
+    }
+    for (const char* inc : {"core/Writer", "core/Error"}) {
         _output->appendOnboardIncludePath(inc);
     }
 
@@ -76,7 +79,7 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
 
         _output->appendModIfdef(comp->moduleName());
         includeGen.genOnboardIncludePaths(&includes);
-        _output->appendComponentInclude(comp->moduleName(), ".h");
+        _output->appendOnboardComponentInclude(comp->moduleName(), ".h");
         _output->appendEndif();
 
         includes.clear();
@@ -156,19 +159,19 @@ void StatusEncoderGen::appendMsgSwitch(const Component* comp, const T* msg)
 
 void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 {
-    _output->append("#include \"photon/StatusDecoder.h\"\n\n");
-    _output->appendOnboardIncludePath("core/Try");
-    _output->appendOnboardIncludePath("core/Logging");
+    _output->append("#include \"photongen/onboard/StatusDecoder.h\"\n\n");
+    _output->appendImplIncludePath("core/Try");
+    _output->appendImplIncludePath("core/Logging");
     _output->appendEol();
 
     for (const Component* comp : project->package()->components()) {
         _output->appendSourceModIfdef(comp->moduleName());
-        _output->appendComponentInclude(comp->moduleName(), ".h");
+        _output->appendOnboardComponentInclude(comp->moduleName(), ".h");
         _output->appendEndif();
     }
     _output->appendEol();
 
-    _output->append("#define _PHOTON_FNAME \"photon/StatusDecoder.c\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"photongen/onboard/StatusDecoder.c\"\n\n");
 
     StringBuilder fieldName;
     fieldName.reserve(31);
@@ -375,7 +378,7 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
 {
     for (const Ast* ast : project->package()->modules()) {
         _output->appendModIfdef(ast->moduleName());
-        _output->append("#include \"photon/");
+        _output->append("#include \"photongen/onboard/");
         _output->append(ast->moduleName());
         _output->append("/");
         _output->appendWithFirstUpper(ast->moduleName());

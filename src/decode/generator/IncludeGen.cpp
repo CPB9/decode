@@ -13,7 +13,7 @@ IncludeGen::IncludeGen(SrcBuilder* output)
 
 void IncludeGen::appendExt()
 {
-    _output->append(_ext, std::strlen(_ext));
+    _output->append(_ext);
     _output->append("\"\n");
 }
 
@@ -24,7 +24,8 @@ void IncludeGen::genNamedInclude(const NamedType* type)
 
 void IncludeGen::genNamedInclude(const NamedType* type, const NamedType* origin)
 {
-    _output->append("#include \"photon/");
+    _output->append("#include \"");
+    _output->append(_prefix);
     _output->append(origin->moduleName());
     _output->append('/');
     _output->append(type->name());
@@ -33,7 +34,9 @@ void IncludeGen::genNamedInclude(const NamedType* type, const NamedType* origin)
 
 void IncludeGen::genOnboardDynArray(const DynArrayType* type)
 {
-    _output->append("#include \"photon/_dynarray_/");
+    _output->append("#include \"");
+    _output->append(_prefix);
+    _output->append("_dynarray_/");
     TypeNameGen gen(_output);
     gen.genTypeName(type);
     appendExt();
@@ -41,7 +44,9 @@ void IncludeGen::genOnboardDynArray(const DynArrayType* type)
 
 void IncludeGen::genOnboardGenericInstantiation(const GenericInstantiationType* type)
 {
-    _output->append("#include \"photon/_generic_/");
+    _output->append("#include \"");
+    _output->append(_prefix);
+    _output->append("_generic_/");
     if (type->moduleName() != "core") {
         _output->appendWithFirstUpper(type->moduleName());
     }
@@ -105,19 +110,21 @@ void IncludeGen::genIncludePaths(const HashSet<Rc<const Type>>* types)
     }
 }
 
-void IncludeGen::genOnboardIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext)
+void IncludeGen::genOnboardIncludePaths(const HashSet<Rc<const Type>>* types, bmcl::StringView ext)
 {
     _ext = ext;
+    _prefix = "photongen/onboard/";
     genIncludePaths<true>(types);
 }
 
-void IncludeGen::genGcIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext)
+void IncludeGen::genGcIncludePaths(const HashSet<Rc<const Type>>* types, bmcl::StringView ext)
 {
     _ext = ext;
+    _prefix = "photongen/groundcontrol/";
     genIncludePaths<false>(types);
 }
 
-void IncludeGen::genGcIncludePaths(const Type* type, const char* ext)
+void IncludeGen::genGcIncludePaths(const Type* type, bmcl::StringView ext)
 {
     TypeDependsCollector coll;
     TypeDependsCollector::Depends deps;

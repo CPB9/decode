@@ -75,12 +75,11 @@ private:
     void appendBuiltinSources();
     void appendBuiltins(bmcl::ArrayView<bmcl::StringView> names, bmcl::StringView ext);
 
-    SrcBuilder _onboardPhotonPath;
-    SrcBuilder _gcPhotonPath;
     Rc<Diagnostics> _diag;
     std::string _savePath;
-    std::string _onboardPath;
-    std::string _gcPath;
+    std::string _photongenPath;
+    SrcBuilder _onboardPath;
+    SrcBuilder _gcPath;
     SrcBuilder _output;
     std::unique_ptr<OnboardTypeHeaderGen> _onboardHgen;
     std::unique_ptr<OnboardTypeSourceGen> _onboardSgen;

@@ -41,7 +41,7 @@ void GcInterfaceGen::generateHeader(const Package* package)
 
     for (const Component* comp : package->components()) {
         for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("#include \"photon/_statuses_/");
+            _output->append("#include \"photongen/groundcontrol/_statuses_/");
             _output->appendWithFirstUpper(comp->name());
             _output->append("_");
             _output->appendWithFirstUpper(msg->name());
@@ -52,7 +52,7 @@ void GcInterfaceGen::generateHeader(const Package* package)
 
     for (const Component* comp : package->components()) {
         for (const EventMsg* msg : comp->eventsRange()) {
-            _output->append("#include \"photon/_events_/");
+            _output->append("#include \"photongen/groundcontrol/_events_/");
             _output->appendWithFirstUpper(comp->name());
             _output->append("_");
             _output->appendWithFirstUpper(msg->name());

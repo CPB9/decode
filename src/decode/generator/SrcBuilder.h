@@ -46,8 +46,8 @@ public:
     void appendTagHeader(bmcl::StringView name);
     void appendTagFooter(bmcl::StringView name);
     void appendByteArrayDefinition(bmcl::StringView prefix, bmcl::StringView name, bmcl::Bytes data);
-    void appendTypeInclude(bmcl::StringView name, bmcl::StringView ext);
-    void appendComponentInclude(bmcl::StringView name, bmcl::StringView ext);
+    void appendImplIncludePath(bmcl::StringView path);
+    void appendOnboardComponentInclude(bmcl::StringView name, bmcl::StringView ext);
     void startIncludeGuard(bmcl::StringView modName, bmcl::StringView typeName);
     void startCppGuard();
     void endIncludeGuard();

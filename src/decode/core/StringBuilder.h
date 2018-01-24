@@ -56,6 +56,7 @@ public:
 
     bmcl::StringView view() const;
     std::size_t size() const;
+    const char* data() const;
     const char* c_str() const;
     bool isEmpty() const;
     bool empty() const;
@@ -90,6 +91,8 @@ public:
     void clear();
 
     void removeFromBack(std::size_t size);
+
+    std::string toStdString() const;
 
 private:
     template <typename T>

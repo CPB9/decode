@@ -4,6 +4,8 @@
 #include "decode/core/Rc.h"
 #include "decode/core/HashSet.h"
 
+#include <bmcl/StringView.h>
+
 namespace decode {
 
 class Type;
@@ -17,10 +19,10 @@ public:
     IncludeGen(SrcBuilder* dest);
 
     //FIXME: pass types by reference
-    void genOnboardIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext = ".h");
-    void genGcIncludePaths(const HashSet<Rc<const Type>>* types, const char* ext = ".hpp");
+    void genOnboardIncludePaths(const HashSet<Rc<const Type>>* types, bmcl::StringView ext = ".h");
+    void genGcIncludePaths(const HashSet<Rc<const Type>>* types, bmcl::StringView ext = ".hpp");
 
-    void genGcIncludePaths(const Type* type, const char* ext = ".hpp");
+    void genGcIncludePaths(const Type* type, bmcl::StringView ext = ".hpp");
 
 private:
     template <bool isOnboard>
@@ -33,7 +35,8 @@ private:
     void appendExt();
 
     SrcBuilder* _output;
-    const char* _ext;
+    bmcl::StringView _ext;
+    bmcl::StringView _prefix;
 };
 
 }

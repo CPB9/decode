@@ -174,7 +174,7 @@ void SrcBuilder::appendVarDecl(bmcl::StringView typeName, bmcl::StringView varNa
 
 void SrcBuilder::appendOnboardIncludePath(bmcl::StringView path)
 {
-    append("#include \"photon/");
+    append("#include \"photongen/onboard/");
     append(path);
     append(".h\"\n");
 }
@@ -252,9 +252,9 @@ void SrcBuilder::appendByteArrayDefinition(bmcl::StringView prefix, bmcl::String
 
 }
 
-void SrcBuilder::appendComponentInclude(bmcl::StringView name, bmcl::StringView ext)
+void SrcBuilder::appendOnboardComponentInclude(bmcl::StringView name, bmcl::StringView ext)
 {
-    append("#include \"photon/");
+    append("#include \"photongen/onboard/");
     append(name);
     append("/");
     appendWithFirstUpper(name);
@@ -263,12 +263,11 @@ void SrcBuilder::appendComponentInclude(bmcl::StringView name, bmcl::StringView 
     append("\"\n");
 }
 
-void SrcBuilder::appendTypeInclude(bmcl::StringView name, bmcl::StringView ext)
+void SrcBuilder::appendImplIncludePath(bmcl::StringView path)
 {
     append("#include \"photon/");
-    append(name);
-    append(ext);
-    append("\"\n");
+    append(path);
+    append(".h\"\n");
 }
 
 void SrcBuilder::appendPragmaOnce()

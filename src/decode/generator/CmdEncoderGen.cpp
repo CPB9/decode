@@ -24,7 +24,7 @@ CmdEncoderGen::~CmdEncoderGen()
 
 void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
 {
-    _output->appendOnboardIncludePath("core/Logging");
+    _output->appendImplIncludePath("core/Logging");
     _output->append("\n");
 
     _output->append("#define _PHOTON_FNAME \"CmdEncoder.c\"\n\n");
