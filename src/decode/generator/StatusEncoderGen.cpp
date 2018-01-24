@@ -88,6 +88,14 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
         _output->appendModIfdef(msg.component->moduleName());
         _prototypeGen.appendStatusEncoderFunctionPrototype(msg.component.get(), msg.msg.get());
         _output->append("\n{\n");
+        _output->append("    if (PhotonWriter_WritableSize(dest) < 2) {\n"
+                        "        return PhotonError_NotEnoughSpace;\n"
+                        "    }\n");
+        _output->append("    PhotonWriter_WriteU8(dest, ");
+        _output->appendNumericValue(msg.component->number());
+        _output->append(");\n    PhotonWriter_WriteU8(dest, ");
+        _output->appendNumericValue(msg.msg->number());
+        _output->append(");\n");
 
         for (const StatusRegexp* part : msg.msg->partsRange()) {
             SrcBuilder currentField("_photon");
