@@ -39,10 +39,11 @@ void CmdDecoderGen::generateHeader(ComponentMap::ConstRange comps)
 
     _output->startCppGuard();
 
-    appendMainFunctionPrototype();
-    _output->append(";\n");
+    appendScriptFunctionPrototype();
+    _output->append(";\n\n");
+    appendCmdFunctionPrototype();
+    _output->append(";\n\n");
 
-    _output->appendEol();
     _output->endCppGuard();
     _output->appendEol();
     _output->endIncludeGuard();
@@ -76,20 +77,51 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendEol();
     }
 
-    generateMainFunc(comps);
+    generateScriptFunc();
+    generateCmdFunc(comps);
     _output->append("\n#undef _PHOTON_FNAME\n");
 }
 
-void CmdDecoderGen::appendMainFunctionPrototype()
+void CmdDecoderGen::appendCmdFunctionPrototype()
 {
     _output->append("PhotonError Photon_DeserializeAndExecCmd(uint8_t compNum, uint8_t cmdNum, PhotonReader* src, PhotonWriter* dest)");
 }
 
-void CmdDecoderGen::generateMainFunc(ComponentMap::ConstRange comps)
+void CmdDecoderGen::appendScriptFunctionPrototype()
+{
+    _output->append("PhotonError Photon_ExecScript(PhotonReader* src, PhotonWriter* dest)");
+}
+
+void CmdDecoderGen::generateScriptFunc()
+{
+    appendScriptFunctionPrototype();
+    _output->append("\n{\n"
+                    "    uint8_t compNum;\n"
+                    "    uint8_t cmdNum;\n\n"
+                    "    (void)src;\n"
+                    "    (void)dest;\n\n"
+                    "    while (PhotonReader_ReadableSize(src) != 0) {\n"
+                    "        if (PhotonReader_ReadableSize(src) < 2) {\n"
+                    "            PHOTON_CRITICAL(\"Not enough data to deserialize cmd header\");\n"
+                    "            return PhotonError_NotEnoughData;\n"
+                    "        }\n"
+                    "        compNum = PhotonReader_ReadU8(src);\n"
+                    "        cmdNum = PhotonReader_ReadU8(src);\n"
+                    "        PHOTON_TRY(Photon_DeserializeAndExecCmd(compNum, cmdNum, src, dest));\n"
+                   );
+
+    _output->append("    }\n}\n\n");
+}
+
+void CmdDecoderGen::generateCmdFunc(ComponentMap::ConstRange comps)
 {
     FuncPrototypeGen prototypeGen(_output);
-    appendMainFunctionPrototype();
+    appendCmdFunctionPrototype();
     _output->append("\n{\n"
+                    "    (void)compNum;\n"
+                    "    (void)cmdNum;\n"
+                    "    (void)src;\n"
+                    "    (void)dest;\n\n"
                     "    switch (compNum) {\n");
     for (const Component* comp : comps) {
         if (!comp->hasCmds()) {
@@ -207,9 +239,6 @@ void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
     prototypeGen.appendCmdDecoderFunctionPrototype(comp, cmd);
     _output->append("\n{\n");
 
-    if (!cmd->type()->hasArguments()) {
-        _output->append("    (void)src;\n");
-    }
     TypeReprGen reprGen(_output);
     foreachParam(cmd, [&](const Field* field, bmcl::StringView name) {
         _output->append("    ");
@@ -222,10 +251,11 @@ void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
         _output->append("    ");
         reprGen.genOnboardTypeRepr(rv.unwrap(), "_rv");
         _output->append(";\n");
-    } else {
-        _output->append("    (void)dest;\n");
     }
     _output->appendEol();
+
+    _output->append("    (void)src;\n");
+    _output->append("    (void)dest;\n\n");
 
 
     _paramInspector.reset();

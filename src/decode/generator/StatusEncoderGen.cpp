@@ -88,7 +88,9 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
         _output->appendModIfdef(msg.component->moduleName());
         _prototypeGen.appendStatusEncoderFunctionPrototype(msg.component.get(), msg.msg.get());
         _output->append("\n{\n");
+        _output->append("    (void)dest;\n");
         _output->append("    if (PhotonWriter_WritableSize(dest) < 2) {\n"
+                        "        PHOTON_DEBUG(\"Not enough space to serialize tm header\");\n"
                         "        return PhotonError_NotEnoughSpace;\n"
                         "    }\n");
         _output->append("    PhotonWriter_WriteU8(dest, ");
@@ -181,6 +183,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
         for (const StatusMsg* msg : comp->statusesRange()) {
             _prototypeGen.appendStatusDecoderFunctionPrototype(comp, msg);
             _output->append("\n{\n");
+            _output->append("    (void)src;\n    (void)dest;\n");
 
             for (const StatusRegexp* part : msg->partsRange()) {
                 fieldName.assign("dest->");
@@ -209,13 +212,20 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
 
     appendTmDeserializerPrototype(_output);
 
-    _output->append("\n{\n");
-    _output->append("    uint64_t id;\n");
-    _output->append("    uint64_t num;\n");
-    _output->append("    while (PhotonReader_ReadableSize(src) != 0) {\n");
-    _output->append("        PHOTON_TRY(PhotonReader_ReadVaruint(src, &id));\n");
-    _output->append("        PHOTON_TRY(PhotonReader_ReadVaruint(src, &num));\n");
-    _output->append("        switch (id) {\n");
+    _output->append("\n{\n"
+                    "    uint8_t id;\n"
+                    "    uint8_t num;\n\n"
+                    "    (void)src;\n"
+                    "    (void)handler;\n"
+                    "    (void)userData;\n\n"
+                    "    while (PhotonReader_ReadableSize(src) != 0) {\n"
+                    "        if (PhotonReader_ReadableSize(src) < 2) {\n"
+                    "            PHOTON_CRITICAL(\"Not enough data to deserialize tm header\");\n"
+                    "            return PhotonError_NotEnoughData;\n"
+                    "        }\n\n"
+                    "        id = PhotonReader_ReadU8(src);\n"
+                    "        num = PhotonReader_ReadU8(src);\n\n"
+                    "        switch (id) {\n");
 
     for (const Component* comp : project->package()->components()) {
         _output->append("        case ");

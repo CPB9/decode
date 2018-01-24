@@ -41,15 +41,18 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendEol();
         for (const Command* cmd : comp->cmdsRange()) {
             prototypeGen.appendCmdEncoderFunctionPrototype(comp, cmd, &reprGen);
-            _output->append("\n{\n");
-
-            _output->append("    PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
+            _output->append("\n{\n"
+                            "    (void)dest;\n"
+                            "    if (PhotonWriter_WritableSize(dest) < 2) {\n"
+                            "        PHOTON_DEBUG(\"Not enough space to serialize cmd header\");\n"
+                            "        return PhotonError_NotEnoughSpace;\n"
+                            "    }\n"
+                            "    PhotonWriter_WriteU8(dest, ");
             _output->appendNumericValue(comp->number());
-            _output->append("), \"Failed to write component number\");\n");
-
-            _output->append("    PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
+            _output->append(");\n"
+                            "    PhotonWriter_WriteU8(dest, ");
             _output->appendNumericValue(cmd->number());
-            _output->append("), \"Failed to write cmd number\");\n");
+            _output->append(");\n");
 
             inspector.inspect<true, true>(cmd->type()->argumentsRange(), &_inlineSer);
 

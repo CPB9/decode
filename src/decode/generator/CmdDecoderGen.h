@@ -71,12 +71,14 @@ public:
     void generateSource(ComponentMap::ConstRange comps);
 
 private:
-    void appendMainFunctionPrototype();
+    void appendCmdFunctionPrototype();
+    void appendScriptFunctionPrototype();
 
     template <typename C>
     void foreachParam(const Function* func, C&& callable);
 
-    void generateMainFunc(ComponentMap::ConstRange comps);
+    void generateCmdFunc(ComponentMap::ConstRange comps);
+    void generateScriptFunc();
     void generateDecoder(const Component* comp, const Command* cmd);
 
     void writePointerOp(const Type* type);
