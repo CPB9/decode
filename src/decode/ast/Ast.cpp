@@ -14,7 +14,6 @@
 #include "decode/ast/Decl.h"
 #include "decode/ast/Constant.h"
 #include "decode/ast/Component.h"
-#include "decode/ast/CmdTrait.h"
 #include "decode/ast/AllBuiltinTypes.h"
 #include "decode/core/Hash.h"
 
@@ -142,11 +141,6 @@ bmcl::OptionPtr<NamedType> Ast::findTypeWithName(bmcl::StringView name)
     return _typeNameToType.findValueWithKey(name);
 }
 
-bmcl::OptionPtr<CmdTrait> Ast::findCmdTraitWithName(bmcl::StringView name)
-{
-    return _cmdTraits.findValueWithKey(name);
-}
-
 bmcl::OptionPtr<const ImplBlock> Ast::findImplBlock(const Type* type) const
 {
     auto it = _typeToImplBlock.find(Rc<Type>(const_cast<Type*>(type))); //HACK
@@ -197,12 +191,6 @@ void Ast::addGenericInstantiation(GenericInstantiationType* type)
 {
     _genericInstantiations.emplace_back(type);
     addType(type);
-}
-
-void Ast::addCmdTrait(CmdTrait* trait)
-{
-    auto it = _cmdTraits.emplace(trait->name(), trait);
-    assert(it.second); //TODO: check for conflicts
 }
 
 void Ast::setComponent(Component* comp)

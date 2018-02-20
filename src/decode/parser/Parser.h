@@ -98,7 +98,6 @@ private:
     bool parseAlias();
     bool parseConstant();
     bool parseAttribute();
-    bool parseCmdTrait();
     Rc<CfgOption> parseCfgOption();
     Rc<RangeAttr> parseRangeAttr();
 

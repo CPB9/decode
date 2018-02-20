@@ -33,7 +33,6 @@ class GenericInstantiationType;
 class TypeDecl;
 class Component;
 class Constant;
-class CmdTrait;
 class AllBuiltinTypes;
 
 class Ast : public RefCountable {
@@ -46,7 +45,6 @@ public:
     using Constants = RcSecondUnorderedMap<bmcl::StringView, Constant>;
     using Imports = RcVec<ImportDecl>;
     using ImplBlocks = RcSecondUnorderedMap<Rc<Type>, ImplBlock>;
-    using CmdTraits = RcSecondUnorderedMap<bmcl::StringView, CmdTrait>;
 
     Ast(AllBuiltinTypes* builtinTypes);
     ~Ast();
@@ -75,7 +73,6 @@ public:
     bmcl::OptionPtr<Component> component();
     bmcl::OptionPtr<const NamedType> findTypeWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<NamedType> findTypeWithName(bmcl::StringView name);
-    bmcl::OptionPtr<CmdTrait> findCmdTraitWithName(bmcl::StringView name);
     bmcl::OptionPtr<const ImplBlock> findImplBlock(const Type* type) const;
 
     void setModuleDecl(ModuleDecl* decl);
@@ -85,7 +82,6 @@ public:
     void addTypeImport(ImportDecl* decl);
     void addConstant(Constant* constant);
     void addGenericInstantiation(GenericInstantiationType* type);
-    void addCmdTrait(CmdTrait* trait);
     void setComponent(Component* comp);
 
     const AllBuiltinTypes* builtinTypes() const;
@@ -99,7 +95,6 @@ private:
     ImplBlocks _typeToImplBlock;
     Constants _constants;
     GenericInstantiations _genericInstantiations;
-    CmdTraits _cmdTraits;
     Rc<const ModuleInfo> _moduleInfo;
     Rc<ModuleDecl> _moduleDecl;
     Rc<AllBuiltinTypes> _allBuiltins;

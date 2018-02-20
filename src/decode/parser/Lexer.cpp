@@ -56,7 +56,6 @@ KEYWORD_RULE(Impl,       "impl");
 KEYWORD_RULE(Fn,         "fn");
 KEYWORD_RULE(UpperFn,    "Fn");
 KEYWORD_RULE(Self,       "self");
-KEYWORD_RULE(CmdTrait,   "cmdtrait");
 KEYWORD_RULE(True,       "true");
 KEYWORD_RULE(False,      "false");
 
@@ -199,7 +198,6 @@ struct Grammar
                  Const,
                  True,
                  False,
-                 CmdTrait,
                  Identifier,
                  Number
                  > {};
@@ -266,7 +264,6 @@ RULE_TO_TOKEN(Mut);
 RULE_TO_TOKEN(Const);
 RULE_TO_TOKEN(True);
 RULE_TO_TOKEN(False);
-RULE_TO_TOKEN(CmdTrait);
 RULE_TO_TOKEN(Eof);
 
 Lexer::Lexer()
