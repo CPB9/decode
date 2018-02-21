@@ -8,6 +8,7 @@
 
 #include "decode/ast/Function.h"
 #include "decode/ast/Type.h"
+#include "decode/ast/Field.h"
 
 namespace decode {
 
@@ -41,10 +42,44 @@ Function::~Function()
 {
 }
 
+CmdArgument::CmdArgument(Field* field, CmdArgPassKind kind)
+    : _field(field)
+    , _argPassKind(kind)
+{
+}
+
+CmdArgument::~CmdArgument()
+{
+}
+
+const Field* CmdArgument::field() const
+{
+    return _field.get();
+}
+
+Field* CmdArgument::field()
+{
+    return _field.get();
+}
+
+CmdArgPassKind CmdArgument::argPassKind() const
+{
+    return _argPassKind;
+}
+
+void CmdArgument::setArgPassKind(CmdArgPassKind kind)
+{
+    _argPassKind = kind;
+}
+
 Command::Command(bmcl::StringView name, FunctionType* type)
     : Function(name, type)
     , _number(0)
 {
+    _args.reserve(type->argumentsRange().size());
+    for (Field* field : type->argumentsRange()) {
+        _args.emplace_back(field, CmdArgPassKind::Default);
+    }
 }
 
 Command::~Command()
@@ -59,5 +94,15 @@ std::uintmax_t Command::number() const
 void Command::setNumber(std::uintmax_t num)
 {
     _number = num;
+}
+
+Command::ArgsRange Command::argumentsRange()
+{
+    return _args;
+}
+
+Command::ArgsConstRange Command::argumentsRange() const
+{
+    return _args;
 }
 }

@@ -13,6 +13,7 @@
 #include "decode/core/CfgOption.h"
 #include "decode/core/HashMap.h"
 #include "decode/core/RangeAttr.h"
+#include "decode/core/CmdCallAttr.h"
 #include "decode/ast/AllBuiltinTypes.h"
 #include "decode/ast/Decl.h"
 #include "decode/ast/DocBlock.h"
@@ -403,6 +404,7 @@ bool Parser::parseModuleDecl()
 void Parser::clearUnusedDocCommentsAndAttributes()
 {
     _lastRangeAttr.reset();
+    _lastCmdCallAttr.reset();
     _docComments.clear();
 }
 
@@ -577,8 +579,15 @@ bool Parser::parseAttribute()
         if (!_lastRangeAttr) {
             return false;
         }
+    } else if (_currentToken.value() == "cmdcall") {
+        consumeAndSkipBlanks();
+
+        _lastCmdCallAttr = parseCmdCallAttr();
+        if (!_lastCmdCallAttr) {
+            return false;
+        }
     } else {
-        reportCurrentTokenError("only cfg attributes are supported");
+        reportCurrentTokenError("unsupported attribute");
         return false;
     }
 
@@ -652,6 +661,42 @@ Rc<RangeAttr> Parser::parseRangeAttr()
                 TRY(setValue(NumberVariant(value)));
             }
         }
+
+        return true;
+    });
+    if (!isOk) {
+        return nullptr;
+    }
+    return attr;
+}
+
+Rc<CmdCallAttr> Parser::parseCmdCallAttr()
+{
+    Rc<CmdCallAttr> attr = new CmdCallAttr;
+
+    bool isOk = parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, attr, [this](const Rc<CmdCallAttr>& attr) -> bool {
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        bmcl::StringView name = _currentToken.value();
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Equality));
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        CmdArgPassKind kind;
+        if (_currentToken.value() == "alloc") {
+            kind = CmdArgPassKind::AllocPtr;
+        } else if (_currentToken.value() == "value") {
+            kind = CmdArgPassKind::StackValue;
+        } else if (_currentToken.value() == "ptr") {
+            kind = CmdArgPassKind::StackPtr;
+        } else {
+            reportCurrentTokenError("Unknown argument pass kind");
+            return false;
+        }
+        consumeAndSkipBlanks();
+
+        attr->addParam(name, kind);
 
         return true;
     });
@@ -1395,6 +1440,12 @@ bool Parser::parseCommands(Component* parent)
         Rc<Command> fn = parseFunction<Command>(false);
         if (!fn) {
             return false;
+        }
+        if (_lastCmdCallAttr) {
+            for (CmdArgument& arg : fn->argumentsRange()) {
+                CmdArgPassKind kind = _lastCmdCallAttr->findArgPassKind(arg.field()->name());
+                arg.setArgPassKind(kind);
+            }
         }
         fn->setDocs(docs.get());
         fn->setNumber(comp->cmdsRange().size());

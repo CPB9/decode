@@ -11,6 +11,8 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/NamedRc.h"
+#include "decode/core/NamedRc.h"
+#include "decode/core/CmdArgPassKind.h"
 #include "decode/parser/Containers.h"
 #include "decode/ast/DocBlockMixin.h"
 
@@ -41,11 +43,30 @@ private:
     Rc<FunctionType> _type;
 };
 
+class CmdArgument {
+public:
+    CmdArgument(Field* field, CmdArgPassKind kind = CmdArgPassKind::Default);
+    ~CmdArgument();
+
+    const Field* field() const;
+    Field* field();
+
+    CmdArgPassKind argPassKind() const;
+    void setArgPassKind(CmdArgPassKind kind);
+
+private:
+    Rc<Field> _field;
+    CmdArgPassKind _argPassKind;
+};
+
 //TODO: move
 class Command : public Function {
 public:
     using Pointer = Rc<Command>;
     using ConstPointer = Rc<const Command>;
+    using ArgVec = std::vector<CmdArgument>;
+    using ArgsRange = IteratorRange<ArgVec::iterator>;
+    using ArgsConstRange = IteratorRange<ArgVec::const_iterator>;
 
     Command(bmcl::StringView name, FunctionType* type);
     ~Command();
@@ -53,7 +74,11 @@ public:
     std::uintmax_t number() const;
     void setNumber(std::uintmax_t num);
 
+    ArgsRange argumentsRange();
+    ArgsConstRange argumentsRange() const;
+
 private:
+    ArgVec _args;
     std::uintmax_t _number;
 };
 }

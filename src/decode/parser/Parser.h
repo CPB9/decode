@@ -53,6 +53,7 @@ class Type;
 class TypeDecl;
 class VariantType;
 class AllBuiltinTypes;
+class CmdCallAttr;
 
 enum class BuiltinTypeKind;
 enum class ReferenceKind;
@@ -100,6 +101,7 @@ private:
     bool parseAttribute();
     Rc<CfgOption> parseCfgOption();
     Rc<RangeAttr> parseRangeAttr();
+    Rc<CmdCallAttr> parseCmdCallAttr();
 
     template <typename T, typename F, typename... A>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser, A&&... args);
@@ -188,6 +190,7 @@ private:
     std::vector<bmcl::StringView> _docComments;
     RcVec<GenericParameterType> _currentGenericParameters;
     Rc<RangeAttr> _lastRangeAttr;
+    Rc<CmdCallAttr> _lastCmdCallAttr;
     HashMap<bmcl::StringView, Rc<BuiltinType>> _btMap;
 };
 }

@@ -1,6 +1,8 @@
 core_src = [
   'core/CfgOption.cpp',
   'core/CfgOption.h',
+  'core/CmdCallAttr.cpp',
+  'core/CmdCallAttr.h',
   'core/Configuration.cpp',
   'core/Configuration.h',
   'core/DataReader.cpp',

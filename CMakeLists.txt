@@ -28,6 +28,8 @@ bmcl_disable_warnings(zpaq)
 set(DECODE_CORE_SRC
     src/decode/core/CfgOption.cpp
     src/decode/core/CfgOption.h
+    src/decode/core/CmdCallAttr.cpp
+    src/decode/core/CmdCallAttr.h
     src/decode/core/Configuration.cpp
     src/decode/core/Configuration.h
     src/decode/core/DataReader.cpp
