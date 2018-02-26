@@ -61,6 +61,7 @@ private:
     void appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name);
     void appendImplPrototypes(const Component* comp);
     void appendCommandPrototypes(const Component* comp);
+    void appendCommandArgAllocators(const Component* comp);
     void appendCmdEncoderPrototypes(const Component* comp);
     void appendCmdDecoderPrototypes(const Component* comp);
     void appendStatusEncoderPrototypes(const Component* comp);

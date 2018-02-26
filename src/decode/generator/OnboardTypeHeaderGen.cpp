@@ -125,6 +125,7 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     _output->append("/**********************************IMPLEMENT***********************************/\n\n");
     appendImplPrototypes(comp);
     appendCommandPrototypes(comp);
+    appendCommandArgAllocators(comp);
     _output->append("/******************************************************************************/\n\n");
 
     appendCmdEncoderPrototypes(comp);
@@ -426,6 +427,21 @@ void OnboardTypeHeaderGen::appendCommandPrototypes(const Component* comp)
     for (const Command* cmd : comp->cmdsRange()) {
         _prototypeGen.appendCmdHandlerFunctionProrotype(comp, cmd, &reprGen);
         _output->append(";\n");
+    }
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendCommandArgAllocators(const Component* comp)
+{
+    _output->append("/*cmd arg allocators*/\n");
+    TypeReprGen reprGen(_output);
+    for (const Command* cmd : comp->cmdsRange()) {
+        for (const CmdArgument& arg : cmd->argumentsRange()) {
+            if (arg.argPassKind() == CmdArgPassKind::AllocPtr) {
+                _prototypeGen.appendCmdArgAllocFunctionPrototype(comp, cmd, arg, &reprGen);
+                _output->append(";\n");
+            }
+        }
     }
     _output->appendEol();
 }

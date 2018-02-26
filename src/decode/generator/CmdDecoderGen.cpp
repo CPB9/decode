@@ -156,13 +156,13 @@ void CmdDecoderGen::generateCmdFunc(ComponentMap::ConstRange comps)
 
 
 template <typename C>
-void CmdDecoderGen::foreachParam(const Function* func, C&& f)
+void CmdDecoderGen::foreachParam(const Command* func, C&& f)
 {
     _paramInspector.reset();
-    for (const Field* field : func->type()->argumentsRange()) {
-        _paramInspector.beginField(field);
-        f(field, _paramInspector.paramName.view());
-        _paramInspector.endField(field);
+    for (const CmdArgument& arg : func->argumentsRange()) {
+        _paramInspector.beginGenericField(arg);
+        f(arg, _paramInspector.paramName.view());
+        _paramInspector.endField(arg);
     }
 }
 
@@ -240,10 +240,18 @@ void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
     _output->append("\n{\n");
 
     TypeReprGen reprGen(_output);
-    foreachParam(cmd, [&](const Field* field, bmcl::StringView name) {
+    foreachParam(cmd, [&](const CmdArgument& arg, bmcl::StringView name) {
         _output->append("    ");
-        reprGen.genOnboardTypeRepr(field->type(), name);
-        _output->append(";\n");
+        if (arg.argPassKind() == CmdArgPassKind::AllocPtr) {
+            Rc<const Type> type = new ReferenceType(ReferenceKind::Pointer, true, const_cast<Type*>(arg.field()->type())); //TODO: avoid allocation
+            reprGen.genOnboardTypeRepr(type.get(), name);
+            _output->append(" = ");
+            prototypeGen.appendCmdArgAllocFunctionName(comp, cmd, arg);
+            _output->append("();\n");
+        } else {
+            reprGen.genOnboardTypeRepr(arg.field()->type(), name);
+            _output->append(";\n");
+        }
     });
 
     bmcl::OptionPtr<const Type> rv = ftype->returnValue();
@@ -257,18 +265,27 @@ void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
     _output->append("    (void)src;\n");
     _output->append("    (void)dest;\n\n");
 
-
     _paramInspector.reset();
-    _paramInspector.inspect<true, false>(cmd->fieldsRange(), &_inlineInspector);
+    _paramInspector.inspect<true, false>(cmd->argumentsRange(), &_inlineInspector);
     _output->appendEol();
 
     //TODO: gen command call
     _output->append("    PHOTON_TRY_MSG(");
     prototypeGen.appendCmdHandlerFunctionName(comp, cmd);
     _output->append("(");
-    foreachParam(cmd, [this](const Field* field, bmcl::StringView name) {
-        (void)field;
-        writePointerOp(field->type());
+    foreachParam(cmd, [this](const CmdArgument& arg, bmcl::StringView name) {
+        switch (arg.argPassKind()) {
+        case CmdArgPassKind::Default:
+            writePointerOp(arg.field()->type());
+            break;
+        case CmdArgPassKind::StackValue:
+            break;
+        case CmdArgPassKind::StackPtr:
+            _output->append("&");
+            break;
+        case CmdArgPassKind::AllocPtr:
+            break;
+        };
         _output->append(name);
         _output->append(", ");
     });

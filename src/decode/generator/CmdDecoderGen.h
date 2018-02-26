@@ -14,6 +14,7 @@
 #include "decode/generator/InlineTypeInspector.h"
 #include "decode/generator/InlineFieldInspector.h"
 #include "decode/generator/SrcBuilder.h"
+#include "decode/ast/Function.h" //TODO: remove
 
 #include <vector>
 #include <functional>
@@ -26,6 +27,7 @@ class Function;
 class Command;
 class SrcBuilder;
 class Type;
+class CmdArgument;
 
 class InlineCmdParamInspector : public InlineFieldInspector<InlineCmdParamInspector> {
 public:
@@ -39,17 +41,29 @@ public:
     void reset()
     {
         paramIndex = 0;
-        paramName.resize(2);
+        paramName.resize(0);
     }
 
-    void beginField(const Field*)
+    void beginGenericField(const CmdArgument&)
     {
+        paramName.append("_p");
         paramName.appendNumericValue(paramIndex);
     }
 
-    void endField(const Field*)
+    void beginField(const CmdArgument& arg)
     {
-        paramName.resize(2);
+        if (arg.argPassKind() == CmdArgPassKind::AllocPtr) {
+            paramName.append("(*_p");
+            paramName.appendNumericValue(paramIndex);
+            paramName.append(")");
+        } else {
+            beginGenericField(arg);
+        }
+    }
+
+    void endField(const CmdArgument&)
+    {
+        paramName.resize(0);
         paramIndex++;
     }
 
@@ -75,7 +89,7 @@ private:
     void appendScriptFunctionPrototype();
 
     template <typename C>
-    void foreachParam(const Function* func, C&& callable);
+    void foreachParam(const Command* func, C&& callable);
 
     void generateCmdFunc(ComponentMap::ConstRange comps);
     void generateScriptFunc();

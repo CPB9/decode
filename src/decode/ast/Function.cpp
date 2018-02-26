@@ -72,6 +72,21 @@ void CmdArgument::setArgPassKind(CmdArgPassKind kind)
     _argPassKind = kind;
 }
 
+const Type* CmdArgument::type() const
+{
+    return _field->type();
+}
+
+Type* CmdArgument::type()
+{
+    return _field->type();
+}
+
+bmcl::StringView CmdArgument::name() const
+{
+    return _field->name();
+}
+
 Command::Command(bmcl::StringView name, FunctionType* type)
     : Function(name, type)
     , _number(0)
@@ -105,4 +120,5 @@ Command::ArgsConstRange Command::argumentsRange() const
 {
     return _args;
 }
+
 }

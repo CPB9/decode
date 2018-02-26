@@ -54,6 +54,11 @@ public:
     CmdArgPassKind argPassKind() const;
     void setArgPassKind(CmdArgPassKind kind);
 
+    const Type* type() const;
+    Type* type();
+
+    bmcl::StringView name() const;
+
 private:
     Rc<Field> _field;
     CmdArgPassKind _argPassKind;

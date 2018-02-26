@@ -44,12 +44,35 @@ void FuncPrototypeGen::appendCmdDecoderFunctionName(const Component* comp, const
 
 
 template <typename T>
-void FuncPrototypeGen::appendWrappedArgs(T range, TypeReprGen* reprGen)
+void FuncPrototypeGen::appendWrappedFuncArgs(T range, TypeReprGen* reprGen)
 {
     foreachList(range, [&](const Field* arg) {
-        Rc<Type> type = wrapPassedTypeIntoPointerIfRequired(const_cast<Type*>(arg->type())); //HACK
+        Rc<const Type> type = wrapPassedTypeIntoPointerIfRequired(const_cast<Type*>(arg->type())); //HACK
         reprGen->genOnboardTypeRepr(type.get(), arg->name());
     }, [this](const Field*) {
+        _output->append(", ");
+    });
+}
+
+template <typename T>
+void FuncPrototypeGen::appendWrappedCmdArgs(T range, TypeReprGen* reprGen)
+{
+    foreachList(range, [&](const CmdArgument& arg) {
+        Rc<const Type> type;
+        switch (arg.argPassKind()) {
+        case CmdArgPassKind::Default:
+            type = wrapPassedTypeIntoPointerIfRequired(const_cast<Type*>(arg.field()->type())); //HACK
+            break;
+        case CmdArgPassKind::StackValue:
+            type = arg.field()->type();
+            break;
+        case CmdArgPassKind::StackPtr:
+        case CmdArgPassKind::AllocPtr:
+            type = new ReferenceType(ReferenceKind::Pointer, false, const_cast<Type*>(arg.field()->type()));
+            break;
+        };
+        reprGen->genOnboardTypeRepr(type.get(), arg.field()->name());
+    }, [this](const CmdArgument&) {
         _output->append(", ");
     });
 }
@@ -64,7 +87,7 @@ void FuncPrototypeGen::appendCmdEncoderFunctionPrototype(const Component* comp, 
         _output->append("(PhotonWriter* dest)");
     } else {
         _output->append("(");
-        appendWrappedArgs(cmd->type()->argumentsRange(), reprGen);
+        appendWrappedFuncArgs(cmd->type()->argumentsRange(), reprGen);
         _output->append(", PhotonWriter* dest)");
     }
 }
@@ -76,7 +99,7 @@ void FuncPrototypeGen::appendEventEncoderFunctionPrototype(const Component* comp
     _output->append("_QueueEvent_");
     _output->appendWithFirstUpper(msg->name());
     _output->append("(");
-    appendWrappedArgs(msg->partsRange(), reprGen);
+    appendWrappedFuncArgs(msg->partsRange(), reprGen);
     _output->append(")");
 }
 
@@ -109,6 +132,25 @@ void FuncPrototypeGen::appendCmdHandlerFunctionName(const Component* comp, const
     _output->appendWithFirstUpper(cmd->name());
 }
 
+void FuncPrototypeGen::appendCmdArgAllocFunctionName(const Component* comp, const Command* cmd, const CmdArgument& arg)
+{
+    _output->append("Photon");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->append("_AllocCmdArg_");
+    _output->appendWithFirstUpper(cmd->name());
+    _output->append('_');
+    _output->appendWithFirstUpper(arg.name());
+}
+
+void FuncPrototypeGen::appendCmdArgAllocFunctionPrototype(const Component* comp, const Command* cmd, const CmdArgument& arg, TypeReprGen* reprGen)
+{
+    Rc<ReferenceType> t = new ReferenceType(ReferenceKind::Pointer, true, const_cast<Type*>(arg.type()));
+    reprGen->genOnboardTypeRepr(t.get());
+    _output->append(' ');
+    appendCmdArgAllocFunctionName(comp, cmd, arg);
+    _output->append("()");
+}
+
 void FuncPrototypeGen::appendCmdHandlerFunctionProrotype(const Component* comp, const Command* cmd, TypeReprGen* reprGen)
 {
     const FunctionType* ftype = cmd->type();
@@ -116,7 +158,7 @@ void FuncPrototypeGen::appendCmdHandlerFunctionProrotype(const Component* comp, 
     appendCmdHandlerFunctionName(comp, cmd);
     _output->append("(");
 
-    appendWrappedArgs(ftype->argumentsRange(), reprGen);
+    appendWrappedCmdArgs(cmd->argumentsRange(), reprGen);
 
     auto rv = const_cast<FunctionType*>(ftype)->returnValue(); //HACK
     if (rv.isSome()) {

@@ -22,6 +22,7 @@ class EventMsg;
 class Component;
 class Command;
 class StatusMsg;
+class CmdArgument;
 
 class FuncPrototypeGen {
 public:
@@ -36,6 +37,8 @@ public:
     void appendEventDecoderFunctionName(const Component* comp, const EventMsg* msg);
     void appendCmdHandlerFunctionProrotype(const Component* comp, const Command* cmd, TypeReprGen* reprGen);
     void appendCmdHandlerFunctionName(const Component* comp, const Command* cmd);
+    void appendCmdArgAllocFunctionName(const Component* comp, const Command* cmd, const CmdArgument& arg);
+    void appendCmdArgAllocFunctionPrototype(const Component* comp, const Command* cmd, const CmdArgument& arg, TypeReprGen* reprGen);
     void appendTypeDeserializerFunctionPrototype(const Type* type);
     void appendTypeSerializerFunctionPrototype(const Type* type);
     void appendStatusEncoderFunctionPrototype(const Component* comp, const StatusMsg* msg);
@@ -45,7 +48,10 @@ public:
 
 private:
     template <typename T>
-    void appendWrappedArgs(T range, TypeReprGen* reprGen);
+    void appendWrappedFuncArgs(T range, TypeReprGen* reprGen);
+
+    template <typename T>
+    void appendWrappedCmdArgs(T range, TypeReprGen* reprGen);
 
     SrcBuilder* _output;
 };
