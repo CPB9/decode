@@ -236,12 +236,23 @@ void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
     _output->append("        return photongenDeserialize(msg, src, state);\n"
                     "    }\n\n");
 
-    _output->append("    photon::NumberedSub ");
+    _output->append("    bmcl::Option<photon::NumberedSub> ");
     _output->append(msgTypeName);
     _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
-    _output->append("Sub() const\n    {\n"
+    _output->append("Sub() const\n"
+                    "    {\n"
+                    "        if(!_");
+    _output->append(comp->moduleName());
+    _output->append("Component) {\n"
+                    "            return bmcl::None;\n"
+                    "        }\n"
+                    "        if(!");
+    appendMsgFieldName(comp, msg, msgTypeName);
+    _output->append(") {\n"
+                    "            return bmcl::None;\n"
+                    "        }\n"
                     "        return photon::NumberedSub(");
     _output->append("_");
     _output->append(comp->moduleName());
