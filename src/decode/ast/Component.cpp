@@ -235,11 +235,36 @@ void StatusRegexp::buildFieldName(StringBuilder* dest) const
     });
 }
 
-StatusMsg::StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled)
+TmMsg::TmMsg(bmcl::StringView name, std::size_t number, bool isEnabled)
     : _name(name)
     , _number(number)
-    , _priority(priority)
     , _isEnabled(isEnabled)
+{
+}
+
+TmMsg::~TmMsg()
+{
+}
+
+bmcl::StringView TmMsg::name() const
+{
+    return _name;
+}
+
+std::size_t TmMsg::number() const
+{
+    return _number;
+}
+
+bool TmMsg::isEnabled() const
+{
+    return _isEnabled;
+}
+
+
+StatusMsg::StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled)
+    : TmMsg(name, number, isEnabled)
+    , _priority(priority)
 {
 }
 
@@ -277,25 +302,11 @@ StatusMsg::Parts::ConstRange StatusMsg::partsRange() const
     return _parts;
 }
 
-bmcl::StringView StatusMsg::name() const
-{
-    return _name;
-}
-
-std::size_t StatusMsg::number() const
-{
-    return _number;
-}
-
 std::size_t StatusMsg::priority() const
 {
     return _priority;
 }
 
-bool StatusMsg::isEnabled() const
-{
-    return _isEnabled;
-}
 
 void StatusMsg::addPart(StatusRegexp* part)
 {
@@ -303,9 +314,7 @@ void StatusMsg::addPart(StatusRegexp* part)
 }
 
 EventMsg::EventMsg(bmcl::StringView name, std::size_t number, bool isEnabled)
-    : _name(name)
-    , _number(number)
-    , _isEnabled(isEnabled)
+    : TmMsg(name, number, isEnabled)
 {
 }
 
@@ -313,24 +322,9 @@ EventMsg::~EventMsg()
 {
 }
 
-bmcl::StringView EventMsg::name() const
-{
-    return _name;
-}
-
 FieldVec::ConstRange EventMsg::partsRange() const
 {
     return _fields;
-}
-
-std::size_t EventMsg::number() const
-{
-    return _number;
-}
-
-bool EventMsg::isEnabled() const
-{
-    return _isEnabled;
 }
 
 void EventMsg::addField(Field* field)
@@ -441,6 +435,16 @@ Component::Statuses::ConstIterator Component::statusesEnd() const
 Component::Statuses::ConstRange Component::statusesRange() const
 {
     return _statuses;
+}
+
+Component::Events::ConstIterator Component::eventsBegin() const
+{
+    return _events.cbegin();
+}
+
+Component::Events::ConstIterator Component::eventsEnd() const
+{
+    return _events.cend();
 }
 
 Component::Events::ConstRange Component::eventsRange() const

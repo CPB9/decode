@@ -139,7 +139,25 @@ private:
     Rc<Type> _type;
 };
 
-class StatusMsg : public RefCountable {
+class TmMsg : public RefCountable {
+public:
+    using Pointer = Rc<TmMsg>;
+    using ConstPointer = Rc<const TmMsg>;
+
+    TmMsg(bmcl::StringView name, std::size_t number, bool isEnabled);
+    ~TmMsg();
+
+    bmcl::StringView name() const;
+    std::size_t number() const;
+    bool isEnabled() const;
+
+private:
+    bmcl::StringView _name;
+    std::size_t _number;
+    bool _isEnabled;
+};
+
+class StatusMsg : public TmMsg {
 public:
     using Pointer = Rc<StatusMsg>;
     using ConstPointer = Rc<const StatusMsg>;
@@ -154,22 +172,16 @@ public:
     Parts::ConstIterator partsBegin() const;
     Parts::ConstIterator partsEnd() const;
     Parts::ConstRange partsRange() const;
-    bmcl::StringView name() const;
-    std::size_t number() const;
     std::size_t priority() const;
-    bool isEnabled() const;
 
     void addPart(StatusRegexp* part);
 
 private:
     Parts _parts;
-    bmcl::StringView _name;
-    std::size_t _number;
     std::size_t _priority;
-    bool _isEnabled;
 };
 
-class EventMsg : public RefCountable {
+class EventMsg : public TmMsg {
 public:
     using Pointer = Rc<EventMsg>;
     using ConstPointer = Rc<const EventMsg>;
@@ -177,17 +189,11 @@ public:
     EventMsg(bmcl::StringView name, std::size_t number, bool isEnabled);
     ~EventMsg();
 
-    bmcl::StringView name() const;
-    std::size_t number() const;
-    bool isEnabled() const;
     FieldVec::ConstRange partsRange() const;
 
     void addField(Field* field); //TODO: check conflicts
 
 private:
-    bmcl::StringView _name;
-    std::size_t _number;
-    bool _isEnabled;
     FieldVec _fields;
 };
 
@@ -225,6 +231,8 @@ public:
     Statuses::ConstIterator statusesBegin() const;
     Statuses::ConstIterator statusesEnd() const;
     Statuses::ConstRange statusesRange() const;
+    Events::ConstIterator eventsBegin() const;
+    Events::ConstIterator eventsEnd() const;
     Events::ConstRange eventsRange() const;
     bmcl::OptionPtr<const ImplBlock> implBlock() const;
     bmcl::StringView moduleName() const;

@@ -106,9 +106,36 @@ static const decode::Command* findCmd(const decode::Component* comp, bmcl::Strin
     });
     if (it == comp->cmdsEnd()) {
         return nullptr;
-        //return "failed to find command " + wrapWithQuotes(name);
     }
     if (it->fieldsRange().size() != argNum) {
+        return nullptr;
+    }
+    return *it;
+}
+
+static const decode::StatusMsg* findStatusMsg(const decode::Component* comp, bmcl::StringView name)
+{
+    if (!comp) {
+        return nullptr;
+    }
+    auto it = std::find_if(comp->statusesBegin(), comp->statusesEnd(), [name](const decode::StatusMsg* msg) {
+        return msg->name() == name;
+    });
+    if (it == comp->statusesEnd()) {
+        return nullptr;
+    }
+    return *it;
+}
+
+static const decode::EventMsg* findEventMsg(const decode::Component* comp, bmcl::StringView name)
+{
+    if (!comp) {
+        return nullptr;
+    }
+    auto it = std::find_if(comp->eventsBegin(), comp->eventsEnd(), [name](const decode::EventMsg* msg) {
+        return msg->name() == name;
+    });
+    if (it == comp->eventsEnd()) {
         return nullptr;
     }
     return *it;

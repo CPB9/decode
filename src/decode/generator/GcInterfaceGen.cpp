@@ -63,6 +63,7 @@ void GcInterfaceGen::generateHeader(const Package* package)
 
     _output->append(
                     "#include <photon/core/Rc.h>\n\n"
+                    "#include <photon/groundcontrol/NumberedSub.h>\n\n"
                     "#include <decode/ast/Ast.h>\n"
                     "#include <decode/ast/Component.h>\n"
                     "#include <decode/ast/Utils.h>\n"
@@ -124,6 +125,12 @@ void GcInterfaceGen::generateHeader(const Package* package)
         for (const Command* cmd : comp->cmdsRange()) {
             appendCmdValidator(comp, cmd);
         }
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            appendStatusValidator(comp, msg);
+        }
+        for (const EventMsg* msg : comp->eventsRange()) {
+            appendEventValidator(comp, msg);
+        }
     }
 
     _output->append("    }\n");
@@ -137,7 +144,10 @@ void GcInterfaceGen::generateHeader(const Package* package)
             appendCmdMethods(comp, cmd);
         }
         for (const StatusMsg* msg : comp->statusesRange()) {
-            appendTmMethods(comp, msg);
+            appendTmMethods(comp, msg, "status", "statuses");
+        }
+        for (const EventMsg* msg : comp->eventsRange()) {
+            appendTmMethods(comp, msg, "event", "events");
         }
     }
 
@@ -164,7 +174,12 @@ void GcInterfaceGen::generateHeader(const Package* package)
         }
         for (const StatusMsg* msg : comp->statusesRange()) {
             _output->append("    decode::Rc<const decode::StatusMsg> ");
-            appendStatusFieldName(comp, msg);
+            appendMsgFieldName(comp, msg, "status");
+            _output->append(";\n");
+        }
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _output->append("    decode::Rc<const decode::EventMsg> ");
+            appendMsgFieldName(comp, msg, "event");
             _output->append(";\n");
         }
     }
@@ -180,40 +195,59 @@ void GcInterfaceGen::appendCmdFieldName(const Component* comp, const Command* cm
     _output->appendWithFirstUpper(cmd->name());
 }
 
-void GcInterfaceGen::appendStatusFieldName(const Component* comp, const StatusMsg* msg)
+void GcInterfaceGen::appendMsgFieldName(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName)
 {
-    _output->append("_statusMsg");
+    _output->append("_");
+    _output->append(msgTypeName);
+    _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
 }
 
-void GcInterfaceGen::appendTmMethods(const Component* comp, const StatusMsg* msg)
+void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
+                                     bmcl::StringView msgTypeName, bmcl::StringView namespaceName)
 {
-    _output->append("    bool hasStatusMsg");
+    _output->append("    bool has");
+    _output->appendWithFirstUpper(msgTypeName);
+    _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
     _output->append("() const\n    {\n        return ");
-    appendStatusFieldName(comp, msg);
+    appendMsgFieldName(comp, msg, msgTypeName);
     _output->append(";\n    }\n\n");
 
 
-    _output->append("    bool decodeStatusMsg");
+    _output->append("    bool decode");
+    _output->appendWithFirstUpper(msgTypeName);
+    _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
     _output->append("(");
-    GcMsgGen::genStatusMsgType(comp, msg, _output);
+    GcMsgGen::genTmMsgType(comp, msg, namespaceName, _output);
     _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");
-    //TODO: validate msgs
-    //_output->append("        if(!");
-    //appendStatusFieldName(comp, msg);
-    //_output->append(") {\n            return false;\n        }\n");
 
     _output->append("        if(!_");
     _output->append(comp->moduleName());
     _output->append("Component) {\n            return false;\n        }\n");
 
+    _output->append("        if(!");
+    appendMsgFieldName(comp, msg, msgTypeName);
+    _output->append(") {\n            return false;\n        }\n");
     _output->append("        return photongenDeserialize(msg, src, state);\n"
                     "    }\n\n");
+
+    _output->append("    photon::NumberedSub ");
+    _output->append(msgTypeName);
+    _output->append("Msg");
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendWithFirstUpper(msg->name());
+    _output->append("Sub() const\n    {\n"
+                    "        return photon::NumberedSub(");
+    _output->append("_");
+    _output->append(comp->moduleName());
+    _output->append("Component->number(), ");
+    appendMsgFieldName(comp, msg, msgTypeName);
+    _output->append("->number());\n    }\n\n");
 }
 
 void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
@@ -287,14 +321,20 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
     }
 }
 
+void GcInterfaceGen::appendComponentFieldName(const Component* comp)
+{
+    _output->append("_");
+    _output->append(comp->moduleName());
+    _output->append("Component");
+}
+
 void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cmd)
 {
     _output->append("        ");
     appendCmdFieldName(comp, cmd);
     _output->append(" = decode::findCmd(");
-    _output->append("_");
-    _output->append(comp->moduleName());
-    _output->append("Component.get(), \"");
+    appendComponentFieldName(comp);
+    _output->append(".get(), \"");
     _output->append(cmd->name());
     _output->append("\", ");
     _output->appendNumericValue(cmd->fieldsRange().size());
@@ -325,6 +365,31 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
         _output->append(");\n");
     }
     _output->appendEol();
+}
+
+
+void GcInterfaceGen::appendStatusValidator(const Component* comp, const StatusMsg* msg)
+{
+    _output->append("        ");
+    appendMsgFieldName(comp, msg, "status");
+    _output->append(" = decode::findStatusMsg(");
+    appendComponentFieldName(comp);
+    _output->append(".get(), \"");
+    _output->append(msg->name());
+    _output->append("\");\n");
+    //TODO: validate status parts
+}
+
+void GcInterfaceGen::appendEventValidator(const Component* comp, const EventMsg* msg)
+{
+    _output->append("        ");
+    appendMsgFieldName(comp, msg, "event");
+    _output->append(" = decode::findEventMsg(");
+    appendComponentFieldName(comp);
+    _output->append(".get(), \"");
+    _output->append(msg->name());
+    _output->append("\");\n");
+    //TODO: validate event fields
 }
 
 bool GcInterfaceGen::insertValidatedType(const Type* type)
