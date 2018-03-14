@@ -111,6 +111,10 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
 
     _output->append("/*component state*/\n");
     _typeDefGen.genComponentDef(comp);
+
+    appendImplBlockIncludes(comp);
+    _output->startCppGuard();
+
     if (comp->hasParams()) {
         _output->append("extern Photon");
         _output->appendWithFirstUpper(comp->moduleName());
@@ -118,9 +122,6 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append(";\n\n");
     }
-
-    appendImplBlockIncludes(comp);
-    _output->startCppGuard();
 
     _output->append("/**********************************IMPLEMENT***********************************/\n\n");
     appendImplPrototypes(comp);
