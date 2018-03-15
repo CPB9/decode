@@ -31,6 +31,7 @@ public:
     ~GcInterfaceGen();
 
     void generateHeader(const Package* package);
+    void generateSource(const Package* package);
 
 private:
     bool appendTypeValidator(const Type* type);
@@ -45,6 +46,8 @@ private:
     void appendMsgFieldName(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName);
     void appendCmdMethods(const Component* comp, const Command* cmd);
     void appendTmMethods(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, bmcl::StringView namespaceName);
+    void appendCmdDecls(const Component* comp, const Command* cmd);
+    void appendTmDecls(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, bmcl::StringView namespaceName);
     void appendNamedTypeInit(const NamedType* type, bmcl::StringView name);
     void appendTestedType(const Type* type);
     static void appendTestedType(const Type* type, SrcBuilder* dest);

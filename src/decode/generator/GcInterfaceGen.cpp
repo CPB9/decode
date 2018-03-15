@@ -26,20 +26,28 @@ GcInterfaceGen::~GcInterfaceGen()
 {
 }
 
-void GcInterfaceGen::generateHeader(const Package* package)
+void GcInterfaceGen::generateSource(const Package* package)
 {
-    _output->appendPragmaOnce();
-    _output->appendEol();
-    TypeDependsCollector coll;
-    TypeDependsCollector::Depends depends;
-    for (const Ast* ast : package->modules()) {
-        coll.collect(ast, &depends);
-    }
-    IncludeGen includeGen(_output);
-    includeGen.genGcIncludePaths(&depends);
-    _output->appendEol();
+    _output->append("#include \"Photon.hpp\"\n\n"
+                    "#include <decode/ast/Utils.h>\n"
+                    "#include <decode/ast/Ast.h>\n"
+                    "#include <decode/ast/Component.h>\n"
+                    "#include <decode/ast/Function.h>\n"
+                    "#include <decode/ast/Type.h>\n"
+                    "#include <decode/ast/AllBuiltinTypes.h>\n"
+                    "#include <decode/ast/Field.h>\n"
+                    "#include <decode/parser/Project.h>\n\n"
+                    "#include <photon/groundcontrol/NumberedSub.h>\n"
+    );
 
     for (const Component* comp : package->components()) {
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _output->append("#include \"photongen/groundcontrol/_events_/");
+            _output->appendWithFirstUpper(comp->name());
+            _output->append("_");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(".hpp\"\n");
+        }
         for (const StatusMsg* msg : comp->statusesRange()) {
             _output->append("#include \"photongen/groundcontrol/_statuses_/");
             _output->appendWithFirstUpper(comp->name());
@@ -50,40 +58,19 @@ void GcInterfaceGen::generateHeader(const Package* package)
     }
     _output->appendEol();
 
-    for (const Component* comp : package->components()) {
-        for (const EventMsg* msg : comp->eventsRange()) {
-            _output->append("#include \"photongen/groundcontrol/_events_/");
-            _output->appendWithFirstUpper(comp->name());
-            _output->append("_");
-            _output->appendWithFirstUpper(msg->name());
-            _output->append(".hpp\"\n");
-        }
-    }
     _output->appendEol();
-
-    _output->append(
-                    "#include <photon/core/Rc.h>\n\n"
-                    "#include <photon/groundcontrol/NumberedSub.h>\n\n"
-                    "#include <decode/ast/Ast.h>\n"
-                    "#include <decode/ast/Component.h>\n"
-                    "#include <decode/ast/Utils.h>\n"
-                    "#include <decode/ast/Type.h>\n"
-                    "#include <decode/ast/AllBuiltinTypes.h>\n"
-                    "#include <decode/ast/Field.h>\n"
-                    "#include <decode/parser/Project.h>\n\n"
-                    "namespace photongen {\n"
-                    "class Validator : public photon::RefCountable {\npublic:\n"
-                    "    Validator(const decode::Project* project, const decode::Device* device)\n"
-                    "        : _project(project)\n"
-                    "        , _device(device)\n"
-                    "    {\n");
+    _output->append("namespace photongen {\n\n"
+                    "Validator::Validator(const decode::Project* project, const decode::Device* device)\n"
+                    "    : _project(project)\n"
+                    "    , _device(device)\n"
+                    "{\n");
 
     for (const Ast* ast : package->modules()) {
-        _output->append("        decode::Rc<const decode::Ast> _");
+        _output->append("    decode::Rc<const decode::Ast> _");
         _output->append(ast->moduleName());
         _output->append("Ast = decode::findModule(_device.get(), \"");
         _output->append(ast->moduleName());
-        _output->append("\");\n        _");
+        _output->append("\");\n    _");
         _output->append(ast->moduleName());
         _output->append("Component = decode::getComponent(_");
         _output->append(ast->moduleName());
@@ -92,24 +79,24 @@ void GcInterfaceGen::generateHeader(const Package* package)
     _output->appendEol();
 
     _output->append(
-                    "        if (!_coreAst) {\n            return;\n        }\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinU16 = _coreAst->builtinTypes()->u16Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinU32 = _coreAst->builtinTypes()->u32Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinU64 = _coreAst->builtinTypes()->u64Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinI8 = _coreAst->builtinTypes()->i8Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinI16 = _coreAst->builtinTypes()->i16Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinI32 = _coreAst->builtinTypes()->i32Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinI64 = _coreAst->builtinTypes()->i64Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinF32 = _coreAst->builtinTypes()->f32Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinF64 = _coreAst->builtinTypes()->f64Type();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinVaruint = _coreAst->builtinTypes()->varuintType();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinVarint = _coreAst->builtinTypes()->varintType();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinBool = _coreAst->builtinTypes()->boolType();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinVoid = _coreAst->builtinTypes()->voidType();\n"
-                    "        decode::Rc<const decode::BuiltinType> _builtinChar = _coreAst->builtinTypes()->charType();\n\n");
+                    "    if (!_coreAst) {\n        return;\n    }\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinU16 = _coreAst->builtinTypes()->u16Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinU32 = _coreAst->builtinTypes()->u32Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinU64 = _coreAst->builtinTypes()->u64Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinI8 = _coreAst->builtinTypes()->i8Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinI16 = _coreAst->builtinTypes()->i16Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinI32 = _coreAst->builtinTypes()->i32Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinI64 = _coreAst->builtinTypes()->i64Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinF32 = _coreAst->builtinTypes()->f32Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinF64 = _coreAst->builtinTypes()->f64Type();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinVaruint = _coreAst->builtinTypes()->varuintType();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinVarint = _coreAst->builtinTypes()->varintType();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinBool = _coreAst->builtinTypes()->boolType();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinVoid = _coreAst->builtinTypes()->voidType();\n"
+                    "    decode::Rc<const decode::BuiltinType> _builtinChar = _coreAst->builtinTypes()->charType();\n\n");
 
     for (const Ast* ast : package->modules()) {
         for (const Type* type : ast->typesRange()) {
@@ -132,8 +119,9 @@ void GcInterfaceGen::generateHeader(const Package* package)
             appendEventValidator(comp, msg);
         }
     }
+    _output->append("}\n\n");
 
-    _output->append("    }\n");
+    _output->append("Validator::~Validator()\n{\n}\n\n");
 
     for (const Ast* ast : package->modules()) {
         if (ast->component().isNone()) {
@@ -148,6 +136,84 @@ void GcInterfaceGen::generateHeader(const Package* package)
         }
         for (const EventMsg* msg : comp->eventsRange()) {
             appendTmMethods(comp, msg, "event", "events");
+        }
+    }
+
+
+    _output->append("}\n");
+}
+
+void GcInterfaceGen::generateHeader(const Package* package)
+{
+    _output->appendPragmaOnce();
+    _output->appendEol();
+    TypeDependsCollector coll;
+    TypeDependsCollector::Depends depends;
+    for (const Ast* ast : package->modules()) {
+        coll.collect(ast, &depends);
+    }
+    IncludeGen includeGen(_output);
+    includeGen.genGcIncludePaths(&depends);
+    _output->appendEol();
+
+    _output->append(
+                    "#include <bmcl/Fwd.h>\n\n"
+                    "namespace decode {\n"
+                    "class Project;\n"
+                    "class Package;\n"
+                    "class StatusMsg;\n"
+                    "class EventMsg;\n"
+                    "class Command;\n"
+                    "class Device;\n"
+                    "class Component;\n"
+                    "}\n\n"
+                    "namespace photon {\n"
+                    "struct NumberedSub;\n"
+                    "}\n\n"
+                    "#include <photon/core/Rc.h>\n\n"
+
+                    "namespace photongen {\n\n");
+
+    for (const Component* comp : package->components()) {
+        _output->append("namespace ");
+        _output->append(comp->name());
+        _output->append(" {\n");
+        _output->append("namespace statuses {\n");
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            _output->append("struct ");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(";\n");
+        }
+        _output->append("}\n");
+        _output->append("namespace events {\n");
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _output->append("struct ");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(";\n");
+        }
+        _output->append("}\n");
+        _output->append("}\n\n");
+    }
+
+    _output->append("class Validator : public photon::RefCountable {\npublic:\n"
+                    "    Validator(const decode::Project* project, const decode::Device* device);\n"
+                    "    ~Validator();\n\n"
+    );
+
+
+    for (const Ast* ast : package->modules()) {
+        if (ast->component().isNone()) {
+            continue;
+        }
+        const Component* comp = ast->component().unwrap();
+        for (const Command* cmd : comp->cmdsRange()) {
+            appendCmdDecls(comp, cmd);
+        }
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            appendTmDecls(comp, msg, "status", "statuses");
+        }
+        for (const EventMsg* msg : comp->eventsRange()) {
+            appendTmDecls(comp, msg, "event", "events");
         }
     }
 
@@ -204,73 +270,123 @@ void GcInterfaceGen::appendMsgFieldName(const Component* comp, const TmMsg* msg,
     _output->appendWithFirstUpper(msg->name());
 }
 
-void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
-                                     bmcl::StringView msgTypeName, bmcl::StringView namespaceName)
+static void appendHasTmMsgDecl(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, SrcBuilder* _output, bool isInside)
 {
-    _output->append("    bool has");
+    if (isInside) {
+        _output->append("    bool has");
+    } else {
+        _output->append("bool Validator::has");
+    }
     _output->appendWithFirstUpper(msgTypeName);
     _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
-    _output->append("() const\n    {\n        return ");
-    appendMsgFieldName(comp, msg, msgTypeName);
-    _output->append(";\n    }\n\n");
+    _output->append("() const");
+}
 
-
-    _output->append("    bool decode");
+static void appendDecodeTmMsgDecl(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, bmcl::StringView namespaceName, SrcBuilder* _output, bool isInside)
+{
+    if (isInside) {
+        _output->append("    bool decode");
+    } else {
+        _output->append("bool Validator::decode");
+    }
     _output->appendWithFirstUpper(msgTypeName);
     _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
     _output->append("(");
     GcMsgGen::genTmMsgType(comp, msg, namespaceName, _output);
-    _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");
+    _output->append("* msg, bmcl::MemReader* src, photon::CoderState* state) const");
+}
 
-    _output->append("        if(!_");
-    _output->append(comp->moduleName());
-    _output->append("Component) {\n            return false;\n        }\n");
-
-    _output->append("        if(!");
-    appendMsgFieldName(comp, msg, msgTypeName);
-    _output->append(") {\n            return false;\n        }\n");
-    _output->append("        return photongenDeserialize(msg, src, state);\n"
-                    "    }\n\n");
-
-    _output->append("    bmcl::Option<photon::NumberedSub> ");
+static void appendNumberedSubTmDecl(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, SrcBuilder* _output, bool isInside)
+{
+    if (isInside) {
+        _output->append("    bmcl::Option<photon::NumberedSub> ");
+    } else {
+        _output->append("bmcl::Option<photon::NumberedSub> Validator::");
+    }
     _output->append(msgTypeName);
     _output->append("Msg");
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(msg->name());
-    _output->append("Sub() const\n"
-                    "    {\n"
-                    "        if(!_");
+    _output->append("Sub() const");
+}
+
+void GcInterfaceGen::appendTmDecls(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, bmcl::StringView namespaceName)
+{
+    appendHasTmMsgDecl(comp, msg, msgTypeName, _output, true);
+    _output->append(";\n");
+    appendDecodeTmMsgDecl(comp, msg, msgTypeName, namespaceName, _output, true);
+    _output->append(";\n");
+    appendNumberedSubTmDecl(comp, msg, msgTypeName, _output, true);
+    _output->append(";\n");
+
+    _output->appendEol();
+}
+
+void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
+                                     bmcl::StringView msgTypeName, bmcl::StringView namespaceName)
+{
+    appendHasTmMsgDecl(comp, msg, msgTypeName, _output, false);
+    _output->append("\n{\n    return ");
+    appendMsgFieldName(comp, msg, msgTypeName);
+    _output->append(";\n}\n\n");
+
+    appendDecodeTmMsgDecl(comp, msg, msgTypeName, namespaceName, _output, false);
+    _output->append("\n{\n");
+
+    _output->append("    if(!_");
+    _output->append(comp->moduleName());
+    _output->append("Component) {\n        return false;\n    }\n");
+
+    _output->append("    if(!");
+    appendMsgFieldName(comp, msg, msgTypeName);
+    _output->append(") {\n        return false;\n    }\n");
+    _output->append("    return photongenDeserialize(msg, src, state);\n"
+                    "}\n\n");
+
+
+    appendNumberedSubTmDecl(comp, msg, msgTypeName, _output, false);
+    _output->append("\n{\n"
+                    "    if(!_");
     _output->append(comp->moduleName());
     _output->append("Component) {\n"
-                    "            return bmcl::None;\n"
-                    "        }\n"
-                    "        if(!");
+                    "        return bmcl::None;\n"
+                    "    }\n"
+                    "    if(!");
     appendMsgFieldName(comp, msg, msgTypeName);
     _output->append(") {\n"
-                    "            return bmcl::None;\n"
-                    "        }\n"
-                    "        return photon::NumberedSub(");
+                    "        return bmcl::None;\n"
+                    "    }\n"
+                    "    return photon::NumberedSub(");
     _output->append("_");
     _output->append(comp->moduleName());
     _output->append("Component->number(), ");
     appendMsgFieldName(comp, msg, msgTypeName);
-    _output->append("->number());\n    }\n\n");
+    _output->append("->number());\n}\n\n");
 }
 
-void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
+static void appendHasCmdDecl(const Component* comp, const Command* cmd, SrcBuilder* _output, bool isInside)
 {
-    _output->append("    bool hasCmd");
+    if (isInside) {
+        _output->append("    bool hasCmd");
+    } else {
+        _output->append("bool Validator::hasCmd");
+    }
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(cmd->name());
-    _output->append("() const\n    {\n        return ");
-    appendCmdFieldName(comp, cmd);
-    _output->append(";\n    }\n\n");
+    _output->append("() const");
+}
 
-    _output->append("    bool encodeCmd");
+static void appendEncodeCmdDecl(const Component* comp, const Command* cmd, SrcBuilder* _output, bool isInside)
+{
+    if (isInside) {
+        _output->append("    bool encodeCmd");
+    } else {
+        _output->append("bool Validator::encodeCmd");
+    }
     _output->appendWithFirstUpper(comp->moduleName());
     _output->appendWithFirstUpper(cmd->name());
     _output->append("(");
@@ -280,55 +396,90 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
         gen.genGcTypeRepr(field->type(), field->name());
         _output->append(", ");
     }
-    _output->append("bmcl::Buffer* dest, photon::CoderState* state) const\n    {\n");
-    _output->append("        if(!");
-    appendCmdFieldName(comp, cmd);
-    _output->append(") {\n            return false;\n        }\n");
+    _output->append("bmcl::Buffer* dest, photon::CoderState* state) const");
+}
 
-    _output->append("        if(!_");
+static void appendDecodeCmdRvDecl(const Component* comp, const Command* cmd, SrcBuilder* _output, bool isInside)
+{
+    if (isInside) {
+        _output->append("    bool decodeCmdRv");
+    } else {
+        _output->append("bool Validator::decodeCmdRv");
+    }
+    _output->appendWithFirstUpper(comp->moduleName());
+    _output->appendWithFirstUpper(cmd->name());
+    _output->append("(");
+
+    Rc<ReferenceType> ref = new ReferenceType(ReferenceKind::Pointer, true, const_cast<Type*>(cmd->type()->returnValue().unwrap()));
+    TypeReprGen gen(_output);
+    gen.genGcTypeRepr(ref.get(), "rv");
+    _output->append(", bmcl::MemReader* src, photon::CoderState* state) const");
+}
+
+void GcInterfaceGen::appendCmdDecls(const Component* comp, const Command* cmd)
+{
+    appendHasCmdDecl(comp, cmd, _output, true);
+    _output->append(";\n");
+    appendEncodeCmdDecl(comp, cmd, _output, true);
+    _output->append(";\n");
+
+    if (cmd->type()->returnValue().isSome()) {
+        appendDecodeCmdRvDecl(comp, cmd, _output, true);
+        _output->append(";\n");
+    }
+
+    _output->appendEol();
+}
+
+void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
+{
+    appendHasCmdDecl(comp, cmd, _output, false);
+    _output->append("\n{\n    return ");
+    appendCmdFieldName(comp, cmd);
+    _output->append(";\n}\n\n");
+
+    appendEncodeCmdDecl(comp, cmd, _output, false);
+    _output->append("\n{\n");
+    _output->append("    if(!");
+    appendCmdFieldName(comp, cmd);
+    _output->append(") {\n        return false;\n    }\n");
+
+    _output->append("    if(!_");
     _output->append(comp->moduleName());
-    _output->append("Component) {\n            return false;\n        }\n"
-                    "        dest->writeVarUint(_");
+    _output->append("Component) {\n        return false;\n    }\n"
+                    "    dest->writeVarUint(_");
     _output->append(comp->moduleName());
     _output->append("Component->number());\n");
 
-    _output->append("        dest->writeVarUint(");
+    _output->append("    dest->writeVarUint(");
     appendCmdFieldName(comp, cmd);
     _output->append("->number());\n");
 
     InlineSerContext ctx;
-    ctx = ctx.indent();
     //TODO: use field inspector
     InlineTypeInspector inspector(_output);
     for (const Field* field : cmd->fieldsRange()) {
         inspector.inspect<false, true>(field->type(), ctx, field->name());
     }
 
-    _output->append("        return true;\n"
-                    "    }\n\n");
+    _output->append("    return true;\n"
+                    "}\n\n");
 
+    TypeReprGen gen(_output);
     if (cmd->type()->returnValue().isSome()) {
-        _output->append("    bool decodeCmdRv");
-        _output->appendWithFirstUpper(comp->moduleName());
-        _output->appendWithFirstUpper(cmd->name());
-        _output->append("(");
-
-        Rc<ReferenceType> ref = new ReferenceType(ReferenceKind::Pointer, true, const_cast<Type*>(cmd->type()->returnValue().unwrap()));
-        gen.genGcTypeRepr(ref.get(), "rv");
-        _output->append(", bmcl::MemReader* src, photon::CoderState* state) const\n    {\n");
-
-
-        _output->append("        if(!");
+        appendDecodeCmdRvDecl(comp, cmd, _output, false);
+        _output->append("\n{\n");
+        _output->append("    if(!");
         appendCmdFieldName(comp, cmd);
-        _output->append(") {\n            return false;\n        }\n");
+        _output->append(") {\n        return false;\n    }\n");
 
-        _output->append("        if(!_");
+        _output->append("    if(!_");
         _output->append(comp->moduleName());
-        _output->append("Component) {\n            return false;\n        }\n");
+        _output->append("Component) {\n        return false;\n    }\n");
         inspector.inspect<false, false>(cmd->type()->returnValue().unwrap(), ctx, "(*rv)");
 
-        _output->append("        return true;\n"
-                        "    }\n\n");
+        _output->append("    return true;\n"
+                        "}\n\n");
     }
 }
 
@@ -341,7 +492,7 @@ void GcInterfaceGen::appendComponentFieldName(const Component* comp)
 
 void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cmd)
 {
-    _output->append("        ");
+    _output->append("    ");
     appendCmdFieldName(comp, cmd);
     _output->append(" = decode::findCmd(");
     appendComponentFieldName(comp);
@@ -353,7 +504,7 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     std::size_t i = 0;
     for (const Field* field : cmd->fieldsRange()) {
         appendTypeValidator(field->type());
-        _output->append("        decode::expectCmdArg(&");
+        _output->append("    decode::expectCmdArg(&");
         appendCmdFieldName(comp, cmd);
         _output->append(", ");
         _output->appendNumericValue(i);
@@ -365,13 +516,13 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     auto rv = cmd->type()->returnValue();
     if (rv.isSome()) {
         appendTypeValidator(rv.unwrap());
-        _output->append("        decode::expectCmdRv(&");
+        _output->append("    decode::expectCmdRv(&");
         appendCmdFieldName(comp, cmd);
         _output->append(", ");
         appendTestedType(rv.unwrap());
         _output->append(".get());\n");
     } else {
-        _output->append("        decode::expectCmdNoRv(&");
+        _output->append("    decode::expectCmdNoRv(&");
         appendCmdFieldName(comp, cmd);
         _output->append(");\n");
     }
@@ -381,7 +532,7 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
 
 void GcInterfaceGen::appendStatusValidator(const Component* comp, const StatusMsg* msg)
 {
-    _output->append("        ");
+    _output->append("    ");
     appendMsgFieldName(comp, msg, "status");
     _output->append(" = decode::findStatusMsg(");
     appendComponentFieldName(comp);
@@ -393,7 +544,7 @@ void GcInterfaceGen::appendStatusValidator(const Component* comp, const StatusMs
 
 void GcInterfaceGen::appendEventValidator(const Component* comp, const EventMsg* msg)
 {
-    _output->append("        ");
+    _output->append("    ");
     appendMsgFieldName(comp, msg, "event");
     _output->append(" = decode::findEventMsg(");
     appendComponentFieldName(comp);
@@ -423,7 +574,7 @@ void GcInterfaceGen::appendStructValidator(const StructType* type)
         appendTypeValidator(field->type());
     }
     appendNamedTypeInit(type, "Struct");
-    _output->append("        decode::expectFieldNum(&_");
+    _output->append("    decode::expectFieldNum(&_");
     _output->append(type->moduleName());
     _output->appendWithFirstUpper(type->name());
     _output->append(", ");
@@ -432,7 +583,7 @@ void GcInterfaceGen::appendStructValidator(const StructType* type)
 
     std::size_t i = 0;
     for (const Field* field : type->fieldsRange()) {
-        _output->append("        decode::expectField(&_");
+        _output->append("    decode::expectField(&_");
         _output->append(type->moduleName());
         _output->appendWithFirstUpper(type->name());
         _output->append(", ");
@@ -487,7 +638,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         break;
     case TypeKind::Reference: {
         appendTypeValidator(type->asReference()->pointee());
-        _output->append("        decode::Rc<decode::ReferenceType> ");
+        _output->append("    decode::Rc<decode::ReferenceType> ");
         appendTestedType(type);
         _output->append(" = decode::tryMakeReference(");
         switch (type->asReference()->referenceKind()) {
@@ -509,7 +660,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
     }
     case TypeKind::Array:
         appendTypeValidator(type->asArray()->elementType());
-        _output->append("        decode::Rc<decode::ArrayType> ");
+        _output->append("    decode::Rc<decode::ArrayType> ");
         appendTestedType(type);
         _output->append(" = tryMakeArray(");
         _output->appendNumericValue(type->asArray()->elementCount());
@@ -525,7 +676,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         for (const Field* field : f->argumentsRange()) {
             appendTypeValidator(field->type());
         }
-        _output->append("        decode::Rc<decode::FunctionType> ");
+        _output->append("    decode::Rc<decode::FunctionType> ");
         appendTestedType(type);
         _output->append(" = tryMakeFunction(");
         if (f->hasReturnValue()) {
@@ -566,7 +717,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
         break;
     case TypeKind::DynArray:
         appendTypeValidator(type->asDynArray()->elementType());
-        _output->append("        decode::Rc<decode::DynArrayType> ");
+        _output->append("    decode::Rc<decode::DynArrayType> ");
         appendTestedType(type);
         _output->append(" = tryMakeDynArray(");
         _output->appendNumericValue(type->asDynArray()->maxSize());
@@ -598,7 +749,7 @@ bool GcInterfaceGen::appendTypeValidator(const Type* type)
     case TypeKind::GenericInstantiation: {
         const GenericInstantiationType* g = type->asGenericInstantiation();
         appendTypeValidator(g->genericType());
-        _output->append("        decode::Rc<decode::GenericInstantiationType> ");
+        _output->append("    decode::Rc<decode::GenericInstantiationType> ");
         appendTestedType(g);
         _output->append(" = decode::instantiateGeneric(&");
         appendTestedType(g->genericType());
@@ -668,7 +819,7 @@ void GcInterfaceGen::appendTestedType(const Type* type, SrcBuilder* dest)
 
 void GcInterfaceGen::appendNamedTypeInit(const NamedType* type, bmcl::StringView name)
 {
-    _output->append("        decode::Rc<const decode::");
+    _output->append("    decode::Rc<const decode::");
     _output->append(name);
     _output->append("Type> _");
     _output->append(type->moduleName());
