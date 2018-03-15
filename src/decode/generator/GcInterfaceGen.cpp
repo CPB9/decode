@@ -427,9 +427,16 @@ static void appendEncodeCmdDecl(const Component* comp, const Command* cmd, SrcBu
     _output->appendWithFirstUpper(cmd->name());
     _output->append("(");
 
+    Rc<ReferenceType> ref = new ReferenceType(ReferenceKind::Reference, false, nullptr);
     TypeReprGen gen(_output);
     for (const Field* field : cmd->fieldsRange()) {
-        gen.genGcTypeRepr(field->type(), field->name());
+        TypeKind kind = field->type()->resolveFinalType()->typeKind();
+        if (kind == TypeKind::Builtin || kind == TypeKind::Enum) {
+            gen.genGcTypeRepr(field->type(), field->name());
+        } else {
+            ref->setPointee(const_cast<Type*>(field->type()));
+            gen.genGcTypeRepr(ref.get(), field->name());
+        }
         _output->append(", ");
     }
     _output->append("bmcl::Buffer* dest, photon::CoderState* state) const");
