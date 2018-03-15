@@ -37,26 +37,9 @@ void GcInterfaceGen::generateSource(const Package* package)
                     "#include <decode/ast/AllBuiltinTypes.h>\n"
                     "#include <decode/ast/Field.h>\n"
                     "#include <decode/parser/Project.h>\n\n"
-                    "#include <photon/groundcontrol/NumberedSub.h>\n"
+                    "#include <photon/groundcontrol/NumberedSub.h>\n\n"
     );
 
-    for (const Component* comp : package->components()) {
-        for (const EventMsg* msg : comp->eventsRange()) {
-            _output->append("#include \"photongen/groundcontrol/_events_/");
-            _output->appendWithFirstUpper(comp->name());
-            _output->append("_");
-            _output->appendWithFirstUpper(msg->name());
-            _output->append(".hpp\"\n");
-        }
-        for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("#include \"photongen/groundcontrol/_statuses_/");
-            _output->appendWithFirstUpper(comp->name());
-            _output->append("_");
-            _output->appendWithFirstUpper(msg->name());
-            _output->append(".hpp\"\n");
-        }
-    }
-    _output->appendEol();
 
     _output->appendEol();
     _output->append("namespace photongen {\n\n"
@@ -141,6 +124,7 @@ void GcInterfaceGen::generateSource(const Package* package)
 
 
     _output->append("}\n");
+    _validatedTypes.clear();
 }
 
 void GcInterfaceGen::generateHeader(const Package* package)
@@ -156,8 +140,39 @@ void GcInterfaceGen::generateHeader(const Package* package)
     includeGen.genGcIncludePaths(&depends);
     _output->appendEol();
 
+    for (const Component* comp : package->components()) {
+        for (const EventMsg* msg : comp->eventsRange()) {
+            _output->append("#include \"photongen/groundcontrol/_events_/");
+            _output->appendWithFirstUpper(comp->name());
+            _output->append("_");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(".hpp\"\n");
+        }
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            _output->append("#include \"photongen/groundcontrol/_statuses_/");
+            _output->appendWithFirstUpper(comp->name());
+            _output->append("_");
+            _output->appendWithFirstUpper(msg->name());
+            _output->append(".hpp\"\n");
+        }
+    }
+    _output->appendEol();
+
+    _output->append("#include \"photongen/groundcontrol/Validator.hpp\"\n\n");
+    _validatedTypes.clear();
+}
+
+void GcInterfaceGen::generateValidatorHeader(const Package* package)
+{
+    _output->appendPragmaOnce();
+    _output->appendEol();
+
     _output->append(
                     "#include <bmcl/Fwd.h>\n\n"
+                    "#include <vector>\n"
+                    "#include <cstdint>\n"
+                    "#include <cstddef>\n"
+                    "#include <array>\n\n"
                     "namespace decode {\n"
                     "class Project;\n"
                     "class Package;\n"
@@ -169,31 +184,52 @@ void GcInterfaceGen::generateHeader(const Package* package)
                     "}\n\n"
                     "namespace photon {\n"
                     "struct NumberedSub;\n"
+                    "class CoderState;\n"
                     "}\n\n"
                     "#include <photon/core/Rc.h>\n\n"
 
                     "namespace photongen {\n\n");
 
     for (const Component* comp : package->components()) {
-        _output->append("namespace ");
-        _output->append(comp->name());
-        _output->append(" {\n");
-        _output->append("namespace statuses {\n");
-        for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("struct ");
-            _output->appendWithFirstUpper(msg->name());
-            _output->append(";\n");
+        bool hasStatuses = !comp->statusesRange().empty();
+        bool hasEvents = !comp->eventsRange().empty();
+        if (hasStatuses || hasEvents) {
+            _output->append("namespace ");
+            _output->append(comp->name());
+            _output->append(" { ");
+            if (hasStatuses) {
+                _output->append("namespace statuses { ");
+                for (const StatusMsg* msg : comp->statusesRange()) {
+                    _output->append("struct ");
+                    _output->appendWithFirstUpper(msg->name());
+                    _output->append("; ");
+                }
+                _output->append("} ");
+            }
+            if (hasEvents) {
+                _output->append("namespace events { ");
+                for (const EventMsg* msg : comp->eventsRange()) {
+                    _output->append("struct ");
+                    _output->appendWithFirstUpper(msg->name());
+                    _output->append("; ");
+                }
+                _output->append("} ");
+            }
+            _output->append("}\n");
         }
-        _output->append("}\n");
-        _output->append("namespace events {\n");
-        for (const EventMsg* msg : comp->eventsRange()) {
-            _output->append("struct ");
-            _output->appendWithFirstUpper(msg->name());
-            _output->append(";\n");
+
+        for (const Command* cmd : comp->cmdsRange()) {
+            for (const Field* field : cmd->fieldsRange()) {
+                appendFwd(field->type(), bmcl::None);
+            }
+            auto rv = cmd->type()->returnValue();
+            if (rv.isSome()) {
+                appendFwd(rv.unwrap(), bmcl::None);
+            }
         }
-        _output->append("}\n");
-        _output->append("}\n\n");
     }
+    _output->appendEol();
+    _validatedTypes.clear();
 
     _output->append("class Validator : public photon::RefCountable {\npublic:\n"
                     "    Validator(const decode::Project* project, const decode::Device* device);\n"
@@ -554,17 +590,149 @@ void GcInterfaceGen::appendEventValidator(const Component* comp, const EventMsg*
     //TODO: validate event fields
 }
 
+bool GcInterfaceGen::appendFwd(const Type* type, bmcl::OptionPtr<const GenericType> parent)
+{
+    auto beginType = [this, parent](const NamedType* type) {
+        _output->append("namespace ");
+        _output->append(type->moduleName());
+        _output->append(" { ");
+        if (parent.isSome()) {
+            _output->append("template <");
+            foreachList(parent.unwrap()->parametersRange(), [this](const GenericParameterType* p) {
+                _output->append("typename ");
+                _output->append(p->name());
+            }, [this](const GenericParameterType*) {
+                _output->append(", ");
+            });
+            _output->append("> ");
+        }
+    };
+    auto endType = [this]() {
+        _output->append("; }\n");
+    };
+    switch (type->typeKind()) {
+    case TypeKind::Builtin:
+        break;
+    case TypeKind::Reference:
+        return appendFwd(type->asReference()->pointee(), bmcl::None);
+    case TypeKind::Array:
+        return appendFwd(type->asArray()->elementType(), bmcl::None);
+    case TypeKind::Function: {
+        const FunctionType* f = type->asFunction();
+        for (const Field* field : f->argumentsRange()) {
+            appendFwd(field->type(), bmcl::None);
+        }
+        if (f->returnValue().isSome()) {
+            appendFwd(f->returnValue().unwrap(), bmcl::None);
+        }
+    }
+    case TypeKind::GenericParameter:
+        break;
+    case TypeKind::DynArray:
+        return appendFwd(type->asDynArray()->elementType(), bmcl::None);
+    case TypeKind::GenericInstantiation:
+        return appendFwd(type->asGenericInstantiation()->genericType(), bmcl::None);
+    case TypeKind::Enum:
+        if (!insertForwardedType(type)) {
+            return false;
+        }
+        beginType(type->asEnum());
+        _output->append("enum class ");
+        _output->appendWithFirstUpper(type->asEnum()->name());
+        endType();
+        break;
+    case TypeKind::Struct: {
+        const StructType* s = type->asStruct();
+        for (const Field* field : s->fieldsRange()) {
+            appendFwd(field->type(), bmcl::None);
+        }
+        if (!insertForwardedType(type)) {
+            return false;
+        }
+        beginType(type->asStruct());
+        _output->append("class ");
+        _output->appendWithFirstUpper(type->asStruct()->name());
+        endType();
+        break;
+    }
+    case TypeKind::Variant: {
+        const VariantType* v = type->asVariant();
+        for (const VariantField* field : v->fieldsRange()) {
+            switch (field->variantFieldKind()) {
+            case VariantFieldKind::Constant:
+                break;
+            case VariantFieldKind::Tuple:
+                for (const Type* t : field->asTupleField()->typesRange()) {
+                    appendFwd(t, bmcl::None);
+                }
+                break;
+            case VariantFieldKind::Struct:
+                for (const Field* f : field->asStructField()->fieldsRange()) {
+                    appendFwd(f->type(), bmcl::None);
+                }
+                break;
+            }
+        }
+        if (!insertForwardedType(type)) {
+            return false;
+        }
+        beginType(type->asVariant());
+        _output->append("class ");
+        _output->appendWithFirstUpper(type->asVariant()->name());
+        endType();
+        break;
+    }
+    case TypeKind::Imported:
+        appendFwd(type->asImported()->link(), bmcl::None);
+        break;
+    case TypeKind::Alias: {
+        appendFwd(type->asAlias()->alias(), bmcl::None);
+        if (!insertForwardedType(type)) {
+            return false;
+        }
+        beginType(type->asAlias());
+        _output->append("using ");
+        _output->appendWithFirstUpper(type->asAlias()->name());
+        _output->append(" = ");
+        TypeReprGen reprGen(_output);
+        reprGen.genGcTypeRepr(type->asAlias()->alias());
+        endType();
+        break;
+    }
+    case TypeKind::Generic:
+        if (!insertForwardedType(type)) {
+            return false;
+        }
+        const GenericType* g = type->asGeneric();
+        if (g->moduleName() == "core" && g->name() == "Option") {
+            _output->append("namespace ");
+            _output->append(g->moduleName());
+            _output->append(" { template <typename T> using Option = bmcl::Option<T>; }\n");
+        } else {
+            appendFwd(g->innerType(), type->asGeneric());
+        }
+        break;
+    }
+    return true;
+}
+
+bool GcInterfaceGen::insertForwardedType(const Type* type)
+{
+    TypeNameGen gen(&_nameBuilder);
+    gen.genTypeName(type);
+    auto pair = _validatedTypes.emplace(_nameBuilder.view().toStdString(), type);
+    _nameBuilder.clear();
+    return pair.second;
+}
+
 bool GcInterfaceGen::insertValidatedType(const Type* type)
 {
     if (type->isImported()) {
         return true;
     }
-    if (type->resolveFinalType()->isBuiltin()) {
-        return false;
-    }
-    SrcBuilder nameBuilder;
-    appendTestedType(type, &nameBuilder);
-    auto pair = _validatedTypes.emplace(nameBuilder.view().toStdString(), type);
+    appendTestedType(type, &_nameBuilder);
+    auto pair = _validatedTypes.emplace(_nameBuilder.view().toStdString(), type);
+    _nameBuilder.clear();
     return pair.second;
 }
 

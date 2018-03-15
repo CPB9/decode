@@ -3,6 +3,7 @@
 #include "decode/Config.h"
 #include "decode/core/HashMap.h"
 #include "decode/core/Rc.h"
+#include "decode/generator/SrcBuilder.h"
 
 #include "bmcl/Fwd.h"
 
@@ -24,6 +25,7 @@ class Command;
 class TmMsg;
 class StatusMsg;
 class EventMsg;
+class GenericType;
 
 class GcInterfaceGen {
 public:
@@ -31,6 +33,7 @@ public:
     ~GcInterfaceGen();
 
     void generateHeader(const Package* package);
+    void generateValidatorHeader(const Package* package);
     void generateSource(const Package* package);
 
 private:
@@ -50,11 +53,14 @@ private:
     void appendTmDecls(const Component* comp, const TmMsg* msg, bmcl::StringView msgTypeName, bmcl::StringView namespaceName);
     void appendNamedTypeInit(const NamedType* type, bmcl::StringView name);
     void appendTestedType(const Type* type);
+    bool appendFwd(const Type* type, bmcl::OptionPtr<const GenericType> parent);
     static void appendTestedType(const Type* type, SrcBuilder* dest);
 
     bool insertValidatedType(const Type* type);
+    bool insertForwardedType(const Type* type);
 
     SrcBuilder* _output;
+    SrcBuilder _nameBuilder;
     HashMap<std::string, Rc<const Type>> _validatedTypes;
 };
 }

@@ -429,7 +429,10 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     TRY(saveOutput(interfacePath, _output.view(), _diag.get()));
     _output.clear();
 
-
+    igen.generateValidatorHeader(package);
+    interfacePath = joinPath(_gcPath.view(), "Validator.hpp");
+    TRY(saveOutput(interfacePath, _output.view(), _diag.get()));
+    _output.clear();
 
     future.wait();
     std::string packageDetailPath = joinPath(std::string(_onboardPath.data(), _onboardPath.size()), "Package.inc.c");
