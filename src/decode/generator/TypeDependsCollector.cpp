@@ -49,12 +49,8 @@ inline bool TypeDependsCollector::visitImportedType(const ImportedType* u)
 
 inline bool TypeDependsCollector::visitAliasType(const AliasType* alias)
 {
-    if (alias == _currentType) {
-        traverseType(alias->alias()); //HACK
-        return false;
-    }
-    _dest->emplace(alias);
-    return false;
+    collectType(alias);
+    return true;
 }
 
 bool TypeDependsCollector::visitFunctionType(const FunctionType* func)
@@ -77,7 +73,6 @@ bool TypeDependsCollector::visitDynArrayType(const DynArrayType* dynArray)
         traverseType(dynArray->elementType());
         return false;
     }
-
     _dest->insert(dynArray);
     ascendTypeOnce(dynArray->elementType());
     return false;
@@ -101,8 +96,10 @@ bool TypeDependsCollector::visitGenericInstantiationType(const GenericInstantiat
 
 void TypeDependsCollector::collect(const EventMsg* msg, Depends* dest)
 {
+    _currentType = 0;
+    _dest = dest;
     for (const Field* field : msg->partsRange()) {
-        collect(field->type(), dest);
+        collectType(field->type());
     };
 }
 
@@ -112,18 +109,21 @@ void TypeDependsCollector::collect(const StatusMsg* msg, TypeDependsCollector::D
     _dest = dest;
     //FIXME: visit only first accessor in every part
     for (const StatusRegexp* part : msg->partsRange()) {
+        collectType(part->type());
         traverseType(part->type());
         for (const Accessor* acc : part->accessorsRange()) {
             switch (acc->accessorKind()) {
             case AccessorKind::Field: {
-                auto facc = static_cast<const FieldAccessor*>(acc);
+                auto facc = acc->asFieldAccessor();
                 const Type* type = facc->field()->type();
+                collectType(type);
                 traverseType(type);
                 break;
             }
             case AccessorKind::Subscript: {
-                auto sacc = static_cast<const SubscriptAccessor*>(acc);
+                auto sacc = acc->asSubscriptAccessor();
                 const Type* type = sacc->type();
+                collectType(type);
                 traverseType(type);
                 break;
             }
@@ -171,6 +171,7 @@ void TypeDependsCollector::collect(const Ast* ast, TypeDependsCollector::Depends
 
 void TypeDependsCollector::collectCmds(Component::Cmds::ConstRange cmds, TypeDependsCollector::Depends* dest)
 {
+    _currentType = 0;
     _dest = dest;
     for (const Function* func : cmds) {
         _currentType = func->type();
@@ -189,6 +190,8 @@ void TypeDependsCollector::collectParams(Component::Params::ConstRange params, T
 
 void TypeDependsCollector::collectStatuses(Component::Statuses::ConstRange statuses, TypeDependsCollector::Depends* dest)
 {
+    _dest = dest;
+    _currentType = nullptr;
     for (const StatusMsg* msg : statuses) {
         collect(msg, dest);
     }
@@ -196,6 +199,8 @@ void TypeDependsCollector::collectStatuses(Component::Statuses::ConstRange statu
 
 void TypeDependsCollector::collectEvents(Component::Events::ConstRange events, TypeDependsCollector::Depends* dest)
 {
+    _dest = dest;
+    _currentType = nullptr;
     for (const EventMsg* msg : events) {
         collect(msg, dest);
     }
