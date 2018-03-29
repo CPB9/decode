@@ -139,22 +139,28 @@ void StatusEncoderGen::appendMsgSwitch(const Component* comp, const T* msg)
 {
     _output->append("            case ");
     _output->appendNumericValue(msg->number());
-    _output->append(": {\n"
-                    "                Photon");
+    _output->append(": {\n");
+    if (!msg->partsRange().empty()) {
+        _output->append("                Photon");
 
-    _output->appendWithFirstUpper(comp->moduleName());
-    appendInfix(_output, msg);
-    _output->appendWithFirstUpper(msg->name());
+        _output->appendWithFirstUpper(comp->moduleName());
+        appendInfix(_output, msg);
+        _output->appendWithFirstUpper(msg->name());
 
-    _output->append(" msg;\n"
-                    "                PHOTON_TRY(");
+        _output->append(" msg;\n"
+                        "                PHOTON_TRY(");
 
-    appendPrototype(&_prototypeGen, comp, msg);
+        appendPrototype(&_prototypeGen, comp, msg);
 
-    _output->append("(src, &msg));\n"
-                    "                handler(id, num, &msg, userData);\n"
-                    "                continue;\n"
-                    "            }\n");
+        _output->append("(src, &msg));\n"
+                        "                handler(id, num, &msg, userData);\n"
+                        "                continue;\n"
+                        "            }\n");
+    } else {
+        _output->append("                handler(id, num, 0, userData);\n"
+                        "                continue;\n"
+                        "            }\n");
+    }
 }
 
 void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
@@ -198,6 +204,9 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
         }
 
         for (const EventMsg* msg : comp->eventsRange()) {
+            if (msg->partsRange().empty()) {
+                continue;
+            }
             _prototypeGen.appendEventDecoderFunctionPrototype(comp, msg);
             _output->append("\n{\n");
             for (const Field* part : msg->partsRange()) {

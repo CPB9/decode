@@ -171,6 +171,9 @@ void OnboardTypeHeaderGen::appendEventStructs(const Component* comp)
     TypeReprGen reprGen(_output);
     _output->append("/*events*/\n");
     for (const EventMsg* msg : comp->eventsRange()) {
+        if (msg->partsRange().empty()) {
+            continue;
+        }
         _output->append("typedef struct {\n");
         for (const Field* field : msg->partsRange()) {
             _output->appendIndent();
@@ -415,6 +418,9 @@ void OnboardTypeHeaderGen::appendEventDecoderPrototypes(const Component* comp)
 {
     _output->append("/*event decoders*/\n");
     for (const EventMsg* msg : comp->eventsRange()) {
+        if (msg->partsRange().empty()) {
+            continue;
+        }
         _prototypeGen.appendEventDecoderFunctionPrototype(comp, msg);
         _output->append(";\n");
     };
