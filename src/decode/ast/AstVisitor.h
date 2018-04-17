@@ -558,8 +558,8 @@ void AstVisitorBase<B, P>::traverseType(typename P<Type>::type type)
 template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseComponentParameters(typename P<Component>::type comp)
 {
-    if (comp->hasParams()) {
-        for (typename P<Field>::type field : comp->paramsRange()) {
+    if (comp->hasVars()) {
+        for (typename P<Field>::type field : comp->varsRange()) {
             traverseType(field->type());
         }
     }

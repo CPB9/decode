@@ -215,16 +215,16 @@ bool Package::resolveStatuses(Ast* ast)
         return true;
     }
 
-    if (!comp->hasParams() && comp->hasStatuses()) {
+    if (!comp->hasVars() && comp->hasStatuses()) {
         //TODO: report error
-        BMCL_CRITICAL() << "no params, has statuses";
+        BMCL_CRITICAL() << "no data, has statuses";
         return false;
     }
 
     for (StatusMsg* it : comp->statusesRange()) {
         _statusMsgs.emplace_back(comp.unwrap(), it);
         for (StatusRegexp* re : it->partsRange()) {
-            FieldVec::Range fields = comp->paramsRange();
+            FieldVec::Range fields = comp->varsRange();
             Rc<Type> lastType = nullptr;
             Rc<Field> lastField = nullptr;
             Rc<SubscriptAccessor> lastSubscript = nullptr;

@@ -202,14 +202,14 @@ public:
     using Pointer = Rc<Component>;
     using ConstPointer = Rc<const Component>;
     using Cmds = RcVec<Command>;
-    using Params = FieldVec;
+    using Vars = FieldVec;
     using Statuses = RcSecondUnorderedMap<bmcl::StringView, StatusMsg>;
     using Events = RcSecondUnorderedMap<bmcl::StringView, EventMsg>;
 
     Component(std::size_t compNum, const ModuleInfo* info);
     ~Component();
 
-    bool hasParams() const;
+    bool hasVars() const;
     bool hasCmds() const;
     bool hasStatuses() const;
     bool hasEvents() const;
@@ -219,12 +219,12 @@ public:
     Cmds::ConstIterator cmdsBegin() const;
     Cmds::ConstIterator cmdsEnd() const;
     Cmds::ConstRange cmdsRange() const;
-    Params::Iterator paramsBegin();
-    Params::Iterator paramsEnd();
-    Params::Range paramsRange();
-    Params::ConstIterator paramsBegin() const;
-    Params::ConstIterator paramsEnd() const;
-    Params::ConstRange paramsRange() const;
+    Vars::Iterator varsBegin();
+    Vars::Iterator varsEnd();
+    Vars::Range varsRange();
+    Vars::ConstIterator varsBegin() const;
+    Vars::ConstIterator varsEnd() const;
+    Vars::ConstRange varsRange() const;
     Statuses::Iterator statusesBegin();
     Statuses::Iterator statusesEnd();
     Statuses::Range statusesRange();
@@ -240,10 +240,10 @@ public:
     bmcl::StringView name() const;
     std::size_t number() const;
 
-    bmcl::OptionPtr<const Field> paramWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<const Field> varWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<const Command> cmdWithName(bmcl::StringView name) const;
 
-    void addParam(Field* param); //TODO: check name conflicts
+    void addVar(Field* var); //TODO: check name conflicts
     void addCommand(Command* func); //TODO: check name conflicts
     bool addStatus(StatusMsg* msg);
     bool addEvent(EventMsg* msg);
@@ -252,7 +252,7 @@ public:
 
 private:
     std::size_t _number;
-    Params _params;
+    Vars _vars;
     Cmds _cmds;
     Statuses _statuses;
     Events _events;

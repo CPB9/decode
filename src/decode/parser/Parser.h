@@ -140,7 +140,7 @@ private:
     bool parseUnsignedInteger(std::uintmax_t* dest);
     bool parseSignedInteger(std::intmax_t* dest);
 
-    bool parseParameters(Component* parent);
+    bool parseVariables(Component* parent);
     bool parseCommands(Component* parent);
     bool parseStatuses(Component* parent);
     bool parseEvents(Component* parent);

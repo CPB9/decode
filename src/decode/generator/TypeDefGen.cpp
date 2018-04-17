@@ -54,10 +54,10 @@ void TypeDefGen::genTypeDef(const DynArrayType* type)
 
 void TypeDefGen::genComponentDef(const Component* comp)
 {
-    if (!comp->hasParams()) {
+    if (!comp->hasVars()) {
         return;
     }
-    appendFieldVec(comp->paramsRange(), comp->name());
+    appendFieldVec(comp->varsRange(), comp->name());
 }
 
 void TypeDefGen::appendDynArray(const DynArrayType* type)

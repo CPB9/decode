@@ -641,7 +641,7 @@ bool Generator::generateTypesAndComponents(const Ast* ast)
         TRY(dumpIfNotEmpty(comp->moduleName(), ".Component.h", &_onboardPath));
         _output.appendOnboardComponentInclude(comp->moduleName(), ".h");
         _output.appendEol();
-        if (comp->hasParams()) {
+        if (comp->hasVars()) {
             _output.append("Photon");
             _output.appendWithFirstUpper(comp->moduleName());
             _output.append(" _photon");

@@ -115,7 +115,7 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
     appendImplBlockIncludes(comp);
     _output->startCppGuard();
 
-    if (comp->hasParams()) {
+    if (comp->hasVars()) {
         _output->append("extern Photon");
         _output->appendWithFirstUpper(comp->moduleName());
         _output->append(" _photon");

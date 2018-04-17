@@ -342,9 +342,9 @@ Component::~Component()
 {
 }
 
-bool Component::hasParams() const
+bool Component::hasVars() const
 {
-    return !_params.empty();
+    return !_vars.empty();
 }
 
 bool Component::hasCmds() const
@@ -392,34 +392,34 @@ Component::Cmds::Range Component::cmdsRange()
     return _cmds;
 }
 
-Component::Params::ConstIterator Component::paramsBegin() const
+Component::Vars::ConstIterator Component::varsBegin() const
 {
-    return _params.cbegin();
+    return _vars.cbegin();
 }
 
-Component::Params::ConstIterator Component::paramsEnd() const
+Component::Vars::ConstIterator Component::varsEnd() const
 {
-    return _params.cend();
+    return _vars.cend();
 }
 
-Component::Params::ConstRange Component::paramsRange() const
+Component::Vars::ConstRange Component::varsRange() const
 {
-    return _params;
+    return _vars;
 }
 
-Component::Params::Iterator Component::paramsBegin()
+Component::Vars::Iterator Component::varsBegin()
 {
-    return _params.begin();
+    return _vars.begin();
 }
 
-Component::Params::Iterator Component::paramsEnd()
+Component::Vars::Iterator Component::varsEnd()
 {
-    return _params.end();
+    return _vars.end();
 }
 
-Component::Params::Range Component::paramsRange()
+Component::Vars::Range Component::varsRange()
 {
-    return _params;
+    return _vars;
 }
 
 Component::Statuses::ConstIterator Component::statusesBegin() const
@@ -492,9 +492,9 @@ std::size_t Component::number() const
     return _number;
 }
 
-bmcl::OptionPtr<const Field> Component::paramWithName(bmcl::StringView name) const
+bmcl::OptionPtr<const Field> Component::varWithName(bmcl::StringView name) const
 {
-    return _params.fieldWithName(name);
+    return _vars.fieldWithName(name);
 }
 
 bmcl::OptionPtr<const Command> Component::cmdWithName(bmcl::StringView name) const
@@ -507,9 +507,9 @@ bmcl::OptionPtr<const Command> Component::cmdWithName(bmcl::StringView name) con
     return bmcl::None;
 }
 
-void Component::addParam(Field* param)
+void Component::addVar(Field* vars)
 {
-    _params.emplace_back(param);
+    _vars.emplace_back(vars);
 }
 
 void Component::addCommand(Command* func)

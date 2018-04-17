@@ -145,10 +145,10 @@ void TypeDependsCollector::collect(const Component* comp, TypeDependsCollector::
 {
     _dest = dest;
     _currentType = 0;
-    if (!comp->hasParams()) {
+    if (!comp->hasVars()) {
         return;
     }
-    for (const Field* field : comp->paramsRange()) {
+    for (const Field* field : comp->varsRange()) {
         traverseType(field->type());
     }
 }
@@ -179,12 +179,12 @@ void TypeDependsCollector::collectCmds(Component::Cmds::ConstRange cmds, TypeDep
     }
 }
 
-void TypeDependsCollector::collectParams(Component::Params::ConstRange params, TypeDependsCollector::Depends* dest)
+void TypeDependsCollector::collectVars(Component::Vars::ConstRange vars, TypeDependsCollector::Depends* dest)
 {
     _dest = dest;
     _currentType = nullptr;
-    for (const Field* param : params) {
-        traverseType(param->type());
+    for (const Field* var : vars) {
+        traverseType(var->type());
     }
 }
 

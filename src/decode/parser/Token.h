@@ -54,7 +54,7 @@ enum class TokenKind {
     Variant,
     Type,
     Component,
-    Parameters,
+    Variables,
     Statuses,
     Events,
     Commands,

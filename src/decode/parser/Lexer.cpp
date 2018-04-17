@@ -46,7 +46,7 @@ KEYWORD_RULE(Enum,       "enum");
 KEYWORD_RULE(Variant,    "variant");
 KEYWORD_RULE(Type,       "type");
 KEYWORD_RULE(Component,  "component");
-KEYWORD_RULE(Parameters, "parameters");
+KEYWORD_RULE(Variables,       "variables");
 KEYWORD_RULE(Statuses,   "statuses");
 KEYWORD_RULE(Events,     "events");
 KEYWORD_RULE(Commands,   "commands");
@@ -188,7 +188,7 @@ struct Grammar
                  Variant,
                  Type,
                  Component,
-                 Parameters,
+                 Variables,
                  Statuses,
                  Events,
                  Commands,
@@ -256,7 +256,7 @@ RULE_TO_TOKEN(Enum);
 RULE_TO_TOKEN(Variant);
 RULE_TO_TOKEN(Type);
 RULE_TO_TOKEN(Component);
-RULE_TO_TOKEN(Parameters);
+RULE_TO_TOKEN(Variables);
 RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Events);
 RULE_TO_TOKEN(Commands);

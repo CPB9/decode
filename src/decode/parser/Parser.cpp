@@ -152,8 +152,8 @@ static std::string tokenKindToString(TokenKind kind)
         return "'type'";
     case TokenKind::Component:
         return "'component'";
-    case TokenKind::Parameters:
-        return "'parameters'";
+    case TokenKind::Variables:
+        return "'variables'";
     case TokenKind::Statuses:
         return "'statuses'";
     case TokenKind::Events:
@@ -1480,14 +1480,14 @@ bool Parser::parseComponentImpl(Component* parent)
     return true;
 }
 
-bool Parser::parseParameters(Component* parent)
+bool Parser::parseVariables(Component* parent)
 {
-    TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) {
+    TRY(parseNamelessTag(TokenKind::Variables, TokenKind::Comma, parent, [this](Component* comp) {
         Rc<Field> field = parseField();
         if (!field) {
             return false;
         }
-        comp->addParam(field.get());
+        comp->addVar(field.get());
         return true;
     }));
 
@@ -1684,8 +1684,8 @@ bool Parser::parseComponent()
         TRY(skipCommentsAndSpace());
 
         switch(_currentToken.kind()) {
-        case TokenKind::Parameters: {
-            TRY(parseParameters(comp.get()));
+        case TokenKind::Variables: {
+            TRY(parseVariables(comp.get()));
             break;
         }
         case TokenKind::Commands: {
