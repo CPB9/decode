@@ -361,6 +361,7 @@ void OnboardTypeSourceGen::genTypeSource(const GenericInstantiationType* instant
 
 void OnboardTypeSourceGen::genSource(const Type* type, bmcl::StringView modName)
 {
+    _output->appendPragmaOnce(); //HACK
     switch (type->typeKind()) {
         case TypeKind::Variant:
             appendIncludes(modName);
