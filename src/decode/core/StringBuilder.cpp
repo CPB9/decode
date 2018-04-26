@@ -197,13 +197,60 @@ std::string StringBuilder::toStdString() const
     return _output;
 }
 
+constexpr const char* chars = "0123456789abcdef";
+
 void StringBuilder::appendHexValue(uint8_t value)
 {
-    const char* chars = "0123456789abcdef";
     char str[4] = {'0', 'x', '0', '0'};
     str[2] = chars[(value & 0xf0) >> 4];
-    str[3] = chars[value & 0x0f];
+    str[3] = chars[ value & 0x0f];
     append(str, 4);
+}
+
+void StringBuilder::appendHexValue(uint16_t value)
+{
+    char str[6] = {'0', 'x', '0', '0', '0', '0'};
+    str[2] = chars[(value & 0xf000) >> 12];
+    str[3] = chars[(value & 0x0f00) >> 8];
+    str[4] = chars[(value & 0x00f0) >> 4];
+    str[5] = chars[ value & 0x000f];
+    append(str, 6);
+}
+
+void StringBuilder::appendHexValue(uint32_t value)
+{
+    char str[10] = {'0', 'x', '0', '0', '0', '0', '0', '0', '0', '0'};
+    str[2] = chars[(value & 0xf0000000) >> 28];
+    str[3] = chars[(value & 0x0f000000) >> 24];
+    str[4] = chars[(value & 0x00f00000) >> 20];
+    str[5] = chars[(value & 0x000f0000) >> 16];
+    str[6] = chars[(value & 0x0000f000) >> 12];
+    str[7] = chars[(value & 0x00000f00) >> 8];
+    str[8] = chars[(value & 0x000000f0) >> 4];
+    str[9] = chars[ value & 0x0000000f];
+    append(str, 10);
+}
+
+void StringBuilder::appendHexValue(uint64_t value)
+{
+    char str[18] = {'0', 'x', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'};
+    str[ 2] = chars[(value & 0xf000000000000000) >> 60];
+    str[ 3] = chars[(value & 0x0f00000000000000) >> 56];
+    str[ 4] = chars[(value & 0x00f0000000000000) >> 52];
+    str[ 5] = chars[(value & 0x000f000000000000) >> 48];
+    str[ 6] = chars[(value & 0x0000f00000000000) >> 44];
+    str[ 7] = chars[(value & 0x00000f0000000000) >> 40];
+    str[ 8] = chars[(value & 0x000000f000000000) >> 36];
+    str[ 9] = chars[(value & 0x0000000f00000000) >> 32];
+    str[10] = chars[(value & 0x00000000f0000000) >> 28];
+    str[11] = chars[(value & 0x000000000f000000) >> 24];
+    str[12] = chars[(value & 0x0000000000f00000) >> 20];
+    str[13] = chars[(value & 0x00000000000f0000) >> 16];
+    str[14] = chars[(value & 0x000000000000f000) >> 12];
+    str[15] = chars[(value & 0x0000000000000f00) >> 8];
+    str[16] = chars[(value & 0x00000000000000f0) >> 4];
+    str[17] = chars[ value & 0x000000000000000f];
+    append(str, 18);
 }
 
 void StringBuilder::appendBoolValue(bool value)

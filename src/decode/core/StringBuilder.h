@@ -87,6 +87,9 @@ public:
 
     void appendBoolValue(bool value);
     void appendHexValue(uint8_t value);
+    void appendHexValue(uint16_t value);
+    void appendHexValue(uint32_t value);
+    void appendHexValue(uint64_t value);
 
     void clear();
 
