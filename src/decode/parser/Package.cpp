@@ -203,6 +203,58 @@ bool Package::resolveImports(Ast* ast)
     return isOk;
 }
 
+bool Package::resolveParameters(Ast* ast, uint64_t* paramNum)
+{
+    bmcl::OptionPtr<Component> comp = ast->component();
+    if (comp.isNone()) {
+        return true;
+    }
+
+    if (!comp->hasParams()) {
+        return true;
+    }
+
+    if (!comp->hasVars() && comp->hasParams()) {
+        //TODO: report error
+        BMCL_CRITICAL() << "no vars, has params";
+        return false;
+    }
+
+    for (Parameter* param : comp->paramsRange()) {
+        param->setNumber(*paramNum);
+        (*paramNum)++;
+        if (param->pathPartsRange().empty()) {
+            param->addPathPart(new FieldAccessor(param->name(), nullptr));
+        }
+        bmcl::OptionPtr<Field> lastField;
+        Type* lastType = nullptr;
+        for (FieldAccessor* acc : param->pathPartsRange()) {
+            bmcl::StringView path = acc->value();
+            if (lastField.isNone()) {
+                lastField = comp->varWithName(path);
+            } else {
+                Type* type = lastField->type();
+                if (!type->isStruct()) {
+                    BMCL_CRITICAL() << "intermediate param paths can only reference structs: " << path.toStdString();
+                    return false;
+                }
+                lastField = type->asStruct()->fieldWithName(path);
+            }
+            if (lastField.isNone()) {
+                BMCL_CRITICAL() << "component has no var with name: " << path.toStdString();
+                return false;
+            }
+            lastType = lastField->type();
+            acc->setField(lastField.unwrap());
+        }
+        if (!lastType->isBuiltin()) {
+            BMCL_CRITICAL() << "variable can only be of buildtin type";
+            return false;
+        }
+    }
+    return true;
+}
+
 bool Package::resolveStatuses(Ast* ast)
 {
     bool isOk = true;
@@ -217,7 +269,7 @@ bool Package::resolveStatuses(Ast* ast)
 
     if (!comp->hasVars() && comp->hasStatuses()) {
         //TODO: report error
-        BMCL_CRITICAL() << "no data, has statuses";
+        BMCL_CRITICAL() << "no vars, has statuses";
         return false;
     }
 
@@ -321,15 +373,17 @@ bool Package::mapComponent(Ast* ast)
 bool Package::resolveAll()
 {
     bool isOk = true;
+    uint64_t paramNum = 0;
     for (Ast* modifiedAst : modules()) {
         //BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
         TRY(mapComponent(modifiedAst));
         isOk &= resolveImports(modifiedAst);
         isOk &= resolveGenerics(modifiedAst);
         isOk &= resolveStatuses(modifiedAst);
+        isOk &= resolveParameters(modifiedAst, &paramNum);
     }
     if (!isOk) {
-        BMCL_CRITICAL() << "asd";
+        BMCL_CRITICAL() << "failed to resolve package";
     }
     return isOk;
 }

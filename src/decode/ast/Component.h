@@ -139,6 +139,50 @@ private:
     Rc<Type> _type;
 };
 
+class BuiltinType;
+
+class Parameter : public RefCountable {
+public:
+    using Pointer = Rc<Parameter>;
+    using ConstPointer = Rc<const Parameter>;
+    using PathParts = RcVec<FieldAccessor>;
+
+    Parameter();
+    ~Parameter();
+
+    bool isReadOnly() const;
+    void setReadOnly(bool flag);
+
+    bool hasAutoSave() const;
+    void setHasAutoSave(bool flag);
+
+    bool hasCallback() const;
+    void setHasCallback(bool flag);
+
+    PathParts::ConstRange pathPartsRange() const;
+    PathParts::Range pathPartsRange();
+    void addPathPart(FieldAccessor* acc);
+
+    bmcl::StringView name() const;
+    void setName(bmcl::StringView name);
+
+    uint64_t number() const;
+    void setNumber(uint64_t number);
+
+    const BuiltinType* type() const;
+    BuiltinType* type();
+    void setType(BuiltinType* type);
+
+private:
+    PathParts _path;
+    bmcl::StringView _name;
+    Rc<BuiltinType> _type;
+    uint64_t _number;
+    bool _isReadOnly;
+    bool _hasAutoSave;
+    bool _hasCallback;
+};
+
 class TmMsg : public RefCountable {
 public:
     using Pointer = Rc<TmMsg>;
@@ -205,6 +249,7 @@ public:
     using Vars = FieldVec;
     using Statuses = RcSecondUnorderedMap<bmcl::StringView, StatusMsg>;
     using Events = RcSecondUnorderedMap<bmcl::StringView, EventMsg>;
+    using Params = RcSecondUnorderedMap<bmcl::StringView, Parameter>;
 
     Component(std::size_t compNum, const ModuleInfo* info);
     ~Component();
@@ -213,6 +258,7 @@ public:
     bool hasCmds() const;
     bool hasStatuses() const;
     bool hasEvents() const;
+    bool hasParams() const;
     Cmds::Iterator cmdsBegin();
     Cmds::Iterator cmdsEnd();
     Cmds::Range cmdsRange();
@@ -234,6 +280,12 @@ public:
     Events::ConstIterator eventsBegin() const;
     Events::ConstIterator eventsEnd() const;
     Events::ConstRange eventsRange() const;
+    Params::ConstIterator paramsBegin() const;
+    Params::ConstIterator paramsEnd() const;
+    Params::ConstRange paramsRange() const;
+    Params::Iterator paramsBegin();
+    Params::Iterator paramsEnd();
+    Params::Range paramsRange();
     bmcl::OptionPtr<const ImplBlock> implBlock() const;
     bmcl::StringView moduleName() const;
     const ModuleInfo* moduleInfo() const;
@@ -241,12 +293,14 @@ public:
     std::size_t number() const;
 
     bmcl::OptionPtr<const Field> varWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<Field> varWithName(bmcl::StringView name);
     bmcl::OptionPtr<const Command> cmdWithName(bmcl::StringView name) const;
 
     void addVar(Field* var); //TODO: check name conflicts
     void addCommand(Command* func); //TODO: check name conflicts
     bool addStatus(StatusMsg* msg);
     bool addEvent(EventMsg* msg);
+    bool addParam(Parameter* param);
     void setImplBlock(ImplBlock* block);
     void setNumber(std::size_t number);
 
@@ -256,6 +310,7 @@ private:
     Cmds _cmds;
     Statuses _statuses;
     Events _events;
+    Params _params;
     Rc<ImplBlock> _implBlock;
     Rc<const ModuleInfo> _modInfo;
 };

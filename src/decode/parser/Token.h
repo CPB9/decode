@@ -58,6 +58,7 @@ enum class TokenKind {
     Statuses,
     Events,
     Commands,
+    Parameters,
     Fn,
     UpperFn,
     Self,

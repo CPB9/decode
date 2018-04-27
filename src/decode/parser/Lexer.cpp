@@ -46,10 +46,11 @@ KEYWORD_RULE(Enum,       "enum");
 KEYWORD_RULE(Variant,    "variant");
 KEYWORD_RULE(Type,       "type");
 KEYWORD_RULE(Component,  "component");
-KEYWORD_RULE(Variables,       "variables");
+KEYWORD_RULE(Variables,  "variables");
 KEYWORD_RULE(Statuses,   "statuses");
 KEYWORD_RULE(Events,     "events");
 KEYWORD_RULE(Commands,   "commands");
+KEYWORD_RULE(Parameters, "parameters");
 KEYWORD_RULE(Mut,        "mut");
 KEYWORD_RULE(Const,      "const");
 KEYWORD_RULE(Impl,       "impl");
@@ -192,6 +193,7 @@ struct Grammar
                  Statuses,
                  Events,
                  Commands,
+                 Parameters,
                  Mut,
                  Fn,
                  UpperFn,
@@ -260,6 +262,7 @@ RULE_TO_TOKEN(Variables);
 RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Events);
 RULE_TO_TOKEN(Commands);
+RULE_TO_TOKEN(Parameters);
 RULE_TO_TOKEN(Mut);
 RULE_TO_TOKEN(Const);
 RULE_TO_TOKEN(True);

@@ -160,6 +160,8 @@ static std::string tokenKindToString(TokenKind kind)
         return "'events'";
     case TokenKind::Commands:
         return "'commands'";
+    case TokenKind::Parameters:
+        return "'parameters'";
     case TokenKind::Fn:
         return "'fn'";
     case TokenKind::UpperFn:
@@ -1457,6 +1459,99 @@ bool Parser::parseCommands(Component* parent)
     return true;
 }
 
+bool Parser::parseParameterPath(Component* comp, Parameter* param)
+{
+    while (true) {
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        Rc<FieldAccessor> acc = new FieldAccessor(_currentToken.value(), nullptr);
+        param->addPathPart(acc.get());
+        consume();
+        TokenKind kind = _currentToken.kind();
+        switch (kind) {
+        case TokenKind::Dot:
+            consume();
+            continue;
+        case TokenKind::Comma:
+        case TokenKind::RBrace:
+        case TokenKind::Blank:
+        case TokenKind::Eol:
+            return true;
+        default:
+            reportUnexpectedTokenError(kind);
+            return false;
+        }
+    }
+
+    return false;
+}
+
+bool Parser::parseParameter(Component* comp)
+{
+    TRY(expectCurrentToken(TokenKind::LBrace));
+    Token startTok = _currentToken;
+    consumeAndSkipBlanks();
+    Rc<Parameter> param = new Parameter;
+    bool hasName = false;
+    TRY(parseList2(TokenKind::Comma, TokenKind::RBrace, param.get(), [this, &hasName, comp](Parameter* param) -> bool {
+        skipBlanks();
+        TRY(expectCurrentToken(TokenKind::Identifier));
+        bmcl::StringView key = _currentToken.value();
+        consumeAndSkipBlanks();
+
+        TRY(expectCurrentToken(TokenKind::Colon));
+        consumeAndSkipBlanks();
+
+        //TODO: handle key redefinition
+        bool flag;
+        if (key == "name") {
+            TRY(expectCurrentToken(TokenKind::Identifier));
+            param->setName(_currentToken.value());
+            consume();
+            hasName = true;
+        } else if (key == "path") {
+            TRY(parseParameterPath(comp, param));
+        } else if (key == "autosave") {
+            TRY(parseBoolean(&flag));
+            param->setHasAutoSave(flag);
+        } else if (key == "callback") {
+            TRY(parseBoolean(&flag));
+            param->setHasCallback(flag);
+        } else if (key == "readonly") {
+            TRY(parseBoolean(&flag));
+            param->setReadOnly(flag);
+        }
+
+        return true;
+    }));
+
+    if (!hasName) {
+        reportTokenError(&startTok, "parameter definition lacks 'name'");
+        return false;
+    }
+
+    if (!comp->addParam(param.get())) {
+        std::string msg = "parameter with name '";
+        msg.append(param->name().begin(), param->name().end());
+        msg += "' already exists";
+        reportTokenError(&startTok, msg.c_str());
+        return false;
+    }
+
+    return true;
+}
+
+bool Parser::parseParameters(Component* parent)
+{
+    TRY(parseNamelessTag(TokenKind::Parameters, TokenKind::Comma, parent, [this](Component* comp) -> bool {
+        TRY(parseParameter(comp));
+
+        clearUnusedDocCommentsAndAttributes();
+        return true;
+    }));
+    clearUnusedDocCommentsAndAttributes();
+    return true;
+}
+
 bool Parser::parseComponentImpl(Component* parent)
 {
     if(parent->implBlock().isSome()) {
@@ -1499,9 +1594,11 @@ bool Parser::parseBoolean(bool* value)
 {
     if (_currentToken.kind() == TokenKind::True) {
         *value = true;
+        consume();
         return true;
     } else if (_currentToken.kind() == TokenKind::False) {
         *value = false;
+        consume();
         return true;
     }
     reportCurrentTokenError("expected 'true' or 'false'");
@@ -1526,7 +1623,7 @@ bool Parser::parseEvents(Component* parent)
         bool isEnabled;
         TRY(parseBoolean(&isEnabled));
 
-        consumeAndSkipBlanks();
+        skipBlanks();
         TRY(expectCurrentToken(TokenKind::RBracket));
 
         EventMsg* msg = new EventMsg(name, _currentTmMsgNum, isEnabled);
@@ -1585,7 +1682,7 @@ bool Parser::parseStatuses(Component* parent)
         bool isEnabled;
         TRY(parseBoolean(&isEnabled));
 
-        consumeAndSkipBlanks();
+        skipBlanks();
         TRY(expectCurrentToken(TokenKind::RBracket));
 
         StatusMsg* msg = new StatusMsg(name, _currentTmMsgNum, prio, isEnabled);
@@ -1702,6 +1799,10 @@ bool Parser::parseComponent()
         }
         case TokenKind::Impl: {
             TRY(parseComponentImpl(comp.get()));
+            break;
+        }
+        case TokenKind::Parameters: {
+            TRY(parseParameters(comp.get()));
             break;
         }
         case TokenKind::RBrace:

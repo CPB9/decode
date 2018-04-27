@@ -941,6 +941,11 @@ bmcl::OptionPtr<const Field> StructType::fieldWithName(bmcl::StringView name) co
     return _nameToFieldMap.findValueWithKey(name);
 }
 
+bmcl::OptionPtr<Field> StructType::fieldWithName(bmcl::StringView name)
+{
+    return _nameToFieldMap.findValueWithKey(name);
+}
+
 bmcl::Option<std::size_t> StructType::indexOfField(const Field* field) const
 {
     auto it = std::find(_fields.begin(), _fields.end(), field);

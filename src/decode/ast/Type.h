@@ -407,6 +407,7 @@ public:
     const Field* fieldAt(std::size_t index) const;
 
     bmcl::OptionPtr<const Field> fieldWithName(bmcl::StringView name) const;
+    bmcl::OptionPtr<Field> fieldWithName(bmcl::StringView name);
     bmcl::Option<std::size_t> indexOfField(const Field* field) const;
 
 private:

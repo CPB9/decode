@@ -235,6 +235,98 @@ void StatusRegexp::buildFieldName(StringBuilder* dest) const
     });
 }
 
+Parameter::Parameter()
+    : _number(0)
+    , _isReadOnly(false)
+    , _hasAutoSave(false)
+    , _hasCallback(false)
+{
+}
+
+Parameter::~Parameter()
+{
+}
+
+uint64_t Parameter::number() const
+{
+    return _number;
+}
+
+void Parameter::setNumber(uint64_t number)
+{
+    _number = number;
+}
+
+Parameter::PathParts::ConstRange Parameter::pathPartsRange() const
+{
+    return _path;
+}
+
+Parameter::PathParts::Range Parameter::pathPartsRange()
+{
+    return _path;
+}
+
+bool Parameter::isReadOnly() const
+{
+    return _isReadOnly;
+}
+
+void Parameter::setReadOnly(bool flag)
+{
+    _isReadOnly = flag;
+}
+
+bool Parameter::hasAutoSave() const
+{
+    return _hasAutoSave;
+}
+
+void Parameter::setHasAutoSave(bool flag)
+{
+    _hasAutoSave = flag;
+}
+
+bool Parameter::hasCallback() const
+{
+    return _hasCallback;
+}
+
+void Parameter::setHasCallback(bool flag)
+{
+    _hasCallback = true;
+}
+
+void Parameter::addPathPart(FieldAccessor* acc)
+{
+    _path.emplace_back(acc);
+}
+
+const BuiltinType* Parameter::type() const
+{
+    return _type.get();
+}
+
+BuiltinType* Parameter::type()
+{
+    return _type.get();
+}
+
+void Parameter::setType(BuiltinType* type)
+{
+    _type.reset(type);
+}
+
+bmcl::StringView Parameter::name() const
+{
+    return _name;
+}
+
+void Parameter::setName(bmcl::StringView name)
+{
+    _name = name;
+}
+
 TmMsg::TmMsg(bmcl::StringView name, std::size_t number, bool isEnabled)
     : _name(name)
     , _number(number)
@@ -362,6 +454,11 @@ bool Component::hasEvents() const
     return !_events.empty();
 }
 
+bool Component::hasParams() const
+{
+    return !_params.empty();
+}
+
 Component::Cmds::ConstIterator Component::cmdsBegin() const
 {
     return _cmds.cbegin();
@@ -467,6 +564,36 @@ Component::Statuses::Range Component::statusesRange()
     return _statuses;
 }
 
+Component::Params::ConstIterator Component::paramsBegin() const
+{
+    return _params.cbegin();
+}
+
+Component::Params::ConstIterator Component::paramsEnd() const
+{
+    return _params.cend();
+}
+
+Component::Params::ConstRange Component::paramsRange() const
+{
+    return _params;
+}
+
+Component::Params::Iterator Component::paramsBegin()
+{
+    return _params.begin();
+}
+
+Component::Params::Iterator Component::paramsEnd()
+{
+    return _params.end();
+}
+
+Component::Params::Range Component::paramsRange()
+{
+    return _params;
+}
+
 bmcl::OptionPtr<const ImplBlock> Component::implBlock() const
 {
     return _implBlock.get();
@@ -493,6 +620,11 @@ std::size_t Component::number() const
 }
 
 bmcl::OptionPtr<const Field> Component::varWithName(bmcl::StringView name) const
+{
+    return _vars.fieldWithName(name);
+}
+
+bmcl::OptionPtr<Field> Component::varWithName(bmcl::StringView name)
 {
     return _vars.fieldWithName(name);
 }
@@ -526,6 +658,12 @@ bool Component::addStatus(StatusMsg* msg)
 bool Component::addEvent(EventMsg* msg)
 {
     auto it = _events.emplace(std::piecewise_construct, std::forward_as_tuple(msg->name()), std::forward_as_tuple(msg));
+    return it.second;
+}
+
+bool Component::addParam(Parameter* param)
+{
+    auto it = _params.emplace(std::piecewise_construct, std::forward_as_tuple(param->name()), std::forward_as_tuple(param));
     return it.second;
 }
 

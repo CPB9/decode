@@ -70,6 +70,7 @@ private:
     bool resolveImports(Ast* ast);
     bool resolveGenerics(Ast* ast);
     bool resolveStatuses(Ast* ast);
+    bool resolveParameters(Ast* ast, uint64_t* paramNum);
     bool mapComponent(Ast* ast);
 
     Rc<Diagnostics> _diag;

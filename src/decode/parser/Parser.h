@@ -54,6 +54,7 @@ class TypeDecl;
 class VariantType;
 class AllBuiltinTypes;
 class CmdCallAttr;
+class Parameter;
 
 enum class BuiltinTypeKind;
 enum class ReferenceKind;
@@ -103,6 +104,9 @@ private:
     Rc<RangeAttr> parseRangeAttr();
     Rc<CmdCallAttr> parseCmdCallAttr();
 
+    bool parseParameter(Component* comp);
+    bool parseParameterPath(Component* comp, Parameter* param);
+
     template <typename T, typename F, typename... A>
     bool parseList(TokenKind openToken, TokenKind sep, TokenKind closeToken, T&& parent, F&& fieldParser, A&&... args);
 
@@ -145,6 +149,7 @@ private:
     bool parseStatuses(Component* parent);
     bool parseEvents(Component* parent);
     bool parseComponentImpl(Component* parent);
+    bool parseParameters(Component* parent);
 
     template <typename T>
     Rc<T> beginDecl();
