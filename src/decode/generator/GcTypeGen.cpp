@@ -326,25 +326,28 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
         char c = ':';
         for (const Field* field : type->fieldsRange()) {
             const Type* t = field->type()->resolveFinalType();
-            if (!t->isBuiltin() && !t->isReference()) {
-                continue;
-            }
 
-            _output->append("        ");
-            _output->append(c);
-            _output->append(" _");
-            _output->append(field->name());
-            _output->append('(');
+            auto appendPrefix = [this](const Field* field, bmcl::StringView init, char c) {
+                _output->append("        ");
+                _output->append(c);
+                _output->append(" _");
+                _output->append(field->name());
+                _output->append('(');
+                _output->append(init);
+                _output->append(")\n");
+            };
+
             if (isNull) {
                 if (t->isBuiltin()) {
-                    _output->append('0');
+                    appendPrefix(field, "0", c);
                 } else if (t->isReference()) {
-                    _output->append("nullptr");
+                    appendPrefix(field, "nullptr", c);
+                } else {
+                    continue;
                 }
             } else {
-                _output->append(field->name());
+                appendPrefix(field, field->name(), c);
             }
-            _output->append(")\n");
             c = ',';
         }
     };

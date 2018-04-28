@@ -247,8 +247,8 @@ bool Package::resolveParameters(Ast* ast, uint64_t* paramNum)
             lastType = lastField->type();
             acc->setField(lastField.unwrap());
         }
-        if (!lastType->isBuiltin()) {
-            BMCL_CRITICAL() << "variable can only be of buildtin type";
+        if (!lastType->resolveFinalType()->isBuiltin()) {
+            BMCL_CRITICAL() << "variable can only be of builtin type";
             return false;
         }
     }
