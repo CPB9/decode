@@ -569,7 +569,7 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
 
     appendWriteComponentNumber(comp);
 
-    _output->append("    dest->writeVarUint(");
+    _output->append("    dest->writeUint8(");
     appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
     _output->append(");\n");
 
