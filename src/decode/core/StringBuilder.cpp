@@ -171,6 +171,9 @@ void StringBuilder::appendUpper(bmcl::StringView view)
 template <typename F>
 void StringBuilder::appendWithFirstModified(bmcl::StringView view, F&& func)
 {
+    if (view.isEmpty()) {
+        return;
+    }
     append(view);
     std::size_t i = _output.size() - view.size();
     _output[i] = func(_output[i]);

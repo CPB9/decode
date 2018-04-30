@@ -42,6 +42,7 @@ private:
     void appendEnumValidator(const EnumType* type);
     void appendVariantValidator(const VariantType* type);
     void appendCmdValidator(const Component* comp, const Command* cmd);
+    void appendTmMsgValidator(const Component* comp, const TmMsg* msg, bmcl::StringView typeName);
     void appendStatusValidator(const Component* comp, const StatusMsg* msg);
     void appendEventValidator(const Component* comp, const EventMsg* msg);
     void appendComponentFieldName(const Component* comp);
@@ -55,6 +56,16 @@ private:
     void appendTestedType(const Type* type);
     bool appendFwd(const Type* type, bmcl::OptionPtr<const GenericType> parent);
     static void appendTestedType(const Type* type, SrcBuilder* dest);
+
+    void appendComponentCheck(const Component* comp, bmcl::StringView returnValue);
+    void appendComponentNumberInlineGetter(const Component* comp);
+    void appendWriteComponentNumber(const Component* comp);
+
+    void appendTypeCheckBitDecl(const Component* comp, bmcl::StringView kind, bmcl::StringView name);
+    void appendTypeCheckBitInlineGetter(const Component* comp, bmcl::StringView kind, bmcl::StringView name);
+
+    void appendTypeNumDecl(const Component* comp, bmcl::StringView kind, bmcl::StringView name);
+    void appendTypeNumDeclInlineGetter(const Component* comp, bmcl::StringView kind, bmcl::StringView name);
 
     bool insertValidatedType(const Type* type);
     bool insertForwardedType(const Type* type);

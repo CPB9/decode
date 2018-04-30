@@ -26,6 +26,11 @@ GcInterfaceGen::~GcInterfaceGen()
 {
 }
 
+//static std::size_t getHolderSize(std::size_t maxValueSize)
+//{
+//    return std::ceil(std::log2(maxValueSize));
+//}
+
 void GcInterfaceGen::generateSource(const Package* package)
 {
     _output->append("#include \"Photon.hpp\"\n\n"
@@ -40,24 +45,39 @@ void GcInterfaceGen::generateSource(const Package* package)
                     "#include <photon/groundcontrol/NumberedSub.h>\n\n"
     );
 
-
     _output->appendEol();
     _output->append("namespace photongen {\n\n"
                     "Validator::Validator(const decode::Project* project, const decode::Device* device)\n"
-                    "    : _project(project)\n"
-                    "    , _device(device)\n"
                     "{\n");
 
     for (const Ast* ast : package->modules()) {
         _output->append("    decode::Rc<const decode::Ast> _");
         _output->append(ast->moduleName());
-        _output->append("Ast = decode::findModule(_device.get(), \"");
+        _output->append("Ast = decode::findModule(device, \"");
         _output->append(ast->moduleName());
-        _output->append("\");\n    _");
-        _output->append(ast->moduleName());
+        _output->append("\");\n");
+
+    }
+    _output->appendEol();
+    for (const Component* comp : package->components()) {
+        _output->append("    decode::Rc<const decode::Component> _");
+        _output->append(comp->moduleName());
         _output->append("Component = decode::getComponent(_");
-        _output->append(ast->moduleName());
+        _output->append(comp->moduleName());
         _output->append("Ast.get());\n");
+        _output->append("    ___hasComponent_");
+        _output->append(comp->name());
+        _output->append(" = bool(_");
+        _output->append(comp->moduleName());
+        _output->append("Component);\n");
+        _output->append("    if (_");
+        _output->append(comp->moduleName());
+        _output->append("Component) {\n");
+        _output->append("        ___componentNum_");
+        _output->append(comp->name());
+        _output->append(" = _");
+        _output->append(comp->moduleName());
+        _output->append("Component->number();\n    }\n");
     }
     _output->appendEol();
 
@@ -162,13 +182,49 @@ void GcInterfaceGen::generateHeader(const Package* package)
     _validatedTypes.clear();
 }
 
+void GcInterfaceGen::appendTypeCheckBitInlineGetter(const Component* comp, bmcl::StringView kind, bmcl::StringView name)
+{
+    _output->append("__has__");
+    _output->append(kind);
+    _output->append("__");
+    _output->append(comp->moduleName());
+    _output->append("_");
+    _output->append(name);
+}
+
+void GcInterfaceGen::appendTypeCheckBitDecl(const Component* comp, bmcl::StringView kind, bmcl::StringView name)
+{
+    _output->append("    bool ");
+    appendTypeCheckBitInlineGetter(comp, kind, name);
+    _output->append(" : 1;\n");
+}
+
+
+void GcInterfaceGen::appendTypeNumDeclInlineGetter(const Component* comp, bmcl::StringView kind, bmcl::StringView name)
+{
+    _output->append("__num__");
+    _output->append(kind);
+    _output->append("__");
+    _output->append(comp->moduleName());
+    _output->append("_");
+    _output->append(name);
+}
+
+void GcInterfaceGen::appendTypeNumDecl(const Component* comp, bmcl::StringView kind, bmcl::StringView name)
+{
+
+    _output->append("    std::uint8_t ");
+    appendTypeNumDeclInlineGetter(comp, kind, name);
+    _output->append(";\n");
+}
+
 void GcInterfaceGen::generateValidatorHeader(const Package* package)
 {
     _output->appendPragmaOnce();
     _output->appendEol();
 
     _output->append(
-                    "#include <bmcl/Fwd.h>\n\n"
+                    "#include <bmcl/Fwd.h>\n"
                     "#include <vector>\n"
                     "#include <cstdint>\n"
                     "#include <cstddef>\n"
@@ -253,36 +309,41 @@ void GcInterfaceGen::generateValidatorHeader(const Package* package)
         }
     }
 
-    _output->append("private:\n"
-                    "    decode::Rc<const decode::Project> _project;\n"
-                    "    decode::Rc<const decode::Device> _device;\n"
-                   );
+    _output->append("private:\n");
 
-    for (const Ast* ast : package->modules()) {
-        _output->append("    decode::Rc<const decode::Component> _");
-        _output->append(ast->moduleName());
-        _output->append("Component;\n");
+    for (const Component* comp : package->components()) {
+        _output->append("    bool ___hasComponent_");
+        _output->append(comp->name());
+        _output->append(" : 1;\n");
     }
 
-    for (const Ast* ast : package->modules()) {
-        if (ast->component().isNone()) {
-            continue;
-        }
-        const Component* comp = ast->component().unwrap();
+    for (const Component* comp : package->components()) {
         for (const Command* cmd : comp->cmdsRange()) {
-            _output->append("    decode::Rc<const decode::Command> ");
-            appendCmdFieldName(comp, cmd);
-            _output->append(";\n");
+            appendTypeCheckBitDecl(comp, "cmd", cmd->name());
         }
         for (const StatusMsg* msg : comp->statusesRange()) {
-            _output->append("    decode::Rc<const decode::StatusMsg> ");
-            appendMsgFieldName(comp, msg, "status");
-            _output->append(";\n");
+            appendTypeCheckBitDecl(comp, "status", msg->name());
         }
         for (const EventMsg* msg : comp->eventsRange()) {
-            _output->append("    decode::Rc<const decode::EventMsg> ");
-            appendMsgFieldName(comp, msg, "event");
-            _output->append(";\n");
+            appendTypeCheckBitDecl(comp, "event", msg->name());
+        }
+    }
+
+    for (const Component* comp : package->components()) {
+        _output->append("    std::uint8_t ___componentNum_");
+        _output->append(comp->name());
+        _output->append(";\n");
+    }
+
+    for (const Component* comp : package->components()) {
+        for (const Command* cmd : comp->cmdsRange()) {
+            appendTypeNumDecl(comp, "cmd", cmd->name());
+        }
+        for (const StatusMsg* msg : comp->statusesRange()) {
+            appendTypeNumDecl(comp, "status", msg->name());
+        }
+        for (const EventMsg* msg : comp->eventsRange()) {
+            appendTypeNumDecl(comp, "event", msg->name());
         }
     }
 
@@ -362,46 +423,62 @@ void GcInterfaceGen::appendTmDecls(const Component* comp, const TmMsg* msg, bmcl
     _output->appendEol();
 }
 
+void GcInterfaceGen::appendComponentCheck(const Component* comp, bmcl::StringView returnValue)
+{
+    _output->append("    if(!___hasComponent_");
+    _output->append(comp->name());
+    _output->append(") {\n        return ");
+    _output->append(returnValue);
+    _output->append(";\n    }\n");
+}
+
+void GcInterfaceGen::appendComponentNumberInlineGetter(const Component* comp)
+{
+    _output->append("___componentNum_");
+    _output->append(comp->name());
+}
+
+void GcInterfaceGen::appendWriteComponentNumber(const Component* comp)
+{
+    _output->append("    dest->writeUint8(");
+    appendComponentNumberInlineGetter(comp);
+    _output->append(");\n");
+}
+
 void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
                                      bmcl::StringView msgTypeName, bmcl::StringView namespaceName)
 {
     appendHasTmMsgDecl(comp, msg, msgTypeName, _output, false);
     _output->append("\n{\n    return ");
-    appendMsgFieldName(comp, msg, msgTypeName);
+    appendTypeCheckBitInlineGetter(comp, msgTypeName, msg->name());
     _output->append(";\n}\n\n");
 
     appendDecodeTmMsgDecl(comp, msg, msgTypeName, namespaceName, _output, false);
     _output->append("\n{\n");
 
-    _output->append("    if(!_");
-    _output->append(comp->moduleName());
-    _output->append("Component) {\n        return false;\n    }\n");
+    appendComponentCheck(comp, "false");
 
     _output->append("    if(!");
-    appendMsgFieldName(comp, msg, msgTypeName);
+    appendTypeCheckBitInlineGetter(comp, msgTypeName, msg->name());
     _output->append(") {\n        return false;\n    }\n");
     _output->append("    return photongenDeserialize(msg, src, state);\n"
                     "}\n\n");
 
 
     appendNumberedSubTmDecl(comp, msg, msgTypeName, _output, false);
-    _output->append("\n{\n"
-                    "    if(!_");
-    _output->append(comp->moduleName());
-    _output->append("Component) {\n"
-                    "        return bmcl::None;\n"
-                    "    }\n"
-                    "    if(!");
-    appendMsgFieldName(comp, msg, msgTypeName);
+    _output->append("\n{\n");
+    appendComponentCheck(comp, "bmcl::None");
+
+    _output->append("    if(!");
+    appendTypeCheckBitInlineGetter(comp, msgTypeName, msg->name());
     _output->append(") {\n"
                     "        return bmcl::None;\n"
                     "    }\n"
                     "    return photon::NumberedSub(");
-    _output->append("_");
-    _output->append(comp->moduleName());
-    _output->append("Component->number(), ");
-    appendMsgFieldName(comp, msg, msgTypeName);
-    _output->append("->number());\n}\n\n");
+    appendComponentNumberInlineGetter(comp);
+    _output->append(", ");
+    appendTypeNumDeclInlineGetter(comp, msgTypeName, msg->name());
+    _output->append(");\n}\n\n");
 }
 
 static void appendHasCmdDecl(const Component* comp, const Command* cmd, SrcBuilder* _output, bool isInside)
@@ -478,25 +555,23 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
 {
     appendHasCmdDecl(comp, cmd, _output, false);
     _output->append("\n{\n    return ");
-    appendCmdFieldName(comp, cmd);
+    appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
     _output->append(";\n}\n\n");
 
     appendEncodeCmdDecl(comp, cmd, _output, false);
     _output->append("\n{\n");
+
+    appendComponentCheck(comp, "false");
+
     _output->append("    if(!");
-    appendCmdFieldName(comp, cmd);
+    appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
     _output->append(") {\n        return false;\n    }\n");
 
-    _output->append("    if(!_");
-    _output->append(comp->moduleName());
-    _output->append("Component) {\n        return false;\n    }\n"
-                    "    dest->writeVarUint(_");
-    _output->append(comp->moduleName());
-    _output->append("Component->number());\n");
+    appendWriteComponentNumber(comp);
 
     _output->append("    dest->writeVarUint(");
-    appendCmdFieldName(comp, cmd);
-    _output->append("->number());\n");
+    appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
+    _output->append(");\n");
 
     InlineSerContext ctx;
     //TODO: use field inspector
@@ -513,12 +588,10 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
         appendDecodeCmdRvDecl(comp, cmd, _output, false);
         _output->append("\n{\n");
         _output->append("    if(!");
-        appendCmdFieldName(comp, cmd);
+        appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
         _output->append(") {\n        return false;\n    }\n");
 
-        _output->append("    if(!_");
-        _output->append(comp->moduleName());
-        _output->append("Component) {\n        return false;\n    }\n");
+        appendComponentCheck(comp, "false");
         inspector.inspect<false, false>(cmd->type()->returnValue().unwrap(), ctx, "(*rv)");
 
         _output->append("    return true;\n"
@@ -535,7 +608,7 @@ void GcInterfaceGen::appendComponentFieldName(const Component* comp)
 
 void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cmd)
 {
-    _output->append("    ");
+    _output->append("    decode::Rc<const decode::Command> ");
     appendCmdFieldName(comp, cmd);
     _output->append(" = decode::findCmd(");
     appendComponentFieldName(comp);
@@ -544,6 +617,21 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     _output->append("\", ");
     _output->appendNumericValue(cmd->fieldsRange().size());
     _output->append(");\n");
+
+    _output->append("    ");
+    appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
+    _output->append(" = bool(");
+    appendCmdFieldName(comp, cmd);
+    _output->append(");\n");
+
+    _output->append("    if (");
+    appendCmdFieldName(comp, cmd);
+    _output->append(") {\n        ");
+    appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
+    _output->append(" = ");
+    appendCmdFieldName(comp, cmd);
+    _output->append("->number();\n    }\n");
+
     std::size_t i = 0;
     for (const Field* field : cmd->fieldsRange()) {
         appendTypeValidator(field->type());
@@ -573,27 +661,46 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
 }
 
 
-void GcInterfaceGen::appendStatusValidator(const Component* comp, const StatusMsg* msg)
+void GcInterfaceGen::appendTmMsgValidator(const Component* comp, const TmMsg* msg, bmcl::StringView typeName)
 {
-    _output->append("    ");
-    appendMsgFieldName(comp, msg, "status");
-    _output->append(" = decode::findStatusMsg(");
+    _output->append("    decode::Rc<const decode::");
+    _output->appendWithFirstUpper(typeName);
+    _output->append("Msg> ");
+    appendMsgFieldName(comp, msg, typeName);
+    _output->append(" = decode::find");
+    _output->appendWithFirstUpper(typeName);
+    _output->append("Msg(");
     appendComponentFieldName(comp);
     _output->append(".get(), \"");
     _output->append(msg->name());
     _output->append("\");\n");
+
+
+    //REFACT
+    _output->append("    ");
+    appendTypeCheckBitInlineGetter(comp, typeName, msg->name());
+    _output->append(" = bool(");
+    appendMsgFieldName(comp, msg, typeName);
+    _output->append(");\n");
+
+    _output->append("    if (");
+    appendMsgFieldName(comp, msg, typeName);
+    _output->append(") {\n        ");
+    appendTypeNumDeclInlineGetter(comp, typeName, msg->name());
+    _output->append(" = ");
+    appendMsgFieldName(comp, msg, typeName);
+    _output->append("->number();\n    }\n");
+}
+
+void GcInterfaceGen::appendStatusValidator(const Component* comp, const StatusMsg* msg)
+{
+    appendTmMsgValidator(comp, msg, "status");
     //TODO: validate status parts
 }
 
 void GcInterfaceGen::appendEventValidator(const Component* comp, const EventMsg* msg)
 {
-    _output->append("    ");
-    appendMsgFieldName(comp, msg, "event");
-    _output->append(" = decode::findEventMsg(");
-    appendComponentFieldName(comp);
-    _output->append(".get(), \"");
-    _output->append(msg->name());
-    _output->append("\");\n");
+    appendTmMsgValidator(comp, msg, "event");
     //TODO: validate event fields
 }
 
