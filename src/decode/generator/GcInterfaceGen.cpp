@@ -618,19 +618,6 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     _output->appendNumericValue(cmd->fieldsRange().size());
     _output->append(");\n");
 
-    _output->append("    ");
-    appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
-    _output->append(" = bool(");
-    appendCmdFieldName(comp, cmd);
-    _output->append(");\n");
-
-    _output->append("    if (");
-    appendCmdFieldName(comp, cmd);
-    _output->append(") {\n        ");
-    appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
-    _output->append(" = ");
-    appendCmdFieldName(comp, cmd);
-    _output->append("->number();\n    }\n");
 
     std::size_t i = 0;
     for (const Field* field : cmd->fieldsRange()) {
@@ -657,6 +644,21 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
         appendCmdFieldName(comp, cmd);
         _output->append(");\n");
     }
+
+    _output->append("    ");
+    appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
+    _output->append(" = bool(");
+    appendCmdFieldName(comp, cmd);
+    _output->append(");\n");
+
+    _output->append("    if (");
+    appendCmdFieldName(comp, cmd);
+    _output->append(") {\n        ");
+    appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
+    _output->append(" = ");
+    appendCmdFieldName(comp, cmd);
+    _output->append("->number();\n    }\n");
+
     _output->appendEol();
 }
 
@@ -677,6 +679,7 @@ void GcInterfaceGen::appendTmMsgValidator(const Component* comp, const TmMsg* ms
 
 
     //REFACT
+    //move after full validation
     _output->append("    ");
     appendTypeCheckBitInlineGetter(comp, typeName, msg->name());
     _output->append(" = bool(");
