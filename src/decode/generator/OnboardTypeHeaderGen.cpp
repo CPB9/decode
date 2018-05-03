@@ -11,6 +11,7 @@
 #include "decode/core/HashSet.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/Function.h"
+#include "decode/ast/AstVisitor.h"
 #include "decode/generator/TypeNameGen.h"
 #include "decode/generator/IncludeGen.h"
 
@@ -60,8 +61,30 @@ void OnboardTypeHeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* typ
     if (type->typeKind() != TypeKind::Alias) {
         appendSerializerFuncPrototypes(type);
     }
+    appendMinMaxSizeFuncs(type, name);
     _output->endCppGuard();
     endIncludeGuard();
+}
+
+void OnboardTypeHeaderGen::appendMinMaxSizeFuncs(const TopLevelType* type, bmcl::StringView name)
+{
+    TypeEncodedSizes sizes = type->encodedSizes();
+    appendSizeFuncs(type, name, "Min", sizes.min);
+    appendSizeFuncs(type, name, "Max", sizes.max);
+}
+
+void OnboardTypeHeaderGen::appendSizeFuncs(const TopLevelType* type, bmcl::StringView name, bmcl::StringView prefix, std::size_t size)
+{
+    _output->append("static inline size_t Photon");
+    if (type->moduleName() != "core") {
+        _output->appendWithFirstUpper(type->moduleName());
+    }
+    _output->appendWithFirstUpper(name);
+    _output->append("_");
+    _output->append(prefix);
+    _output->append("EncodedSize()\n{\n    return ");
+    _output->appendNumericValue(size);
+    _output->append(";\n}\n\n");
 }
 
 template <typename T>

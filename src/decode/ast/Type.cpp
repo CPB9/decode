@@ -15,6 +15,9 @@
 #include <bmcl/Option.h>
 #include <bmcl/Result.h>
 #include <bmcl/Panic.h>
+#include <bmcl/ZigZag.h>
+
+#include <algorithm>
 
 namespace decode {
 
@@ -354,6 +357,152 @@ bmcl::Option<std::size_t> Type::fixedSize() const
         return 8;
     }
     return bmcl::None;
+}
+
+static inline TypeEncodedSizes varuintEncodedSize()
+{
+    return {1, 8};
+}
+
+static inline TypeEncodedSizes ptrEncodedSize()
+{
+    return {4, 8};
+}
+
+static TypeEncodedSizes variantFieldSize(const VariantField* field)
+{
+    switch (field->variantFieldKind()) {
+    case VariantFieldKind::Constant:
+        return {0, 0};
+    case VariantFieldKind::Tuple: {
+        TypeEncodedSizes sizes(0, 0);
+        for (const Type* type : field->asTupleField()->typesRange()) {
+            sizes += type->encodedSizes();
+        }
+        return sizes;
+    }
+    case VariantFieldKind::Struct: {
+        TypeEncodedSizes sizes(0, 0);
+        for (const Field* f : field->asStructField()->fieldsRange()) {
+            sizes += f->type()->encodedSizes();
+        }
+        return sizes;
+    }
+    }
+    assert(false);
+    return TypeEncodedSizes(0, 0);
+}
+
+//TODO: move to bmcl
+static std::uint64_t getHolderSize(std::uint64_t value)
+{
+    if (value <= 240) {
+        return 1;
+    }
+    if (value <= 2287) {
+        return 2;
+    }
+    if (value <= 67823) {
+        return 3;
+    }
+    if (value <= 16777215) {
+        return 4;
+    }
+    if (value <= 4294967295) {
+        return 5;
+    }
+    if (value <= 1099511627775) {
+        return 6;
+    }
+    if (value <= 281474976710655) {
+        return 7;
+    }
+    if (value <= 72057594037927935) {
+        return 8;
+    }
+    return 9;
+}
+
+TypeEncodedSizes Type::encodedSizes() const
+{
+    switch (typeKind()) {
+    case TypeKind::Builtin:
+        switch (asBuiltin()->builtinTypeKind()) {
+        case BuiltinTypeKind::USize:
+        case BuiltinTypeKind::ISize:
+            return ptrEncodedSize();
+        case BuiltinTypeKind::Varint:
+        case BuiltinTypeKind::Varuint:
+            return varuintEncodedSize();
+        case BuiltinTypeKind::U8:
+        case BuiltinTypeKind::I8:
+        case BuiltinTypeKind::Bool:
+        case BuiltinTypeKind::Char:
+            return {1, 1};
+        case BuiltinTypeKind::U16:
+        case BuiltinTypeKind::I16:
+            return {2, 2};
+        case BuiltinTypeKind::F32:
+        case BuiltinTypeKind::U32:
+        case BuiltinTypeKind::I32:
+            return {4, 4};
+        case BuiltinTypeKind::U64:
+        case BuiltinTypeKind::I64:
+        case BuiltinTypeKind::F64:
+            return {8, 8};
+        case BuiltinTypeKind::Void:
+            return {0, 0};
+        }
+        break;
+    case TypeKind::Reference:
+        return ptrEncodedSize();
+    case TypeKind::Array:
+        return varuintEncodedSize() + asArray()->elementType()->encodedSizes() * asArray()->elementCount();
+    case TypeKind::DynArray:
+        return varuintEncodedSize() + asDynArray()->elementType()->encodedSizes() * TypeEncodedSizes(0, asDynArray()->maxSize());
+    case TypeKind::Function:
+        return ptrEncodedSize();
+    case TypeKind::Enum: {
+        std::uint64_t max = 0;
+        for (const EnumConstant* c : asEnum()->constantsRange()) {
+            max = std::max<std::uint64_t>(max, bmcl::zigZagEncode(c->value()));
+        }
+        return {1, getHolderSize(max)};
+    }
+    case TypeKind::Struct: {
+        TypeEncodedSizes sizes(0, 0);
+        for (const Field* field : asStruct()->fieldsRange()) {
+            sizes += field->type()->encodedSizes();
+        }
+        return sizes;
+    }
+    case TypeKind::Variant: {
+        std::size_t numFields = asVariant()->fieldsRange().size();
+        if (numFields == 0) {
+            return {1, 1};
+        }
+        auto it = asVariant()->fieldsBegin();
+        TypeEncodedSizes sizes = variantFieldSize(*it);
+        ++it;
+        for (;it < asVariant()->fieldsEnd(); ++it) {
+            sizes.merge(variantFieldSize(*it));
+        }
+        return TypeEncodedSizes(1, getHolderSize(bmcl::zigZagEncode(int64_t(numFields)))) + sizes;
+    }
+    case TypeKind::Imported:
+        return asImported()->link()->encodedSizes();
+    case TypeKind::Alias:
+        return asAlias()->alias()->encodedSizes();
+    case TypeKind::GenericInstantiation:
+        return asGenericInstantiation()->instantiatedType()->encodedSizes();
+    case TypeKind::GenericParameter:
+    case TypeKind::Generic:
+        //FIXME
+        assert(false);
+        return TypeEncodedSizes(0, 0);
+    }
+    assert(false);
+    return TypeEncodedSizes(0, 0);
 }
 
 template <typename R, typename C>

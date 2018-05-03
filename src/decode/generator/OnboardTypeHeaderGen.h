@@ -56,6 +56,9 @@ private:
     void appendStatusStructs(const Component* comp);
     void appendEventStructs(const Component* comp);
 
+    void appendSizeFuncs(const TopLevelType* type, bmcl::StringView name, bmcl::StringView prefix, std::size_t size);
+    void appendMinMaxSizeFuncs(const TopLevelType* type, bmcl::StringView name);
+
     void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
     void appendFunctionPrototypes(const TopLevelType* type, bmcl::StringView name);
