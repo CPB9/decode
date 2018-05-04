@@ -9,6 +9,7 @@
 #include "decode/generator/OnboardTypeHeaderGen.h"
 #include "decode/core/Foreach.h"
 #include "decode/core/HashSet.h"
+#include "decode/core/EncodedSizes.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/AstVisitor.h"
@@ -66,25 +67,24 @@ void OnboardTypeHeaderGen::genTypeHeader(const Ast* ast, const TopLevelType* typ
     endIncludeGuard();
 }
 
-void OnboardTypeHeaderGen::appendMinMaxSizeFuncs(const TopLevelType* type, bmcl::StringView name)
+void OnboardTypeHeaderGen::appendMinMaxSizeFuncs(const Type* type, bmcl::StringView name)
 {
-    TypeEncodedSizes sizes = type->encodedSizes();
+    EncodedSizes sizes = type->encodedSizes();
     appendSizeFuncs(type, name, "Min", sizes.min);
     appendSizeFuncs(type, name, "Max", sizes.max);
+    _output->appendEol();
 }
 
-void OnboardTypeHeaderGen::appendSizeFuncs(const TopLevelType* type, bmcl::StringView name, bmcl::StringView prefix, std::size_t size)
+void OnboardTypeHeaderGen::appendSizeFuncs(const Type* type, bmcl::StringView name, bmcl::StringView prefix, std::size_t size)
 {
+    (void)type;
     _output->append("static inline size_t Photon");
-    if (type->moduleName() != "core") {
-        _output->appendWithFirstUpper(type->moduleName());
-    }
     _output->appendWithFirstUpper(name);
     _output->append("_");
     _output->append(prefix);
-    _output->append("EncodedSize()\n{\n    return ");
+    _output->append("EncodedSize() { return ");
     _output->appendNumericValue(size);
-    _output->append(";\n}\n\n");
+    _output->append("; }\n");
 }
 
 template <typename T>
@@ -154,12 +154,15 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
 
     appendCmdEncoderPrototypes(comp);
     appendCmdDecoderPrototypes(comp);
+    appendCmdMinMaxSizeFuncs(comp);
     appendStatusEncoderPrototypes(comp);
     appendStatusStructs(comp);
     appendStatusDecoderPrototypes(comp);
+    appendStatusMinMaxSizeFuncs(comp);
     appendEventSenderPrototypes(comp);
     appendEventStructs(comp);
     appendEventDecoderPrototypes(comp);
+    appendEventMinMaxSizeFuncs(comp);
     _output->endCppGuard();
     endIncludeGuard();
 }
@@ -225,6 +228,7 @@ void OnboardTypeHeaderGen::genDynArrayHeader(const DynArrayType* dynArray)
     appendImplBlockIncludes(dynArray);
     _output->startCppGuard();
     appendSerializerFuncPrototypes(dynArray);
+    appendMinMaxSizeFuncs(dynArray, _dynArrayName.view());
     _output->endCppGuard();
     endIncludeGuard();
 }
@@ -406,6 +410,17 @@ void OnboardTypeHeaderGen::appendCmdDecoderPrototypes(const Component* comp)
     _output->appendEol();
 }
 
+void OnboardTypeHeaderGen::appendCmdMinMaxSizeFuncs(const Component* comp)
+{
+    _output->append("/*cmd sizes*/\n");
+    for (const Command* cmd : comp->cmdsRange()) {
+        EncodedSizes sizes = cmd->encodedSizes();
+        appendCompPartSizeFunc(comp, cmd->name(), "_CmdMinEncodedSize_", sizes.min);
+        appendCompPartSizeFunc(comp, cmd->name(), "_CmdMaxEncodedSize_", sizes.max);
+    }
+    _output->appendEol();
+}
+
 void OnboardTypeHeaderGen::appendStatusEncoderPrototypes(const Component* comp)
 {
     _output->append("/*status encoders*/\n");
@@ -422,6 +437,28 @@ void OnboardTypeHeaderGen::appendStatusDecoderPrototypes(const Component* comp)
     for (const StatusMsg* msg : comp->statusesRange()) {
         _prototypeGen.appendStatusDecoderFunctionPrototype(comp, msg);
         _output->append(";\n");
+    }
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendCompPartSizeFunc(const Component* comp, bmcl::StringView name, bmcl::StringView prefix, std::size_t size)
+{
+    _output->append("static inline size_t Photon");
+    _output->appendWithFirstUpper(comp->name());
+    _output->append(prefix);
+    _output->appendWithFirstUpper(name);
+    _output->append("() { return ");
+    _output->appendNumericValue(size);
+    _output->append("; }\n");
+}
+
+void OnboardTypeHeaderGen::appendStatusMinMaxSizeFuncs(const Component* comp)
+{
+    _output->append("/*status sizes*/\n");
+    for (const StatusMsg* msg : comp->statusesRange()) {
+        EncodedSizes sizes = msg->encodedSizes();
+        appendCompPartSizeFunc(comp, msg->name(), "_StatusMinEncodedSize_", sizes.min);
+        appendCompPartSizeFunc(comp, msg->name(), "_StatusMaxEncodedSize_", sizes.max);
     }
     _output->appendEol();
 }
@@ -447,6 +484,17 @@ void OnboardTypeHeaderGen::appendEventDecoderPrototypes(const Component* comp)
         _prototypeGen.appendEventDecoderFunctionPrototype(comp, msg);
         _output->append(";\n");
     };
+    _output->appendEol();
+}
+
+void OnboardTypeHeaderGen::appendEventMinMaxSizeFuncs(const Component* comp)
+{
+    _output->append("/*event sizes*/\n");
+    for (const EventMsg* msg : comp->eventsRange()) {
+        EncodedSizes sizes = msg->encodedSizes();
+        appendCompPartSizeFunc(comp, msg->name(), "_EventMinEncodedSize_", sizes.min);
+        appendCompPartSizeFunc(comp, msg->name(), "_EventMaxEncodedSize_", sizes.max);
+    }
     _output->appendEol();
 }
 

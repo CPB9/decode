@@ -9,6 +9,8 @@
 #include "decode/ast/Function.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
+#include "decode/ast/Component.h"
+#include "decode/core/EncodedSizes.h"
 
 namespace decode {
 
@@ -121,4 +123,12 @@ Command::ArgsConstRange Command::argumentsRange() const
     return _args;
 }
 
+EncodedSizes Command::encodedSizes() const
+{
+    EncodedSizes sizes(2);
+    for (const CmdArgument &arg : argumentsRange()) {
+        sizes += arg.type()->encodedSizes();
+    }
+    return sizes;
+}
 }

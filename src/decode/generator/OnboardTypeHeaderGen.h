@@ -56,8 +56,9 @@ private:
     void appendStatusStructs(const Component* comp);
     void appendEventStructs(const Component* comp);
 
-    void appendSizeFuncs(const TopLevelType* type, bmcl::StringView name, bmcl::StringView prefix, std::size_t size);
-    void appendMinMaxSizeFuncs(const TopLevelType* type, bmcl::StringView name);
+    void appendSizeFuncs(const Type* type, bmcl::StringView name, bmcl::StringView prefix, std::size_t size);
+    void appendMinMaxSizeFuncs(const Type* type, bmcl::StringView name);
+    void appendCompPartSizeFunc(const Component* comp, bmcl::StringView name, bmcl::StringView prefix, std::size_t size);
 
     void appendFunctionPrototype(const Function* func, bmcl::StringView typeName);
     void appendFunctionPrototypes(const NamedType* type);
@@ -67,10 +68,13 @@ private:
     void appendCommandArgAllocators(const Component* comp);
     void appendCmdEncoderPrototypes(const Component* comp);
     void appendCmdDecoderPrototypes(const Component* comp);
+    void appendCmdMinMaxSizeFuncs(const Component* comp);
     void appendStatusEncoderPrototypes(const Component* comp);
     void appendStatusDecoderPrototypes(const Component* comp);
+    void appendStatusMinMaxSizeFuncs(const Component* comp);
     void appendEventSenderPrototypes(const Component* comp);
     void appendEventDecoderPrototypes(const Component* comp);
+    void appendEventMinMaxSizeFuncs(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
 
     template <typename T>

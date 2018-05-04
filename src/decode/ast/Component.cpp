@@ -9,6 +9,7 @@
 #include "decode/ast/Component.h"
 #include "decode/core/Foreach.h"
 #include "decode/core/StringBuilder.h"
+#include "decode/core/EncodedSizes.h"
 #include "decode/ast/ModuleInfo.h"
 #include "decode/ast/Field.h"
 #include "decode/ast/Decl.h"
@@ -399,6 +400,14 @@ std::size_t StatusMsg::priority() const
     return _priority;
 }
 
+EncodedSizes StatusMsg::encodedSizes() const
+{
+    EncodedSizes sizes(2);
+    for (const StatusRegexp* regexp : partsRange()) {
+        sizes += regexp->type()->encodedSizes();
+    }
+    return sizes;
+}
 
 void StatusMsg::addPart(StatusRegexp* part)
 {
@@ -417,6 +426,15 @@ EventMsg::~EventMsg()
 FieldVec::ConstRange EventMsg::partsRange() const
 {
     return _fields;
+}
+
+EncodedSizes EventMsg::encodedSizes() const
+{
+    EncodedSizes sizes(2);
+    for (const Field* field : partsRange()) {
+        sizes += field->type()->encodedSizes();
+    }
+    return sizes;
 }
 
 void EventMsg::addField(Field* field)

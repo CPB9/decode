@@ -25,6 +25,7 @@ class FunctionType;
 class Field;
 class Type;
 class ModuleInfo;
+struct EncodedSizes;
 
 class Function : public NamedRc, public DocBlockMixin {
 public:
@@ -81,6 +82,8 @@ public:
 
     ArgsRange argumentsRange();
     ArgsConstRange argumentsRange() const;
+
+    EncodedSizes encodedSizes() const;
 
 private:
     ArgVec _args;

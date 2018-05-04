@@ -86,65 +86,7 @@ class GenericInstantiationType;
 class GenericParameterType;
 class Field;
 class ModuleInfo;
-
-struct TypeEncodedSizes {
-    TypeEncodedSizes(std::size_t value)
-        : min(value)
-        , max(value)
-    {
-    }
-
-    TypeEncodedSizes(std::size_t min, std::size_t max)
-        : min(min)
-        , max(max)
-    {
-    }
-
-    TypeEncodedSizes& operator+=(const TypeEncodedSizes& other)
-    {
-        min += other.min;
-        max += other.max;
-        return *this;
-    }
-
-    TypeEncodedSizes& operator*=(const TypeEncodedSizes& other)
-    {
-        min *= other.min;
-        max *= other.max;
-        return *this;
-    }
-
-    TypeEncodedSizes& operator*=(std::size_t value)
-    {
-        min *= value;
-        max *= value;
-        return *this;
-    }
-
-    void merge(const TypeEncodedSizes& other)
-    {
-        min = std::min(min, other.min);
-        max = std::max(max, other.max);
-    }
-
-    std::size_t min;
-    std::size_t max;
-};
-
-inline TypeEncodedSizes operator+(const TypeEncodedSizes& left, const TypeEncodedSizes& right)
-{
-    return {left.min + right.min, left.max + right.max};
-}
-
-inline TypeEncodedSizes operator*(const TypeEncodedSizes& left, std::size_t right)
-{
-    return {left.min * right, left.max * right};
-}
-
-inline TypeEncodedSizes operator*(const TypeEncodedSizes& left, const TypeEncodedSizes& right)
-{
-    return {left.min * right.max, left.max * right.max};
-}
+struct EncodedSizes;
 
 class Type : public RefCountable, public DocBlockMixin {
 public:
@@ -188,7 +130,7 @@ public:
     const Type* resolveFinalType() const;
 
     bmcl::Option<std::size_t> fixedSize() const;
-    TypeEncodedSizes encodedSizes() const;
+    EncodedSizes encodedSizes() const;
 
     bool isArray() const;
     bool isDynArray() const;

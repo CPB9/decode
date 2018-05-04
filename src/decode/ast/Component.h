@@ -31,6 +31,7 @@ class ModuleInfo;
 class FieldAccessor;
 class SubscriptAccessor;
 class StringBuilder;
+struct EncodedSizes;
 
 enum class AccessorKind {
     Field,
@@ -194,6 +195,7 @@ public:
     bmcl::StringView name() const;
     std::size_t number() const;
     bool isEnabled() const;
+    virtual EncodedSizes encodedSizes() const = 0;
 
 private:
     bmcl::StringView _name;
@@ -217,6 +219,7 @@ public:
     Parts::ConstIterator partsEnd() const;
     Parts::ConstRange partsRange() const;
     std::size_t priority() const;
+    EncodedSizes encodedSizes() const override;
 
     void addPart(StatusRegexp* part);
 
@@ -234,6 +237,7 @@ public:
     ~EventMsg();
 
     FieldVec::ConstRange partsRange() const;
+    EncodedSizes encodedSizes() const override;
 
     void addField(Field* field); //TODO: check conflicts
 
@@ -291,6 +295,7 @@ public:
     const ModuleInfo* moduleInfo() const;
     bmcl::StringView name() const;
     std::size_t number() const;
+    EncodedSizes encodedSizes() const;
 
     bmcl::OptionPtr<const Field> varWithName(bmcl::StringView name) const;
     bmcl::OptionPtr<Field> varWithName(bmcl::StringView name);
