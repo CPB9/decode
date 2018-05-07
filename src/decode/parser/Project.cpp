@@ -177,6 +177,8 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
     DeviceDescMap deviceDescMap;
     std::vector<std::string> moduleDirs;
     std::vector<std::string> commonModuleNames;
+    std::map<int64_t, bmcl::StringView> componentNumToName;
+    std::map<bmcl::StringView, int64_t, Package::StringViewComparator> componentNameToNum;
     //read project file
     try {
         const toml::Table& projectTable = getValueFromTable<toml::Table>(projectFile.unwrap(), "project");
@@ -193,6 +195,25 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         removeDuplicates(&moduleDirs);
         for (std::string& path : moduleDirs) {
             normalizePath(&path);
+        }
+
+        auto numsIt = projectFile.unwrap().find("component_numbers");
+        if (numsIt != projectFile.unwrap().end()) {
+            if (numsIt->second.type() != toml::value_t::Table) {
+                addParseError(path, "component_numbers must be a table", diag);
+                return ProjectResult();
+            }
+            const toml::Table& nums = numsIt->second.cast<toml::value_t::Table>();
+            for (const auto& it : nums) {
+                if (it.second.type() != toml::value_t::Integer) {
+                    addParseError(path, "component \"" + it.first + "\" number must be an integer", diag);
+                    return ProjectResult();
+                }
+                const std::string& name = it.first;
+                int64_t num = it.second.cast<toml::value_t::Integer>();
+                componentNumToName.emplace(num, name);
+                componentNameToNum.emplace(name, num);
+            }
         }
 
         const toml::Array& devicesArray = getValueFromTable<toml::Array>(projectFile.unwrap(), "devices");
@@ -286,6 +307,25 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
         return ProjectResult();
     }
     proj->_package = package.take();
+
+    std::size_t currentCompNum = 0;
+    for (Component* comp : proj->_package->components()) {
+        auto nameToNumIt = componentNameToNum.find(comp->name());
+        if (nameToNumIt != componentNameToNum.end()) {
+            comp->setNumber(nameToNumIt->second);
+        } else {
+            while (true) {
+                auto numToNameIt = componentNumToName.find(currentCompNum);
+                if (numToNameIt == componentNumToName.end()) {
+                    comp->setNumber(currentCompNum);
+                    currentCompNum++;
+                    break;
+                }
+                currentCompNum++;
+            }
+        }
+    }
+    proj->_package->sortComponentsByNumber();
 
     //check project
     if (deviceDescMap.find(master) == deviceDescMap.end()) {

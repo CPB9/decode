@@ -54,12 +54,15 @@ public:
     AstMap::ConstRange modules() const;
     AstMap::Range modules();
     ComponentMap::ConstRange components() const;
+    ComponentMap::Range components();
     const Diagnostics* diagnostics() const;
     Diagnostics* diagnostics();
     CompAndMsgVecConstRange statusMsgs() const;
 
     bmcl::OptionPtr<Ast> moduleWithName(bmcl::StringView name);
     bmcl::OptionPtr<const Ast> moduleWithName(bmcl::StringView name) const;
+
+    void sortComponentsByNumber();
 
 private:
     Package(Configuration* cfg, Diagnostics* diag);

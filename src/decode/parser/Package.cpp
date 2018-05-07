@@ -411,6 +411,11 @@ ComponentMap::ConstRange Package::components() const
     return _components;
 }
 
+ComponentMap::Range Package::components()
+{
+    return _components;
+}
+
 Package::AstMap::ConstRange Package::modules() const
 {
     return _modNameToAstMap;
@@ -434,5 +439,14 @@ Diagnostics* Package::diagnostics()
 CompAndMsgVecConstRange Package::statusMsgs() const
 {
     return _statusMsgs;
+}
+
+void Package::sortComponentsByNumber()
+{
+    ComponentMap tmp;
+    for (Component* comp : components()) {
+        tmp.emplace(comp->number(), comp);
+    }
+    _components = std::move(tmp);
 }
 }
