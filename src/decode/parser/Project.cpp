@@ -631,6 +631,30 @@ ProjectResult Project::decodeFromMemory(Diagnostics* diag, const void* src, std:
         }
     }
 
+    for (uint64_t i = 0; i < package.unwrap()->components().size(); i++) {
+        auto compName = deserializeString(&reader);
+        if (name.isErr()) {
+            addReadStrErr("Error reading component name", compName.unwrapErr());
+            return ProjectResult();
+        }
+        uint64_t num;
+        if (!reader.readVarUint(&num)) {
+            addReadErr("Error reading component number");
+            return ProjectResult();
+        }
+        auto mod = package.unwrap()->moduleWithName(compName.unwrap());
+        if (mod.isNone()) {
+            addReadErr("Invalid component name reference");
+            return ProjectResult();
+        }
+        if (mod.unwrap()->component().isNone()) {
+            addReadErr("Invalid component name reference");
+            return ProjectResult();
+        }
+        mod.unwrap()->component()->setNumber(num);
+    }
+    package.unwrap()->sortComponentsByNumber();
+
     if (reader.current() != reader.end()) {
         addReadErr("Expected EOF");
         return ProjectResult();
@@ -709,6 +733,11 @@ bmcl::Buffer Project::encode() const
             assert(it != _devices.end());
             dest.writeVarUint(it - _devices.begin());
         }
+    }
+
+    for (const Component* comp : _package->components()) {
+        serializeString(comp->name(), &dest);
+        dest.writeVarUint(comp->number());
     }
 
     //BMCL_DEBUG() << "uncompressed project size: " << dest.size();
