@@ -59,6 +59,7 @@ enum class TokenKind {
     Events,
     Commands,
     Parameters,
+    Autosave,
     Fn,
     UpperFn,
     Self,

@@ -250,6 +250,9 @@ bool Generator::generateDeviceFiles(const Project* project)
             _output.append("#define PHOTON_IS_MASTER\n\n");
         }
 
+        _output.append("#define PHOTON_DEVICE_NAME \"");
+        _output.append(dev->name());
+        _output.append("\"\n\n");
         _output.appendNumericValueDefine(dev->id(), "PHOTON_DEVICE_ID");
         for (const Device* d : project->devices()) {
             _output.append("#define PHOTON_DEVICE_ID_");
@@ -493,6 +496,9 @@ bool Generator::generateStatusMessages(const Project* project)
 
     gen.generateEventEncoderSource(project);
     TRY(dump("EventEncoder", ".c", &_onboardPath));
+
+    gen.generateAutosaveSource(project);
+    TRY(dump("Autosave.inc", ".c", &_onboardPath));
 
     std::size_t pathSize = _gcPath.size();
     _gcPath.append("_statuses_");

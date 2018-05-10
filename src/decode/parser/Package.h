@@ -23,7 +23,7 @@ class Diagnostics;
 class Parser;
 class Package;
 class Component;
-class StatusRegexp;
+class VarRegexp;
 class Configuration;
 struct ComponentAndMsg;
 
@@ -74,6 +74,9 @@ private:
     bool resolveGenerics(Ast* ast);
     bool resolveStatuses(Ast* ast);
     bool resolveParameters(Ast* ast, uint64_t* paramNum);
+
+    bool resolveVarRegexp(Ast* ast, Component* comp, VarRegexp* regexp);
+
     bool mapComponent(Ast* ast);
 
     Rc<Diagnostics> _diag;

@@ -53,7 +53,7 @@ void GcMsgGen::generateStatusHeader(const Component* comp, const StatusMsg* msg)
     TypeReprGen reprGen(_output);
     StringBuilder fieldName;
     fieldName.reserve(31);
-    for (const StatusRegexp* regexp : msg->partsRange()) {
+    for (const VarRegexp* regexp : msg->partsRange()) {
         _output->append("    ");
         regexp->buildFieldName(&fieldName);
         reprGen.genGcTypeRepr(regexp->type(), fieldName.view());
@@ -70,7 +70,7 @@ void GcMsgGen::generateStatusHeader(const Component* comp, const StatusMsg* msg)
     InlineTypeInspector inspector(_output);
     InlineSerContext ctx;
     fieldName.assign("msg->");
-    for (const StatusRegexp* regexp : msg->partsRange()) {
+    for (const VarRegexp* regexp : msg->partsRange()) {
         regexp->buildFieldName(&fieldName);
         inspector.inspect<false, false>(regexp->type(), ctx, fieldName.view());
         fieldName.resize(5);

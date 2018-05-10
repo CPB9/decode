@@ -110,14 +110,14 @@ private:
     Rc<Type> _type;
 };
 
-class StatusRegexp : public RefCountable {
+class VarRegexp : public RefCountable {
 public:
-    using Pointer = Rc<StatusRegexp>;
-    using ConstPointer = Rc<const StatusRegexp>;
+    using Pointer = Rc<VarRegexp>;
+    using ConstPointer = Rc<const VarRegexp>;
     using Accessors = RcVec<Accessor>;
 
-    StatusRegexp();
-    ~StatusRegexp();
+    VarRegexp();
+    ~VarRegexp();
 
     Accessors::Iterator accessorsBegin();
     Accessors::Iterator accessorsEnd();
@@ -207,7 +207,7 @@ class StatusMsg : public TmMsg {
 public:
     using Pointer = Rc<StatusMsg>;
     using ConstPointer = Rc<const StatusMsg>;
-    using Parts = RcVec<StatusRegexp>;
+    using Parts = RcVec<VarRegexp>;
 
     StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled);
     ~StatusMsg();
@@ -221,7 +221,7 @@ public:
     std::size_t priority() const;
     EncodedSizes encodedSizes() const override;
 
-    void addPart(StatusRegexp* part);
+    void addPart(VarRegexp* part);
 
 private:
     Parts _parts;
@@ -254,6 +254,7 @@ public:
     using Statuses = RcSecondUnorderedMap<bmcl::StringView, StatusMsg>;
     using Events = RcSecondUnorderedMap<bmcl::StringView, EventMsg>;
     using Params = RcSecondUnorderedMap<bmcl::StringView, Parameter>;
+    using SavedVars = RcVec<VarRegexp>;
 
     Component(std::size_t compNum, const ModuleInfo* info);
     ~Component();
@@ -290,6 +291,12 @@ public:
     Params::Iterator paramsBegin();
     Params::Iterator paramsEnd();
     Params::Range paramsRange();
+    SavedVars::ConstIterator savedVarsBegin() const;
+    SavedVars::ConstIterator savedVarsEnd() const;
+    SavedVars::ConstRange savedVarsRange() const;
+    SavedVars::Iterator savedVarsBegin();
+    SavedVars::Iterator savedVarsEnd();
+    SavedVars::Range savedVarsRange();
     bmcl::OptionPtr<const ImplBlock> implBlock() const;
     bmcl::StringView moduleName() const;
     const ModuleInfo* moduleInfo() const;
@@ -306,6 +313,7 @@ public:
     bool addStatus(StatusMsg* msg);
     bool addEvent(EventMsg* msg);
     bool addParam(Parameter* param);
+    void addSavedVar(VarRegexp* var);
     void setImplBlock(ImplBlock* block);
     void setNumber(std::size_t number);
 
@@ -316,6 +324,7 @@ private:
     Statuses _statuses;
     Events _events;
     Params _params;
+    SavedVars _savedVars;
     Rc<ImplBlock> _implBlock;
     Rc<const ModuleInfo> _modInfo;
 };

@@ -176,7 +176,7 @@ void OnboardTypeHeaderGen::appendStatusStructs(const Component* comp)
     for (const StatusMsg* msg : comp->statusesRange()) {
         _output->append("typedef struct {\n");
 
-        for (const StatusRegexp* part : msg->partsRange()) {
+        for (const VarRegexp* part : msg->partsRange()) {
             _output->appendIndent();
             part->buildFieldName(&fieldName);
             reprGen.genOnboardTypeRepr(part->type(), fieldName.view());

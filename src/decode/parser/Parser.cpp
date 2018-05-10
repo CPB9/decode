@@ -162,6 +162,8 @@ static std::string tokenKindToString(TokenKind kind)
         return "'commands'";
     case TokenKind::Parameters:
         return "'parameters'";
+    case TokenKind::Autosave:
+        return "'autosave'";
     case TokenKind::Fn:
         return "'fn'";
     case TokenKind::UpperFn:
@@ -1552,6 +1554,21 @@ bool Parser::parseParameters(Component* parent)
     return true;
 }
 
+bool Parser::parseSavedVars(Component* parent)
+{
+    TRY(parseNamelessTag(TokenKind::Autosave, TokenKind::Comma, parent, [this](Component* comp) -> bool {
+        Rc<VarRegexp> re = parseVarRegexp();
+        if (!re) {
+            return false;
+        }
+        comp->addSavedVar(re.get());
+        clearUnusedDocCommentsAndAttributes();
+        return true;
+    }));
+    clearUnusedDocCommentsAndAttributes();
+    return true;
+}
+
 bool Parser::parseComponentImpl(Component* parent)
 {
     if(parent->implBlock().isSome()) {
@@ -1658,6 +1675,55 @@ bool Parser::parseEvents(Component* parent)
     return true;
 }
 
+Rc<VarRegexp> Parser::parseVarRegexp()
+{
+    TRY(expectCurrentToken(TokenKind::Identifier, "regular expression must begin with an identifier"));
+    Rc<VarRegexp> re = new VarRegexp;
+
+    while (true) {
+        if (currentTokenIs(TokenKind::Identifier)) {
+            Rc<FieldAccessor> acc = new FieldAccessor(_currentToken.value(), nullptr);
+            re->addAccessor(acc.get());
+            consumeAndSkipBlanks();
+        } else if (currentTokenIs(TokenKind::LBracket)) {
+            Rc<SubscriptAccessor> acc;
+            consume();
+            uintmax_t m;
+            if (currentTokenIs(TokenKind::Number) && _lexer->nextIs(TokenKind::RBracket)) {
+                TRY(parseUnsignedInteger(&m));
+                acc = new SubscriptAccessor(m, nullptr);
+            } else {
+                Range range;
+                if (currentTokenIs(TokenKind::Number)) {
+                    TRY(parseUnsignedInteger(&m));
+                    range.lowerBound.emplace(m);
+                }
+
+                TRY(expectCurrentToken(TokenKind::DoubleDot));
+                consume();
+
+                if (currentTokenIs(TokenKind::Number)) {
+                    TRY(parseUnsignedInteger(&m));
+                    range.upperBound.emplace(m);
+                }
+                acc = new SubscriptAccessor(range, nullptr);
+            }
+
+            TRY(expectCurrentToken(TokenKind::RBracket));
+            consumeAndSkipBlanks();
+
+            re->addAccessor(acc.get());
+        }
+        skipCommentsAndSpace();
+        if (currentTokenIs(TokenKind::Comma) || currentTokenIs(TokenKind::RBrace)) {
+            break;
+        } else if (currentTokenIs(TokenKind::Dot)) {
+            consume();
+        }
+    }
+    return re;
+}
+
 bool Parser::parseStatuses(Component* parent)
 {
     TRY(parseNamelessTag(TokenKind::Statuses, TokenKind::Comma, parent, [this](Component* comp) -> bool {
@@ -1697,50 +1763,11 @@ bool Parser::parseStatuses(Component* parent)
         TRY(expectCurrentToken(TokenKind::Colon));
         consumeAndSkipBlanks();
         auto parseOneRegexp = [this](StatusMsg* msg) -> bool {
-            TRY(expectCurrentToken(TokenKind::Identifier, "regular expression must begin with an identifier"));
-            Rc<StatusRegexp> re = new StatusRegexp;
-
-            while (true) {
-                if (currentTokenIs(TokenKind::Identifier)) {
-                    Rc<FieldAccessor> acc = new FieldAccessor(_currentToken.value(), nullptr);
-                    re->addAccessor(acc.get());
-                    consumeAndSkipBlanks();
-                } else if (currentTokenIs(TokenKind::LBracket)) {
-                    Rc<SubscriptAccessor> acc;
-                    consume();
-                    uintmax_t m;
-                    if (currentTokenIs(TokenKind::Number) && _lexer->nextIs(TokenKind::RBracket)) {
-                        TRY(parseUnsignedInteger(&m));
-                        acc = new SubscriptAccessor(m, nullptr);
-                    } else {
-                        Range range;
-                        if (currentTokenIs(TokenKind::Number)) {
-                            TRY(parseUnsignedInteger(&m));
-                            range.lowerBound.emplace(m);
-                        }
-
-                        TRY(expectCurrentToken(TokenKind::DoubleDot));
-                        consume();
-
-                        if (currentTokenIs(TokenKind::Number)) {
-                            TRY(parseUnsignedInteger(&m));
-                            range.upperBound.emplace(m);
-                        }
-                        acc = new SubscriptAccessor(range, nullptr);
-                    }
-
-                    TRY(expectCurrentToken(TokenKind::RBracket));
-                    consumeAndSkipBlanks();
-
-                    re->addAccessor(acc.get());
-                }
-                skipCommentsAndSpace();
-                if (currentTokenIs(TokenKind::Comma) || currentTokenIs(TokenKind::RBrace)) {
-                    break;
-                } else if (currentTokenIs(TokenKind::Dot)) {
-                    consume();
-                }
+            Rc<VarRegexp> re = parseVarRegexp();
+            if (!re) {
+                return false;
             }
+
             if (re->hasAccessors()) {
                 msg->addPart(re.get());
             }
@@ -1803,6 +1830,10 @@ bool Parser::parseComponent()
         }
         case TokenKind::Parameters: {
             TRY(parseParameters(comp.get()));
+            break;
+        }
+        case TokenKind::Autosave: {
+            TRY(parseSavedVars(comp.get()));
             break;
         }
         case TokenKind::RBrace:

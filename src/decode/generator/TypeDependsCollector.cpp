@@ -108,7 +108,7 @@ void TypeDependsCollector::collect(const StatusMsg* msg, TypeDependsCollector::D
     _currentType = 0;
     _dest = dest;
     //FIXME: visit only first accessor in every part
-    for (const StatusRegexp* part : msg->partsRange()) {
+    for (const VarRegexp* part : msg->partsRange()) {
         collectType(part->type());
         traverseType(part->type());
         for (const Accessor* acc : part->accessorsRange()) {

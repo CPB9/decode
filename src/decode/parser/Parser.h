@@ -55,6 +55,7 @@ class VariantType;
 class AllBuiltinTypes;
 class CmdCallAttr;
 class Parameter;
+class VarRegexp;
 
 enum class BuiltinTypeKind;
 enum class ReferenceKind;
@@ -133,6 +134,8 @@ private:
     template <typename T>
     Rc<T> parseFunction(bool selfAllowed = true);
 
+    Rc<VarRegexp> parseVarRegexp();
+
     Rc<Type> parseType();
     Rc<Type> parseFunctionPointer();
     Rc<Type> parseReferenceType();
@@ -150,6 +153,7 @@ private:
     bool parseEvents(Component* parent);
     bool parseComponentImpl(Component* parent);
     bool parseParameters(Component* parent);
+    bool parseSavedVars(Component* parent);
 
     template <typename T>
     Rc<T> beginDecl();

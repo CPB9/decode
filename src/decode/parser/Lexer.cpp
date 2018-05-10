@@ -51,6 +51,7 @@ KEYWORD_RULE(Statuses,   "statuses");
 KEYWORD_RULE(Events,     "events");
 KEYWORD_RULE(Commands,   "commands");
 KEYWORD_RULE(Parameters, "parameters");
+KEYWORD_RULE(Autosave,   "autosave");
 KEYWORD_RULE(Mut,        "mut");
 KEYWORD_RULE(Const,      "const");
 KEYWORD_RULE(Impl,       "impl");
@@ -194,6 +195,7 @@ struct Grammar
                  Events,
                  Commands,
                  Parameters,
+                 Autosave,
                  Mut,
                  Fn,
                  UpperFn,
@@ -263,6 +265,7 @@ RULE_TO_TOKEN(Statuses);
 RULE_TO_TOKEN(Events);
 RULE_TO_TOKEN(Commands);
 RULE_TO_TOKEN(Parameters);
+RULE_TO_TOKEN(Autosave);
 RULE_TO_TOKEN(Mut);
 RULE_TO_TOKEN(Const);
 RULE_TO_TOKEN(True);

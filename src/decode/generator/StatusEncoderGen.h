@@ -21,7 +21,7 @@ struct ComponentAndMsg;
 class TypeReprGen;
 class SrcBuilder;
 class Project;
-class StatusRegexp;
+class VarRegexp;
 class Type;
 
 class StatusEncoderGen {
@@ -36,8 +36,10 @@ public:
 
     void generateEventEncoderSource(const Project* project);
 
+    void generateAutosaveSource(const Project* project);
+
 private:
-    void appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer);
+    void appendInlineSerializer(const VarRegexp * part, SrcBuilder* currentField, bool isSerializer);
     template <typename T>
     void appendMsgSwitch(const Component* comp, const T* msg);
 

@@ -26,6 +26,7 @@
 		<item> variant </item>
 		<item> variables </item>
 		<item> parameters </item>
+		<item> autosave </item>
 		<item> commands </item>
 		<item> component </item>
 		<item> statuses </item>

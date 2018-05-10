@@ -8,6 +8,7 @@
 
 #include "decode/generator/StatusEncoderGen.h"
 #include "decode/core/HashSet.h"
+#include "decode/core/EncodedSizes.h"
 #include "decode/parser/Project.h"
 #include "decode/parser/Package.h"
 #include "decode/generator/TypeReprGen.h"
@@ -61,6 +62,53 @@ void StatusEncoderGen::generateStatusDecoderHeader(const Project* project)
     _output->endIncludeGuard();
 }
 
+void StatusEncoderGen::generateAutosaveSource(const Project* project)
+{
+    std::size_t maxSize = 8;
+    for (const Component* comp : project->package()->components()) {
+        for (const VarRegexp* regexp : comp->savedVarsRange()) {
+            maxSize += regexp->type()->encodedSizes().max;
+        }
+    }
+
+    _output->append("#include \"photongen/onboard/core/Writer.h\"\n");
+    _output->append("#include \"photongen/onboard/core/Reader.h\"\n\n");
+    _output->append("#include \"photongen/onboard/core/Error.h\"\n\n");
+
+    _output->appendNumericValueDefine(maxSize, "_PHOTON_AUTOSAVE_MAX_SIZE");
+    _output->appendEol();
+
+    InlineSerContext ctx;
+    SrcBuilder currentField("_photon");
+
+    _output->append("static PhotonError Photon_SerializeParams(PhotonWriter* dest)\n{\n");
+    _output->appendWritableSizeCheck(ctx, 8);
+    _output->append("    PhotonWriter_WriteU64Le(dest, _PHOTON_AUTOSAVE_MAX_SIZE);\n");
+    for (const Component* comp : project->package()->components()) {
+        for (const VarRegexp* regexp : comp->savedVarsRange()) {
+            currentField.appendWithFirstUpper(comp->moduleName());
+            appendInlineSerializer(regexp, &currentField, true);
+            currentField.resize(7);
+        }
+    }
+    _output->append("    return PhotonError_Ok;\n}\n\n");
+
+     _output->append("static PhotonError Photon_DeserializeParams(PhotonReader* src)\n{\n");
+    _output->appendReadableSizeCheck(ctx, 8);
+    _output->append("    uint64_t maxVarSize = PhotonReader_ReadU64Le(src);\n"
+                    "    if (maxVarSize != _PHOTON_AUTOSAVE_MAX_SIZE) {\n"
+                    "        return PhotonError_InvalidValue;\n"
+                    "    }\n");
+    for (const Component* comp : project->package()->components()) {
+        for (const VarRegexp* regexp : comp->savedVarsRange()) {
+            currentField.appendWithFirstUpper(comp->moduleName());
+            appendInlineSerializer(regexp, &currentField, false);
+            currentField.resize(7);
+        }
+    }
+    _output->append("    return PhotonError_Ok;\n}\n\n");
+}
+
 void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
 {
     TypeDependsCollector coll;
@@ -102,7 +150,7 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
         _output->appendNumericValue(msg.msg->number());
         _output->append(");\n");
 
-        for (const StatusRegexp* part : msg.msg->partsRange()) {
+        for (const VarRegexp* part : msg.msg->partsRange()) {
             SrcBuilder currentField("_photon");
             currentField.appendWithFirstUpper(msg.component->moduleName());
             appendInlineSerializer(part, &currentField, true);
@@ -194,7 +242,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
             _output->append("\n{\n");
             _output->append("    (void)src;\n    (void)dest;\n");
 
-            for (const StatusRegexp* part : msg->partsRange()) {
+            for (const VarRegexp* part : msg->partsRange()) {
                 fieldName.assign("dest->");
                 part->buildFieldName(&fieldName);
                 _inlineInspector.inspect<true, false>(part->type(), ctx, fieldName.view());
@@ -278,7 +326,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     _output->append("#undef _PHOTON_FNAME\n");
 }
 
-void StatusEncoderGen::appendInlineSerializer(const StatusRegexp* part, SrcBuilder* currentField, bool isSerializer)
+void StatusEncoderGen::appendInlineSerializer(const VarRegexp* part, SrcBuilder* currentField, bool isSerializer)
 {
     if (!part->hasAccessors()) {
         return;

@@ -19,7 +19,7 @@ namespace decode {
 
 class Type;
 class TypeReprGen;
-class StatusRegexp;
+class VarRegexp;
 class Function;
 
 class TypeDependsCollector : public ConstAstVisitor<TypeDependsCollector> {

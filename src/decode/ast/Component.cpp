@@ -152,71 +152,71 @@ void SubscriptAccessor::setType(Type* type)
     _type.reset(type);
 }
 
-StatusRegexp::StatusRegexp()
+VarRegexp::VarRegexp()
     : _type(nullptr)
 {
 }
 
-StatusRegexp::~StatusRegexp()
+VarRegexp::~VarRegexp()
 {
 }
 
-StatusRegexp::Accessors::Iterator StatusRegexp::accessorsBegin()
+VarRegexp::Accessors::Iterator VarRegexp::accessorsBegin()
 {
     return _accessors.begin();
 }
 
-StatusRegexp::Accessors::Iterator StatusRegexp::accessorsEnd()
+VarRegexp::Accessors::Iterator VarRegexp::accessorsEnd()
 {
     return _accessors.end();
 }
 
-StatusRegexp::Accessors::Range StatusRegexp::accessorsRange()
+VarRegexp::Accessors::Range VarRegexp::accessorsRange()
 {
     return _accessors;
 }
 
-StatusRegexp::Accessors::ConstIterator StatusRegexp::accessorsBegin() const
+VarRegexp::Accessors::ConstIterator VarRegexp::accessorsBegin() const
 {
     return _accessors.cbegin();
 }
 
-StatusRegexp::Accessors::ConstIterator StatusRegexp::accessorsEnd() const
+VarRegexp::Accessors::ConstIterator VarRegexp::accessorsEnd() const
 {
     return _accessors.cend();
 }
 
-StatusRegexp::Accessors::ConstRange StatusRegexp::accessorsRange() const
+VarRegexp::Accessors::ConstRange VarRegexp::accessorsRange() const
 {
     return _accessors;
 }
 
-bool StatusRegexp::hasAccessors() const
+bool VarRegexp::hasAccessors() const
 {
     return !_accessors.empty();
 }
 
-void StatusRegexp::addAccessor(Accessor* acc)
+void VarRegexp::addAccessor(Accessor* acc)
 {
     _accessors.emplace_back(acc);
 }
 
-const Type* StatusRegexp::type() const
+const Type* VarRegexp::type() const
 {
     return _type.get();
 }
 
-Type* StatusRegexp::type()
+Type* VarRegexp::type()
 {
     return _type.get();
 }
 
-void StatusRegexp::setType(Type* type)
+void VarRegexp::setType(Type* type)
 {
     _type = type;
 }
 
-void StatusRegexp::buildFieldName(StringBuilder* dest) const
+void VarRegexp::buildFieldName(StringBuilder* dest) const
 {
     foreachList(accessorsRange(), [dest](const Accessor* acc) {
          switch (acc->accessorKind()) {
@@ -403,13 +403,13 @@ std::size_t StatusMsg::priority() const
 EncodedSizes StatusMsg::encodedSizes() const
 {
     EncodedSizes sizes(2);
-    for (const StatusRegexp* regexp : partsRange()) {
+    for (const VarRegexp* regexp : partsRange()) {
         sizes += regexp->type()->encodedSizes();
     }
     return sizes;
 }
 
-void StatusMsg::addPart(StatusRegexp* part)
+void StatusMsg::addPart(VarRegexp* part)
 {
     _parts.emplace_back(part);
 }
@@ -612,6 +612,36 @@ Component::Params::Range Component::paramsRange()
     return _params;
 }
 
+Component::SavedVars::ConstIterator Component::savedVarsBegin() const
+{
+    return _savedVars.cbegin();
+}
+
+Component::SavedVars::ConstIterator Component::savedVarsEnd() const
+{
+    return _savedVars.cend();
+}
+
+Component::SavedVars::ConstRange Component::savedVarsRange() const
+{
+    return _savedVars;
+}
+
+Component::SavedVars::Iterator Component::savedVarsBegin()
+{
+    return _savedVars.begin();
+}
+
+Component::SavedVars::Iterator Component::savedVarsEnd()
+{
+    return _savedVars.end();
+}
+
+Component::SavedVars::Range Component::savedVarsRange()
+{
+    return _savedVars;
+}
+
 bmcl::OptionPtr<const ImplBlock> Component::implBlock() const
 {
     return _implBlock.get();
@@ -683,6 +713,11 @@ bool Component::addParam(Parameter* param)
 {
     auto it = _params.emplace(std::piecewise_construct, std::forward_as_tuple(param->name()), std::forward_as_tuple(param));
     return it.second;
+}
+
+void Component::addSavedVar(VarRegexp* var)
+{
+    _savedVars.emplace_back(var);
 }
 
 void Component::setImplBlock(ImplBlock* block)

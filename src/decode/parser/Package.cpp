@@ -275,89 +275,103 @@ bool Package::resolveStatuses(Ast* ast)
 
     for (StatusMsg* it : comp->statusesRange()) {
         _statusMsgs.emplace_back(comp.unwrap(), it);
-        for (StatusRegexp* re : it->partsRange()) {
-            FieldVec::Range fields = comp->varsRange();
-            Rc<Type> lastType = nullptr;
-            Rc<Field> lastField = nullptr;
-            Rc<SubscriptAccessor> lastSubscript = nullptr;
+        for (VarRegexp* re : it->partsRange()) {
+            if (!resolveVarRegexp(ast, comp.unwrap(), re)) {
+                return false;
+            }
+        }
+    }
 
-            if (!re->hasAccessors()) {
-                continue;
-            }
-            auto resolveField = [&](FieldAccessor* facc) -> bool {
-                auto field = fields.findIf([facc](const Field* f) -> bool {
-                    return f->name() == facc->value();
-                });
-                if (field == fields.end()) {
-                    //TODO: report error
-                    BMCL_CRITICAL() << "no field with name: " << facc->value().toStdString();
-                    return false;
-                }
-                facc->setField(*field);
-                lastField = *field;
-                lastType = field->type();
-                return true;
-            };
-            if (re->accessorsBegin()->accessorKind() != AccessorKind::Field) {
-                BMCL_CRITICAL() << "first accessor must be field";
-                return false;
-            }
-            if (!resolveField(re->accessorsBegin()->asFieldAccessor())) {
-                return false;
-            }
-            for (auto jt = re->accessorsBegin() + 1; jt < re->accessorsEnd(); jt++) {
-                Rc<Accessor> acc = *jt;
-                if (acc->accessorKind() == AccessorKind::Field) {
-                    if (!lastType->isStruct()) {
-                        //TODO: report error
-                        BMCL_CRITICAL() << "field accessor can only access struct";
-                        return false;
-                    }
-                    fields = lastType->asStruct()->fieldsRange();
-                    FieldAccessor* facc = static_cast<FieldAccessor*>(acc.get());
-                    if (!resolveField(facc)) {
-                        return false;
-                    }
-                } else if (acc->accessorKind() == AccessorKind::Subscript) {
-                    SubscriptAccessor* sacc = static_cast<SubscriptAccessor*>(acc.get());
-                    lastSubscript = sacc;
-                    sacc->setType(lastType.get());
-                    if (lastType->isDynArray()) {
-                        DynArrayType* dynArray = lastType->asDynArray();
-                        lastType = dynArray->elementType();
-                    } else if (lastType->isArray()) {
-                        ArrayType* array = lastType->asArray();
-                        lastType = array->elementType();
-                        //TODO: check ranges
-                    } else {
-                        //TODO: report error
-                        BMCL_CRITICAL() << "subscript accessor can only access array or dynArray";
-                        return false;
-                    }
-                } else {
-                    BMCL_CRITICAL() << "invalid accessor kind";
-                    return false;
-                }
-            }
-            Rc<Type> contType = nullptr;
-            if (lastSubscript) {
-                if (lastSubscript->type()->isArray()) {
-                    //TODO: support range
-                    contType = new ArrayType(lastSubscript->type()->asArray()->elementCount(), lastField->type());
-                } else if (lastSubscript->type()->isDynArray()) {
-                    contType = new DynArrayType(lastSubscript->type()->asDynArray()->maxSize(), lastField->type());
-                } else {
-                    assert(false);
-                }
-                ast->addType(contType.get());
-            } else {
-                contType = lastField->type();
-            }
-            re->setType(contType.get());
+    for (VarRegexp* re : comp->savedVarsRange()) {
+        if (!resolveVarRegexp(ast, comp.unwrap(), re)) {
+            return false;
         }
     }
 
     return isOk;
+}
+
+bool Package::resolveVarRegexp(Ast* ast, Component* comp, VarRegexp* re)
+{
+    FieldVec::Range fields = comp->varsRange();
+    Rc<Type> lastType = nullptr;
+    Rc<Field> lastField = nullptr;
+    Rc<SubscriptAccessor> lastSubscript = nullptr;
+
+    if (!re->hasAccessors()) {
+        return true;
+    }
+    auto resolveField = [&](FieldAccessor* facc) -> bool {
+        auto field = fields.findIf([facc](const Field* f) -> bool {
+            return f->name() == facc->value();
+        });
+        if (field == fields.end()) {
+            //TODO: report error
+            BMCL_CRITICAL() << "no field with name: " << facc->value().toStdString();
+            return false;
+        }
+        facc->setField(*field);
+        lastField = *field;
+        lastType = field->type();
+        return true;
+    };
+    if (re->accessorsBegin()->accessorKind() != AccessorKind::Field) {
+        BMCL_CRITICAL() << "first accessor must be field";
+        return false;
+    }
+    if (!resolveField(re->accessorsBegin()->asFieldAccessor())) {
+        return false;
+    }
+    for (auto jt = re->accessorsBegin() + 1; jt < re->accessorsEnd(); jt++) {
+        Rc<Accessor> acc = *jt;
+        if (acc->accessorKind() == AccessorKind::Field) {
+            if (!lastType->isStruct()) {
+                //TODO: report error
+                BMCL_CRITICAL() << "field accessor can only access struct";
+                return false;
+            }
+            fields = lastType->asStruct()->fieldsRange();
+            FieldAccessor* facc = static_cast<FieldAccessor*>(acc.get());
+            if (!resolveField(facc)) {
+                return false;
+            }
+        } else if (acc->accessorKind() == AccessorKind::Subscript) {
+            SubscriptAccessor* sacc = static_cast<SubscriptAccessor*>(acc.get());
+            lastSubscript = sacc;
+            sacc->setType(lastType.get());
+            if (lastType->isDynArray()) {
+                DynArrayType* dynArray = lastType->asDynArray();
+                lastType = dynArray->elementType();
+            } else if (lastType->isArray()) {
+                ArrayType* array = lastType->asArray();
+                lastType = array->elementType();
+                //TODO: check ranges
+            } else {
+                //TODO: report error
+                BMCL_CRITICAL() << "subscript accessor can only access array or dynArray";
+                return false;
+            }
+        } else {
+            BMCL_CRITICAL() << "invalid accessor kind";
+            return false;
+        }
+    }
+    Rc<Type> contType = nullptr;
+    if (lastSubscript) {
+        if (lastSubscript->type()->isArray()) {
+            //TODO: support range
+            contType = new ArrayType(lastSubscript->type()->asArray()->elementCount(), lastField->type());
+        } else if (lastSubscript->type()->isDynArray()) {
+            contType = new DynArrayType(lastSubscript->type()->asDynArray()->maxSize(), lastField->type());
+        } else {
+            assert(false);
+        }
+        ast->addType(contType.get());
+    } else {
+        contType = lastField->type();
+    }
+    re->setType(contType.get());
+    return true;
 }
 
 bool Package::mapComponent(Ast* ast)
