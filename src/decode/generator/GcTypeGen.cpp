@@ -130,7 +130,7 @@ void GcTypeGen::generateHeader(const NamedType* type)
         includeGen.genGcIncludePaths(type);
         beginNamespace(type->asAlias()->moduleName());
         _output->append("using ");
-        _output->append(type->asAlias()->name());
+        _output->appendWithFirstUpper(type->asAlias()->name());
         _output->append(" = ");
         TypeReprGen gen(_output);
         gen.genGcTypeRepr(type->asAlias()->alias());
