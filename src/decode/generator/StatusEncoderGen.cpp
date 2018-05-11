@@ -72,8 +72,10 @@ void StatusEncoderGen::generateAutosaveSource(const Project* project)
     }
 
     _output->append("#include \"photongen/onboard/core/Writer.h\"\n");
-    _output->append("#include \"photongen/onboard/core/Reader.h\"\n\n");
-    _output->append("#include \"photongen/onboard/core/Error.h\"\n\n");
+    _output->append("#include \"photongen/onboard/core/Reader.h\"\n");
+    _output->append("#include \"photongen/onboard/core/Error.h\"\n");
+    _output->append("#include \"photon/core/Logging.h\"\n\n");
+    _output->append("#define _PHOTON_FNAME \"Autosave.c\"\n\n");
 
     _output->appendNumericValueDefine(maxSize, "_PHOTON_AUTOSAVE_MAX_SIZE");
     _output->appendEol();
@@ -85,11 +87,13 @@ void StatusEncoderGen::generateAutosaveSource(const Project* project)
     _output->appendWritableSizeCheck(ctx, 8);
     _output->append("    PhotonWriter_WriteU64Le(dest, _PHOTON_AUTOSAVE_MAX_SIZE);\n");
     for (const Component* comp : project->package()->components()) {
+        _output->appendModIfdef(comp->moduleName());
         for (const VarRegexp* regexp : comp->savedVarsRange()) {
             currentField.appendWithFirstUpper(comp->moduleName());
             appendInlineSerializer(regexp, &currentField, true);
             currentField.resize(7);
         }
+        _output->appendEndif();
     }
     _output->append("    return PhotonError_Ok;\n}\n\n");
 
@@ -100,11 +104,13 @@ void StatusEncoderGen::generateAutosaveSource(const Project* project)
                     "        return PhotonError_InvalidValue;\n"
                     "    }\n");
     for (const Component* comp : project->package()->components()) {
+        _output->appendModIfdef(comp->moduleName());
         for (const VarRegexp* regexp : comp->savedVarsRange()) {
             currentField.appendWithFirstUpper(comp->moduleName());
             appendInlineSerializer(regexp, &currentField, false);
             currentField.resize(7);
         }
+        _output->appendEndif();
     }
     _output->append("    return PhotonError_Ok;\n}\n\n");
 }
