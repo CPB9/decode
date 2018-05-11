@@ -275,6 +275,8 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     _output->append("\n{\n"
                     "    uint8_t id;\n"
                     "    uint8_t num;\n\n"
+                    "    (void)id;\n"
+                    "    (void)num;\n"
                     "    (void)src;\n"
                     "    (void)handler;\n"
                     "    (void)userData;\n\n"
@@ -453,7 +455,11 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         _output->appendModIfdef(comp->moduleName());
         for (const EventMsg* msg : comp->eventsRange()) {
             _prototypeGen.appendEventEncoderFunctionPrototype(comp, msg, &reprGen);
-            _output->append("\n{\n    PhotonWriter* dest = PhotonTm_BeginEventMsg(");
+            if (msg->partsRange().size() == 0) {
+                _output->append("\n{\n    PhotonTm_BeginEventMsg(");
+            } else {
+                _output->append("\n{\n    PhotonWriter* dest = PhotonTm_BeginEventMsg(");
+            }
             _output->appendNumericValue(comp->number());
             _output->append(", ");
             _output->appendNumericValue(msg->number());
