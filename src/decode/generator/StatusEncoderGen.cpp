@@ -113,6 +113,8 @@ void StatusEncoderGen::generateAutosaveSource(const Project* project)
         _output->appendEndif();
     }
     _output->append("    return PhotonError_Ok;\n}\n\n");
+
+    _output->append("#undef _PHOTON_FNAME");
 }
 
 void StatusEncoderGen::generateStatusEncoderSource(const Project* project)

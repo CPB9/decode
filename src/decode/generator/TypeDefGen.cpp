@@ -219,12 +219,12 @@ void TypeDefGen::appendAlias(const AliasType* type, bmcl::StringView name)
     TypeReprGen reprGen(_output);
     if (link->isFunction()) {
         StringBuilder typedefName("Photon");
-        typedefName.append(name);
+        typedefName.appendWithFirstUpper(name);
         reprGen.genOnboardTypeRepr(link, typedefName.view());
     } else {
         reprGen.genOnboardTypeRepr(link);
         _output->append(" Photon");
-        _output->append(name);
+        _output->appendWithFirstUpper(name);
     }
     _output->append(";\n\n");
 }
