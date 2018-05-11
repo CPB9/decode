@@ -104,7 +104,7 @@ bool TypeNameGen::appendTypeName(const NamedType* type)
     if (type->moduleName() != "core") {
         _output->appendWithFirstUpper(type->moduleName());
     }
-    _output->append(type->name());
+    _output->appendWithFirstUpper(type->name());
     return false;
 }
 

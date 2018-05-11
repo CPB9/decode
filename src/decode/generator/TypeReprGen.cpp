@@ -193,7 +193,7 @@ void TypeReprGen::writeNamed(const NamedType* type, const NamedType* origin, boo
         _temp.append("photongen::");
         _temp.append(origin->moduleName());
         _temp.append("::");
-        _temp.append(type->name());
+        _temp.appendWithFirstUpper(type->name());
 
         if (originIsGeneric) {
             _temp.append("<");

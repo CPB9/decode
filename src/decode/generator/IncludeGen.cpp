@@ -28,7 +28,7 @@ void IncludeGen::genNamedInclude(const NamedType* type, const NamedType* origin)
     _output->append(_prefix);
     _output->append(origin->moduleName());
     _output->append('/');
-    _output->append(type->name());
+    _output->appendWithFirstUpper(type->name());
     appendExt();
 }
 
