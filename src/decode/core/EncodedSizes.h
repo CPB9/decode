@@ -15,45 +15,13 @@
 namespace decode {
 
 struct EncodedSizes {
-    EncodedSizes(std::size_t value)
-        : min(value)
-        , max(value)
-    {
-    }
-
-    EncodedSizes(std::size_t min, std::size_t max)
-        : min(min)
-        , max(max)
-    {
-    }
-
-    EncodedSizes& operator+=(const EncodedSizes& other)
-    {
-        min += other.min;
-        max += other.max;
-        return *this;
-    }
-
-    EncodedSizes& operator*=(const EncodedSizes& other)
-    {
-        min *= other.min;
-        max *= other.max;
-        return *this;
-    }
-
-    EncodedSizes& operator*=(std::size_t value)
-    {
-        min *= value;
-        max *= value;
-        return *this;
-    }
-
-    void merge(const EncodedSizes& other)
-    {
-        min = std::min(min, other.min);
-        max = std::max(max, other.max);
-    }
-
+    EncodedSizes(std::size_t value);
+    EncodedSizes(std::size_t min, std::size_t max);
+    EncodedSizes& operator+=(const EncodedSizes& other);
+    EncodedSizes& operator*=(const EncodedSizes& other);
+    EncodedSizes& operator*=(std::size_t value);
+    void merge(const EncodedSizes& other);
+    
     std::size_t min;
     std::size_t max;
 };

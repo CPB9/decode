@@ -7,6 +7,8 @@ core_src = [
   'core/Configuration.h',
   'core/DataReader.cpp',
   'core/DataReader.h',
+  'core/EncodedSizes.h',
+  'core/EncodedSizes.cpp',
   'core/Configuration.h',
   'core/Diagnostics.cpp',
   'core/Diagnostics.h',
