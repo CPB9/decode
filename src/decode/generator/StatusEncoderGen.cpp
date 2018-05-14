@@ -240,7 +240,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     InlineSerContext ctx;
 
     for (const Component* comp : project->package()->components()) {
-        if (!comp->hasStatuses()) {
+        if (!comp->hasStatuses() && !comp->hasEvents()) {
             continue;
         }
         _output->appendSourceModIfdef(comp->moduleName());
