@@ -15,6 +15,7 @@
 #include <tao/pegtl/parse.hpp>
 #include <tao/pegtl/rules.hpp>
 #include <tao/pegtl/ascii.hpp>
+#include <tao/pegtl/utf8.hpp>
 
 using namespace tao; //temp
 
@@ -134,7 +135,7 @@ struct DoubleDot
 
 template <typename... A>
 struct Comment
-        : pegtl::disable<pegtl::seq<A..., pegtl::until<pegtl::at<pegtl::eolf>>>> {};
+        : pegtl::disable<pegtl::seq<A..., pegtl::until<pegtl::eolf>>> {};
 
 struct DocComment
         : Comment<Slash, Slash, Slash> {};

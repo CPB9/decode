@@ -262,7 +262,7 @@ bool Parser::skipCommentsAndSpace()
 //             consume();
 //             break;
         case TokenKind::DocComment:
-            _docComments.push_back(_currentToken.value().trim());
+            _docComments.push_back(_currentToken.value());
             consume();
             break;
         case TokenKind::Eof:
