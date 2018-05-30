@@ -456,6 +456,7 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
     _output->append("#define _PHOTON_FNAME \"photon/EventEncoder.c\"\n\n");
 
     TypeReprGen reprGen(_output);
+    _output->appendModIfdef("tm");
     for (const Component* comp : project->package()->components()) {
         if (!comp->hasEvents()) {
             continue;
@@ -488,6 +489,8 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         _output->appendEndif();
         _output->appendEol();
     }
+    _output->appendEndif();
+    _output->appendEol();
     _output->append("#undef _PHOTON_FNAME\n");
 }
 }
