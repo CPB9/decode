@@ -509,6 +509,7 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
     _output->appendInclude("cstdint");
     _output->appendInclude("cstdbool");
     _output->appendInclude("photon/model/CoderState.h");
+    _output->appendInclude("bmcl/AlignedUnion.h");
     _output->appendEol();
 
     IncludeGen includeGen(_output);
@@ -539,9 +540,9 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
         case VariantFieldKind::Tuple: {
             const TupleVariantField* f = field->asTupleField();
             _output->append("    struct ");
-            _output->append(field->name());
+            _output->appendWithFirstUpper(field->name());
             _output->append(" {\n");
-            std::size_t i = 0;
+            std::size_t i = 1;
             for (const Type* t : f->typesRange()) {
                 fieldName.appendNumericValue(i);
                 _output->append("        ");
@@ -556,7 +557,7 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
         case VariantFieldKind::Struct:
             const StructVariantField* f = field->asStructField();
             _output->append("    struct ");
-            _output->append(field->name());
+            _output->appendWithFirstUpper(field->name());
             _output->append(" {\n");
             for (const Field* t : f->fieldsRange()) {
                 _output->append("        ");
@@ -568,14 +569,234 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
         }
     }
 
+    _output->append("    ");
+    _output->appendWithFirstUpper(type->name());
+    _output->append("()\n    {\n");
+    if (type->fieldsRange().size() != 0) {
+        const VariantField* field = *type->fieldsBegin();
+        _output->append("        _kind = Kind::");
+        _output->appendWithFirstUpper(field->name());
+        _output->append(";\n");
+        if (field->variantFieldKind() != VariantFieldKind::Constant) {
+            _output->append("        _data.emplace<");
+            _output->appendWithFirstUpper(field->name());
+            _output->append(">();\n");
+        }
+    }
+    _output->append("    }\n\n");
+
+    _output->append("    ~");
+    _output->appendWithFirstUpper(type->name());
+    _output->append("()\n    {\n        destruct(); \n    }\n\n");
+
+    _output->append("    Kind kind() const\n    {\n        return _kind;\n    }\n\n");
+
+    bool hasNonConstantFields = false;
+    for (const VariantField* field : type->fieldsRange()) {
+        if (field->variantFieldKind() != VariantFieldKind::Constant) {
+            hasNonConstantFields = true;
+            break;
+        }
+    }
+
+    for (const VariantField* field : type->fieldsRange()) {
+        _output->append("    bool is");
+        _output->appendWithFirstUpper(field->name());
+        _output->append("() const\n    {\n        return _kind == Kind::");
+        _output->appendWithFirstUpper(field->name());
+        _output->append(";\n    }\n\n");
+    }
+
+    auto genAsMethod = [this](const VariantField* field, bool isConst) {
+        if (field->variantFieldKind() == VariantFieldKind::Constant) {
+            return;
+        }
+        _output->append("    ");
+        if (isConst) {
+            _output->append("const ");
+        }
+        _output->appendWithFirstUpper(field->name());
+        _output->append("& as");
+        _output->appendWithFirstUpper(field->name());
+        _output->append("()");
+        if (isConst) {
+            _output->append(" const");
+        }
+        _output->append("\n    {\n        assert(_kind == Kind::");
+        _output->appendWithFirstUpper(field->name());
+        _output->append(");\n        return _data.as<");
+        _output->appendWithFirstUpper(field->name());
+        _output->append(">();\n    }\n\n");
+    };
+
+    for (const VariantField* field : type->fieldsRange()) {
+        genAsMethod(field, true);
+        genAsMethod(field, false);
+    }
+
+    for (const VariantField* field : type->fieldsRange()) {
+        if (field->variantFieldKind() != VariantFieldKind::Constant) {
+            _output->append("    template <typename... A>\n");
+        }
+        _output->append("    void emplace");
+        _output->appendWithFirstUpper(field->name());
+        _output->append("(");
+        if (field->variantFieldKind() != VariantFieldKind::Constant) {
+            _output->append("A&&... args");
+        }
+        _output->append(")\n    {\n        destruct();\n        _kind = Kind::");
+        _output->appendWithFirstUpper(field->name());
+        _output->append(";\n");
+        if (field->variantFieldKind() != VariantFieldKind::Constant) {
+            _output->append("        _data.emplace<");
+            _output->appendWithFirstUpper(field->name());
+            _output->append(">(std::forward<A>(args)...);\n");
+        }
+        _output->append("    }\n\n");
+    }
+
+    _output->append("private:\n");
+
+    _output->append("    void destruct()\n    {\n        switch (_kind) {\n");
+    for (const VariantField* field : type->fieldsRange()) {
+        _output->append("        case Kind::");
+        _output->appendWithFirstUpper(field->name());
+        if (field->variantFieldKind() != VariantFieldKind::Constant) {
+            _output->append(":\n            _data.destruct<");
+            _output->appendWithFirstUpper(field->name());
+            _output->append(">();\n            break;\n");
+        } else {
+            _output->append( ":\n            break;\n");
+        }
+    }
+    _output->append("        }\n    }\n\n");
+
+    _output->append("    Kind _kind;\n");
+    if (hasNonConstantFields) {
+        _output->append("    bmcl::AlignedUnion<");
+        bool needComma = false;
+        for (const VariantField* field : type->fieldsRange()) {
+            if (field->variantFieldKind() != VariantFieldKind::Constant) {
+                if (needComma) {
+                    _output->append(", ");
+                }
+                _output->appendWithFirstUpper(field->name());
+                needComma = true;
+            }
+        }
+        _output->append("> _data;\n");
+    }
+
     _output->append("};\n");
     endNamespace();
+    _output->appendEol();
 
     if (parent.isNone()) {
+        InlineSerContext ctx;
+        ctx = ctx.indent();
         appendSerPrefix(serType, parent);
-        _output->append("return true;}\n\n");
+        _output->append("    dest->writeVarInt((std::int64_t)self.kind());\n");
+        _output->append("    switch (self.kind()) {\n");
+        for (const VariantField* field : type->fieldsRange()) {
+            fieldName.clear();
+            fieldName.append("self.as");
+            fieldName.appendWithFirstUpper(field->name());
+            fieldName.append("().");
+            std::size_t nameSize = fieldName.size();
+
+            _output->append("    case photongen::");
+            _output->append(type->moduleName());
+            _output->append("::");
+            _output->appendWithFirstUpper(type->name());
+            _output->append("::Kind::");
+            _output->appendWithFirstUpper(field->name());
+            _output->append(":\n");
+            switch (field->variantFieldKind()) {
+            case VariantFieldKind::Constant:
+                break;
+            case VariantFieldKind::Tuple: {
+                std::size_t i = 1;
+                for (const Type* t : field->asTupleField()->typesRange()) {
+                    fieldName.append("_");
+                    fieldName.appendNumericValue(i);
+                    _typeInspector.inspect<false, true>(t, ctx, fieldName.view());
+                    i++;
+                    fieldName.resize(nameSize);
+                }
+                break;
+            }
+            case VariantFieldKind::Struct:
+                for (const Field* f : field->asStructField()->fieldsRange()) {
+                    fieldName.append(f->name());
+                    _typeInspector.inspect<false, true>(f->type(), ctx, fieldName.view());
+                    fieldName.resize(nameSize);
+                }
+                break;
+            }
+            _output->append("        break;\n");
+        }
+        _output->append("    default:\n        state->setError(\"Could not serialize variant `");
+        _output->append(type->moduleName());
+        _output->append("::");
+        _output->appendWithFirstUpper(type->name());
+        _output->append("` with invalid kind (\" + std::to_string((std::int64_t)self.kind()) + \")\");\n        return false;\n");
+        _output->append("    }\n");
+        _output->append("    return true;\n}\n\n");
+
+        //deser
         appendDeserPrefix(serType, parent);
-        _output->append("return true;}\n\n");
+
+        _output->append("    int64_t value;\n    if (!src->readVarInt(&value)) {\n"
+                    "        state->setError(\"Not enough data to deserialize variant `");
+        appendFullTypeName(type);
+        _output->append("`\");\n        return false;\n    }\n");
+
+        _output->append("    switch (value) {\n");
+        std::size_t enumIndex = 0;
+        for (const VariantField* field : type->fieldsRange()) {
+            fieldName.clear();
+            fieldName.append("self->as");
+            fieldName.appendWithFirstUpper(field->name());
+            fieldName.append("().");
+            std::size_t nameSize = fieldName.size();
+
+            _output->append("    case ");
+            _output->appendNumericValue(enumIndex);
+            _output->append(":\n");
+            _output->append("        self->emplace");
+            _output->appendWithFirstUpper(field->name());
+            _output->append("();\n");
+            switch (field->variantFieldKind()) {
+            case VariantFieldKind::Constant:
+                break;
+            case VariantFieldKind::Tuple: {
+                std::size_t i = 1;
+                for (const Type* t : field->asTupleField()->typesRange()) {
+                    fieldName.append("_");
+                    fieldName.appendNumericValue(i);
+                    _typeInspector.inspect<false, false>(t, ctx, fieldName.view());
+                    i++;
+                    fieldName.resize(nameSize);
+                }
+                break;
+            }
+            case VariantFieldKind::Struct:
+                for (const Field* f : field->asStructField()->fieldsRange()) {
+                    fieldName.append(f->name());
+                    _typeInspector.inspect<false, false>(f->type(), ctx, fieldName.view());
+                    fieldName.resize(nameSize);
+                }
+                break;
+            }
+            _output->append("        return true;\n");
+            enumIndex++;
+        }
+        _output->append("    }\n");
+        _output->append("    state->setError(\"Could not deserialize variant `");
+        _output->append(type->moduleName());
+        _output->append("::");
+        _output->appendWithFirstUpper(type->name());
+        _output->append("`, got invalid kind (\" + std::to_string(value) + \")\");\n    return false;\n}\n\n");
     }
 }
 }
