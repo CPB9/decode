@@ -74,7 +74,7 @@ bool TypeDependsCollector::visitDynArrayType(const DynArrayType* dynArray)
         return false;
     }
     _dest->insert(dynArray);
-    ascendTypeOnce(dynArray->elementType());
+    traverseType(dynArray->elementType());
     return false;
 }
 
