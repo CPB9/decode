@@ -18,6 +18,7 @@ namespace decode {
 class Type;
 class TopLevelType;
 class EnumType;
+class AliasType;
 class StructType;
 class VariantType;
 class NamedType;
@@ -38,6 +39,7 @@ private:
     void generateEnum(const EnumType* type, bmcl::OptionPtr<const GenericType> parent);
     void generateStruct(const StructType* type, bmcl::OptionPtr<const GenericType> parent);
     void generateVariant(const VariantType* type, bmcl::OptionPtr<const GenericType> parent);
+    void generateAlias(const AliasType* type);
 
     void appendTemplatePrefix(bmcl::OptionPtr<const GenericType> parent);
     void appendFullTypeName(const NamedType* type);

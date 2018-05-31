@@ -123,19 +123,7 @@ void GcTypeGen::generateHeader(const NamedType* type)
     case TypeKind::Function:
     case TypeKind::Imported:
     case TypeKind::Alias: {
-        _output->appendPragmaOnce();
-        _output->appendInclude("vector");
-        _output->appendInclude("photon/model/CoderState.h");
-        IncludeGen includeGen(_output);
-        includeGen.genGcIncludePaths(type);
-        beginNamespace(type->asAlias()->moduleName());
-        _output->append("using ");
-        _output->appendWithFirstUpper(type->asAlias()->name());
-        _output->append(" = ");
-        TypeReprGen gen(_output);
-        gen.genGcTypeRepr(type->asAlias()->alias());
-        _output->append(";\n");
-        endNamespace();
+        generateAlias(type->asAlias());
         break;
     }
     case TypeKind::GenericInstantiation:
@@ -799,4 +787,31 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
         _output->append("`, got invalid kind (\" + std::to_string(value) + \")\");\n    return false;\n}\n\n");
     }
 }
+
+void GcTypeGen::generateAlias(const AliasType* type)
+{
+    _output->appendPragmaOnce();
+    _output->appendInclude("vector");
+    _output->appendInclude("photon/model/CoderState.h");
+    IncludeGen includeGen(_output);
+    includeGen.genGcIncludePaths(type);
+    beginNamespace(type->moduleName());
+    _output->append("using ");
+    _output->appendWithFirstUpper(type->name());
+    _output->append(" = ");
+    TypeReprGen gen(_output);
+    gen.genGcTypeRepr(type->alias());
+    _output->append(";\n");
+    endNamespace();
+    _output->appendEol();
+
+    InlineSerContext ctx;
+    appendSerPrefix(type, bmcl::None);
+    _typeInspector.inspect<false, true>(type->alias(), ctx, "self");
+    _output->append("    return true;\n}\n\n");
+    appendDeserPrefix(type, bmcl::None);
+    _typeInspector.inspect<false, false>(type->alias(), ctx, "(*self)");
+    _output->append("    return true;\n}\n\n");
+}
+
 }

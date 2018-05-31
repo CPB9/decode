@@ -72,7 +72,11 @@ void InlineTypeInspector::inspectType(const Type* type)
         inspectType<isOnboard, isSerializer>(type->asImported()->link());
         break;
     case TypeKind::Alias:
-        inspectType<isOnboard, isSerializer>(type->asAlias()->alias());
+        if (isOnboard) {
+            inspectType<isOnboard, isSerializer>(type->asAlias()->alias());
+        } else {
+            inspectNonInlineType<isOnboard, isSerializer>(type->asAlias());
+        }
         break;
     case TypeKind::Generic:
         inspectNonInlineType<isOnboard, isSerializer>(type->asGeneric());
