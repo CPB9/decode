@@ -209,11 +209,11 @@ void StatusEncoderGen::appendMsgSwitch(const Component* comp, const T* msg)
         appendPrototype(&_prototypeGen, comp, msg);
 
         _output->append("(src, &msg));\n"
-                        "                handler(id, num, &msg, userData);\n"
+                        "                handler(compId, msgId, &msg, userData);\n"
                         "                continue;\n"
                         "            }\n");
     } else {
-        _output->append("                handler(id, num, 0, userData);\n"
+        _output->append("                handler(compId, msgId, 0, userData);\n"
                         "                continue;\n"
                         "            }\n");
     }
@@ -281,10 +281,10 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     appendTmDeserializerPrototype(_output);
 
     _output->append("\n{\n"
-                    "    uint8_t id;\n"
-                    "    uint8_t num;\n\n"
-                    "    (void)id;\n"
-                    "    (void)num;\n"
+                    "    uint8_t compId;\n"
+                    "    uint8_t msgId;\n\n"
+                    "    (void)compId;\n"
+                    "    (void)msgId;\n"
                     "    (void)src;\n"
                     "    (void)handler;\n"
                     "    (void)userData;\n\n"
@@ -293,9 +293,9 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
                     "            PHOTON_CRITICAL(\"Not enough data to deserialize tm header\");\n"
                     "            return PhotonError_NotEnoughData;\n"
                     "        }\n\n"
-                    "        id = PhotonReader_ReadU8(src);\n"
-                    "        num = PhotonReader_ReadU8(src);\n\n"
-                    "        switch (id) {\n");
+                    "        compId = PhotonReader_ReadU8(src);\n"
+                    "        msgId = PhotonReader_ReadU8(src);\n\n"
+                    "        switch (compId) {\n");
 
     for (const Component* comp : project->package()->components()) {
         _output->append("        case ");
@@ -303,7 +303,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
         _output->append(": {\n");
 
         _output->appendSourceModIfdef(comp->moduleName());
-        _output->append("            switch (num) {\n");
+        _output->append("            switch (msgId) {\n");
         for (const StatusMsg* msg : comp->statusesRange()) {
             appendMsgSwitch(comp, msg);
         }
@@ -312,11 +312,15 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
         }
 
         _output->append("            default:\n"
-                        "                PHOTON_CRITICAL(\"Recieved invalid message id\");\n"
+                        "                PHOTON_CRITICAL(\"Recieved invalid ");
+        _output->append(comp->name());
+        _output->append(" message id (%u, %u)\", (unsigned)compId, (unsigned)msgId);\n"
                         "                return PhotonError_InvalidMessageId;\n"
                         "            }\n"
                         "#else\n"
-                        "            PHOTON_CRITICAL(\"Recieved invalid component id\");\n"
+                        "            PHOTON_CRITICAL(\"Cannot decode ");
+        _output->append(comp->name());
+        _output->append(" msg, decoder disabled\");\n"
                         "            return PhotonError_InvalidComponentId;\n");
 
         _output->appendEndif();
@@ -326,7 +330,7 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     }
 
     _output->append("        default:\n"
-                    "            PHOTON_CRITICAL(\"Recieved invalid component id\");\n"
+                    "            PHOTON_CRITICAL(\"Recieved invalid component id (%u)\", (unsigned)compId);\n"
                     "            return PhotonError_InvalidComponentId;\n"
                     "        }\n"
                     "    }\n"
