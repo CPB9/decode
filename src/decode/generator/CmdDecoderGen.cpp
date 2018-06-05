@@ -238,6 +238,11 @@ void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
     const FunctionType* ftype = cmd->type();
     prototypeGen.appendCmdDecoderFunctionPrototype(comp, cmd);
     _output->append("\n{\n");
+    _output->append("    PHOTON_DEBUG(\"parsing and executing cmd ");
+    _output->append(comp->name());
+    _output->append("::");
+    _output->append(cmd->name());
+    _output->append("\");\n\n");
 
     TypeReprGen reprGen(_output);
     foreachParam(cmd, [&](const CmdArgument& arg, bmcl::StringView name) {
@@ -295,7 +300,7 @@ void CmdDecoderGen::generateDecoder(const Component* comp, const Command* cmd)
     } else if (ftype->hasArguments()) {
         _output->removeFromBack(2);
     }
-    _output->append("), \"Failed to decode cmd\");\n\n");
+    _output->append("), \"Failed to exec cmd\");\n\n");
 
     InlineSerContext ctx;
     if (rv.isSome()) {

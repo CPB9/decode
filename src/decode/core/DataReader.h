@@ -10,6 +10,9 @@ namespace decode {
 
 class DataReader : public RefCountable {
 public:
+    using Pointer = Rc<DataReader>;
+    using ConstPointer = Rc<const DataReader>;
+
     virtual bmcl::Bytes readNext(std::size_t maxSize) = 0;
     virtual std::size_t size() const = 0;
     virtual std::size_t offset() const = 0;
