@@ -117,6 +117,8 @@ set(DECODE_GENERATOR_SRC
     src/decode/generator/OnboardTypeHeaderGen.h
     src/decode/generator/OnboardTypeSourceGen.cpp
     src/decode/generator/OnboardTypeSourceGen.h
+    src/decode/generator/ReportGen.cpp
+    src/decode/generator/ReportGen.h
     src/decode/generator/SrcBuilder.cpp
     src/decode/generator/SrcBuilder.h
     src/decode/generator/StatusEncoderGen.cpp

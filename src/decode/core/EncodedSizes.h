@@ -21,7 +21,8 @@ struct EncodedSizes {
     EncodedSizes& operator*=(const EncodedSizes& other);
     EncodedSizes& operator*=(std::size_t value);
     void merge(const EncodedSizes& other);
-    
+    void mergeMax(const EncodedSizes& other);
+
     std::size_t min;
     std::size_t max;
 };

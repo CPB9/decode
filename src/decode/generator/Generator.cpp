@@ -18,6 +18,7 @@
 #include "decode/generator/IncludeGen.h"
 #include "decode/generator/GcInterfaceGen.h"
 #include "decode/generator/GcMsgGen.h"
+#include "decode/generator/ReportGen.h"
 #include "decode/ast/Ast.h"
 #include "decode/ast/Function.h"
 #include "decode/ast/ModuleInfo.h"
@@ -436,6 +437,13 @@ bool Generator::generateProject(const Project* project, const GeneratorConfig& c
     interfacePath = joinPath(_gcPath.view(), "Validator.hpp");
     TRY(saveOutput(interfacePath, _output.view(), _diag.get()));
     _output.clear();
+
+    ReportGen rgen(&_output);
+    rgen.generateReport(project);
+    std::string reportPath = joinPath(_photongenPath, "Report.txt");
+    TRY(saveOutput(reportPath, _output.view(), _diag.get()));
+    _output.clear();
+
 
     future.wait();
     std::string packageDetailPath = joinPath(std::string(_onboardPath.data(), _onboardPath.size()), "Package.inc.c");

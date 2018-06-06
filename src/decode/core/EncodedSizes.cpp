@@ -50,4 +50,10 @@ void EncodedSizes::merge(const EncodedSizes& other)
     max = std::max(max, other.max);
 }
 
+void EncodedSizes::mergeMax(const EncodedSizes& other)
+{
+    min = std::max(min, other.min);
+    max = std::max(max, other.max);
+}
+
 }

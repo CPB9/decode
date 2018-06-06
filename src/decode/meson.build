@@ -88,6 +88,8 @@ generatos_src = [
   'generator/OnboardTypeHeaderGen.h',
   'generator/OnboardTypeSourceGen.cpp',
   'generator/OnboardTypeSourceGen.h',
+  'generator/ReportGen.cpp',
+  'generator/ReportGen.h',
   'generator/SrcBuilder.cpp',
   'generator/SrcBuilder.h',
   'generator/StatusEncoderGen.cpp',
