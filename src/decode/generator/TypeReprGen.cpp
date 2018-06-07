@@ -261,6 +261,10 @@ void TypeReprGen::writeDynArray(const DynArrayType* type)
     if (isOnboard) {
         writeOnboardTypeName(type);
     } else {
+        if (type->elementType()->isBuiltinChar()) {
+            _output->insert(_currentOffset, "std::string");
+            return;
+        }
         _temp.append("std::vector<");
         TypeReprGen gen(&_temp);
         gen.genTypeRepr<false>(type->elementType());
