@@ -99,7 +99,7 @@ void TypeDependsCollector::collect(const EventMsg* msg, Depends* dest)
     _currentType = 0;
     _dest = dest;
     for (const Field* field : msg->partsRange()) {
-        collectType(field->type());
+        traverseType(field->type());
     };
 }
 
@@ -109,21 +109,18 @@ void TypeDependsCollector::collect(const StatusMsg* msg, TypeDependsCollector::D
     _dest = dest;
     //FIXME: visit only first accessor in every part
     for (const VarRegexp* part : msg->partsRange()) {
-        collectType(part->type());
         traverseType(part->type());
         for (const Accessor* acc : part->accessorsRange()) {
             switch (acc->accessorKind()) {
             case AccessorKind::Field: {
                 auto facc = acc->asFieldAccessor();
                 const Type* type = facc->field()->type();
-                collectType(type);
                 traverseType(type);
                 break;
             }
             case AccessorKind::Subscript: {
                 auto sacc = acc->asSubscriptAccessor();
                 const Type* type = sacc->type();
-                collectType(type);
                 traverseType(type);
                 break;
             }
