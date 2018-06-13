@@ -56,7 +56,6 @@ void GcInterfaceGen::generateSource(const Package* package)
         _output->append("Ast = decode::findModule(device, \"");
         _output->append(ast->moduleName());
         _output->append("\");\n");
-
     }
     _output->appendEol();
     for (const Component* comp : package->components()) {

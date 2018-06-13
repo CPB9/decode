@@ -363,6 +363,8 @@ void GcTypeGen::generateStruct(const StructType* type, bmcl::OptionPtr<const Gen
             ref->setPointee(const_cast<Type*>(t));
             return ref.get();
         }
+        assert(false);
+        BMCL_UNREACHABLE();
     };
 
     TypeReprGen gen(_output);
@@ -792,6 +794,8 @@ void GcTypeGen::generateAlias(const AliasType* type)
 {
     _output->appendPragmaOnce();
     _output->appendInclude("vector");
+    _output->appendInclude("bmcl/Buffer.h");
+    _output->appendInclude("bmcl/MemReader.h");
     _output->appendInclude("photon/model/CoderState.h");
     IncludeGen includeGen(_output);
     includeGen.genGcIncludePaths(type);

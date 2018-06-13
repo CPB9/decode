@@ -146,6 +146,8 @@ bmcl::StringView Type::renderTypeKind(TypeKind kind)
     case TypeKind::Generic:
         return viewFromStaticString("Generic");
     }
+    assert(false);
+    BMCL_UNREACHABLE();
 }
 
 bmcl::StringView Type::renderTypeKind() const
