@@ -1,6 +1,6 @@
 [wrap-file]
-directory = PEGTL-2.3.3-mesonwrap
+directory = PEGTL-2.5.2-mesonwrap
 
-source_url = https://github.com/acsl-mipt/PEGTL/archive/2.3.3-mesonwrap.zip
-source_filename = 2.3.3-mesonwrap.zip
-source_hash = dc9c04e6215431da2e39639015daca6a2cd06c09cecd2f62560fbc32643b336a
+source_url = https://github.com/acsl-mipt/PEGTL/archive/2.5.2-mesonwrap.zip
+source_filename = 2.5.2-mesonwrap.zip
+source_hash = a5cc582cf4e31039869298118257214bdf8ce4c4b362feeb3fc1b3f6d4b86add
