@@ -501,6 +501,7 @@ void GcTypeGen::generateVariant(const VariantType* type, bmcl::OptionPtr<const G
     _output->appendInclude("photon/model/CoderState.h");
     _output->appendInclude("bmcl/AlignedUnion.h");
     _output->appendInclude("bmcl/Buffer.h");
+    _output->appendInclude("bmcl/MemReader.h");
     _output->appendEol();
 
     IncludeGen includeGen(_output);
