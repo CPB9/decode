@@ -10,12 +10,12 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/core/Hash.h"
 #include "decode/core/HashMap.h"
 #include "decode/parser/Containers.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/StringView.h>
+#include <bmcl/RcHash.h>
 
 #include <string>
 #include <vector>

@@ -15,6 +15,7 @@
 
 #include <bmcl/OptionPtr.h>
 #include <bmcl/StringView.h>
+#include <bmcl/RcHash.h>
 
 #include <vector>
 #include <map>

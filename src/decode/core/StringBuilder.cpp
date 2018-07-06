@@ -3,6 +3,8 @@
 #include <bmcl/StringView.h>
 #include <bmcl/Alloca.h>
 
+#include <algorithm>
+
 namespace decode {
 
 StringBuilder::~StringBuilder()

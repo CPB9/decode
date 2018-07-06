@@ -11,7 +11,6 @@
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
 #include "decode/core/Location.h"
-#include "decode/core/Hash.h"
 #include "decode/core/NamedRc.h"
 #include "decode/parser/Containers.h"
 

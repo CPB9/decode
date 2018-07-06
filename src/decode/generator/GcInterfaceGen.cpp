@@ -80,8 +80,7 @@ void GcInterfaceGen::generateSource(const Package* package)
     }
     _output->appendEol();
 
-    _output->append(
-                    "    if (!_coreAst) {\n        return;\n    }\n"
+    _output->append("    if (!_coreAst) {\n        return;\n    }\n"
                     "    decode::Rc<const decode::BuiltinType> _builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
                     "    decode::Rc<const decode::BuiltinType> _builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
                     "    decode::Rc<const decode::BuiltinType> _builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
@@ -617,7 +616,6 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     _output->appendNumericValue(cmd->fieldsRange().size());
     _output->append(");\n");
 
-
     std::size_t i = 0;
     for (const Field* field : cmd->fieldsRange()) {
         appendTypeValidator(field->type());
@@ -661,7 +659,6 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     _output->appendEol();
 }
 
-
 void GcInterfaceGen::appendTmMsgValidator(const Component* comp, const TmMsg* msg, bmcl::StringView typeName)
 {
     _output->append("    decode::Rc<const decode::");
@@ -675,7 +672,6 @@ void GcInterfaceGen::appendTmMsgValidator(const Component* comp, const TmMsg* ms
     _output->append(".get(), \"");
     _output->append(msg->name());
     _output->append("\");\n");
-
 
     //REFACT
     //move after full validation

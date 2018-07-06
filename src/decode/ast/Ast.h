@@ -10,11 +10,11 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
-#include "decode/core/Hash.h"
 #include "decode/parser/Containers.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/StringView.h>
+#include <bmcl/StringViewHash.h>
 
 #include <string>
 #include <functional>

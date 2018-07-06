@@ -15,7 +15,6 @@
 #include "decode/ast/Constant.h"
 #include "decode/ast/Component.h"
 #include "decode/ast/AllBuiltinTypes.h"
-#include "decode/core/Hash.h"
 
 #include <bmcl/Option.h>
 
