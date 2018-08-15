@@ -30,6 +30,15 @@ class IteratorAdaptor : public I {
 public:
     using size_type = std::size_t;
 
+#ifdef _MSC_VER
+    using _Unchecked_type = B;
+
+    constexpr B _Unwrapped() const noexcept
+    {
+        return I::_Unwrapped();
+    }
+#endif
+
     IteratorAdaptor()
     {
     }
@@ -144,11 +153,11 @@ distance(decode::IteratorAdaptor<I, B> first, decode::IteratorAdaptor<I, B> last
 
 template<typename I, typename B>
 struct iterator_traits<decode::IteratorAdaptor<I, B>> {
-    using difference_type = typename I::difference_type;
-    using value_type = typename I::value_type;
-    using pointer = typename I::pointer;
-    using reference = typename I::reference;
-    using iterator_category = typename I::iterator_category;
+    using difference_type = typename B::difference_type;
+    using value_type = typename B::value_type;
+    using pointer = typename B::pointer;
+    using reference = typename B::reference;
+    using iterator_category = typename B::iterator_category;
 };
 }
 
