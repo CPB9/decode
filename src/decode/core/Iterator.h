@@ -35,7 +35,7 @@ public:
 
     constexpr B _Unwrapped() const noexcept
     {
-        return I::_Unwrapped();
+        return *this;
     }
 #endif
 
