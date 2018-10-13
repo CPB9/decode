@@ -15,6 +15,7 @@
 
 #include <bmcl/OptionPtr.h>
 #include <bmcl/StringView.h>
+#include <bmcl/StringViewHash.h>
 #include <bmcl/RcHash.h>
 
 #include <vector>
@@ -80,7 +81,15 @@ public:
     bmcl::OptionPtr<const Field> fieldWithName(bmcl::StringView name) const;
 };
 
-using ComponentMap = RcSecondMap<std::size_t, Component>;
+struct StringViewComparator
+{
+    inline bool operator()(const bmcl::StringView& left, const bmcl::StringView& right) const
+    {
+        return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
+    }
+};
+
+using ComponentMap = RcSecondMap<bmcl::StringView, Component, StringViewComparator>;
 using VariantFieldVec = RcVec<VariantField>;
 using TypeVec = RcVec<Type>;
 struct ComponentAndMsg;

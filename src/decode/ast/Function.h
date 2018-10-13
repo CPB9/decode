@@ -10,6 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/Id.h"
 #include "decode/core/NamedRc.h"
 #include "decode/core/NamedRc.h"
 #include "decode/core/CmdArgPassKind.h"
@@ -77,8 +78,8 @@ public:
     Command(bmcl::StringView name, FunctionType* type);
     ~Command();
 
-    std::uintmax_t number() const;
-    void setNumber(std::uintmax_t num);
+    Id cmdId() const;
+    void setCmdId(Id num);
 
     ArgsRange argumentsRange();
     ArgsConstRange argumentsRange() const;
@@ -87,6 +88,6 @@ public:
 
 private:
     ArgVec _args;
-    std::uintmax_t _number;
+    Id _id;
 };
 }

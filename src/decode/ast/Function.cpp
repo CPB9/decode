@@ -91,7 +91,7 @@ bmcl::StringView CmdArgument::name() const
 
 Command::Command(bmcl::StringView name, FunctionType* type)
     : Function(name, type)
-    , _number(0)
+    , _id(0)
 {
     _args.reserve(type->argumentsRange().size());
     for (Field* field : type->argumentsRange()) {
@@ -103,14 +103,14 @@ Command::~Command()
 {
 }
 
-std::uintmax_t Command::number() const
+Id Command::cmdId() const
 {
-    return _number;
+    return _id;
 }
 
-void Command::setNumber(std::uintmax_t num)
+void Command::setCmdId(Id num)
 {
-    _number = num;
+    _id = num;
 }
 
 Command::ArgsRange Command::argumentsRange()

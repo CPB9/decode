@@ -10,6 +10,7 @@
 
 #include "decode/Config.h"
 #include "decode/core/Rc.h"
+#include "decode/core/Id.h"
 #include "decode/parser/Containers.h"
 
 #include <bmcl/Fwd.h>
@@ -32,14 +33,6 @@ class Package : public RefCountable {
 public:
     using Pointer = Rc<Package>;
     using ConstPointer = Rc<const Package>;
-
-    struct StringViewComparator
-    {
-        inline bool operator()(const bmcl::StringView& left, const bmcl::StringView& right) const
-        {
-            return std::lexicographical_compare(left.begin(), left.end(), right.begin(), right.end());
-        }
-    };
 
     using AstMap = RcSecondMap<bmcl::StringView, Ast, StringViewComparator>;
 
@@ -72,9 +65,9 @@ private:
     bool resolveImports(Ast* ast);
     bool resolveGenerics(Ast* ast);
     bool resolveStatuses(Ast* ast);
-    bool resolveParameters(Ast* ast, uint64_t* paramNum);
-
+    bool resolveParameters(Ast* ast, Id* paramNum);
     bool resolveVarRegexp(Ast* ast, Component* comp, VarRegexp* regexp);
+    bool assignIds(Ast* ast, Id* cmdId, Id* tmId);
 
     bool mapComponent(Ast* ast);
 

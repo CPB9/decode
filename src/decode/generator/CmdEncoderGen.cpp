@@ -41,18 +41,22 @@ void CmdEncoderGen::generateSource(ComponentMap::ConstRange comps)
         _output->appendEol();
         for (const Command* cmd : comp->cmdsRange()) {
             prototypeGen.appendCmdEncoderFunctionPrototype(comp, cmd, &reprGen);
-            _output->append("\n{\n"
-                            "    (void)dest;\n"
-                            "    if (PhotonWriter_WritableSize(dest) < 2) {\n"
-                            "        PHOTON_DEBUG(\"Not enough space to serialize cmd header\");\n"
-                            "        return PhotonError_NotEnoughSpace;\n"
-                            "    }\n"
-                            "    PhotonWriter_WriteU8(dest, ");
-            _output->appendNumericValue(comp->number());
-            _output->append(");\n"
-                            "    PhotonWriter_WriteU8(dest, ");
-            _output->appendNumericValue(cmd->number());
-            _output->append(");\n");
+
+            if (cmd->cmdId() <= 240) {//one byte for varuint
+                _output->append("\n{\n"
+                                "    (void)dest;\n"
+                                "    if (PhotonWriter_WritableSize(dest) < 1) {\n"
+                                "        PHOTON_DEBUG(\"Not enough space to serialize cmd header\");\n"
+                                "        return PhotonError_NotEnoughSpace;\n"
+                                "    }\n");
+                _output->append("    PhotonWriter_WriteU8(dest, ");
+                _output->appendNumericValue(cmd->cmdId());
+                _output->append(");\n");
+            } else {
+                _output->append("    PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
+                _output->appendNumericValue(cmd->cmdId());
+                _output->append("), \"Not enough space to serialize cmd header\");\n");
+            }
 
             inspector.inspect<true, true>(cmd->type()->argumentsRange(), &_inlineSer);
 

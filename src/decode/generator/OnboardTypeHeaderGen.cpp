@@ -118,7 +118,8 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
 
     _output->append("/*cmd ids*/\n");
     for (const Command* func : comp->cmdsRange()) {
-        appendComponentVarDefine(comp, func, "_CMD_");
+        //appendComponentVarDefine(comp, func, "_CMD_");
+        //_output->append("#error\n");
     }
     _output->appendEol();
     _output->append("/*status ids*/\n");

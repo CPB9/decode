@@ -84,7 +84,7 @@ void CmdDecoderGen::generateSource(ComponentMap::ConstRange comps)
 
 void CmdDecoderGen::appendCmdFunctionPrototype()
 {
-    _output->append("PhotonError Photon_DeserializeAndExecCmd(uint8_t compNum, uint8_t cmdNum, PhotonReader* src, PhotonWriter* dest)");
+    _output->append("PhotonError Photon_DeserializeAndExecCmd(uint8_t cmdNum, PhotonReader* src, PhotonWriter* dest)");
 }
 
 void CmdDecoderGen::appendScriptFunctionPrototype()
@@ -96,18 +96,12 @@ void CmdDecoderGen::generateScriptFunc()
 {
     appendScriptFunctionPrototype();
     _output->append("\n{\n"
-                    "    uint8_t compNum;\n"
-                    "    uint8_t cmdNum;\n\n"
+                    "    uint64_t cmdNum;\n\n"
                     "    (void)src;\n"
                     "    (void)dest;\n\n"
                     "    while (PhotonReader_ReadableSize(src) != 0) {\n"
-                    "        if (PhotonReader_ReadableSize(src) < 2) {\n"
-                    "            PHOTON_CRITICAL(\"Not enough data to deserialize cmd header\");\n"
-                    "            return PhotonError_NotEnoughData;\n"
-                    "        }\n"
-                    "        compNum = PhotonReader_ReadU8(src);\n"
-                    "        cmdNum = PhotonReader_ReadU8(src);\n"
-                    "        PHOTON_TRY(Photon_DeserializeAndExecCmd(compNum, cmdNum, src, dest));\n"
+                    "        PHOTON_TRY_MSG(PhotonReader_ReadVaruint(src, &cmdNum), \"Not enough data to deserialize cmd header\");\n"
+                    "        PHOTON_TRY(Photon_DeserializeAndExecCmd(cmdNum, src, dest));\n"
                    );
 
     _output->append("    }\n    return PhotonError_Ok;\n}\n\n");
@@ -118,40 +112,33 @@ void CmdDecoderGen::generateCmdFunc(ComponentMap::ConstRange comps)
     FuncPrototypeGen prototypeGen(_output);
     appendCmdFunctionPrototype();
     _output->append("\n{\n"
-                    "    (void)compNum;\n"
+                    "    PhotonError (*func)(PhotonReader*, PhotonWriter*);\n\n"
                     "    (void)cmdNum;\n"
                     "    (void)src;\n"
-                    "    (void)dest;\n\n"
-                    "    switch (compNum) {\n");
+                    "    (void)dest;\n\n");
+    _output->append("    switch (cmdNum) {\n");
     for (const Component* comp : comps) {
         if (!comp->hasCmds()) {
             continue;
         }
-        _output->appendModIfdef(comp->moduleName());
-
-        _output->append("    case ");
-        _output->appendNumericValue(comp->number());
-        _output->append(": {\n");
-
-        _output->append("        switch (cmdNum) {\n");
 
         for (const Command* cmd : comp->cmdsRange()) {
+            _output->appendModIfdef(comp->moduleName());
             (void)cmd;
-            _output->append("        case ");
-            _output->appendNumericValue(cmd->number());
+            _output->append("    case ");
+            _output->appendNumericValue(cmd->cmdId());
             _output->append(":\n");
-            _output->append("            return ");
+            _output->append("        func = ");
             prototypeGen.appendCmdDecoderFunctionName(comp, cmd);
-            _output->append("(src, dest);\n");
+            _output->append(";\n        break;\n");
+            _output->appendEndif();
         }
-        _output->append("        default:\n");
-        _output->append("            PHOTON_CRITICAL(\"Recieved invalid cmd id\");\n");
-        _output->append("            return PhotonError_InvalidCmdId;\n");
-        _output->append("        }\n    }\n");
-        _output->appendEndif();
     }
-    _output->append("    }\n    PHOTON_CRITICAL(\"Recieved invalid component id\");\n");
-    _output->append("    return PhotonError_InvalidComponentId;\n}");
+    _output->append("    default:\n");
+    _output->append("        PHOTON_CRITICAL(\"Recieved invalid cmd id\");\n");
+    _output->append("        return PhotonError_InvalidCmdId;\n");
+    _output->append("    }\n"
+                    "    return func(src, dest);\n}\n");
 }
 
 

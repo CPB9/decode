@@ -1452,7 +1452,6 @@ bool Parser::parseCommands(Component* parent)
             }
         }
         fn->setDocs(docs.get());
-        fn->setNumber(comp->cmdsRange().size());
         comp->addCommand(fn.get());
         clearUnusedDocCommentsAndAttributes();
         return true;

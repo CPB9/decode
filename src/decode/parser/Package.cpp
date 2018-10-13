@@ -20,6 +20,7 @@
 #include "decode/ast/Decl.h"
 #include "decode/ast/Type.h"
 #include "decode/ast/Field.h"
+#include "decode/ast/Function.h"
 #include "decode/parser/Parser.h"
 
 #include <bmcl/Buffer.h>
@@ -203,7 +204,7 @@ bool Package::resolveImports(Ast* ast)
     return isOk;
 }
 
-bool Package::resolveParameters(Ast* ast, uint64_t* paramNum)
+bool Package::resolveParameters(Ast* ast, Id* paramNum)
 {
     bmcl::OptionPtr<Component> comp = ast->component();
     if (comp.isNone()) {
@@ -379,7 +380,7 @@ bool Package::mapComponent(Ast* ast)
     if (ast->component().isSome()) {
         std::size_t id = _components.size(); // FIXME: make user-set
         ast->component()->setNumber(id);
-        _components.emplace(id, ast->component().unwrap());
+        _components.emplace(ast->component()->name(), Rc<Component>(ast->component().unwrap()));
     }
     return true;
 }
@@ -387,7 +388,9 @@ bool Package::mapComponent(Ast* ast)
 bool Package::resolveAll()
 {
     bool isOk = true;
-    uint64_t paramNum = 0;
+    Id paramNum = 0;
+    Id cmdId = 0;
+    Id tmId = 0;
     for (Ast* modifiedAst : modules()) {
         //BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
         TRY(mapComponent(modifiedAst));
@@ -395,11 +398,25 @@ bool Package::resolveAll()
         isOk &= resolveGenerics(modifiedAst);
         isOk &= resolveStatuses(modifiedAst);
         isOk &= resolveParameters(modifiedAst, &paramNum);
+        isOk &= assignIds(modifiedAst, &cmdId, &tmId);
     }
     if (!isOk) {
         BMCL_CRITICAL() << "failed to resolve package";
     }
     return isOk;
+}
+
+bool Package::assignIds(Ast* ast, Id* cmdId, Id* tmId)
+{
+    if (ast->component().isNone()) {
+        return true;
+    }
+    Component* comp = ast->component().unwrap();
+    for (Command* cmd : comp->cmdsRange()) {
+        cmd->setCmdId(*cmdId);
+        (*cmdId)++;
+    }
+    return true;
 }
 
 bmcl::OptionPtr<Ast> Package::moduleWithName(bmcl::StringView name)
@@ -459,7 +476,7 @@ void Package::sortComponentsByNumber()
 {
     ComponentMap tmp;
     for (Component* comp : components()) {
-        tmp.emplace(comp->number(), comp);
+        tmp.emplace(comp->name(), comp);
     }
     _components = std::move(tmp);
 }

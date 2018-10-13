@@ -178,7 +178,7 @@ ProjectResult Project::fromFile(Configuration* cfg, Diagnostics* diag, const cha
     std::vector<std::string> moduleDirs;
     std::vector<std::string> commonModuleNames;
     std::map<int64_t, bmcl::StringView> componentNumToName;
-    std::map<bmcl::StringView, int64_t, Package::StringViewComparator> componentNameToNum;
+    std::map<bmcl::StringView, int64_t, StringViewComparator> componentNameToNum;
     //read project file
     try {
         const toml::Table& projectTable = getValueFromTable<toml::Table>(projectFile.unwrap(), "project");
