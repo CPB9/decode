@@ -22,6 +22,7 @@ namespace decode {
 class Component;
 class FunctionType;
 class Function;
+class Msg;
 
 class OnboardTypeHeaderGen {
 public:
@@ -77,8 +78,7 @@ private:
     void appendEventMinMaxSizeFuncs(const Component* comp);
     void appendFunctionPrototypes(RcVec<Function>::ConstRange funcs, bmcl::StringView typeName);
 
-    template <typename T>
-    void appendComponentVarDefine(const Component* comp, const T* value, bmcl::StringView sep);
+    void appendComponentVarDefine(const Component* comp, const Msg* value, bmcl::StringView sep);
 
     const Ast* _ast;
     SrcBuilder* _output;

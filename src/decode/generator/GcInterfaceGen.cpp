@@ -211,7 +211,7 @@ void GcInterfaceGen::appendTypeNumDeclInlineGetter(const Component* comp, bmcl::
 void GcInterfaceGen::appendTypeNumDecl(const Component* comp, bmcl::StringView kind, bmcl::StringView name)
 {
 
-    _output->append("    std::uint8_t ");
+    _output->append("    std::uint64_t ");
     appendTypeNumDeclInlineGetter(comp, kind, name);
     _output->append(";\n");
 }
@@ -328,7 +328,7 @@ void GcInterfaceGen::generateValidatorHeader(const Package* package)
     }
 
     for (const Component* comp : package->components()) {
-        _output->append("    std::uint8_t ___componentNum_");
+        _output->append("    std::uint64_t ___componentNum_");
         _output->append(comp->name());
         _output->append(";\n");
     }
@@ -454,8 +454,6 @@ void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
     appendDecodeTmMsgDecl(comp, msg, msgTypeName, namespaceName, _output, false);
     _output->append("\n{\n");
 
-    appendComponentCheck(comp, "false");
-
     _output->append("    if(!");
     appendTypeCheckBitInlineGetter(comp, msgTypeName, msg->name());
     _output->append(") {\n        return false;\n    }\n");
@@ -465,7 +463,6 @@ void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
 
     appendNumberedSubTmDecl(comp, msg, msgTypeName, _output, false);
     _output->append("\n{\n");
-    appendComponentCheck(comp, "bmcl::None");
 
     _output->append("    if(!");
     appendTypeCheckBitInlineGetter(comp, msgTypeName, msg->name());
@@ -473,8 +470,6 @@ void GcInterfaceGen::appendTmMethods(const Component* comp, const TmMsg* msg,
                     "        return bmcl::None;\n"
                     "    }\n"
                     "    return photon::NumberedSub(");
-    appendComponentNumberInlineGetter(comp);
-    _output->append(", ");
     appendTypeNumDeclInlineGetter(comp, msgTypeName, msg->name());
     _output->append(");\n}\n\n");
 }
@@ -559,15 +554,11 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
     appendEncodeCmdDecl(comp, cmd, _output, false);
     _output->append("\n{\n");
 
-    appendComponentCheck(comp, "false");
-
     _output->append("    if(!");
     appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
     _output->append(") {\n        return false;\n    }\n");
 
-    appendWriteComponentNumber(comp);
-
-    _output->append("    dest->writeUint8(");
+    _output->append("    dest->writeVarUint(");
     appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
     _output->append(");\n");
 
@@ -589,7 +580,6 @@ void GcInterfaceGen::appendCmdMethods(const Component* comp, const Command* cmd)
         appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
         _output->append(") {\n        return false;\n    }\n");
 
-        appendComponentCheck(comp, "false");
         inspector.inspect<false, false>(cmd->type()->returnValue().unwrap(), ctx, "(*rv)");
 
         _output->append("    return true;\n"
@@ -654,7 +644,7 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
     appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
     _output->append(" = ");
     appendCmdFieldName(comp, cmd);
-    _output->append("->number();\n    }\n");
+    _output->append("->msgId();\n    }\n");
 
     _output->appendEol();
 }
@@ -687,7 +677,7 @@ void GcInterfaceGen::appendTmMsgValidator(const Component* comp, const TmMsg* ms
     appendTypeNumDeclInlineGetter(comp, typeName, msg->name());
     _output->append(" = ");
     appendMsgFieldName(comp, msg, typeName);
-    _output->append("->number();\n    }\n");
+    _output->append("->msgId();\n    }\n");
 }
 
 void GcInterfaceGen::appendStatusValidator(const Component* comp, const StatusMsg* msg)

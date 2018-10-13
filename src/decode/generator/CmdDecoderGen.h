@@ -14,7 +14,7 @@
 #include "decode/generator/InlineTypeInspector.h"
 #include "decode/generator/InlineFieldInspector.h"
 #include "decode/generator/SrcBuilder.h"
-#include "decode/ast/Function.h" //TODO: remove
+#include "decode/ast/Component.h" //TODO: remove
 
 #include <vector>
 #include <functional>

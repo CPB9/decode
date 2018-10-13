@@ -389,7 +389,7 @@ bool Package::resolveAll()
 {
     bool isOk = true;
     Id paramNum = 0;
-    Id cmdId = 0;
+    Id msgId = 0;
     Id tmId = 0;
     for (Ast* modifiedAst : modules()) {
         //BMCL_DEBUG() << "resolving " << modifiedAst->moduleInfo()->moduleName().toStdString();
@@ -398,7 +398,7 @@ bool Package::resolveAll()
         isOk &= resolveGenerics(modifiedAst);
         isOk &= resolveStatuses(modifiedAst);
         isOk &= resolveParameters(modifiedAst, &paramNum);
-        isOk &= assignIds(modifiedAst, &cmdId, &tmId);
+        isOk &= assignIds(modifiedAst, &msgId, &tmId);
     }
     if (!isOk) {
         BMCL_CRITICAL() << "failed to resolve package";
@@ -413,8 +413,16 @@ bool Package::assignIds(Ast* ast, Id* cmdId, Id* tmId)
     }
     Component* comp = ast->component().unwrap();
     for (Command* cmd : comp->cmdsRange()) {
-        cmd->setCmdId(*cmdId);
+        cmd->setMsgId(*cmdId);
         (*cmdId)++;
+    }
+    for (StatusMsg* msg : comp->statusesRange()) {
+        msg->setMsgId(*tmId);
+        (*tmId)++;
+    }
+    for (EventMsg* msg : comp->eventsRange()) {
+        msg->setMsgId(*tmId);
+        (*tmId)++;
     }
     return true;
 }

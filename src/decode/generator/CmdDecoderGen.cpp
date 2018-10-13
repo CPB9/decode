@@ -126,7 +126,7 @@ void CmdDecoderGen::generateCmdFunc(ComponentMap::ConstRange comps)
             _output->appendModIfdef(comp->moduleName());
             (void)cmd;
             _output->append("    case ");
-            _output->appendNumericValue(cmd->cmdId());
+            _output->appendNumericValue(cmd->msgId());
             _output->append(":\n");
             _output->append("        func = ");
             prototypeGen.appendCmdDecoderFunctionName(comp, cmd);

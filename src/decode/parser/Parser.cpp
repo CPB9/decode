@@ -758,8 +758,7 @@ Rc<CfgOption> Parser::parseCfgOption()
     return opt;
 }
 
-template <typename T>
-Rc<T> Parser::parseFunction(bool selfAllowed)
+Rc<Function> Parser::parseFunction(bool selfAllowed)
 {
     TRY(expectCurrentToken(TokenKind::Fn));
     TRY(consumeAndExpectCurrentToken(TokenKind::Blank, "missing blanks after fn declaration"));
@@ -840,7 +839,7 @@ Rc<T> Parser::parseFunction(bool selfAllowed)
     //TODO: skip past end of line
 
     _ast->addType(fnType.get());
-    return new T(name, fnType.get());
+    return new Function(name, fnType.get());
 }
 
 bool Parser::parseImplBlock()
@@ -860,7 +859,7 @@ bool Parser::parseImplBlock()
     clearUnusedDocCommentsAndAttributes();
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
         Rc<DocBlock> docs = createDocsFromComments();
-        Rc<Function> fn = parseFunction<Function>();
+        Rc<Function> fn = parseFunction();
         if (!fn) {
             return false;
         }
@@ -1441,18 +1440,19 @@ bool Parser::parseCommands(Component* parent)
     consumeAndSkipBlanks();
     TRY(parseList2(TokenKind::Eol, TokenKind::RBrace, parent, [this](Component* comp) {
         Rc<DocBlock> docs = createDocsFromComments();
-        Rc<Command> fn = parseFunction<Command>(false);
+        Rc<Function> fn = parseFunction(false);
         if (!fn) {
             return false;
         }
+        Rc<Command> cmd = new Command(fn.get());
         if (_lastCmdCallAttr) {
-            for (CmdArgument& arg : fn->argumentsRange()) {
+            for (CmdArgument& arg : cmd->argumentsRange()) {
                 CmdArgPassKind kind = _lastCmdCallAttr->findArgPassKind(arg.field()->name());
                 arg.setArgPassKind(kind);
             }
         }
         fn->setDocs(docs.get());
-        comp->addCommand(fn.get());
+        comp->addCommand(cmd.get());
         clearUnusedDocCommentsAndAttributes();
         return true;
     }));
@@ -1577,7 +1577,7 @@ bool Parser::parseComponentImpl(Component* parent)
     Rc<ImplBlock> impl = new ImplBlock;
     TRY(parseNamelessTag(TokenKind::Impl, TokenKind::Eol, impl.get(), [this](ImplBlock* impl) {
         Rc<DocBlock> docs = createDocsFromComments();
-        Rc<Function> fn = parseFunction<Function>(false);
+        Rc<Function> fn = parseFunction(false);
         if (!fn) {
             return false;
         }

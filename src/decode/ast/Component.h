@@ -13,6 +13,8 @@
 #include "decode/core/NamedRc.h"
 #include "decode/ast/DocBlockMixin.h"
 #include "decode/parser/Containers.h"
+#include "decode/core/CmdArgPassKind.h"
+#include "decode/core/Id.h"
 
 #include <bmcl/Fwd.h>
 #include <bmcl/Either.h>
@@ -184,7 +186,25 @@ private:
     bool _hasCallback;
 };
 
-class TmMsg : public RefCountable {
+class Msg : public RefCountable {
+public:
+    using Pointer = Rc<Msg>;
+    using ConstPointer = Rc<const Msg>;
+
+    Msg(bmcl::StringView name, Id number = 0);
+    ~Msg();
+
+    bmcl::StringView name() const;
+    void setMsgId(Id id);
+    Id msgId() const;
+    virtual EncodedSizes encodedSizes() const = 0;
+
+private:
+    bmcl::StringView _name;
+    Id _number;
+};
+
+class TmMsg : public Msg {
 public:
     using Pointer = Rc<TmMsg>;
     using ConstPointer = Rc<const TmMsg>;
@@ -192,15 +212,58 @@ public:
     TmMsg(bmcl::StringView name, std::size_t number, bool isEnabled);
     ~TmMsg();
 
-    bmcl::StringView name() const;
-    std::size_t number() const;
     bool isEnabled() const;
-    virtual EncodedSizes encodedSizes() const = 0;
 
 private:
-    bmcl::StringView _name;
-    std::size_t _number;
     bool _isEnabled;
+};
+
+class CmdArgument {
+public:
+    CmdArgument(Field* field, CmdArgPassKind kind = CmdArgPassKind::Default);
+    ~CmdArgument();
+
+    const Field* field() const;
+    Field* field();
+
+    CmdArgPassKind argPassKind() const;
+    void setArgPassKind(CmdArgPassKind kind);
+
+    const Type* type() const;
+    Type* type();
+
+    bmcl::StringView name() const;
+
+private:
+    Rc<Field> _field;
+    CmdArgPassKind _argPassKind;
+};
+
+//TODO: move
+class Command : public Msg {
+public:
+    using Pointer = Rc<Command>;
+    using ConstPointer = Rc<const Command>;
+    using ArgVec = std::vector<CmdArgument>;
+    using ArgsRange = IteratorRange<ArgVec::iterator>;
+    using ArgsConstRange = IteratorRange<ArgVec::const_iterator>;
+
+    Command(Function* func);
+    ~Command();
+
+    const Function* func() const;
+    const FunctionType* type() const;
+    FieldVec::ConstRange fieldsRange() const;
+    const Field* fieldAt(std::size_t index) const;
+
+    ArgsRange argumentsRange();
+    ArgsConstRange argumentsRange() const;
+
+    EncodedSizes encodedSizes() const;
+
+private:
+    ArgVec _args;
+    Rc<Function> _func;
 };
 
 class StatusMsg : public TmMsg {
@@ -285,6 +348,9 @@ public:
     Events::ConstIterator eventsBegin() const;
     Events::ConstIterator eventsEnd() const;
     Events::ConstRange eventsRange() const;
+    Events::Iterator eventsBegin();
+    Events::Iterator eventsEnd();
+    Events::Range eventsRange();
     Params::ConstIterator paramsBegin() const;
     Params::ConstIterator paramsEnd() const;
     Params::ConstRange paramsRange() const;

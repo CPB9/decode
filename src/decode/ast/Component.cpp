@@ -328,9 +328,33 @@ void Parameter::setName(bmcl::StringView name)
     _name = name;
 }
 
-TmMsg::TmMsg(bmcl::StringView name, std::size_t number, bool isEnabled)
+Msg::Msg(bmcl::StringView name, Id number)
     : _name(name)
     , _number(number)
+{
+}
+
+Msg::~Msg()
+{
+}
+
+void Msg::setMsgId(Id id)
+{
+    _number = id;
+}
+
+bmcl::StringView Msg::name() const
+{
+    return _name;
+}
+
+Id Msg::msgId() const
+{
+    return _number;
+}
+
+TmMsg::TmMsg(bmcl::StringView name, std::size_t number, bool isEnabled)
+    : Msg(name, number)
     , _isEnabled(isEnabled)
 {
 }
@@ -339,21 +363,108 @@ TmMsg::~TmMsg()
 {
 }
 
-bmcl::StringView TmMsg::name() const
-{
-    return _name;
-}
-
-std::size_t TmMsg::number() const
-{
-    return _number;
-}
-
 bool TmMsg::isEnabled() const
 {
     return _isEnabled;
 }
 
+CmdArgument::CmdArgument(Field* field, CmdArgPassKind kind)
+    : _field(field)
+    , _argPassKind(kind)
+{
+}
+
+CmdArgument::~CmdArgument()
+{
+}
+
+const Field* CmdArgument::field() const
+{
+    return _field.get();
+}
+
+Field* CmdArgument::field()
+{
+    return _field.get();
+}
+
+CmdArgPassKind CmdArgument::argPassKind() const
+{
+    return _argPassKind;
+}
+
+void CmdArgument::setArgPassKind(CmdArgPassKind kind)
+{
+    _argPassKind = kind;
+}
+
+const Type* CmdArgument::type() const
+{
+    return _field->type();
+}
+
+Type* CmdArgument::type()
+{
+    return _field->type();
+}
+
+bmcl::StringView CmdArgument::name() const
+{
+    return _field->name();
+}
+
+Command::Command(Function* func)
+    : Msg(func->name(), 0)
+    , _func(func)
+{
+    _args.reserve(func->type()->argumentsRange().size());
+    for (Field* field : func->type()->argumentsRange()) {
+        _args.emplace_back(field, CmdArgPassKind::Default);
+    }
+}
+
+Command::~Command()
+{
+}
+
+Command::ArgsRange Command::argumentsRange()
+{
+    return _args;
+}
+
+Command::ArgsConstRange Command::argumentsRange() const
+{
+    return _args;
+}
+
+const Function* Command::func() const
+{
+    return _func.get();
+}
+
+const FunctionType* Command::type() const
+{
+    return _func->type();
+}
+
+EncodedSizes Command::encodedSizes() const
+{
+    EncodedSizes sizes(2);
+    for (const CmdArgument &arg : argumentsRange()) {
+        sizes += arg.type()->encodedSizes();
+    }
+    return sizes;
+}
+
+FieldVec::ConstRange Command::fieldsRange() const
+{
+    return _func->fieldsRange();
+}
+
+const Field* Command::fieldAt(std::size_t index) const
+{
+    return _func->fieldAt(index);
+}
 
 StatusMsg::StatusMsg(bmcl::StringView name, std::size_t number, std::size_t priority, bool isEnabled)
     : TmMsg(name, number, isEnabled)
@@ -563,6 +674,21 @@ Component::Events::ConstIterator Component::eventsEnd() const
 }
 
 Component::Events::ConstRange Component::eventsRange() const
+{
+    return _events;
+}
+
+Component::Events::Iterator Component::eventsBegin()
+{
+    return _events.begin();
+}
+
+Component::Events::Iterator Component::eventsEnd()
+{
+    return _events.end();
+}
+
+Component::Events::Range Component::eventsRange()
 {
     return _events;
 }

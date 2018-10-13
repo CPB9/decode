@@ -170,7 +170,7 @@ void TypeDependsCollector::collectCmds(Component::Cmds::ConstRange cmds, TypeDep
 {
     _currentType = 0;
     _dest = dest;
-    for (const Function* func : cmds) {
+    for (const Command* func : cmds) {
         _currentType = func->type();
         traverseType(_currentType);
     }

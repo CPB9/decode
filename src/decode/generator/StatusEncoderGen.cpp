@@ -40,8 +40,8 @@ static void appendTmDeserializerPrototype(SrcBuilder* dest)
 {
 
     dest->append("PhotonError Photon_DeserializeTelemetry("
-                    "PhotonReader* src, void (*handler)(uint8_t compNum, uint8_t msgNum, "
-                    "const void* msg, void* userData), void* userData)");
+                 "PhotonReader* src, void (*handler)(uint64_t msgNum, "
+                 "const void* msg, void* userData), void* userData)");
 }
 
 void StatusEncoderGen::generateStatusDecoderHeader(const Project* project)
@@ -148,15 +148,19 @@ void StatusEncoderGen::generateStatusEncoderSource(const Project* project)
         _prototypeGen.appendStatusEncoderFunctionPrototype(msg.component.get(), msg.msg.get());
         _output->append("\n{\n");
         _output->append("    (void)dest;\n");
-        _output->append("    if (PhotonWriter_WritableSize(dest) < 2) {\n"
-                        "        PHOTON_DEBUG(\"Not enough space to serialize tm header\");\n"
-                        "        return PhotonError_NotEnoughSpace;\n"
-                        "    }\n");
-        _output->append("    PhotonWriter_WriteU8(dest, ");
-        _output->appendNumericValue(msg.component->number());
-        _output->append(");\n    PhotonWriter_WriteU8(dest, ");
-        _output->appendNumericValue(msg.msg->number());
-        _output->append(");\n");
+        if (msg.msg->msgId() <= 240) {
+            _output->append("    if (PhotonWriter_WritableSize(dest) < 1) {\n"
+                            "        PHOTON_DEBUG(\"Not enough space to serialize tm header\");\n"
+                            "        return PhotonError_NotEnoughSpace;\n"
+                            "    }\n");
+            _output->append("    PhotonWriter_WriteU8(dest, ");
+            _output->appendNumericValue(msg.msg->msgId());
+            _output->append(");\n");
+        } else {
+            _output->append("    PHOTON_TRY_MSG(PhotonWriter_WriteVaruint(dest, ");
+            _output->appendNumericValue(msg.msg->msgId());
+            _output->append(", \"Not enough space to serialize tm header\"));\n");
+        }
 
         for (const VarRegexp* part : msg.msg->partsRange()) {
             SrcBuilder currentField("_photon");
@@ -193,29 +197,29 @@ static void appendPrototype(FuncPrototypeGen* dest, const Component* comp, const
 template <typename T>
 void StatusEncoderGen::appendMsgSwitch(const Component* comp, const T* msg)
 {
-    _output->append("            case ");
-    _output->appendNumericValue(msg->number());
+    _output->append("        case ");
+    _output->appendNumericValue(msg->msgId());
     _output->append(": {\n");
     if (!msg->partsRange().empty()) {
-        _output->append("                Photon");
+        _output->append("            Photon");
 
         _output->appendWithFirstUpper(comp->moduleName());
         appendInfix(_output, msg);
         _output->appendWithFirstUpper(msg->name());
 
         _output->append(" msg;\n"
-                        "                PHOTON_TRY(");
+                        "            PHOTON_TRY(");
 
         appendPrototype(&_prototypeGen, comp, msg);
 
         _output->append("(src, &msg));\n"
-                        "                handler(compId, msgId, &msg, userData);\n"
-                        "                continue;\n"
-                        "            }\n");
+                        "            handler(msgId, &msg, userData);\n"
+                        "            continue;\n"
+                        "        }\n");
     } else {
-        _output->append("                handler(compId, msgId, 0, userData);\n"
-                        "                continue;\n"
-                        "            }\n");
+        _output->append("            handler(msgId, 0, userData);\n"
+                        "            continue;\n"
+                        "        }\n");
     }
 }
 
@@ -281,29 +285,18 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
     appendTmDeserializerPrototype(_output);
 
     _output->append("\n{\n"
-                    "    uint8_t compId;\n"
-                    "    uint8_t msgId;\n\n"
-                    "    (void)compId;\n"
+                    "    uint64_t msgId;\n\n"
                     "    (void)msgId;\n"
                     "    (void)src;\n"
                     "    (void)handler;\n"
                     "    (void)userData;\n\n"
                     "    while (PhotonReader_ReadableSize(src) != 0) {\n"
-                    "        if (PhotonReader_ReadableSize(src) < 2) {\n"
-                    "            PHOTON_CRITICAL(\"Not enough data to deserialize tm header\");\n"
-                    "            return PhotonError_NotEnoughData;\n"
-                    "        }\n\n"
-                    "        compId = PhotonReader_ReadU8(src);\n"
-                    "        msgId = PhotonReader_ReadU8(src);\n\n"
-                    "        switch (compId) {\n");
+                    "        PHOTON_TRY_MSG(PhotonReader_ReadVaruint(src, &msgId), \"Not enough data to deserialize tm header\");\n"
+                    "        switch (msgId) {\n");
 
     for (const Component* comp : project->package()->components()) {
-        _output->append("        case ");
-        _output->appendNumericValue(comp->number());
-        _output->append(": {\n");
 
         _output->appendSourceModIfdef(comp->moduleName());
-        _output->append("            switch (msgId) {\n");
         for (const StatusMsg* msg : comp->statusesRange()) {
             appendMsgSwitch(comp, msg);
         }
@@ -311,27 +304,12 @@ void StatusEncoderGen::generateStatusDecoderSource(const Project* project)
             appendMsgSwitch(comp, msg);
         }
 
-        _output->append("            default:\n"
-                        "                PHOTON_CRITICAL(\"Recieved invalid ");
-        _output->append(comp->name());
-        _output->append(" message id (%u, %u)\", (unsigned)compId, (unsigned)msgId);\n"
-                        "                return PhotonError_InvalidMessageId;\n"
-                        "            }\n"
-                        "#else\n"
-                        "            PHOTON_CRITICAL(\"Cannot decode ");
-        _output->append(comp->name());
-        _output->append(" msg, decoder disabled\");\n"
-                        "            return PhotonError_InvalidComponentId;\n");
-
         _output->appendEndif();
-        _output->append("        }\n");
-
-
     }
 
     _output->append("        default:\n"
-                    "            PHOTON_CRITICAL(\"Recieved invalid component id (%u)\", (unsigned)compId);\n"
-                    "            return PhotonError_InvalidComponentId;\n"
+                    "            PHOTON_CRITICAL(\"Recieved invalid msg id (%u)\", (unsigned)msgId);\n"
+                    "            return PhotonError_InvalidMessageId;\n"
                     "        }\n"
                     "    }\n"
                     "    return PhotonError_Ok;\n}\n");
@@ -468,14 +446,16 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
         _output->appendModIfdef(comp->moduleName());
         for (const EventMsg* msg : comp->eventsRange()) {
             _prototypeGen.appendEventEncoderFunctionPrototype(comp, msg, &reprGen);
-            if (msg->partsRange().size() == 0) {
-                _output->append("\n{\n    PhotonTm_BeginEventMsg(");
-            } else {
-                _output->append("\n{\n    PhotonWriter* dest = PhotonTm_BeginEventMsg(");
+            _output->append("\n{\n    ");
+            if (msg->partsRange().size() != 0) {
+                _output->append("PhotonWriter* dest = ");
             }
-            _output->appendNumericValue(comp->number());
-            _output->append(", ");
-            _output->appendNumericValue(msg->number());
+            if (msg->msgId() <= 240) {
+                _output->append("PhotonTm_BeginEventMsgUnsafeU8(");
+            } else {
+                _output->append("PhotonTm_BeginEventMsg(");
+            }
+            _output->appendNumericValue(msg->msgId());
             _output->append(");\n");
 
             InlineSerContext ctx;
@@ -488,7 +468,7 @@ void StatusEncoderGen::generateEventEncoderSource(const Project* project)
             }
 
             _output->append("    PhotonTm_EndEventMsg();\n    return PhotonError_Ok;\n");
-            _output->append("}\n");
+            _output->append("}\n\n");
         }
         _output->appendEndif();
         _output->appendEol();

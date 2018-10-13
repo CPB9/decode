@@ -87,15 +87,14 @@ void OnboardTypeHeaderGen::appendSizeFuncs(const Type* type, bmcl::StringView na
     _output->append("; }\n");
 }
 
-template <typename T>
-void OnboardTypeHeaderGen::appendComponentVarDefine(const Component* comp, const T* value, bmcl::StringView sep)
+void OnboardTypeHeaderGen::appendComponentVarDefine(const Component* comp, const Msg* value, bmcl::StringView sep)
 {
     _output->append("#define PHOTON_");
     _output->appendUpper(comp->name());
     _output->append(sep);
     _output->appendUpper(value->name());
     _output->append("_ID ");
-    _output->appendNumericValue(value->number());
+    _output->appendNumericValue(value->msgId());
     _output->appendEol();
 }
 
@@ -118,8 +117,7 @@ void OnboardTypeHeaderGen::genComponentHeader(const Ast* ast, const Component* c
 
     _output->append("/*cmd ids*/\n");
     for (const Command* func : comp->cmdsRange()) {
-        //appendComponentVarDefine(comp, func, "_CMD_");
-        //_output->append("#error\n");
+        appendComponentVarDefine(comp, func, "_CMD_");
     }
     _output->appendEol();
     _output->append("/*status ids*/\n");

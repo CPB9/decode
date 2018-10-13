@@ -67,7 +67,7 @@ private:
     bool resolveStatuses(Ast* ast);
     bool resolveParameters(Ast* ast, Id* paramNum);
     bool resolveVarRegexp(Ast* ast, Component* comp, VarRegexp* regexp);
-    bool assignIds(Ast* ast, Id* cmdId, Id* tmId);
+    bool assignIds(Ast* ast, Id* msgId, Id* tmId);
 
     bool mapComponent(Ast* ast);
 

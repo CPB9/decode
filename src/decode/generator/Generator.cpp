@@ -74,14 +74,8 @@ bool Generator::generateTmPrivate(const Package* package)
         _output.append("{");
         _output.append(".func = ");
         prototypeGen.appendStatusEncoderFunctionName(msg.component.get(), msg.msg.get());
-        _output.append(", .compNum = ");
-        _output.appendNumericValue(msg.component->number());
         _output.append(", .msgNum = ");
-        _output.appendNumericValue(msg.msg->number());
-        _output.append(", .interest = ");
-        _output.appendNumericValue(0);
-        _output.append(", .priority = ");
-        _output.appendNumericValue(msg.msg->priority());
+        _output.appendNumericValue(msg.msg->msgId());
         _output.append(", .isEnabled = ");
         _output.appendBoolValue(msg.msg->isEnabled());
         _output.append("},\n");

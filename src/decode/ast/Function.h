@@ -13,7 +13,6 @@
 #include "decode/core/Id.h"
 #include "decode/core/NamedRc.h"
 #include "decode/core/NamedRc.h"
-#include "decode/core/CmdArgPassKind.h"
 #include "decode/parser/Containers.h"
 #include "decode/ast/DocBlockMixin.h"
 
@@ -39,55 +38,9 @@ public:
     FieldVec::ConstRange fieldsRange() const;
     const FunctionType* type() const;
     FunctionType* type();
-    const Field* fieldAt(std::size_t index) const;
+    const Field* fieldAt(std::size_t index) const; //HACK
 
 private:
     Rc<FunctionType> _type;
-};
-
-class CmdArgument {
-public:
-    CmdArgument(Field* field, CmdArgPassKind kind = CmdArgPassKind::Default);
-    ~CmdArgument();
-
-    const Field* field() const;
-    Field* field();
-
-    CmdArgPassKind argPassKind() const;
-    void setArgPassKind(CmdArgPassKind kind);
-
-    const Type* type() const;
-    Type* type();
-
-    bmcl::StringView name() const;
-
-private:
-    Rc<Field> _field;
-    CmdArgPassKind _argPassKind;
-};
-
-//TODO: move
-class Command : public Function {
-public:
-    using Pointer = Rc<Command>;
-    using ConstPointer = Rc<const Command>;
-    using ArgVec = std::vector<CmdArgument>;
-    using ArgsRange = IteratorRange<ArgVec::iterator>;
-    using ArgsConstRange = IteratorRange<ArgVec::const_iterator>;
-
-    Command(bmcl::StringView name, FunctionType* type);
-    ~Command();
-
-    Id cmdId() const;
-    void setCmdId(Id num);
-
-    ArgsRange argumentsRange();
-    ArgsConstRange argumentsRange() const;
-
-    EncodedSizes encodedSizes() const;
-
-private:
-    ArgVec _args;
-    Id _id;
 };
 }

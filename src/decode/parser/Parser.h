@@ -131,8 +131,7 @@ private:
     bool parseVariantField(VariantType* parent);
     bool parseComponentField(Component* parent);
 
-    template <typename T>
-    Rc<T> parseFunction(bool selfAllowed = true);
+    Rc<Function> parseFunction(bool selfAllowed = true);
 
     Rc<VarRegexp> parseVarRegexp();
 

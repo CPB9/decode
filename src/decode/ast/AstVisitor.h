@@ -569,7 +569,7 @@ template <typename B, template <typename> class P>
 void AstVisitorBase<B, P>::traverseComponentCommands(typename P<Component>::type comp)
 {
     if (comp->hasCmds()) {
-        for (typename P<Function>::type func : comp->cmdsRange()) {
+        for (typename P<Command>::type func : comp->cmdsRange()) {
             traverseType(func->type());
         }
     }
