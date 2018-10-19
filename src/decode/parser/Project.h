@@ -91,7 +91,7 @@ public:
     static ProjectResult decodeFromMemory(Diagnostics* diag, const void* src, std::size_t size);
     ~Project();
 
-    static bmcl::Buffer hash(bmcl::Bytes data);
+    static std::array<std::uint8_t, 512 / 8> hash(bmcl::Bytes data);
 
     bool generate(const char* destDir, const GeneratorConfig& cfg);
 
