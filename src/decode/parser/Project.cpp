@@ -806,7 +806,7 @@ bmcl::OptionPtr<Device> Project::deviceWithName(bmcl::StringView name)
     return it->get();
 }
 
-bmcl::Buffer Project::hash(bmcl::Bytes data)
+std::array<std::uint8_t, 512 / 8> Project::hash(bmcl::Bytes data)
 {
     return Project::HashType::calcInOneStep(data);
 }
