@@ -528,7 +528,7 @@ bool Parser::parseConstant()
 
     Token typeToken = _currentToken;
     Rc<Type> type = parseBuiltinOrResolveType();
-    if (!type) {
+    if (type.isNull()) {
         return false;
     }
     if (type->typeKind() != TypeKind::Builtin) {
@@ -570,7 +570,7 @@ bool Parser::parseAttribute()
         consumeAndSkipBlanks();
 
         Rc<CfgOption> opt = parseCfgOption();
-        if (!opt) {
+        if (opt.isNull()) {
             return false;
         }
 
@@ -580,14 +580,14 @@ bool Parser::parseAttribute()
         consumeAndSkipBlanks();
 
         _lastRangeAttr = parseRangeAttr();
-        if (!_lastRangeAttr) {
+        if (_lastRangeAttr.isNull()) {
             return false;
         }
     } else if (_currentToken.value() == "cmdcall") {
         consumeAndSkipBlanks();
 
         _lastCmdCallAttr = parseCmdCallAttr();
-        if (!_lastCmdCallAttr) {
+        if (_lastCmdCallAttr.isNull()) {
             return false;
         }
     } else {
@@ -720,7 +720,7 @@ Rc<CfgOption> Parser::parseCfgOption()
 
         TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, opt, [this](const Rc<AnyCfgOption>& opt) -> bool {
             Rc<CfgOption> nopt = parseCfgOption();
-            if (!nopt) {
+            if (nopt.isNull()) {
                 return false;
             }
             opt->addOption(nopt.get());
@@ -815,7 +815,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
         consumeAndSkipBlanks();
 
         Rc<Type> type = parseType();
-        if (!type) {
+        if (type.isNull()) {
             return false;
         }
         Field* field = new Field(argName, type.get());
@@ -830,7 +830,7 @@ Rc<Function> Parser::parseFunction(bool selfAllowed)
     if (currentTokenIs(TokenKind::RightArrow)) {
         consumeAndSkipBlanks();
         Rc<Type> rType = parseType();
-        if (!rType) {
+        if (rType.isNull()) {
             return nullptr;
         }
 
@@ -860,7 +860,7 @@ bool Parser::parseImplBlock()
     TRY(parseList(TokenKind::LBrace, TokenKind::Eol, TokenKind::RBrace, block.get(), [this](ImplBlock* block) -> bool {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction();
-        if (!fn) {
+        if (fn.isNull()) {
             return false;
         }
         fn->setDocs(docs.get());
@@ -901,7 +901,7 @@ bool Parser::parseAlias()
     consumeAndSkipBlanks();
 
     Rc<Type> link = parseType();
-    if (!link) {
+    if (link.isNull()) {
         return false;
     }
 
@@ -947,7 +947,7 @@ Rc<Type> Parser::parseReferenceType()
         return nullptr;
     }
 
-    if (!pointee) {
+    if (pointee.isNull()) {
         return nullptr;
     }
 
@@ -981,7 +981,7 @@ Rc<Type> Parser::parsePointerType()
         pointee = parseBuiltinOrResolveType();
     }
 
-    if (pointee) {
+    if (!pointee.isNull()) {
         Rc<ReferenceType> type = new ReferenceType(ReferenceKind::Pointer, isMutable, pointee.get());
         _ast->addType(type.get());
         return type;
@@ -1030,7 +1030,7 @@ Rc<Type> Parser::parseFunctionPointer()
     TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, fn, [this](const Rc<FunctionType>& fn) {
 
         Rc<Type> type = parseType();
-        if (!type) {
+        if (type.isNull()) {
             return false;
         }
         Field* field = new Field(bmcl::StringView::empty(), type.get());
@@ -1043,7 +1043,7 @@ Rc<Type> Parser::parseFunctionPointer()
     if(currentTokenIs(TokenKind::RightArrow)) {
         consumeAndSkipBlanks();
         Rc<Type> rType = parseType();
-        if (!rType) {
+        if (rType.isNull()) {
             return nullptr;
         }
 
@@ -1063,7 +1063,7 @@ Rc<Type> Parser::parseDynArrayType()
     consumeAndSkipBlanks();
 
     Rc<Type> innerType = parseType();
-    if (!innerType) {
+    if (innerType.isNull()) {
         return nullptr;
     }
 
@@ -1089,7 +1089,7 @@ Rc<Type> Parser::parseArrayType()
     consumeAndSkipBlanks();
 
     Rc<Type> innerType = parseType();
-    if (!innerType) {
+    if (innerType.isNull()) {
         return nullptr;
     }
 
@@ -1155,7 +1155,7 @@ Rc<Type> Parser::parseBuiltinOrResolveType()
         RcVec<Type> vec;
         TRY(parseList(TokenKind::LessThen, TokenKind::Comma, TokenKind::MoreThen, &vec, [this](RcVec<Type>* vec){
             Rc<Type> type = parseBuiltinOrResolveType();
-            if (!type) {
+            if (type.isNull()) {
                 return false;
             }
             vec->push_back(std::move(type));
@@ -1207,12 +1207,12 @@ Rc<Field> Parser::parseField()
     consumeAndSkipBlanks();
 
     Rc<Type> type = parseType();
-    if (!type) {
+    if (type.isNull()) {
         return nullptr;
     }
     Rc<Field> field = new Field(name, type.get());
     field->setDocs(docs.get());
-    if (_lastRangeAttr) {
+    if (!_lastRangeAttr.isNull()) {
         field->setRangeAttribute(_lastRangeAttr.get());
     }
     clearUnusedDocCommentsAndAttributes();
@@ -1233,7 +1233,7 @@ template <typename T>
 bool Parser::parseRecordField(T* parent)
 {
     Rc<Field> decl = parseField();
-    if (!decl) {
+    if (decl.isNull()) {
         return false;
     }
     parent->addField(decl.get());
@@ -1291,7 +1291,7 @@ bool Parser::parseVariantField(VariantType* parent)
         TRY(parseList(TokenKind::LParen, TokenKind::Comma, TokenKind::RParen, field, [this](const Rc<TupleVariantField>& field) {
             skipBlanks();
             Rc<Type> type = parseType();
-            if (!type) {
+            if (type.isNull()) {
                 return false;
             }
             field->addType(type.get());
@@ -1392,7 +1392,7 @@ bool Parser::parseTag(TokenKind startToken, F&& fieldParser, A&&... args)
     clearUnusedDocCommentsAndAttributes();
     clearGenericParameters();
 
-    if (genericType) {
+    if (!genericType.isNull()) {
         _ast->addTopLevelType(genericType.get());
     } else {
         _ast->addTopLevelType(type.get());
@@ -1441,11 +1441,11 @@ bool Parser::parseCommands(Component* parent)
     TRY(parseList2(TokenKind::Eol, TokenKind::RBrace, parent, [this](Component* comp) {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction(false);
-        if (!fn) {
+        if (fn.isNull()) {
             return false;
         }
         Rc<Command> cmd = new Command(fn.get());
-        if (_lastCmdCallAttr) {
+        if (!_lastCmdCallAttr.isNull()) {
             for (CmdArgument& arg : cmd->argumentsRange()) {
                 CmdArgPassKind kind = _lastCmdCallAttr->findArgPassKind(arg.field()->name());
                 arg.setArgPassKind(kind);
@@ -1557,7 +1557,7 @@ bool Parser::parseSavedVars(Component* parent)
 {
     TRY(parseNamelessTag(TokenKind::Autosave, TokenKind::Comma, parent, [this](Component* comp) -> bool {
         Rc<VarRegexp> re = parseVarRegexp();
-        if (!re) {
+        if (re.isNull()) {
             return false;
         }
         comp->addSavedVar(re.get());
@@ -1578,7 +1578,7 @@ bool Parser::parseComponentImpl(Component* parent)
     TRY(parseNamelessTag(TokenKind::Impl, TokenKind::Eol, impl.get(), [this](ImplBlock* impl) {
         Rc<DocBlock> docs = createDocsFromComments();
         Rc<Function> fn = parseFunction(false);
-        if (!fn) {
+        if (fn.isNull()) {
             return false;
         }
         fn->setDocs(docs.get());
@@ -1595,7 +1595,7 @@ bool Parser::parseVariables(Component* parent)
 {
     TRY(parseNamelessTag(TokenKind::Variables, TokenKind::Comma, parent, [this](Component* comp) {
         Rc<Field> field = parseField();
-        if (!field) {
+        if (field.isNull()) {
             return false;
         }
         comp->addVar(field.get());
@@ -1656,7 +1656,7 @@ bool Parser::parseEvents(Component* parent)
 
         auto parseOne = [this](EventMsg* msg) -> bool {
             Rc<Field> field = parseField();
-            if (!field) {
+            if (field.isNull()) {
                 return false;
             }
             msg->addField(field.get());
@@ -1763,7 +1763,7 @@ bool Parser::parseStatuses(Component* parent)
         consumeAndSkipBlanks();
         auto parseOneRegexp = [this](StatusMsg* msg) -> bool {
             Rc<VarRegexp> re = parseVarRegexp();
-            if (!re) {
+            if (re.isNull()) {
                 return false;
             }
 

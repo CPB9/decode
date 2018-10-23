@@ -358,7 +358,7 @@ bool Package::resolveVarRegexp(Ast* ast, Component* comp, VarRegexp* re)
         }
     }
     Rc<Type> contType = nullptr;
-    if (lastSubscript) {
+    if (!lastSubscript.isNull()) {
         if (lastSubscript->type()->isArray()) {
             //TODO: support range
             contType = new ArrayType(lastSubscript->type()->asArray()->elementCount(), lastField->type());

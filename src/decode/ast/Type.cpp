@@ -1214,7 +1214,7 @@ bmcl::Result<Rc<NamedType>, std::string> GenericType::instantiate(const bmcl::Ar
     }
 
     Rc<Type> cloned = cloneAndSubstitute(_type.get(), types);
-    if (!cloned) {
+    if (cloned.isNull()) {
         return std::string("failed to substitute generic parameters");
     }
     return Rc<NamedType>(static_cast<NamedType*>(cloned.get()));
