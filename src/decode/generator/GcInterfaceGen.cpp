@@ -66,12 +66,12 @@ void GcInterfaceGen::generateSource(const Package* package)
         _output->append("Ast.get());\n");
         _output->append("    ___hasComponent_");
         _output->append(comp->name());
-        _output->append(" = bool(_");
+        _output->append(" = !_");
         _output->append(comp->moduleName());
-        _output->append("Component);\n");
-        _output->append("    if (_");
+        _output->append("Component.isNull();\n");
+        _output->append("    if (!_");
         _output->append(comp->moduleName());
-        _output->append("Component) {\n");
+        _output->append("Component.isNull()) {\n");
         _output->append("        ___componentNum_");
         _output->append(comp->name());
         _output->append(" = _");
@@ -80,7 +80,7 @@ void GcInterfaceGen::generateSource(const Package* package)
     }
     _output->appendEol();
 
-    _output->append("    if (!_coreAst) {\n        return;\n    }\n"
+    _output->append("    if (_coreAst.isNull()) {\n        return;\n    }\n"
                     "    decode::Rc<const decode::BuiltinType> _builtinUsize = _coreAst->builtinTypes()->usizeType();\n"
                     "    decode::Rc<const decode::BuiltinType> _builtinIsize = _coreAst->builtinTypes()->isizeType();\n"
                     "    decode::Rc<const decode::BuiltinType> _builtinU8 = _coreAst->builtinTypes()->u8Type();\n"
@@ -644,13 +644,13 @@ void GcInterfaceGen::appendCmdValidator(const Component* comp, const Command* cm
 
     _output->append("    ");
     appendTypeCheckBitInlineGetter(comp, "cmd", cmd->name());
-    _output->append(" = bool(");
+    _output->append(" = !");
     appendCmdFieldName(comp, cmd);
-    _output->append(");\n");
+    _output->append(".isNull();\n");
 
-    _output->append("    if (");
+    _output->append("    if (!");
     appendCmdFieldName(comp, cmd);
-    _output->append(") {\n        ");
+    _output->append(".isNull()) {\n        ");
     appendTypeNumDeclInlineGetter(comp, "cmd", cmd->name());
     _output->append(" = ");
     appendCmdFieldName(comp, cmd);
@@ -677,13 +677,13 @@ void GcInterfaceGen::appendTmMsgValidator(const Component* comp, const TmMsg* ms
     //move after full validation
     _output->append("    ");
     appendTypeCheckBitInlineGetter(comp, typeName, msg->name());
-    _output->append(" = bool(");
+    _output->append(" = !");
     appendMsgFieldName(comp, msg, typeName);
-    _output->append(");\n");
+    _output->append(".isNull();\n");
 
-    _output->append("    if (");
+    _output->append("    if (!");
     appendMsgFieldName(comp, msg, typeName);
-    _output->append(") {\n        ");
+    _output->append(".isNull()) {\n        ");
     appendTypeNumDeclInlineGetter(comp, typeName, msg->name());
     _output->append(" = ");
     appendMsgFieldName(comp, msg, typeName);

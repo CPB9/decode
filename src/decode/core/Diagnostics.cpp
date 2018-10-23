@@ -58,7 +58,7 @@ void Report::printReport(std::ostream* out, bmcl::ColorStream* colorStream) cons
         *colorStream << bmcl::ColorAttr::Reset;
         *colorStream << bmcl::ColorAttr::Bright;
     }
-    if (_fileInfo) {
+    if (!_fileInfo.isNull()) {
         *out << _fileInfo->fileName();
         if (_location.isSome()) {
             *out << ':' << _location->line << ':' << _location->column << ": ";

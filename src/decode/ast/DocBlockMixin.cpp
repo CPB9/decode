@@ -33,7 +33,7 @@ void DocBlockMixin::setDocs(bmcl::OptionPtr<const DocBlock> docs)
 
 bmcl::StringView DocBlockMixin::shortDescription() const
 {
-    if (_docs) {
+    if (!_docs.isNull()) {
         return _docs->shortDescription();
     }
     return bmcl::StringView::empty();
