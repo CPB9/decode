@@ -16,6 +16,7 @@
 #include "decode/ast/DocBlockMixin.h"
 
 #include <bmcl/Fwd.h>
+#include <bmcl/Option.h>
 #include <bmcl/StringView.h>
 #include <bmcl/StringViewHash.h>
 
