@@ -79,12 +79,12 @@ public:
     {
     }
 
-    ParseException(const std::string& err)
+    explicit ParseException(const std::string& err)
         : _error(err)
     {
     }
 
-    ParseException(std::string&& err)
+    explicit ParseException(std::string&& err)
         : _error(std::move(err))
     {
     }

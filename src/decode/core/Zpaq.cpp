@@ -23,7 +23,7 @@ namespace decode {
 
 class ZpaqReader : public libzpaq::Reader {
 public:
-    ZpaqReader(const bmcl::Buffer& buf)
+    explicit ZpaqReader(const bmcl::Buffer& buf)
         : _reader(buf.data(), buf.size())
     {
     }
@@ -54,7 +54,7 @@ private:
 
 class ZpaqWriter : public libzpaq::Writer {
 public:
-    ZpaqWriter(bmcl::Buffer* buf)
+    explicit ZpaqWriter(bmcl::Buffer* buf)
         : _buf(buf)
     {
     }
