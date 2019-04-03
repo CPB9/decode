@@ -25,7 +25,6 @@ TypeDefGen::~TypeDefGen()
 
 void TypeDefGen::genTypeDef(const TopLevelType* type, bmcl::StringView name)
 {
-    name = name;
     switch (type->typeKind()) {
     case TypeKind::Struct:
         appendStruct(type->asStruct(), name);
