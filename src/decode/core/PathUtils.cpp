@@ -9,7 +9,7 @@
 #include "decode/core/PathUtils.h"
 
 #include <bmcl/StringView.h>
-#include <bmcl/Option.h>
+#include <bmcl/OptionSize.h>
 
 #if defined(__linux__)
 # include <stdlib.h>
@@ -97,7 +97,7 @@ bmcl::StringView getFilePart(bmcl::StringView path)
         return bmcl::StringView::empty();
     }
 
-    bmcl::Option<std::size_t> n = path.findLastOf(pathSeparator());
+    bmcl::OptionSize n = path.findLastOf(pathSeparator());
     if (n.isNone()) {
         return path;
     } else {
