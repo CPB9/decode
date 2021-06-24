@@ -107,7 +107,7 @@ bmcl::StringView getFilePart(bmcl::StringView path)
 
 bool isAbsPath(bmcl::StringView path)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(BMCL_PLATFORM_APPLE)
     if (!path.isEmpty() && path[0] == pathSeparator()) {
         return true;
     }
@@ -127,7 +127,7 @@ bool isAbsPath(bmcl::StringView path)
 
 std::string absolutePath(const char* path)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(BMCL_PLATFORM_APPLE)
     char fullPath[PATH_MAX];
     realpath(path, fullPath);
 #else

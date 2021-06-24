@@ -10,7 +10,7 @@ namespace decode {
 
 constexpr char pathSeparator()
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(BMCL_PLATFORM_APPLE)
     return  '/';
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     return '\\';

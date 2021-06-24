@@ -165,7 +165,7 @@ Rc<Report> Diagnostics::buildSystemFileErrorReport(bmcl::StringView message, bmc
 
 Rc<Report> Diagnostics::buildSystemFileErrorReport(bmcl::StringView message, SystemErrorType reason, bmcl::StringView path)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(BMCL_PLATFORM_APPLE)
     return buildSystemFileErrorReport(message, std::strerror(reason), path);
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     LPVOID buf;

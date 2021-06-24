@@ -20,6 +20,11 @@
 # include <unistd.h>
 #elif defined(_MSC_VER) || defined(__MINGW32__)
 # include <windows.h>
+#elif defined(BMCL_PLATFORM_APPLE)
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #else
 # error "Unsupported OS"
 #endif
@@ -75,7 +80,7 @@ bool makeDirectory(const std::string& path, Diagnostics* diag)
 
 bool makeDirectory(const char* path, Diagnostics* diag)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(BMCL_PLATFORM_APPLE)
     int rv = mkdir(path, S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
     if (rv == -1) {
         int rn = errno;
@@ -163,7 +168,7 @@ bool saveOutput(const std::string& path, bmcl::Bytes output, Diagnostics* diag)
 
 bool saveOutput(const char* path, bmcl::Bytes output, Diagnostics* diag)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined(BMCL_PLATFORM_APPLE)
     int fd;
     while (true) {
         fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -215,7 +220,7 @@ bool saveOutput(const char* path, bmcl::Bytes output, Diagnostics* diag)
 
 bool copyFile(const char* from, const char* to, Diagnostics* diag)
 {
-#if defined(__linux__)
+#if defined(__linux__) || defined (BMCL_PLATFORM_APPLE)
     int fdFrom;
     while (true) {
         fdFrom = open(from, O_RDONLY);

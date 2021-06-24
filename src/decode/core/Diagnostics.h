@@ -67,6 +67,8 @@ public:
     using SystemErrorType = int;
 #elif defined(_MSC_VER) || defined(__MINGW32__)
     using SystemErrorType = uint32_t; //DWORD
+#elif defined(BMCL_PLATFORM_APPLE)
+    using SystemErrorType = int;
 #else
 # error "Unsupported OS"
 #endif
